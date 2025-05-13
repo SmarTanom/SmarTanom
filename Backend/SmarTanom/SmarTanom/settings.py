@@ -25,7 +25,13 @@ SECRET_KEY = 'django-insecure-x9!4w46i-%68mn9hcr2w73rf$nz26kfug3=3x35!*#$abc#pj8
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2']
+ALLOWED_HOSTS = ['*']  # For development only - tighten this for production
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "http://10.0.2.2:8081",  # Android emulator's special alias to host
+]
 
 
 

@@ -1,27 +1,44 @@
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadUserData = async () => {
-      const storedUser = await AsyncStorage.getItem("user");
-      const storedToken = await AsyncStorage.getItem("token");
-      if (storedUser && storedToken) {
-        setUser(JSON.parse(storedUser));
-        setToken(storedToken);
+      try {
+        const [storedUser, storedToken] = await Promise.all([
+          AsyncStorage.getItem("user"),
+          AsyncStorage.getItem("token"),
+        ]);
+        
+        if (storedUser && storedToken) {
+          setUser(JSON.parse(storedUser));
+          setToken(storedToken);
+        }
+      } catch (error) {
+        console.error("Failed to load user data:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
+    
     loadUserData();
   }, []);
 
   const login = async (email, password) => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/accounts/login/", {
+      setIsLoading(true);
+      const apiUrl = Platform.OS === 'android' 
+        ? 'http://10.0.2.2:8000/api/accounts/login/' 
+        : 'http://127.0.0.1:8000/api/accounts/login/';
+
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -29,37 +46,53 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
       
+      const responseData = await response.json();
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(responseData.error || "Login failed");
       }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setUser(data.user);
-        setToken(data.token);
-        await AsyncStorage.setItem("user", JSON.stringify(data.user));
-        await AsyncStorage.setItem("token", data.token);
-        return true;
+
+      if (responseData.success) {
+        setUser(responseData.user);
+        setToken(responseData.token);
+        await AsyncStorage.setItem("user", JSON.stringify(responseData.user));
+        await AsyncStorage.setItem("token", responseData.token);
+        return { success: true };
       } else {
-        console.error("Login failed:", data.error);
-        return false;
+        return { success: false, error: responseData.error };
       }
     } catch (error) {
-      console.error("Login error:", error);
-      return false;
+      console.error("Login error:", error.message);
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = async () => {
-    setUser(null);
-    setToken(null);
-    await AsyncStorage.removeItem("user");
-    await AsyncStorage.removeItem("token");
+    try {
+      setIsLoading(true);
+      setUser(null);
+      setToken(null);
+      await Promise.all([
+        AsyncStorage.removeItem("user"),
+        AsyncStorage.removeItem("token"),
+      ]);
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      token, 
+      isLoading,
+      login, 
+      logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );
