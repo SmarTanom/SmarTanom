@@ -37,15 +37,15 @@ export default function DashboardScreen() {
   const [chartPeriod, setChartPeriod] = useState('days');
 
   // Calculate responsive sizes
-  const [chartWidth, setChartWidth] = useState(width - 32);
+  const [chartWidth, setChartWidth] = useState(width - 48);
 
   useEffect(() => {
     // Update chart width when screen dimensions change
-    setChartWidth(width - 32);
+    setChartWidth(width - 48);
   }, [width]);
 
-  // Sample data for pH chart - Days
-  const phDataDays = {
+  // Sample data for Porch SmarTanom - Days
+  const porchPhDataDays = {
     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     datasets: [
       {
@@ -56,8 +56,8 @@ export default function DashboardScreen() {
     ],
   };
 
-  // Sample data for pH chart - Weeks
-  const phDataWeeks = {
+  // Sample data for Porch SmarTanom - Weeks
+  const porchPhDataWeeks = {
     labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
     datasets: [
       {
@@ -68,8 +68,40 @@ export default function DashboardScreen() {
     ],
   };
 
-  // Get the appropriate data based on the selected period
-  const phData = chartPeriod === 'days' ? phDataDays : phDataWeeks;
+  // Sample data for Backyard SmarTanom - Days
+  const backyardPhDataDays = {
+    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    datasets: [
+      {
+        data: [5.8, 5.9, 6.0, 6.1, 6.0, 5.9, 5.8],
+        color: () => Colors.chartGreen,
+        strokeWidth: 2
+      }
+    ],
+  };
+
+  // Sample data for Backyard SmarTanom - Weeks
+  const backyardPhDataWeeks = {
+    labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+    datasets: [
+      {
+        data: [5.9, 6.0, 5.9, 5.8],
+        color: () => Colors.chartGreen,
+        strokeWidth: 2
+      }
+    ],
+  };
+
+  // Get the appropriate data based on the selected device and period
+  const getPhData = () => {
+    if (activeDeviceIndex === 0) {
+      return chartPeriod === 'days' ? porchPhDataDays : porchPhDataWeeks;
+    } else {
+      return chartPeriod === 'days' ? backyardPhDataDays : backyardPhDataWeeks;
+    }
+  };
+
+  const phData = getPhData();
 
   const chartConfig = {
     backgroundGradientFrom: Colors.white,
@@ -169,20 +201,20 @@ export default function DashboardScreen() {
       {/* Device Info Summary */}
       <View style={styles.statusRow}>
         <StatusBox icon="wifi" label="Connectivity" value="Online" />
-        <StatusBox icon="time-outline" label="Last Data" value="5 minutes ago" />
+        <StatusBox icon="time-outline" label="Last Data" value="5m ago" />
         <StatusBox icon="battery-full" label="Battery" value="78%" />
       </View>
 
       {/* Nutrient Level */}
       <View style={styles.nutrientCard}>
-        <View style={styles.nutrientHeader}>
-          <MaterialCommunityIcons name="water-outline" size={20} color={Colors.primary} />
-          <Text style={styles.nutrientTitle}>Nutrient Level</Text>
+        <Text style={styles.nutrientTitle}>Nutrient Level</Text>
+        <View style={styles.nutrientStatusContainer}>
+          <MaterialCommunityIcons name="sprout" size={24} color={Colors.primary} />
+          <Text style={styles.nutrientStatus}>
+            <Text style={styles.nutrientStatusText}>Low </Text>
+            <Text style={styles.nutrientNote}>(Nutrient needs refilling)</Text>
+          </Text>
         </View>
-        <Text style={styles.nutrientStatus}>
-          <Text style={styles.nutrientStatusText}>Low </Text>
-          <Text style={styles.nutrientNote}>(nutrient needs refilling)</Text>
-        </Text>
       </View>
 
       {/* pH Chart */}
@@ -204,7 +236,7 @@ export default function DashboardScreen() {
 
         <View style={styles.deviceSelector}>
           <View style={styles.deviceSelectorDot}></View>
-          <Text style={styles.deviceSelectorText}>Porch SmarTanom</Text>
+          <Text style={styles.deviceSelectorText}>{devices[activeDeviceIndex].name}</Text>
         </View>
 
         <View style={styles.chartContainer}>
@@ -227,7 +259,7 @@ export default function DashboardScreen() {
           />
         </View>
 
-        <Text style={styles.currentPH}>Current pH level: <Text style={styles.phValue}>6.2 pH</Text></Text>
+        <Text style={styles.currentPH}>Current pH level: <Text style={styles.phValue}>{activeDeviceIndex === 0 ? '6.2' : '5.8'} pH</Text></Text>
       </View>
 
       {/* Sensor Metrics */}
@@ -444,26 +476,27 @@ const styles = StyleSheet.create({
     padding: 16,
     elevation: 2,
   },
-  nutrientHeader: {
+  nutrientTitle: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 18,
+    color: Colors.secondary,
+    marginBottom: 12,
+  },
+  nutrientStatusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-  },
-  nutrientTitle: {
-    fontFamily: 'Montserrat_500Medium',
-    fontSize: 14,
-    color: Colors.darkGray,
-    marginLeft: 8,
   },
   nutrientStatus: {
-    marginTop: 4,
+    marginLeft: 10,
   },
   nutrientStatusText: {
     fontFamily: 'Montserrat_600SemiBold',
-    color: Colors.alertRed,
+    fontSize: 16,
+    color: Colors.primary,
   },
   nutrientNote: {
     fontFamily: 'Montserrat_400Regular',
+    fontSize: 16,
     color: Colors.darkGray,
   },
   chartCard: {
@@ -536,9 +569,11 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
     alignItems: 'center',
+    paddingRight: 8,
   },
   chart: {
     borderRadius: 8,
+    paddingRight: 16,
   },
   currentPH: {
     fontFamily: 'Montserrat_400Regular',
