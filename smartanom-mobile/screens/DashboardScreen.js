@@ -62,3 +62,32 @@ export default function DashboardScreen() {
     </ScrollView>
   );
 }
+
+function InfoBox({ icon, label }) {
+    return (
+      <View style={styles.infoBox}>
+        <Ionicons name={icon === "battery" ? "battery-full" : icon} size={20} color={Colors.primary} />
+        <Text style={styles.infoText}>{label}</Text>
+      </View>
+    );
+  }
+
+function MetricBox({ label, value }) {
+  return (
+    <View style={styles.metricBox}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
+    </View>
+  );
+}
+
+function Condition({ label, value }) {
+  return (
+    <View style={styles.conditionRow}>
+      <MaterialCommunityIcons name="leaf" size={20} color={Colors.primary} />
+      <Text style={styles.conditionText}>{label}</Text>
+      <Text style={styles.conditionValue}>{value}</Text>
+    </View>
+  );
+}
+
