@@ -91,3 +91,119 @@ function Condition({ label, value }) {
   );
 }
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f6fef8',
+  },
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  greeting: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    marginBottom: 16,
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: 'gray',
+  },
+  alertText: {
+    color: '#e53935',
+    fontWeight: 'bold',
+  },
+  alertNote: {
+    fontWeight: 'normal',
+  },
+  rowCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  infoBox: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    marginHorizontal: 4,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  infoText: {
+    fontSize: 12,
+    marginTop: 4,
+    color: Colors.primary,
+  },
+  chartPlaceholder: {
+    height: 150,
+    backgroundColor: '#e0f2f1',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  chartText: {
+    color: '#666',
+  },
+  currentPH: {
+    fontSize: 14,
+    textAlign: 'right',
+    color: Colors.primary,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  metricBox: {
+    backgroundColor: '#ffffff',
+    flex: 1,
+    padding: 16,
+    marginHorizontal: 4,
+    borderRadius: 10,
+  },
+  metricLabel: {
+    color: 'gray',
+    fontSize: 13,
+  },
+  metricValue: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: Colors.primary,
+  },
+  sectionTitle: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 8,
+    color: Colors.primary,
+  },
+  conditionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  conditionText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#333',
+  },
+  conditionValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+});
