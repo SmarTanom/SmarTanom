@@ -37,11 +37,11 @@ export default function DashboardScreen() {
   const [chartPeriod, setChartPeriod] = useState('days');
 
   // Calculate responsive sizes
-  const [chartWidth, setChartWidth] = useState(width - 60);
+  const [chartWidth, setChartWidth] = useState(width - 32);
 
   useEffect(() => {
     // Update chart width when screen dimensions change
-    setChartWidth(width - 60);
+    setChartWidth(width - 32);
   }, [width]);
 
   // Sample data for pH chart - Days
@@ -153,15 +153,17 @@ export default function DashboardScreen() {
       {/* Alert Summary */}
       <View style={styles.alertCard}>
         <View style={styles.alertIconContainer}>
-          <Ionicons name="alert-circle" size={24} color={Colors.alertRed} />
+          <View style={styles.alertIconCircle}>
+            <Ionicons name="alert-outline" size={20} color={Colors.primary} />
+          </View>
         </View>
         <View style={styles.alertContent}>
           <Text style={styles.alertTitle}>Alert Summary</Text>
-          <View style={styles.alertTextContainer}>
-            <View style={styles.alertDot} />
-            <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(inadequate nutrients)</Text></Text>
-          </View>
+          <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(Inadequate nutrients)</Text></Text>
         </View>
+        <TouchableOpacity style={styles.alertArrow}>
+          <Ionicons name="chevron-forward" size={24} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* Device Info Summary */}
@@ -373,39 +375,41 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: 'row',
     elevation: 2,
+    alignItems: 'center',
   },
   alertIconContainer: {
-    marginRight: 12,
+    marginRight: 16,
+  },
+  alertIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   alertContent: {
     flex: 1,
   },
   alertTitle: {
     fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 15,
-    color: Colors.darkGray,
-    marginBottom: 8,
-  },
-  alertTextContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  alertDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.alertRed,
-    marginRight: 8,
+    fontSize: 18,
+    color: Colors.secondary,
+    marginBottom: 6,
   },
   alertText: {
     fontFamily: 'Montserrat_600SemiBold',
     color: Colors.alertRed,
-    fontSize: 14,
+    fontSize: 16,
   },
   alertNote: {
     fontFamily: 'Montserrat_400Regular',
     color: Colors.darkGray,
-    fontSize: 13,
+    fontSize: 15,
+  },
+  alertArrow: {
+    padding: 4,
   },
   statusRow: {
     flexDirection: 'row',
@@ -467,6 +471,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16,
     padding: 16,
+    paddingHorizontal: 8,
     elevation: 2,
   },
   chartHeader: {
@@ -474,6 +479,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+    paddingHorizontal: 8,
   },
   chartTitleContainer: {
     flexDirection: 'row',
@@ -511,6 +517,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+    paddingHorizontal: 8,
   },
   deviceSelectorDot: {
     width: 8,
@@ -527,9 +534,10 @@ const styles = StyleSheet.create({
 
   chartContainer: {
     position: 'relative',
+    width: '100%',
+    alignItems: 'center',
   },
   chart: {
-    marginLeft: 0,
     borderRadius: 8,
   },
   currentPH: {
@@ -538,6 +546,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     color: Colors.darkGray,
     marginTop: 8,
+    paddingHorizontal: 8,
   },
   phValue: {
     fontFamily: 'Montserrat_600SemiBold',
