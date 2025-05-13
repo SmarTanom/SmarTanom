@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensio
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
+import { AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import Colors from '../constants/Colors';
 
 export default function DashboardScreen() {
@@ -12,6 +13,7 @@ export default function DashboardScreen() {
     Montserrat_500Medium,
     Montserrat_600SemiBold,
     Montserrat_700Bold,
+    AbrilFatface_400Regular,
   });
 
   // Device data for swipeable cards
@@ -31,6 +33,9 @@ export default function DashboardScreen() {
   const [activeDeviceIndex, setActiveDeviceIndex] = useState(0);
   const flatListRef = useRef(null);
 
+  // Chart period state (Days or Weeks)
+  const [chartPeriod, setChartPeriod] = useState('days');
+
   // Calculate responsive sizes
   const [chartWidth, setChartWidth] = useState(width - 60);
 
@@ -39,17 +44,32 @@ export default function DashboardScreen() {
     setChartWidth(width - 60);
   }, [width]);
 
-  // Sample data for pH chart
-  const phData = {
-    labels: ["", "", "", "", "", "", "", "", "", "", "", ""],
+  // Sample data for pH chart - Days
+  const phDataDays = {
+    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     datasets: [
       {
-        data: [6.0, 6.1, 6.3, 6.2, 6.4, 6.3, 6.2, 6.1, 6.2, 6.3, 6.2, 6.2],
+        data: [6.0, 6.1, 6.3, 6.2, 6.4, 6.3, 6.2],
         color: () => Colors.chartGreen,
         strokeWidth: 2
       }
     ],
   };
+
+  // Sample data for pH chart - Weeks
+  const phDataWeeks = {
+    labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+    datasets: [
+      {
+        data: [6.1, 6.3, 6.2, 6.2],
+        color: () => Colors.chartGreen,
+        strokeWidth: 2
+      }
+    ],
+  };
+
+  // Get the appropriate data based on the selected period
+  const phData = chartPeriod === 'days' ? phDataDays : phDataWeeks;
 
   const chartConfig = {
     backgroundGradientFrom: Colors.white,
@@ -67,6 +87,9 @@ export default function DashboardScreen() {
       strokeDasharray: "",
       stroke: Colors.lightGray,
     },
+    yAxisSuffix: '',
+    yAxisInterval: 0.1,
+    formatYLabel: (yValue) => Number(yValue).toFixed(1),
   };
 
   if (!fontsLoaded) {
@@ -78,7 +101,7 @@ export default function DashboardScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         <View style={styles.header}>
           <Text style={styles.greeting}>Hello, User <Text style={styles.emoji}>🌱</Text></Text>
-          <Ionicons name="settings-outline" size={24} color={Colors.secondary} />
+          <Ionicons name="settings-outline" size={24} color={Colors.primary} />
         </View>
 
       {/* Device Cards - Swipeable */}
@@ -94,7 +117,7 @@ export default function DashboardScreen() {
             const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
             setActiveDeviceIndex(newIndex);
           }}
-          renderItem={({ item, index }) => (
+          renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.deviceCard, { width: width - 32 }]}
               activeOpacity={0.8}
@@ -134,7 +157,10 @@ export default function DashboardScreen() {
         </View>
         <View style={styles.alertContent}>
           <Text style={styles.alertTitle}>Alert Summary</Text>
-          <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(inadequate nutrients)</Text></Text>
+          <View style={styles.alertTextContainer}>
+            <View style={styles.alertDot} />
+            <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(inadequate nutrients)</Text></Text>
+          </View>
         </View>
       </View>
 
@@ -165,24 +191,18 @@ export default function DashboardScreen() {
             <Text style={styles.chartTitle}>pH Levels over time</Text>
           </View>
           <View style={styles.chartPeriodSelector}>
-            <Text style={styles.chartPeriodActive}>Days</Text>
-            <Text style={styles.chartPeriod}>Weeks</Text>
+            <TouchableOpacity onPress={() => setChartPeriod('days')}>
+              <Text style={chartPeriod === 'days' ? styles.chartPeriodActive : styles.chartPeriod}>Days</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setChartPeriod('weeks')}>
+              <Text style={chartPeriod === 'weeks' ? styles.chartPeriodActive : styles.chartPeriod}>Weeks</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.deviceSelector}>
           <View style={styles.deviceSelectorDot}></View>
           <Text style={styles.deviceSelectorText}>Porch SmarTanom</Text>
-        </View>
-
-        <View style={styles.phLevels}>
-          <Text style={styles.phLevel}>6.6</Text>
-          <Text style={styles.phLevel}>6.5</Text>
-          <Text style={styles.phLevel}>6.4</Text>
-          <Text style={styles.phLevel}>6.3</Text>
-          <Text style={styles.phLevel}>6.2</Text>
-          <Text style={styles.phLevel}>6.1</Text>
-          <Text style={styles.phLevel}>6.0</Text>
         </View>
 
         <View style={styles.chartContainer}>
@@ -195,8 +215,13 @@ export default function DashboardScreen() {
             withHorizontalLines={true}
             withVerticalLines={false}
             withDots={false}
+            withInnerLines={true}
+            withOuterLines={true}
+            withShadow={false}
+            yAxisLabel=""
+            yAxisInterval={0.1}
+            fromZero={false}
             style={styles.chart}
-
           />
         </View>
 
@@ -273,7 +298,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 120 : 100,
+    paddingBottom: Platform.OS === 'ios' ? 90 : 70,
   },
   header: {
     flexDirection: 'row',
@@ -282,9 +307,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   greeting: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 22,
-    color: Colors.secondary,
+    fontFamily: 'AbrilFatface_400Regular',
+    fontSize: 28,
+    color: Colors.headerText,
+    letterSpacing: 0.5,
   },
   emoji: {
     fontSize: 22,
@@ -355,18 +381,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   alertTitle: {
-    fontFamily: 'Montserrat_500Medium',
-    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 15,
     color: Colors.darkGray,
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  alertTextContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  alertDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.alertRed,
+    marginRight: 8,
   },
   alertText: {
     fontFamily: 'Montserrat_600SemiBold',
     color: Colors.alertRed,
+    fontSize: 14,
   },
   alertNote: {
     fontFamily: 'Montserrat_400Regular',
     color: Colors.darkGray,
+    fontSize: 13,
   },
   statusRow: {
     flexDirection: 'row',
@@ -485,20 +524,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.darkGray,
   },
-  phLevels: {
-    position: 'absolute',
-    left: 16,
-    top: 80,
-    zIndex: 1,
-  },
-  phLevel: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 8,
-    color: Colors.darkGray,
-    marginBottom: 16,
-  },
+
   chartContainer: {
-    marginLeft: 30,
     position: 'relative',
   },
   chart: {
@@ -547,7 +574,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     padding: 16,
     borderRadius: 12,
-    marginBottom: 20,
+    marginBottom: 10,
     elevation: 2,
   },
   environmentTitle: {
