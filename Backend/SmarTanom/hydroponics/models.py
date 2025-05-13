@@ -32,7 +32,7 @@ class SmarTanomData(models.Model):
     value = models.FloatField()
     created_at = models.DateTimeField(auto_now_add=True)
 
-class WaterLogs(models.Model):
+class WaterLog(models.Model):
     id = models.AutoField(primary_key=True)
     hydroponic = models.ForeignKey(Hydroponic, on_delete=models.CASCADE)
     smar_tanom_data = models.ForeignKey(SmarTanomData, on_delete=models.CASCADE)
