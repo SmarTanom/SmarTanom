@@ -5,7 +5,9 @@ import Colors from '../constants/Colors';
 export default function LaunchScreen({ navigation }) {
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigation.replace('Welcome');
+      // For testing, navigate directly to MainApp
+      // In production, you would navigate to 'Welcome' for new users
+      navigation.replace('MainApp');
     }, 2000);
     return () => clearTimeout(timer);
   }, []);

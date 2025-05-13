@@ -1,90 +1,259 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Platform, SafeAreaView, Image, FlatList } from 'react-native';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from '@expo/vector-icons';
+import { LineChart } from 'react-native-chart-kit';
+import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import Colors from '../constants/Colors';
 
 export default function DashboardScreen() {
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.greeting}>Hello, User 👋</Text>
+  const { width, height } = useWindowDimensions();
+  const [fontsLoaded] = useFonts({
+    Montserrat_400Regular,
+    Montserrat_500Medium,
+    Montserrat_600SemiBold,
+    Montserrat_700Bold,
+  });
 
-      {/* Device Card */}
-      <TouchableOpacity style={styles.card}>
-        <Text style={styles.cardTitle}>Porch SmarTanom</Text>
-        <Text style={styles.cardSubtitle}>ID: 0000000001</Text>
-      </TouchableOpacity>
+  // Device data for swipeable cards
+  const devices = [
+    {
+      id: '0000000001',
+      name: 'Porch SmarTanom',
+      image: require('../assets/porch-plant.png'),
+    },
+    {
+      id: '0000000002',
+      name: 'Backyard SmarTanom',
+      image: require('../assets/hydroponic-plant.jpg'),
+    }
+  ];
+
+  const [activeDeviceIndex, setActiveDeviceIndex] = useState(0);
+  const flatListRef = useRef(null);
+
+  // Calculate responsive sizes
+  const [chartWidth, setChartWidth] = useState(width - 60);
+
+  useEffect(() => {
+    // Update chart width when screen dimensions change
+    setChartWidth(width - 60);
+  }, [width]);
+
+  // Sample data for pH chart
+  const phData = {
+    labels: ["", "", "", "", "", "", "", "", "", "", "", ""],
+    datasets: [
+      {
+        data: [6.0, 6.1, 6.3, 6.2, 6.4, 6.3, 6.2, 6.1, 6.2, 6.3, 6.2, 6.2],
+        color: () => Colors.chartGreen,
+        strokeWidth: 2
+      }
+    ],
+  };
+
+  const chartConfig = {
+    backgroundGradientFrom: Colors.white,
+    backgroundGradientTo: Colors.white,
+    decimalPlaces: 1,
+    color: () => Colors.chartGreen,
+    labelColor: () => Colors.darkGray,
+    style: {
+      borderRadius: 16,
+    },
+    propsForDots: {
+      r: "0",
+    },
+    propsForBackgroundLines: {
+      strokeDasharray: "",
+      stroke: Colors.lightGray,
+    },
+  };
+
+  if (!fontsLoaded) {
+    return null; // Return null or a loading screen while fonts are loading
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        <View style={styles.header}>
+          <Text style={styles.greeting}>Hello, User <Text style={styles.emoji}>🌱</Text></Text>
+          <Ionicons name="settings-outline" size={24} color={Colors.secondary} />
+        </View>
+
+      {/* Device Cards - Swipeable */}
+      <View style={styles.deviceCardsContainer}>
+        <FlatList
+          ref={flatListRef}
+          data={devices}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id}
+          onMomentumScrollEnd={(event) => {
+            const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+            setActiveDeviceIndex(newIndex);
+          }}
+          renderItem={({ item, index }) => (
+            <TouchableOpacity
+              style={[styles.deviceCard, { width: width - 32 }]}
+              activeOpacity={0.8}
+            >
+              <Image
+                source={item.image}
+                style={styles.deviceImage}
+                resizeMode="cover"
+              />
+              <View style={styles.deviceCardContent}>
+                <View>
+                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Text style={styles.cardSubtitle}>ID: {item.id}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color={Colors.primary} />
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+        <View style={styles.paginationDots}>
+          {devices.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.paginationDot,
+                index === activeDeviceIndex ? styles.paginationDotActive : {}
+              ]}
+            />
+          ))}
+        </View>
+      </View>
 
       {/* Alert Summary */}
-      <View style={styles.card}>
-        <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(inadequate nutrients)</Text></Text>
+      <View style={styles.alertCard}>
+        <View style={styles.alertIconContainer}>
+          <Ionicons name="alert-circle" size={24} color={Colors.alertRed} />
+        </View>
+        <View style={styles.alertContent}>
+          <Text style={styles.alertTitle}>Alert Summary</Text>
+          <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(inadequate nutrients)</Text></Text>
+        </View>
       </View>
 
       {/* Device Info Summary */}
-      <View style={styles.rowCard}>
-        <InfoBox icon="wifi" label="Online" />
-        <InfoBox icon="sync-circle" label="5 mins ago" />
-        <InfoBox icon="battery" label="78%" />
+      <View style={styles.statusRow}>
+        <StatusBox icon="wifi" label="Connectivity" value="Online" />
+        <StatusBox icon="time-outline" label="Last Data" value="5 minutes ago" />
+        <StatusBox icon="battery-full" label="Battery" value="78%" />
       </View>
 
       {/* Nutrient Level */}
-      <View style={styles.card}>
-        <Text style={styles.alertText}>Low <Text style={styles.alertNote}>(nutrient needs refilling)</Text></Text>
+      <View style={styles.nutrientCard}>
+        <View style={styles.nutrientHeader}>
+          <MaterialCommunityIcons name="water-outline" size={20} color={Colors.primary} />
+          <Text style={styles.nutrientTitle}>Nutrient Level</Text>
+        </View>
+        <Text style={styles.nutrientStatus}>
+          <Text style={styles.nutrientStatusText}>Low </Text>
+          <Text style={styles.nutrientNote}>(nutrient needs refilling)</Text>
+        </Text>
       </View>
 
       {/* pH Chart */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>pH Levels over time</Text>
-        {/* Placeholder for chart */}
-        <View style={styles.chartPlaceholder}>
-          <Text style={styles.chartText}>[pH Graph Here]</Text>
+      <View style={styles.chartCard}>
+        <View style={styles.chartHeader}>
+          <View style={styles.chartTitleContainer}>
+            <MaterialCommunityIcons name="chart-line" size={20} color={Colors.primary} />
+            <Text style={styles.chartTitle}>pH Levels over time</Text>
+          </View>
+          <View style={styles.chartPeriodSelector}>
+            <Text style={styles.chartPeriodActive}>Days</Text>
+            <Text style={styles.chartPeriod}>Weeks</Text>
+          </View>
         </View>
-        <Text style={styles.currentPH}>Current pH level: <Text style={{ fontWeight: 'bold' }}>6.2 pH</Text></Text>
+
+        <View style={styles.deviceSelector}>
+          <View style={styles.deviceSelectorDot}></View>
+          <Text style={styles.deviceSelectorText}>Porch SmarTanom</Text>
+        </View>
+
+        <View style={styles.phLevels}>
+          <Text style={styles.phLevel}>6.6</Text>
+          <Text style={styles.phLevel}>6.5</Text>
+          <Text style={styles.phLevel}>6.4</Text>
+          <Text style={styles.phLevel}>6.3</Text>
+          <Text style={styles.phLevel}>6.2</Text>
+          <Text style={styles.phLevel}>6.1</Text>
+          <Text style={styles.phLevel}>6.0</Text>
+        </View>
+
+        <View style={styles.chartContainer}>
+          <LineChart
+            data={phData}
+            width={chartWidth}
+            height={180}
+            chartConfig={chartConfig}
+            bezier
+            withHorizontalLines={true}
+            withVerticalLines={false}
+            withDots={false}
+            style={styles.chart}
+
+          />
+        </View>
+
+        <Text style={styles.currentPH}>Current pH level: <Text style={styles.phValue}>6.2 pH</Text></Text>
       </View>
 
       {/* Sensor Metrics */}
-      <View style={styles.metricsRow}>
-        <MetricBox label="EC Levels" value="2.4 mS/cm" />
-        <MetricBox label="TDS" value="950 ppm" />
-      </View>
-      <View style={styles.metricsRow}>
-        <MetricBox label="Water Level" value="85%" />
-        <MetricBox label="Turbidity" value="3 NTU" />
+      <View style={styles.metricsGrid}>
+        <MetricBox icon="water-outline" label="EC Levels" value="2.4 mS/cm" />
+        <MetricBox icon="flask-outline" label="TDS" value="950 ppm" />
+        <MetricBox icon="water" label="Water Level" value="85%" />
+        <MetricBox icon="water-opacity" label="Turbidity" value="3 NTU" />
       </View>
 
       {/* Environmental Conditions */}
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Environment Conditions</Text>
-        <Condition label="Temperature" value="24.2°C" />
-        <Condition label="Humidity" value="68%" />
-        <Condition label="Light Intensity" value="9,000 Lux" />
-        <Condition label="CO₂ Level" value="415 ppm" />
+      <View style={styles.environmentCard}>
+        <Text style={styles.environmentTitle}>Environment Conditions</Text>
+        <Condition icon="temperature-low" iconType="fa" label="Temperature" value="24.2°C" />
+        <Condition icon="droplet" iconType="feather" label="Humidity" value="68%" />
+        <Condition icon="white-balance-sunny" iconType="material" label="Light Intensity" value="9,000 Lux" />
+        <Condition icon="molecule-co2" iconType="material" label="CO₂ Level" value="415 ppm" />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-function InfoBox({ icon, label }) {
-    return (
-      <View style={styles.infoBox}>
-        <Ionicons name={icon === "battery" ? "battery-full" : icon} size={20} color={Colors.primary} />
-        <Text style={styles.infoText}>{label}</Text>
-      </View>
-    );
-  }
-
-function MetricBox({ label, value }) {
+function StatusBox({ icon, label, value }) {
   return (
-    <View style={styles.metricBox}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
+    <View style={styles.statusBox}>
+      <Ionicons
+        name={icon === "battery-full" ? "battery-full" : icon}
+        size={20}
+        color={Colors.primary}
+      />
+      <Text style={styles.statusValue}>{value}</Text>
+      <Text style={styles.statusLabel}>{label}</Text>
     </View>
   );
 }
 
-function Condition({ label, value }) {
+function MetricBox({ icon, label, value }) {
+  return (
+    <View style={styles.metricBox}>
+      <MaterialCommunityIcons name={icon} size={24} color={Colors.primary} />
+      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function Condition({ icon, iconType, label, value }) {
   return (
     <View style={styles.conditionRow}>
-      <MaterialCommunityIcons name="leaf" size={20} color={Colors.primary} />
+      {iconType === 'fa' && <FontAwesome5 name={icon} size={18} color={Colors.primary} />}
+      {iconType === 'feather' && <Feather name={icon} size={18} color={Colors.primary} />}
+      {iconType === 'material' && <MaterialCommunityIcons name={icon} size={18} color={Colors.primary} />}
       <Text style={styles.conditionText}>{label}</Text>
       <Text style={styles.conditionValue}>{value}</Text>
     </View>
@@ -92,118 +261,316 @@ function Condition({ label, value }) {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f6fef8',
+    paddingTop: Platform.OS === 'android' ? 30 : 0, // Add extra padding for Android status bar
+  },
   container: {
     flex: 1,
     backgroundColor: '#f6fef8',
+    position: 'relative',
   },
   contentContainer: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: Platform.OS === 'ios' ? 120 : 100,
   },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginBottom: 16,
-  },
-  card: {
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    elevation: 2,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: 'gray',
-  },
-  alertText: {
-    color: '#e53935',
-    fontWeight: 'bold',
-  },
-  alertNote: {
-    fontWeight: 'normal',
-  },
-  rowCard: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  infoBox: {
+  greeting: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 22,
+    color: Colors.secondary,
+  },
+  emoji: {
+    fontSize: 22,
+  },
+  deviceCardsContainer: {
+    marginBottom: 16,
+  },
+  deviceCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  deviceImage: {
+    width: '100%',
+    height: 150,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  deviceCardContent: {
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 16,
+    color: Colors.secondary,
+  },
+  cardSubtitle: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: Colors.darkGray,
+    marginTop: 2,
+  },
+  paginationDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.lightGray,
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: Colors.primary,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  alertCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    marginBottom: 16,
+    padding: 16,
+    flexDirection: 'row',
+    elevation: 2,
+  },
+  alertIconContainer: {
+    marginRight: 12,
+  },
+  alertContent: {
     flex: 1,
-    backgroundColor: '#ffffff',
+  },
+  alertTitle: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 14,
+    color: Colors.darkGray,
+    marginBottom: 4,
+  },
+  alertText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    color: Colors.alertRed,
+  },
+  alertNote: {
+    fontFamily: 'Montserrat_400Regular',
+    color: Colors.darkGray,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  statusBox: {
+    flex: 1,
+    backgroundColor: Colors.white,
     marginHorizontal: 4,
     padding: 12,
     borderRadius: 10,
     alignItems: 'center',
+    elevation: 2,
   },
-  infoText: {
-    fontSize: 12,
-    marginTop: 4,
-    color: Colors.primary,
-  },
-  chartPlaceholder: {
-    height: 150,
-    backgroundColor: '#e0f2f1',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  chartText: {
-    color: '#666',
-  },
-  currentPH: {
+  statusValue: {
+    fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
-    textAlign: 'right',
-    color: Colors.primary,
+    color: Colors.secondary,
+    marginTop: 4,
+    marginBottom: 2,
   },
-  metricsRow: {
+  statusLabel: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 10,
+    color: Colors.darkGray,
+  },
+  nutrientCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    marginBottom: 16,
+    padding: 16,
+    elevation: 2,
+  },
+  nutrientHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  nutrientTitle: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 14,
+    color: Colors.darkGray,
+    marginLeft: 8,
+  },
+  nutrientStatus: {
+    marginTop: 4,
+  },
+  nutrientStatusText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    color: Colors.alertRed,
+  },
+  nutrientNote: {
+    fontFamily: 'Montserrat_400Regular',
+    color: Colors.darkGray,
+  },
+  chartCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    marginBottom: 16,
+    padding: 16,
+    elevation: 2,
+  },
+  chartHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  metricBox: {
-    backgroundColor: '#ffffff',
-    flex: 1,
-    padding: 16,
-    marginHorizontal: 4,
+  chartTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chartTitle: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 14,
+    color: Colors.darkGray,
+    marginLeft: 8,
+  },
+  chartPeriodSelector: {
+    flexDirection: 'row',
+    backgroundColor: Colors.lightGray,
+    borderRadius: 12,
+    padding: 2,
+  },
+  chartPeriod: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: Colors.darkGray,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  chartPeriodActive: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 12,
+    color: Colors.secondary,
+    backgroundColor: Colors.white,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     borderRadius: 10,
   },
+  deviceSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  deviceSelectorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.primary,
+    marginRight: 6,
+  },
+  deviceSelectorText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: Colors.darkGray,
+  },
+  phLevels: {
+    position: 'absolute',
+    left: 16,
+    top: 80,
+    zIndex: 1,
+  },
+  phLevel: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 8,
+    color: Colors.darkGray,
+    marginBottom: 16,
+  },
+  chartContainer: {
+    marginLeft: 30,
+    position: 'relative',
+  },
+  chart: {
+    marginLeft: 0,
+    borderRadius: 8,
+  },
+  currentPH: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 14,
+    textAlign: 'right',
+    color: Colors.darkGray,
+    marginTop: 8,
+  },
+  phValue: {
+    fontFamily: 'Montserrat_600SemiBold',
+    color: Colors.secondary,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  metricBox: {
+    backgroundColor: Colors.white,
+    width: '48%',
+    padding: 16,
+    borderRadius: 10,
+    marginBottom: 12,
+    elevation: 2,
+    alignItems: 'center',
+  },
   metricLabel: {
-    color: 'gray',
-    fontSize: 13,
+    fontFamily: 'Montserrat_400Regular',
+    color: Colors.darkGray,
+    fontSize: 12,
+    marginTop: 4,
   },
   metricValue: {
-    fontWeight: 'bold',
+    fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,
-    color: Colors.primary,
+    color: Colors.secondary,
+    marginTop: 4,
   },
-  sectionTitle: {
-    fontWeight: 'bold',
+  environmentCard: {
+    backgroundColor: Colors.white,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    elevation: 2,
+  },
+  environmentTitle: {
+    fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,
-    marginBottom: 8,
-    color: Colors.primary,
+    marginBottom: 12,
+    color: Colors.secondary,
   },
   conditionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
+    marginVertical: 8,
   },
   conditionText: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 12,
+    fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
-    color: '#333',
+    color: Colors.darkGray,
   },
   conditionValue: {
+    fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
+    color: Colors.secondary,
   },
 });
