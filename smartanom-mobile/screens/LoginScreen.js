@@ -1,12 +1,35 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useState, useContext } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import InputField from "../components/InputField";
 import Colors from "../constants/Colors";
-import { Ionicons } from "@expo/vector-icons";  // Import Ionicons for the icons
+import { Ionicons } from "@expo/vector-icons";
+import { AuthContext } from "../context/AuthContext"; // Import the context
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const { login } = useContext(AuthContext); // Use AuthContext
+
+  const handleLogin = async () => {
+    try {
+      // Call the login function from AuthContext to validate user credentials
+      const success = await login(email, password);
+      if (success) {
+        // Navigate to Dashboard upon successful login
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Dashboard" }],
+        });
+      } else {
+        // Display an error message if login failed
+        Alert.alert("Login Failed", "Invalid email or password. Please try again.");
+      }
+    } catch (error) {
+      // Handle any errors that occur during the login process
+      console.error("Login Error:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -46,13 +69,7 @@ export default function LoginScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => {
-          // Later: You can replace this with API login validation logic
-          navigation.navigate("Dashboard");
-        }}
-      >
+      <TouchableOpacity style={styles.button} onPress={handleLogin}>
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
 
