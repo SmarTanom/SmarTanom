@@ -1,32 +1,58 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import InputField from '../components/InputField';
 import Colors from '../constants/Colors';
 
 export default function RegisterScreen({ navigation }) {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [contact, setContact] = useState('');
   const [password, setPassword] = useState('');
+
+  const registerUser = async () => {
+    try {
+      const response = await fetch("http://10.0.2.2:8000/api/accounts/register/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          contact: contact,
+          password: password
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Registration failed:", errorData);
+        Alert.alert("Registration Error", JSON.stringify(errorData));
+        return;
+      }
+
+      const data = await response.json();
+      console.log("Registration success:", data);
+      Alert.alert("Success", "Account created successfully!");
+      navigation.navigate("Login");
+
+    } catch (error) {
+      console.error("Error:", error);
+      Alert.alert("Network Error", "Failed to connect to backend.");
+    }
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register on SmarTanom</Text>
-      <Text style={styles.subtitle}>Create an SmarTanom account. We can't wait to have you.</Text>
+      <Text style={styles.subtitle}>Create an account to get started.</Text>
 
+      <InputField placeholder="Full Name" value={name} onChangeText={setName} />
       <InputField placeholder="Email Address" value={email} onChangeText={setEmail} />
+      <InputField placeholder="Contact Number" value={contact} onChangeText={setContact} keyboardType="phone-pad" />
       <InputField placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
 
-      <Text style={styles.or}>Or Register using social media</Text>
-
-      <View style={styles.socialRow}>
-        <TouchableOpacity style={styles.socialBtn}>
-          <Text>📘 Facebook</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.socialBtn}>
-          <Text>🟢 Google</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Personalize')}>
+      <TouchableOpacity style={styles.button} onPress={registerUser}>
         <Text style={styles.buttonText}>Register</Text>
       </TouchableOpacity>
 
@@ -55,26 +81,12 @@ const styles = StyleSheet.create({
     color: Colors.white,
     marginBottom: 20,
   },
-  or: {
-    color: Colors.white,
-    textAlign: 'center',
-    marginVertical: 10,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-  },
-  socialBtn: {
-    backgroundColor: Colors.white,
-    padding: 10,
-    borderRadius: 6,
-  },
   button: {
     backgroundColor: Colors.white,
     padding: 14,
     borderRadius: 8,
     alignItems: 'center',
+    marginTop: 20,
   },
   buttonText: {
     color: Colors.primary,

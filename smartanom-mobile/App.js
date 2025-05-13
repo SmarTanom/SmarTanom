@@ -1,11 +1,14 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import AppNavigator from './navigation/AppNavigator'; // Main navigator that handles routing
+import { NavigationContainer } from '@react-navigation/native';  // Import NavigationContainer
+import AppNavigator from './navigation/AppNavigator'; // Your AppNavigator
+import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <AppNavigator />
-    </NavigationContainer>
+    <AuthProvider>  {/* Wrap the app with AuthProvider */}
+      <NavigationContainer>
+        <AppNavigator />
+      </NavigationContainer>
+    </AuthProvider>
   );
 }

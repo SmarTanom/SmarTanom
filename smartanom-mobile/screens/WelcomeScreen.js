@@ -10,11 +10,17 @@ export default function WelcomeScreen({ navigation }) {
         From sensors to sunshine, everything your hydroponic plant needs is here.
       </Text>
 
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Register')}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.navigate('Register')}
+      >
         <Text style={[styles.buttonText, { color: Colors.primary }]}>Register</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={[styles.button, styles.outlineButton]} onPress={() => navigation.navigate('Login')}>
+      <TouchableOpacity
+        style={[styles.button, styles.outlineButton]}
+        onPress={() => navigation.navigate('Login')}
+      >
         <Text style={[styles.buttonText, { color: Colors.white }]}>Login</Text>
       </TouchableOpacity>
     </View>
