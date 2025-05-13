@@ -37,11 +37,11 @@ export default function DashboardScreen() {
   const [chartPeriod, setChartPeriod] = useState('days');
 
   // Calculate responsive sizes
-  const [chartWidth, setChartWidth] = useState(width - 48);
+  const [chartWidth, setChartWidth] = useState(width - 60); // Reduced width to account for padding
 
   useEffect(() => {
     // Update chart width when screen dimensions change
-    setChartWidth(width - 48);
+    setChartWidth(width - 60); // Reduced width to account for padding
   }, [width]);
 
   // Sample data for Porch SmarTanom - Days
@@ -122,6 +122,8 @@ export default function DashboardScreen() {
     yAxisSuffix: '',
     yAxisInterval: 0.1,
     formatYLabel: (yValue) => Number(yValue).toFixed(1),
+    // Add left padding for y-axis labels
+    paddingLeft: 15,
   };
 
   if (!fontsLoaded) {
@@ -256,6 +258,8 @@ export default function DashboardScreen() {
             yAxisInterval={0.1}
             fromZero={false}
             style={styles.chart}
+            // Add margin to ensure y-axis labels are visible
+            yLabelsOffset={10}
           />
         </View>
 
@@ -504,7 +508,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16,
     padding: 16,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12, // Increased from 8 to provide more space
     elevation: 2,
   },
   chartHeader: {
@@ -569,11 +573,13 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
     alignItems: 'center',
+    paddingLeft: 15, // Add left padding for y-axis labels
     paddingRight: 8,
   },
   chart: {
     borderRadius: 8,
     paddingRight: 16,
+    marginLeft: 10, // Add margin to prevent labels from being cut off
   },
   currentPH: {
     fontFamily: 'Montserrat_400Regular',
