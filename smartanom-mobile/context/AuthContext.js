@@ -21,24 +21,25 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/accounts/login", {
+      const response = await fetch("http://127.0.0.1:8000/api/accounts/login/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password }),
       });
-
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
-
-      if (response.ok && data.success) {
+      
+      if (data.success) {
         setUser(data.user);
         setToken(data.token);
-
-        // Save to AsyncStorage
         await AsyncStorage.setItem("user", JSON.stringify(data.user));
         await AsyncStorage.setItem("token", data.token);
-
         return true;
       } else {
         console.error("Login failed:", data.error);

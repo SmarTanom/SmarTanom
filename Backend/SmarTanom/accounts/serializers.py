@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import User
 from django.contrib.auth import authenticate
+from .models import User
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -20,7 +20,7 @@ class LoginSerializer(serializers.Serializer):
         user = authenticate(email=data['email'], password=data['password'])
         if not user:
             raise serializers.ValidationError("Invalid credentials.")
-        return user
+        return {'user': user}
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
