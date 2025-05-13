@@ -37,12 +37,14 @@ export default function DashboardScreen() {
   const [chartPeriod, setChartPeriod] = useState('days');
 
   // Calculate responsive sizes
-  const [chartWidth, setChartWidth] = useState(width - 60); // Reduced width to account for padding
+  const [chartWidth, setChartWidth] = useState(width - 60); // Width for the chart area
 
   useEffect(() => {
     // Update chart width when screen dimensions change
-    setChartWidth(width - 60); // Reduced width to account for padding
+    setChartWidth(width - 60); // Width for the chart area
   }, [width]);
+
+
 
   // Sample data for Porch SmarTanom - Days
   const porchPhDataDays = {
@@ -120,10 +122,10 @@ export default function DashboardScreen() {
       stroke: Colors.lightGray,
     },
     yAxisSuffix: '',
-    yAxisInterval: 0.1,
-    formatYLabel: (yValue) => Number(yValue).toFixed(1),
+    // Format y-axis labels to show actual pH values with 1 decimal place
+    formatYLabel: (yValue) => yValue.toFixed(1),
     // Add left padding for y-axis labels
-    paddingLeft: 15,
+    paddingLeft: 40,
   };
 
   if (!fontsLoaded) {
@@ -242,25 +244,68 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.chartContainer}>
-          <LineChart
-            data={phData}
-            width={chartWidth}
-            height={180}
-            chartConfig={chartConfig}
-            bezier
-            withHorizontalLines={true}
-            withVerticalLines={false}
-            withDots={false}
-            withInnerLines={true}
-            withOuterLines={true}
-            withShadow={false}
-            yAxisLabel=""
-            yAxisInterval={0.1}
-            fromZero={false}
-            style={styles.chart}
-            // Add margin to ensure y-axis labels are visible
-            yLabelsOffset={10}
-          />
+          {/* Custom pH labels on the left side */}
+          <View style={styles.customYAxisLabels}>
+            {activeDeviceIndex === 0 ? (
+              // Porch SmarTanom pH values
+              <>
+                <Text style={styles.yAxisLabel}>6.6 pH</Text>
+                <Text style={styles.yAxisLabel}>6.5 pH</Text>
+                <Text style={styles.yAxisLabel}>6.4 pH</Text>
+                <Text style={styles.yAxisLabel}>6.3 pH</Text>
+                <Text style={styles.yAxisLabel}>6.2 pH</Text>
+                <Text style={styles.yAxisLabel}>6.1 pH</Text>
+                <Text style={styles.yAxisLabel}>6.0 pH</Text>
+              </>
+            ) : (
+              // Backyard SmarTanom pH values
+              <>
+                <Text style={styles.yAxisLabel}>6.2 pH</Text>
+                <Text style={styles.yAxisLabel}>6.1 pH</Text>
+                <Text style={styles.yAxisLabel}>6.0 pH</Text>
+                <Text style={styles.yAxisLabel}>5.9 pH</Text>
+                <Text style={styles.yAxisLabel}>5.8 pH</Text>
+                <Text style={styles.yAxisLabel}>5.7 pH</Text>
+                <Text style={styles.yAxisLabel}>5.6 pH</Text>
+              </>
+            )}
+          </View>
+
+          {/* The actual chart */}
+          <View style={styles.chartWrapper}>
+            <LineChart
+              data={phData}
+              width={chartWidth - 50} // Reduce width to make room for custom labels
+              height={180}
+              chartConfig={{
+                ...chartConfig,
+                // Hide the default y-axis labels completely
+                formatYLabel: () => '',
+                // Hide the y-axis completely
+                propsForLabels: { opacity: 0 },
+                // Remove left padding since we're using custom labels
+                paddingLeft: 0,
+              }}
+              bezier
+              withHorizontalLines={true}
+              withVerticalLines={false}
+              withDots={false}
+              withInnerLines={true}
+              withOuterLines={true}
+              withShadow={false}
+              yAxisLabel=""
+              // Don't render any y-axis labels
+              renderDotContent={() => null}
+              // Don't show any y-axis labels
+              withVerticalLabels={true}
+              withHorizontalLabels={false}
+              // Don't start from zero
+              fromZero={false}
+              // Hide all y-axis elements
+              hidePointsAtIndex={[]}
+              style={styles.chart}
+            />
+          </View>
         </View>
 
         <Text style={styles.currentPH}>Current pH level: <Text style={styles.phValue}>{activeDeviceIndex === 0 ? '6.2' : '5.8'} pH</Text></Text>
@@ -508,7 +553,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16,
     padding: 16,
-    paddingHorizontal: 12, // Increased from 8 to provide more space
+    paddingLeft: 16, // Reset to default as we're using custom labels
+    paddingRight: 12,
     elevation: 2,
   },
   chartHeader: {
@@ -572,14 +618,35 @@ const styles = StyleSheet.create({
   chartContainer: {
     position: 'relative',
     width: '100%',
+    flexDirection: 'row', // Arrange custom labels and chart side by side
     alignItems: 'center',
-    paddingLeft: 15, // Add left padding for y-axis labels
-    paddingRight: 8,
+    justifyContent: 'flex-start',
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  customYAxisLabels: {
+    width: 50, // Fixed width for the labels column
+    height: 180, // Match the chart height
+    justifyContent: 'space-between', // Distribute labels evenly
+    alignItems: 'flex-end', // Align text to the right
+    paddingRight: 8, // Small padding between labels and chart
+    paddingVertical: 10, // Padding to align with chart grid lines
+    marginRight: 5, // Add margin to separate from chart
+  },
+  yAxisLabel: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 10,
+    color: Colors.darkGray,
+    textAlign: 'right',
+    lineHeight: 14, // Ensure consistent spacing
+  },
+  chartWrapper: {
+    flex: 1, // Take remaining space
   },
   chart: {
     borderRadius: 8,
     paddingRight: 16,
-    marginLeft: 10, // Add margin to prevent labels from being cut off
+    marginLeft: 0,
   },
   currentPH: {
     fontFamily: 'Montserrat_400Regular',
