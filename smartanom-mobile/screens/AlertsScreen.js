@@ -13,10 +13,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import { useNavigation } from '@react-navigation/native';
+import { useDeviceImages } from '../context/DeviceImageContext';
 import Colors from '../constants/Colors';
 
 export default function AlertsScreen() {
   const navigation = useNavigation();
+  const { getDeviceImage } = useDeviceImages();
 
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
@@ -34,19 +36,21 @@ export default function AlertsScreen() {
     {
       id: 1,
       device: 'Backyard SmarTanom',
+      deviceId: '0000000002',
       message: 'Low reservoir water level detected.',
       icon: 'water-outline',
       iconColor: '#3498db',
-      image: require('../assets/hydroponic-plant.jpg'),
+      get image() { return getDeviceImage('0000000002'); }, // Dynamic getter for the image
       timestamp: '2 hours ago'
     },
     {
       id: 2,
       device: 'Porch SmarTanom',
+      deviceId: '0000000001',
       message: 'EC too low (Inadequate nutrients).',
       icon: 'flask-outline',
       iconColor: Colors.primary,
-      image: require('../assets/porch-plant.png'),
+      get image() { return getDeviceImage('0000000001'); }, // Dynamic getter for the image
       timestamp: '4 hours ago'
     }
   ];
@@ -55,10 +59,11 @@ export default function AlertsScreen() {
     {
       id: 3,
       device: 'Backyard SmarTanom',
+      deviceId: '0000000002',
       message: 'Low reservoir water level detected.',
       icon: 'water-outline',
       iconColor: '#3498db',
-      image: require('../assets/hydroponic-plant.jpg'),
+      get image() { return getDeviceImage('0000000002'); }, // Dynamic getter for the image
       timestamp: '1 day ago'
     }
   ];
@@ -74,7 +79,7 @@ export default function AlertsScreen() {
       activeOpacity={0.7}
       onPress={() => navigation.navigate('DeviceDetail', {
         device: {
-          id: alert.id === 1 || alert.id === 3 ? '0000000002' : '0000000001',
+          id: alert.deviceId,
           name: alert.device,
           image: alert.image
         }

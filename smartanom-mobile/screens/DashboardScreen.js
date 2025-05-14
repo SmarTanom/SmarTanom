@@ -20,11 +20,13 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from '@expo/v
 import { LineChart } from 'react-native-chart-kit';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import { AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
+import { useDeviceImages } from '../context/DeviceImageContext';
 import Colors from '../constants/Colors';
 
 export default function DashboardScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
+  const { getDeviceImage } = useDeviceImages();
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_500Medium,
@@ -38,12 +40,12 @@ export default function DashboardScreen() {
     {
       id: '0000000001',
       name: 'Porch SmarTanom',
-      image: require('../assets/porch-plant.png'),
+      get image() { return getDeviceImage('0000000001'); }, // Dynamic getter for the image
     },
     {
       id: '0000000002',
       name: 'Backyard SmarTanom',
-      image: require('../assets/hydroponic-plant.jpg'),
+      get image() { return getDeviceImage('0000000002'); }, // Dynamic getter for the image
     }
   ];
 
