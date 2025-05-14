@@ -37,7 +37,10 @@ export default function ProfileScreen({ navigation }) {
   
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container}>
+      <ScrollView
+        style={styles.container1}
+        contentContainerStyle={styles.scrollContent} 
+      >
         <View style={styles.header}>
           <View style={styles.profileImageContainer}>
             <View style={styles.profileImagePlaceholder}>
@@ -117,9 +120,10 @@ const getStyles = (darkMode) =>
       flex: 1,
       backgroundColor: darkMode ? Colors.darkBackground : Colors.white,
     },
-    container: {
+    container1: {
       flex: 1,
       backgroundColor: darkMode ? Colors.darkBackground : Colors.white,
+      marginBottom: 50,
     },
     header: {
       alignItems: 'center',
