@@ -81,14 +81,21 @@ class LoginView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
-        
-        return Response({
-            'success': True,
-            'token': token.key,
-            'user': UserSerializer(user).data
-        })
+        try:
+            user = serializer.validated_data['user']
+            token, created = Token.objects.get_or_create(user=user)
+            
+            return Response({
+                'success': True,
+                'token': token.key,
+                'user': UserSerializer(user).data
+            })
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]

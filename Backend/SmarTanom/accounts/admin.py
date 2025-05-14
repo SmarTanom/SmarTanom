@@ -5,20 +5,21 @@ from .models import User
 class UserAdmin(BaseUserAdmin):
     filter_horizontal = ()  # Fixes the groups/permissions error
     
-    list_display = ('email', 'name', 'is_admin', 'is_active')
-    list_filter = ('is_admin', 'is_active')
+    list_display = ('email', 'name', 'is_admin', 'is_active', 'email_verified')
+    list_filter = ('is_admin', 'is_active', 'email_verified')
+    list_editable = ('is_active', 'email_verified')  # Allow direct editing
     
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Personal info', {'fields': ('name', 'contact')}),
-        ('Permissions', {'fields': ('is_active', 'is_admin')}),
+        ('Permissions', {'fields': ('is_active', 'email_verified', 'is_admin')}),
         ('Important dates', {'fields': ('last_login', 'created_at', 'updated_at')}),
     )
     
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'name', 'password1', 'password2', 'is_admin'),
+            'fields': ('email', 'name', 'password1', 'password2', 'is_admin', 'is_active', 'email_verified'),
         }),
     )
     

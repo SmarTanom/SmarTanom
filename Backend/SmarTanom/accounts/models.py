@@ -14,6 +14,8 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_admin', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('email_verified', True)
         
         if extra_fields.get('is_admin') is not True:
             raise ValueError('Superuser must have is_admin=True.')
@@ -26,8 +28,8 @@ class User(AbstractBaseUser):
     email = models.EmailField(unique=True)
     is_admin = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=False)  # Changed to False by default
-    email_verified = models.BooleanField(default=False)  # New field
+    is_active = models.BooleanField(default=True)  # Changed to True by default
+    email_verified = models.BooleanField(default=True)  # Changed to True by default
     contact = models.CharField(max_length=15, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

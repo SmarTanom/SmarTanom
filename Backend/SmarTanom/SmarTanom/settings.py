@@ -71,12 +71,15 @@ MIDDLEWARE = [
 ]
 
 
-# CORS settings (ensure these are correct)
+# CORS settings (ensure these are correct)\
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
     "http://10.0.2.2:8081",
+    "http://localhost:19006",  # For React Native development
+    "http://127.0.0.1:19006",  # For React Native development
 ]
 ROOT_URLCONF = 'SmarTanom.urls'
 
@@ -166,3 +169,12 @@ EMAIL_HOST_USER = 'reyfoxconner@gmail.com'  #  Replace with your Gmail address
 EMAIL_HOST_PASSWORD = 'wvuy cxnj bczr rhuq'  #  Use your Gmail App Password
 
 DEFAULT_FROM_EMAIL = 'noreply@smartanom.com'
+
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.EmailBackend',  # Custom backend for email login
+    'django.contrib.auth.backends.ModelBackend',  # Fallback
+]
+
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = False

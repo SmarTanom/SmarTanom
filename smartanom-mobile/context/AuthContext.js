@@ -37,33 +37,43 @@ export const AuthProvider = ({ children }) => {
       const apiUrl = Platform.OS === 'android' 
         ? 'http://10.0.2.2:8000/api/accounts/login/' 
         : 'http://127.0.0.1:8000/api/accounts/login/';
-
+  
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ 
+          email: email.trim(), 
+          password: password 
+        }),
       });
       
       const responseData = await response.json();
       
       if (!response.ok) {
-        throw new Error(responseData.error || "Login failed");
+        console.log("Login error response:", responseData); // Debug logging
+        throw new Error(responseData.error || responseData.detail || "Login failed");
       }
-
-      if (responseData.success) {
+  
+      if (responseData.token && responseData.user) {
         setUser(responseData.user);
         setToken(responseData.token);
         await AsyncStorage.setItem("user", JSON.stringify(responseData.user));
         await AsyncStorage.setItem("token", responseData.token);
         return { success: true };
       } else {
-        return { success: false, error: responseData.error };
+        return { 
+          success: false, 
+          error: responseData.error || "Invalid response from server" 
+        };
       }
     } catch (error) {
       console.error("Login error:", error.message);
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message || "Network error. Please try again." 
+      };
     } finally {
       setIsLoading(false);
     }

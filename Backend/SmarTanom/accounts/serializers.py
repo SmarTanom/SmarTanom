@@ -34,13 +34,23 @@ class LoginSerializer(serializers.Serializer):
         user = authenticate(email=data['email'], password=data['password'])
         if not user:
             raise serializers.ValidationError("Invalid credentials.")
-        if not user.is_active:
-            raise serializers.ValidationError("Account not activated. Please check your email.")
-        if not user.email_verified:
-            raise serializers.ValidationError("Email not verified. Please check your email.")
         return {'user': user}
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'email', 'name', 'contact', 'is_active', 'email_verified')
+        
+        
+from rest_framework import serializers
+from django.contrib.auth import authenticate
+
+class EmailLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField()
+
+    def validate(self, data):
+        user = authenticate(email=data['email'], password=data['password'])
+        if user is None:
+            raise serializers.ValidationError("Invalid login credentials.")
+        return data
