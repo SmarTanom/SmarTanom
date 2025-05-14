@@ -1,16 +1,33 @@
-// HelpCenterScreen.js
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import React, { useContext } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  SafeAreaView,
+  Image,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold } from '@expo-google-fonts/montserrat';
+import {
+  useFonts,
+  Montserrat_400Regular,
+  Montserrat_500Medium,
+  Montserrat_600SemiBold,
+} from '@expo-google-fonts/montserrat';
 import Colors from '../constants/Colors';
+import { AppSettingsContext } from '../context/AppSettingsContext';
 
 export default function HelpCenterScreen({ navigation }) {
+  const { darkMode } = useContext(AppSettingsContext);
+
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_500Medium,
     Montserrat_600SemiBold,
   });
+
+  const styles = getStyles(darkMode);
 
   if (!fontsLoaded) {
     return null;
@@ -57,60 +74,61 @@ export default function HelpCenterScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.white,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    backgroundColor: Colors.primary,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    paddingTop: 100,
-    paddingBottom: 30,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  title: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 24,
-    color: Colors.white,
-    marginTop: 10,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  subtitle: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 18,
-    color: Colors.primary,
-    marginTop: 20,
-    marginBottom: 5,
-  },
-  text: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 15,
-    color: Colors.darkText,
-    marginBottom: 8,
-  },
-  logo: {
-    width: 200,
-    height: 200,
-    resizeMode: 'contain',
-  },
-});
+const getStyles = (darkMode) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: darkMode ? Colors.darkBackground : Colors.white,
+    },
+    scrollContent: {
+      paddingBottom: 40,
+    },
+    backButton: {
+      position: 'absolute',
+      top: 50,
+      left: 20,
+      zIndex: 10,
+      width: 40,
+      height: 40,
+      backgroundColor: Colors.primary,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    header: {
+      paddingTop: 100,
+      paddingBottom: 30,
+      backgroundColor: Colors.primary,
+      alignItems: 'center',
+      borderBottomLeftRadius: 30,
+      borderBottomRightRadius: 30,
+    },
+    title: {
+      fontFamily: 'Montserrat_600SemiBold',
+      fontSize: 24,
+      color: Colors.white,
+      marginTop: 10,
+    },
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+    },
+    subtitle: {
+      fontFamily: 'Montserrat_600SemiBold',
+      fontSize: 18,
+      color: Colors.primary,
+      marginTop: 20,
+      marginBottom: 5,
+    },
+    text: {
+      fontFamily: 'Montserrat_400Regular',
+      fontSize: 15,
+      color: darkMode ? Colors.white : Colors.darkText,
+      marginBottom: 8,
+    },
+    logo: {
+      width: 200,
+      height: 200,
+      resizeMode: 'contain',
+    },
+  });
