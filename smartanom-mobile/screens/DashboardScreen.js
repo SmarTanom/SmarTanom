@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useContext } from 'react';
 import {
   View,
   Text,
@@ -22,8 +22,10 @@ import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600Se
 import { AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import { useDeviceImages } from '../context/DeviceImageContext';
 import Colors from '../constants/Colors';
+import { AuthContext } from '../context/AuthContext';
 
 export default function DashboardScreen() {
+  const { user } = useContext(AuthContext);
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const { getDeviceImage } = useDeviceImages();
@@ -207,331 +209,331 @@ export default function DashboardScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hello, User <Text style={styles.emoji}>🌱</Text></Text>
+          <Text style={styles.greeting}>Hello, {user?.name || 'User'}<Text style={styles.emoji}>🌱</Text></Text>
           <Ionicons name="settings-outline" size={24} color={Colors.primary} />
         </View>
 
-      {/* Device Cards - Swipeable */}
-      <View style={styles.deviceCardsContainer}>
-        <FlatList
-          ref={flatListRef}
-          data={devices}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id}
-          onMomentumScrollEnd={(event) => {
-            const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
-            setActiveDeviceIndex(newIndex);
-          }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.deviceCard, { width: width - 32 }]}
-              activeOpacity={0.8}
-              onPress={() => navigation.navigate('DeviceDetail', { device: item })}
-            >
-              <Image
-                source={item.image}
-                style={styles.deviceImage}
-                resizeMode="cover"
-              />
-              <View style={styles.deviceCardContent}>
-                <View>
-                  <Text style={styles.cardTitle}>{item.name}</Text>
-                  <Text style={styles.cardSubtitle}>ID: {item.id}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={24} color={Colors.primary} />
-              </View>
-            </TouchableOpacity>
-          )}
-        />
-        <View style={styles.paginationDots}>
-          {devices.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.paginationDot,
-                index === activeDeviceIndex ? styles.paginationDotActive : {}
-              ]}
-            />
-          ))}
-        </View>
-      </View>
-
-      {/* Alert Summary */}
-      <TouchableOpacity
-        style={styles.alertCard}
-        activeOpacity={0.7}
-        onPress={showAlertModal}
-      >
-        <View style={styles.alertIconContainer}>
-          <View style={styles.alertIconCircle}>
-            <Ionicons name="alert-outline" size={20} color={Colors.primary} />
-          </View>
-        </View>
-        <View style={styles.alertContent}>
-          <Text style={styles.alertTitle}>Alert Summary</Text>
-          {activeDeviceIndex === 0 ? (
-            // Porch SmarTanom alert
-            <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(Inadequate nutrients)</Text></Text>
-          ) : (
-            // Backyard SmarTanom alert
-            <Text style={styles.alertText}>pH too high <Text style={styles.alertNote}>(Adjust nutrient solution)</Text></Text>
-          )}
-        </View>
-        <View style={styles.alertArrow}>
-          <Ionicons name="chevron-forward" size={24} color={Colors.primary} />
-        </View>
-      </TouchableOpacity>
-
-      {/* Alert Detail Modal */}
-      <Modal
-        animationType="none"
-        transparent={true}
-        visible={alertModalVisible}
-        onRequestClose={hideAlertModal}
-      >
-        <TouchableWithoutFeedback onPress={hideAlertModal}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <Animated.View
-                style={[
-                  styles.modalContent,
-                  {
-                    transform: [{ translateY: slideAnim }]
-                  }
-                ]}
+        {/* Device Cards - Swipeable */}
+        <View style={styles.deviceCardsContainer}>
+          <FlatList
+            ref={flatListRef}
+            data={devices}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            onMomentumScrollEnd={(event) => {
+              const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+              setActiveDeviceIndex(newIndex);
+            }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.deviceCard, { width: width - 32 }]}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('DeviceDetail', { device: item })}
               >
-                <View
-                  {...panResponder.panHandlers}
-                  style={styles.modalPillContainer}
-                >
-                  <View style={styles.modalPill} />
+                <Image
+                  source={item.image}
+                  style={styles.deviceImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.deviceCardContent}>
+                  <View>
+                    <Text style={styles.cardTitle}>{item.name}</Text>
+                    <Text style={styles.cardSubtitle}>ID: {item.id}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={24} color={Colors.primary} />
                 </View>
-
-                <View style={styles.modalBody}>
-                  <Text style={styles.modalTitle}>Alert Summary</Text>
-
-                  {activeDeviceIndex === 0 ? (
-                    // Porch SmarTanom alert details
-                    <Text style={styles.modalAlertText}>EC too low (Inadequate nutrients)</Text>
-                  ) : (
-                    // Backyard SmarTanom alert details
-                    <Text style={styles.modalAlertText}>pH too high (Adjust nutrient solution)</Text>
-                  )}
-
-                  <View style={styles.divider} />
-
-                  <Text style={styles.suggestedActionTitle}>Suggested Action</Text>
-
-                  {activeDeviceIndex === 0 ? (
-                    // Porch SmarTanom suggested action
-                    <Text style={styles.suggestedActionText}>
-                      Refill Part A (Calcium Nitrate) and Part B (Micronutrient Mix) to maintain optimal nutrient levels.
-                    </Text>
-                  ) : (
-                    // Backyard SmarTanom suggested action
-                    <Text style={styles.suggestedActionText}>
-                      Add pH down solution to bring pH levels within optimal range (5.8-6.2).
-                    </Text>
-                  )}
-                </View>
-
-                {/* Navigation Bar */}
-                <View style={styles.navBar}>
-                  <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Tanom')}>
-                    <MaterialCommunityIcons name="sprout" size={24} color={Colors.primary} />
-                    <Text style={[styles.navButtonText, { color: Colors.primary }]}>Tanom</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Alerts')}>
-                    <Ionicons name="notifications-outline" size={24} color={Colors.darkGray} />
-                    <Text style={styles.navButtonText}>Alerts</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Profile')}>
-                    <Ionicons name="person-outline" size={24} color={Colors.darkGray} />
-                    <Text style={styles.navButtonText}>Profile</Text>
-                  </TouchableOpacity>
-                </View>
-              </Animated.View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      {/* Device Info Summary */}
-      <View style={styles.statusRow}>
-        <StatusBox
-          icon="wifi"
-          label="Connectivity"
-          value={activeDeviceIndex === 0 ? "Online" : "Online"}
-        />
-        <StatusBox
-          icon="time-outline"
-          label="Last Data"
-          value={activeDeviceIndex === 0 ? "5m ago" : "12m ago"}
-        />
-        <StatusBox
-          icon="battery-full"
-          label="Battery"
-          value={activeDeviceIndex === 0 ? "78%" : "92%"}
-        />
-      </View>
-
-      {/* Nutrient Level */}
-      <View style={styles.nutrientCard}>
-        <Text style={styles.nutrientTitle}>Nutrient Level</Text>
-        <View style={styles.nutrientStatusContainer}>
-          <MaterialCommunityIcons name="sprout" size={24} color={Colors.primary} />
-          {activeDeviceIndex === 0 ? (
-            // Porch SmarTanom nutrient level
-            <Text style={styles.nutrientStatus}>
-              <Text style={styles.nutrientStatusText}>Low </Text>
-              <Text style={styles.nutrientNote}>(Nutrient needs refilling)</Text>
-            </Text>
-          ) : (
-            // Backyard SmarTanom nutrient level
-            <Text style={styles.nutrientStatus}>
-              <Text style={styles.nutrientStatusText}>Optimal </Text>
-              <Text style={styles.nutrientNote}>(Nutrient level is good)</Text>
-            </Text>
-          )}
-        </View>
-      </View>
-
-      {/* pH Chart */}
-      <View style={styles.chartCard}>
-        <View style={styles.chartHeader}>
-          <View style={styles.chartTitleContainer}>
-            <MaterialCommunityIcons name="chart-line" size={20} color={Colors.primary} />
-            <Text style={styles.chartTitle}>pH Levels over time</Text>
-          </View>
-          <View style={styles.chartPeriodSelector}>
-            <TouchableOpacity onPress={() => setChartPeriod('days')}>
-              <Text style={chartPeriod === 'days' ? styles.chartPeriodActive : styles.chartPeriod}>Days</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setChartPeriod('weeks')}>
-              <Text style={chartPeriod === 'weeks' ? styles.chartPeriodActive : styles.chartPeriod}>Weeks</Text>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            )}
+          />
+          <View style={styles.paginationDots}>
+            {devices.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.paginationDot,
+                  index === activeDeviceIndex ? styles.paginationDotActive : {}
+                ]}
+              />
+            ))}
           </View>
         </View>
 
-        <View style={styles.deviceSelector}>
-          <View style={styles.deviceSelectorDot}></View>
-          <Text style={styles.deviceSelectorText}>{devices[activeDeviceIndex].name}</Text>
-        </View>
-
-        <View style={styles.chartContainer}>
-          {/* Custom pH labels on the left side */}
-          <View style={styles.customYAxisLabels}>
+        {/* Alert Summary */}
+        <TouchableOpacity
+          style={styles.alertCard}
+          activeOpacity={0.7}
+          onPress={showAlertModal}
+        >
+          <View style={styles.alertIconContainer}>
+            <View style={styles.alertIconCircle}>
+              <Ionicons name="alert-outline" size={20} color={Colors.primary} />
+            </View>
+          </View>
+          <View style={styles.alertContent}>
+            <Text style={styles.alertTitle}>Alert Summary</Text>
             {activeDeviceIndex === 0 ? (
-              // Porch SmarTanom pH values
-              <>
-                <Text style={styles.yAxisLabel}>6.6 pH</Text>
-                <Text style={styles.yAxisLabel}>6.5 pH</Text>
-                <Text style={styles.yAxisLabel}>6.4 pH</Text>
-                <Text style={styles.yAxisLabel}>6.3 pH</Text>
-                <Text style={styles.yAxisLabel}>6.2 pH</Text>
-                <Text style={styles.yAxisLabel}>6.1 pH</Text>
-                <Text style={styles.yAxisLabel}>6.0 pH</Text>
-              </>
+              // Porch SmarTanom alert
+              <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(Inadequate nutrients)</Text></Text>
             ) : (
-              // Backyard SmarTanom pH values
-              <>
-                <Text style={styles.yAxisLabel}>6.2 pH</Text>
-                <Text style={styles.yAxisLabel}>6.1 pH</Text>
-                <Text style={styles.yAxisLabel}>6.0 pH</Text>
-                <Text style={styles.yAxisLabel}>5.9 pH</Text>
-                <Text style={styles.yAxisLabel}>5.8 pH</Text>
-                <Text style={styles.yAxisLabel}>5.7 pH</Text>
-                <Text style={styles.yAxisLabel}>5.6 pH</Text>
-              </>
+              // Backyard SmarTanom alert
+              <Text style={styles.alertText}>pH too high <Text style={styles.alertNote}>(Adjust nutrient solution)</Text></Text>
             )}
           </View>
+          <View style={styles.alertArrow}>
+            <Ionicons name="chevron-forward" size={24} color={Colors.primary} />
+          </View>
+        </TouchableOpacity>
 
-          {/* The actual chart */}
-          <View style={styles.chartWrapper}>
-            <LineChart
-              data={phData}
-              width={chartWidth - 50} // Reduce width to make room for custom labels
-              height={180}
-              chartConfig={{
-                ...chartConfig,
-                // Hide the default y-axis labels completely
-                formatYLabel: () => '',
-                // Hide the y-axis completely
-                propsForLabels: { opacity: 0 },
-                // Remove left padding since we're using custom labels
-                paddingLeft: 0,
-              }}
-              bezier
-              withHorizontalLines={true}
-              withVerticalLines={false}
-              withDots={false}
-              withInnerLines={true}
-              withOuterLines={true}
-              withShadow={false}
-              yAxisLabel=""
-              // Don't render any y-axis labels
-              renderDotContent={() => null}
-              // Don't show any y-axis labels
-              withVerticalLabels={true}
-              withHorizontalLabels={false}
-              // Don't start from zero
-              fromZero={false}
-              // Hide all y-axis elements
-              hidePointsAtIndex={[]}
-              style={styles.chart}
-            />
+        {/* Alert Detail Modal */}
+        <Modal
+          animationType="none"
+          transparent={true}
+          visible={alertModalVisible}
+          onRequestClose={hideAlertModal}
+        >
+          <TouchableWithoutFeedback onPress={hideAlertModal}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                <Animated.View
+                  style={[
+                    styles.modalContent,
+                    {
+                      transform: [{ translateY: slideAnim }]
+                    }
+                  ]}
+                >
+                  <View
+                    {...panResponder.panHandlers}
+                    style={styles.modalPillContainer}
+                  >
+                    <View style={styles.modalPill} />
+                  </View>
+
+                  <View style={styles.modalBody}>
+                    <Text style={styles.modalTitle}>Alert Summary</Text>
+
+                    {activeDeviceIndex === 0 ? (
+                      // Porch SmarTanom alert details
+                      <Text style={styles.modalAlertText}>EC too low (Inadequate nutrients)</Text>
+                    ) : (
+                      // Backyard SmarTanom alert details
+                      <Text style={styles.modalAlertText}>pH too high (Adjust nutrient solution)</Text>
+                    )}
+
+                    <View style={styles.divider} />
+
+                    <Text style={styles.suggestedActionTitle}>Suggested Action</Text>
+
+                    {activeDeviceIndex === 0 ? (
+                      // Porch SmarTanom suggested action
+                      <Text style={styles.suggestedActionText}>
+                        Refill Part A (Calcium Nitrate) and Part B (Micronutrient Mix) to maintain optimal nutrient levels.
+                      </Text>
+                    ) : (
+                      // Backyard SmarTanom suggested action
+                      <Text style={styles.suggestedActionText}>
+                        Add pH down solution to bring pH levels within optimal range (5.8-6.2).
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Navigation Bar */}
+                  <View style={styles.navBar}>
+                    <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Tanom')}>
+                      <MaterialCommunityIcons name="sprout" size={24} color={Colors.primary} />
+                      <Text style={[styles.navButtonText, { color: Colors.primary }]}>Tanom</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Alerts')}>
+                      <Ionicons name="notifications-outline" size={24} color={Colors.darkGray} />
+                      <Text style={styles.navButtonText}>Alerts</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Profile')}>
+                      <Ionicons name="person-outline" size={24} color={Colors.darkGray} />
+                      <Text style={styles.navButtonText}>Profile</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Animated.View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        {/* Device Info Summary */}
+        <View style={styles.statusRow}>
+          <StatusBox
+            icon="wifi"
+            label="Connectivity"
+            value={activeDeviceIndex === 0 ? "Online" : "Online"}
+          />
+          <StatusBox
+            icon="time-outline"
+            label="Last Data"
+            value={activeDeviceIndex === 0 ? "5m ago" : "12m ago"}
+          />
+          <StatusBox
+            icon="battery-full"
+            label="Battery"
+            value={activeDeviceIndex === 0 ? "78%" : "92%"}
+          />
+        </View>
+
+        {/* Nutrient Level */}
+        <View style={styles.nutrientCard}>
+          <Text style={styles.nutrientTitle}>Nutrient Level</Text>
+          <View style={styles.nutrientStatusContainer}>
+            <MaterialCommunityIcons name="sprout" size={24} color={Colors.primary} />
+            {activeDeviceIndex === 0 ? (
+              // Porch SmarTanom nutrient level
+              <Text style={styles.nutrientStatus}>
+                <Text style={styles.nutrientStatusText}>Low </Text>
+                <Text style={styles.nutrientNote}>(Nutrient needs refilling)</Text>
+              </Text>
+            ) : (
+              // Backyard SmarTanom nutrient level
+              <Text style={styles.nutrientStatus}>
+                <Text style={styles.nutrientStatusText}>Optimal </Text>
+                <Text style={styles.nutrientNote}>(Nutrient level is good)</Text>
+              </Text>
+            )}
           </View>
         </View>
 
-        <Text style={styles.currentPH}>Current pH level: <Text style={styles.phValue}>{activeDeviceIndex === 0 ? '6.2' : '5.8'} pH</Text></Text>
-      </View>
+        {/* pH Chart */}
+        <View style={styles.chartCard}>
+          <View style={styles.chartHeader}>
+            <View style={styles.chartTitleContainer}>
+              <MaterialCommunityIcons name="chart-line" size={20} color={Colors.primary} />
+              <Text style={styles.chartTitle}>pH Levels over time</Text>
+            </View>
+            <View style={styles.chartPeriodSelector}>
+              <TouchableOpacity onPress={() => setChartPeriod('days')}>
+                <Text style={chartPeriod === 'days' ? styles.chartPeriodActive : styles.chartPeriod}>Days</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setChartPeriod('weeks')}>
+                <Text style={chartPeriod === 'weeks' ? styles.chartPeriodActive : styles.chartPeriod}>Weeks</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
-      {/* Sensor Metrics */}
-      <View style={styles.metricsGrid}>
-        {activeDeviceIndex === 0 ? (
-          // Porch SmarTanom metrics
-          <>
-            <MetricBox icon="water-outline" label="EC Levels" value="2.4 mS/cm" />
-            <MetricBox icon="flask-outline" label="TDS" value="950 ppm" />
-            <MetricBox icon="water" label="Water Level" value="85%" />
-            <MetricBox icon="water-opacity" label="Turbidity" value="3 NTU" />
-          </>
-        ) : (
-          // Backyard SmarTanom metrics
-          <>
-            <MetricBox icon="water-outline" label="EC Levels" value="1.8 mS/cm" />
-            <MetricBox icon="flask-outline" label="TDS" value="720 ppm" />
-            <MetricBox icon="water" label="Water Level" value="92%" />
-            <MetricBox icon="water-opacity" label="Turbidity" value="5 NTU" />
-          </>
-        )}
-      </View>
+          <View style={styles.deviceSelector}>
+            <View style={styles.deviceSelectorDot}></View>
+            <Text style={styles.deviceSelectorText}>{devices[activeDeviceIndex].name}</Text>
+          </View>
 
-      {/* Environmental Conditions */}
-      <View style={styles.environmentCard}>
-        <Text style={styles.environmentTitle}>Environment Conditions</Text>
-        {activeDeviceIndex === 0 ? (
-          // Porch SmarTanom environmental conditions
-          <>
-            <Condition icon="temperature-low" iconType="fa" label="Temperature" value="24.2°C" />
-            <Condition icon="droplet" iconType="feather" label="Humidity" value="68%" />
-            <Condition icon="white-balance-sunny" iconType="material" label="Light Intensity" value="9,000 Lux" />
-            <Condition icon="molecule-co2" iconType="material" label="CO₂ Level" value="415 ppm" />
-          </>
-        ) : (
-          // Backyard SmarTanom environmental conditions
-          <>
-            <Condition icon="temperature-low" iconType="fa" label="Temperature" value="26.8°C" />
-            <Condition icon="droplet" iconType="feather" label="Humidity" value="72%" />
-            <Condition icon="white-balance-sunny" iconType="material" label="Light Intensity" value="12,500 Lux" />
-            <Condition icon="molecule-co2" iconType="material" label="CO₂ Level" value="430 ppm" />
-          </>
-        )}
-      </View>
+          <View style={styles.chartContainer}>
+            {/* Custom pH labels on the left side */}
+            <View style={styles.customYAxisLabels}>
+              {activeDeviceIndex === 0 ? (
+                // Porch SmarTanom pH values
+                <>
+                  <Text style={styles.yAxisLabel}>6.6 pH</Text>
+                  <Text style={styles.yAxisLabel}>6.5 pH</Text>
+                  <Text style={styles.yAxisLabel}>6.4 pH</Text>
+                  <Text style={styles.yAxisLabel}>6.3 pH</Text>
+                  <Text style={styles.yAxisLabel}>6.2 pH</Text>
+                  <Text style={styles.yAxisLabel}>6.1 pH</Text>
+                  <Text style={styles.yAxisLabel}>6.0 pH</Text>
+                </>
+              ) : (
+                // Backyard SmarTanom pH values
+                <>
+                  <Text style={styles.yAxisLabel}>6.2 pH</Text>
+                  <Text style={styles.yAxisLabel}>6.1 pH</Text>
+                  <Text style={styles.yAxisLabel}>6.0 pH</Text>
+                  <Text style={styles.yAxisLabel}>5.9 pH</Text>
+                  <Text style={styles.yAxisLabel}>5.8 pH</Text>
+                  <Text style={styles.yAxisLabel}>5.7 pH</Text>
+                  <Text style={styles.yAxisLabel}>5.6 pH</Text>
+                </>
+              )}
+            </View>
+
+            {/* The actual chart */}
+            <View style={styles.chartWrapper}>
+              <LineChart
+                data={phData}
+                width={chartWidth - 50} // Reduce width to make room for custom labels
+                height={180}
+                chartConfig={{
+                  ...chartConfig,
+                  // Hide the default y-axis labels completely
+                  formatYLabel: () => '',
+                  // Hide the y-axis completely
+                  propsForLabels: { opacity: 0 },
+                  // Remove left padding since we're using custom labels
+                  paddingLeft: 0,
+                }}
+                bezier
+                withHorizontalLines={true}
+                withVerticalLines={false}
+                withDots={false}
+                withInnerLines={true}
+                withOuterLines={true}
+                withShadow={false}
+                yAxisLabel=""
+                // Don't render any y-axis labels
+                renderDotContent={() => null}
+                // Don't show any y-axis labels
+                withVerticalLabels={true}
+                withHorizontalLabels={false}
+                // Don't start from zero
+                fromZero={false}
+                // Hide all y-axis elements
+                hidePointsAtIndex={[]}
+                style={styles.chart}
+              />
+            </View>
+          </View>
+
+          <Text style={styles.currentPH}>Current pH level: <Text style={styles.phValue}>{activeDeviceIndex === 0 ? '6.2' : '5.8'} pH</Text></Text>
+        </View>
+
+        {/* Sensor Metrics */}
+        <View style={styles.metricsGrid}>
+          {activeDeviceIndex === 0 ? (
+            // Porch SmarTanom metrics
+            <>
+              <MetricBox icon="water-outline" label="EC Levels" value="2.4 mS/cm" />
+              <MetricBox icon="flask-outline" label="TDS" value="950 ppm" />
+              <MetricBox icon="water" label="Water Level" value="85%" />
+              <MetricBox icon="water-opacity" label="Turbidity" value="3 NTU" />
+            </>
+          ) : (
+            // Backyard SmarTanom metrics
+            <>
+              <MetricBox icon="water-outline" label="EC Levels" value="1.8 mS/cm" />
+              <MetricBox icon="flask-outline" label="TDS" value="720 ppm" />
+              <MetricBox icon="water" label="Water Level" value="92%" />
+              <MetricBox icon="water-opacity" label="Turbidity" value="5 NTU" />
+            </>
+          )}
+        </View>
+
+        {/* Environmental Conditions */}
+        <View style={styles.environmentCard}>
+          <Text style={styles.environmentTitle}>Environment Conditions</Text>
+          {activeDeviceIndex === 0 ? (
+            // Porch SmarTanom environmental conditions
+            <>
+              <Condition icon="temperature-low" iconType="fa" label="Temperature" value="24.2°C" />
+              <Condition icon="droplet" iconType="feather" label="Humidity" value="68%" />
+              <Condition icon="white-balance-sunny" iconType="material" label="Light Intensity" value="9,000 Lux" />
+              <Condition icon="molecule-co2" iconType="material" label="CO₂ Level" value="415 ppm" />
+            </>
+          ) : (
+            // Backyard SmarTanom environmental conditions
+            <>
+              <Condition icon="temperature-low" iconType="fa" label="Temperature" value="26.8°C" />
+              <Condition icon="droplet" iconType="feather" label="Humidity" value="72%" />
+              <Condition icon="white-balance-sunny" iconType="material" label="Light Intensity" value="12,500 Lux" />
+              <Condition icon="molecule-co2" iconType="material" label="CO₂ Level" value="430 ppm" />
+            </>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
