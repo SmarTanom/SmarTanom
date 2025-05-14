@@ -1,28 +1,56 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { useFonts, Alexandria_700Bold } from '@expo-google-fonts/alexandria';
+import { AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
+import { Montserrat_400Regular, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import Colors from '../constants/Colors';
 
 export default function WelcomeScreen({ navigation }) {
+  const [fontsLoaded] = useFonts({
+    Alexandria_700Bold,
+    AbrilFatface_400Regular,
+    Montserrat_400Regular,
+    Montserrat_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to SmarTanom</Text>
-      <Text style={styles.subtitle}>
-        From sensors to sunshine, everything your hydroponic plant needs is here.
-      </Text>
+      <View style={styles.backgroundCircle1} />
+      <View style={styles.backgroundCircle2} />
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../assets/smartanom.png')}
+          style={styles.logo}
+        />
+        <Text style={styles.logoText}>SMARTANOM</Text>
+      </View>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => navigation.navigate('Register')}
-      >
-        <Text style={[styles.buttonText, { color: Colors.primary }]}>Register</Text>
-      </TouchableOpacity>
+      <View style={styles.contentContainer}>
+        <Text style={styles.title}>Welcome to SmarTanom</Text>
+        <Text style={styles.subtitle}>
+          From sensors to sunshine, everything your hydroponic plant needs is here.
+        </Text>
+      </View>
 
-      <TouchableOpacity
-        style={[styles.button, styles.outlineButton]}
-        onPress={() => navigation.navigate('Login')}
-      >
-        <Text style={[styles.buttonText, { color: Colors.white }]}>Login</Text>
-      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.registerButton}
+          onPress={() => navigation.navigate('Register')}
+        >
+          <Text style={styles.registerButtonText}>Register</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.loginButton}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Text style={styles.loginButtonText}>Login</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -30,36 +58,93 @@ export default function WelcomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
+    backgroundColor: '#339432', // SmarTanom brand green
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  backgroundCircle1: {
+    position: 'absolute',
+    width: 500,
+    height: 500,
+    borderRadius: 250,
+    backgroundColor: 'rgba(6, 73, 44, 0.2)', // Darker green with opacity
+    bottom: -100,
+    right: -100,
+  },
+  backgroundCircle2: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(6, 73, 44, 0.15)', // Darker green with opacity
+    bottom: 50,
+    right: -50,
+  },
+  logoContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
+    marginTop: 40,
+    marginLeft: 20,
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+  },
+  logoText: {
+    color: Colors.white,
+    fontSize: 18,
+    fontFamily: 'Alexandria_700Bold',
+    marginLeft: 10,
+    letterSpacing: 1,
+  },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    marginBottom: 30,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     color: Colors.white,
-    fontWeight: 'bold',
+    fontFamily: 'AbrilFatface_400Regular',
     marginBottom: 10,
   },
   subtitle: {
     color: Colors.white,
-    textAlign: 'center',
+    fontSize: 15,
+    lineHeight: 24,
+    fontFamily: 'Montserrat_400Regular',
     marginBottom: 30,
+    textAlign: 'justify',
   },
-  button: {
+  buttonContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 40,
+  },
+  registerButton: {
     backgroundColor: Colors.white,
-    paddingVertical: 12,
-    paddingHorizontal: 50,
+    paddingVertical: 15,
     borderRadius: 8,
-    marginBottom: 10,
+    alignItems: 'center',
+    marginBottom: 15,
   },
-  outlineButton: {
+  registerButtonText: {
+    color: Colors.primary,
+    fontSize: 16,
+    fontFamily: 'Montserrat_700Bold',
+  },
+  loginButton: {
     backgroundColor: 'transparent',
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.white,
   },
-  buttonText: {
+  loginButtonText: {
+    color: Colors.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: 'Montserrat_700Bold',
   },
 });

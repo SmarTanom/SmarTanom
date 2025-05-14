@@ -26,7 +26,7 @@ export default function LaunchScreen({ navigation }) {
   return (
     <TouchableWithoutFeedback onPress={handleSkip}>
       <View style={styles.container}>
-        <Image source={require('../assets/logo.png')} style={styles.logo} />
+        <Image source={require('../assets/launch.png')} style={styles.logo} />
       </View>
     </TouchableWithoutFeedback>
   );
@@ -40,8 +40,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 150,
-    height: 150,
+    width: 450,
+    height: 450,
     resizeMode: 'contain',
   },
 });
