@@ -1,10 +1,11 @@
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
+from django.conf import settings
 
 def get_activation_email(user, request, token):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
-    frontend_base_url = "http://10.0.2.2:8081"  # Emulator's localhost alias
-    activation_link = f"{frontend_base_url}/activate/{uid}/{token}"
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:8081')
+    activation_link = f"{frontend_url}/activate/{uid}/{token}"
 
     subject = "Activate your SmarTanom Account"
     message = f"""
