@@ -4,10 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import { AuthContext } from '../context/AuthContext';
 import Colors from '../constants/Colors';
-import { useAppSettings } from '../context/AppSettingsContext';
+import { AppSettingsContext } from '../context/AppSettingsContext';
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout } = useContext(AuthContext);
+  const { darkMode } = useContext(AppSettingsContext);
 
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
@@ -20,8 +21,7 @@ export default function ProfileScreen({ navigation }) {
     return null;
   }
 
-  const { darkMode } = useAppSettings();
-  
+  const styles = getStyles(darkMode);
 
   const handleLogout = async () => {
     await logout();
@@ -37,8 +37,8 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.header}>
           <View style={styles.profileImageContainer}>
             <View style={styles.profileImagePlaceholder}>
-            <Ionicons name="person" size={50} color={Colors.primary} />
-          </View>
+              <Ionicons name="person" size={50} color={Colors.primary} />
+            </View>
           </View>
           <Text style={styles.name}>{user?.name || 'User'}</Text>
           <Text style={styles.email}>{user?.email || 'user@example.com'}</Text>
@@ -53,19 +53,13 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('NotificationScreen')}
-          >
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('NotificationScreen')}>
             <Ionicons name="notifications-outline" size={22} color={Colors.primary} />
             <Text style={styles.menuText}>Notifications</Text>
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('PrivacyandSecurityScreen')}
-          >
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('PrivacyandSecurityScreen')}>
             <Ionicons name="lock-closed-outline" size={22} color={Colors.primary} />
             <Text style={styles.menuText}>Privacy & Security</Text>
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
@@ -91,13 +85,13 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('HelpCenter')}>
             <Ionicons name="help-circle-outline" size={22} color={Colors.primary} />
             <Text style={styles.menuText}>Help Center</Text>
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('About')}>
             <Ionicons name="information-circle-outline" size={22} color={Colors.primary} />
             <Text style={styles.menuText}>About</Text>
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
@@ -113,95 +107,95 @@ export default function ProfileScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.white,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: Colors.white,
-  },
-  header: {
-    alignItems: 'center',
-    paddingVertical: 30,
-    backgroundColor: Colors.primary,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  profileImageContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  profileImagePlaceholder: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: Colors.lightGray,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  name: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 22,
-    color: Colors.white,
-    marginBottom: 5,
-  },
-  email: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 14,
-    color: Colors.white,
-    opacity: 0.8,
-  },
-  section: {
-    marginTop: 25,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 16,
-    color: Colors.darkText,
-    marginBottom: 15,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.lightGray,
-  },
-  menuText: {
-    fontFamily: 'Montserrat_500Medium',
-    fontSize: 15,
-    color: Colors.darkText,
-    flex: 1,
-    marginLeft: 15,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.alertRed,
-    marginHorizontal: 20,
-    marginVertical: 30,
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  logoutText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 16,
-    color: Colors.white,
-    marginLeft: 10,
-  },
-  
-});
+const getStyles = (darkMode) =>
+  StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: darkMode ? Colors.darkBackground : Colors.white,
+    },
+    container: {
+      flex: 1,
+      backgroundColor: darkMode ? Colors.darkBackground : Colors.white,
+    },
+    header: {
+      alignItems: 'center',
+      paddingVertical: 30,
+      backgroundColor: Colors.primary,
+      borderBottomLeftRadius: 30,
+      borderBottomRightRadius: 30,
+    },
+    profileImageContainer: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor: Colors.white,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 15,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+    profileImagePlaceholder: {
+      width: 90,
+      height: 90,
+      borderRadius: 45,
+      backgroundColor: Colors.lightGray,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    name: {
+      fontFamily: 'Montserrat_600SemiBold',
+      fontSize: 22,
+      color: Colors.white,
+      marginBottom: 5,
+    },
+    email: {
+      fontFamily: 'Montserrat_400Regular',
+      fontSize: 14,
+      color: Colors.white,
+      opacity: 0.8,
+    },
+    section: {
+      marginTop: 25,
+      paddingHorizontal: 20,
+    },
+    sectionTitle: {
+      fontFamily: 'Montserrat_600SemiBold',
+      fontSize: 16,
+      color: darkMode ? Colors.white : Colors.darkText,
+      marginBottom: 15,
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: Colors.lightGray,
+    },
+    menuText: {
+      fontFamily: 'Montserrat_500Medium',
+      fontSize: 15,
+      color: darkMode ? Colors.white : Colors.darkText,
+      flex: 1,
+      marginLeft: 15,
+    },
+    logoutButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: Colors.alertRed,
+      marginHorizontal: 20,
+      marginVertical: 30,
+      paddingVertical: 12,
+      borderRadius: 10,
+    },
+    logoutText: {
+      fontFamily: 'Montserrat_600SemiBold',
+      fontSize: 16,
+      color: Colors.white,
+      marginLeft: 10,
+    },
+  });

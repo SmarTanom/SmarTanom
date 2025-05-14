@@ -16,6 +16,8 @@ import LoginScreen from '../screens/LoginScreen';
 import Notification from '../screens/NotificationScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import HelpCenterScreen from '../screens/HelpCenterScreen';
+import AboutScreen from '../screens/AboutScreen';
 
 // Main App Screens
 import DashboardScreen from '../screens/DashboardScreen';
@@ -115,6 +117,8 @@ export default function AppNavigator() {
       <Stack.Screen name="PrivacyandSecurityScreen" component={require('../screens/PrivacyandSecurityScreen').default} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+      <Stack.Screen name="About" component={AboutScreen} />
       
     </Stack.Navigator>
   );

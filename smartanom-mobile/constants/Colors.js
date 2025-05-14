@@ -12,4 +12,5 @@ export default {
   chartGreen: 'rgba(76, 175, 80, 0.9)', // Chart green with 90% opacity
   chartLightGreen: 'rgba(165, 214, 167, 0.9)', // Chart light green with 90% opacity
   black: '#000',
+  darkBackground: '#121212',
 };
