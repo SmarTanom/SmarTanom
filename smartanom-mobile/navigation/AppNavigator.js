@@ -16,20 +16,10 @@ import LoginScreen from '../screens/LoginScreen';
 // Main App Screens
 import DashboardScreen from '../screens/DashboardScreen';
 import DeviceDetailScreen from '../screens/DeviceDetailScreen';
+import AlertsScreen from '../screens/AlertsScreen';
 
 // Import Colors
 import Colors from '../constants/Colors';
-
-// Create placeholder screens for Alerts and Profile
-function AlertsScreen() {
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.text}>Alerts Screen</Text>
-      </View>
-    </SafeAreaView>
-  );
-}
 
 function ProfileScreen() {
   return (

@@ -57,12 +57,12 @@ export default function DeviceDetailScreen({ route }) {
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
-              <Ionicons name="chevron-back" size={20} color={Colors.primary} />
+              <Ionicons name="chevron-back" size={20} color="rgba(51, 148, 50, 0.9)" />
               <Text style={styles.backText}>Go back</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuButton}>
-              <Ionicons name="ellipsis-horizontal" size={24} color="#000" />
+              <Ionicons name="ellipsis-horizontal" size={24} color="rgba(51, 148, 50, 0.9)" />
             </TouchableOpacity>
           </View>
         </View>
@@ -223,9 +223,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   backText: {
-    fontFamily: 'Montserrat_500Medium',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
-    color: Colors.primary,
+    color: "rgba(51, 148, 50, 0.9)",
     marginLeft: 4,
   },
   menuButton: {
@@ -244,14 +244,14 @@ const styles = StyleSheet.create({
   },
   deviceName: {
     fontFamily: 'AbhayaLibre_800ExtraBold',
-    fontSize: 24,
-    color: '#111111',
+    fontSize: 28,
+    color: 'rgba(17, 17, 17, 0.86)',
     marginBottom: 4,
   },
   deviceId: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
-    color: '#666666',
+    color: 'rgba(17, 17, 17, 0.5)',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.secondary,
     flex: 1,
     marginLeft: 12,
