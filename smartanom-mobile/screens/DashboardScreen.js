@@ -34,6 +34,7 @@ import { AbrilFatface_400Regular } from "@expo-google-fonts/abril-fatface";
 import { useDeviceImages } from "../context/DeviceImageContext";
 import Colors from "../constants/Colors";
 import { AuthContext } from "../context/AuthContext";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from "axios";
 
 export default function DashboardScreen() {
@@ -41,6 +42,7 @@ export default function DashboardScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const { getDeviceImage } = useDeviceImages();
+  const [username, setUsername] = useState('');
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_500Medium,
@@ -48,6 +50,22 @@ export default function DashboardScreen() {
     Montserrat_700Bold,
     AbrilFatface_400Regular,
   });
+
+  // Load username from AsyncStorage
+  useEffect(() => {
+    const loadUsername = async () => {
+      try {
+        const storedUsername = await AsyncStorage.getItem('username');
+        if (storedUsername) {
+          setUsername(storedUsername);
+        }
+      } catch (error) {
+        console.error('Failed to load username:', error);
+      }
+    };
+
+    loadUsername();
+  }, []);
 
   // Simplified state for temperature and humidity
   const [temperature, setTemperature] = useState("--");
@@ -111,11 +129,11 @@ export default function DashboardScreen() {
           },
         }
       );
-  
+
       if (response.data.success) {
         // Add debug logging
         console.log("Raw API Response:", response.data);
-        
+
         // Validate and set temperature
         const temp = parseFloat(response.data.temperature);
         if (!isNaN(temp) && temp >= -20 && temp <= 50) {
@@ -124,7 +142,7 @@ export default function DashboardScreen() {
         } else {
           console.warn("Invalid temperature value received:", response.data.temperature);
         }
-        
+
         // Validate and set humidity
         const hum = parseFloat(response.data.humidity);
         if (!isNaN(hum) && hum >= 0 && hum <= 100) {
@@ -263,10 +281,7 @@ export default function DashboardScreen() {
         contentContainerStyle={styles.contentContainer}
       >
         <View style={styles.header}>
-          <Text style={styles.greeting}>
-            Hello, {user?.name || "User"}
-            <Text style={styles.emoji}>🌱</Text>
-          </Text>
+          <Text style={styles.greeting}>Hello, {username || user?.name || 'User'}<Text style={styles.emoji}>🌱</Text></Text>
           <Ionicons name="settings-outline" size={24} color={Colors.primary} />
         </View>
 
