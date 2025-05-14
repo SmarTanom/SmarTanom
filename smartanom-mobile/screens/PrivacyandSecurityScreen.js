@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/Colors';
+import { AppSettingsContext } from '../context/AppSettingsContext';
 
 const DATA_RETENTION_OPTIONS = ['1m', '6m', '12m', 'Custom'];
 
 export default function PrivacyandSecurityScreen({ navigation }) {
+  const { darkMode } = useContext(AppSettingsContext);
+  const styles = getStyles(darkMode);
+
   const [dataRetention, setDataRetention] = useState('6m');
   const [locationAccess, setLocationAccess] = useState(false);
   const [cameraAccess, setCameraAccess] = useState(false);
@@ -149,106 +153,107 @@ export default function PrivacyandSecurityScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.white,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 30,
-    marginTop: 10,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: Colors.primary,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.darkText,
-  },
-  section: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.darkText,
-    marginBottom: 15,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  rowText: {
-    flex: 1,
-    marginLeft: 15,
-    fontSize: 16,
-    color: Colors.darkText,
-  },
-  changeButton: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  changeButtonText: {
-    color: Colors.white,
-    fontWeight: '600',
-  },
-  dropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.lightGray,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  dropdownText: {
-    marginRight: 5,
-    fontSize: 16,
-    color: Colors.darkText,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: Colors.primary,
-    paddingVertical: 10,
-    borderRadius: 6,
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  deleteButton: {
-    backgroundColor: Colors.alertRed,
-    marginRight: 0,
-  },
-  actionButtonText: {
-    color: Colors.white,
-    fontWeight: '600',
-  },
-  deleteButtonText: {
-    color: Colors.white,
-  },
-  linkText: {
-    color: Colors.primary,
-    fontWeight: '600',
-    fontSize: 16,
-    marginTop: 10,
-  },
-});
+const getStyles = (darkMode) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: darkMode ? Colors.darkBackground : Colors.white,
+    },
+    contentContainer: {
+      padding: 20,
+      paddingBottom: 40,
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 30,
+      marginTop: 10,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      backgroundColor: Colors.primary,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 10,
+    },
+    headerTitle: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: darkMode ? Colors.white : Colors.darkText,
+    },
+    section: {
+      marginBottom: 30,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: darkMode ? Colors.white : Colors.darkText,
+      marginBottom: 15,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 15,
+    },
+    rowText: {
+      flex: 1,
+      marginLeft: 15,
+      fontSize: 16,
+      color: darkMode ? Colors.white : Colors.darkText,
+    },
+    changeButton: {
+      backgroundColor: Colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+    },
+    changeButtonText: {
+      color: Colors.white,
+      fontWeight: '600',
+    },
+    dropdown: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: Colors.lightGray,
+      borderRadius: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    dropdownText: {
+      marginRight: 5,
+      fontSize: 16,
+      color: darkMode ? Colors.white : Colors.darkText,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    actionButton: {
+      flex: 1,
+      backgroundColor: Colors.primary,
+      paddingVertical: 10,
+      borderRadius: 6,
+      alignItems: 'center',
+      marginRight: 10,
+    },
+    deleteButton: {
+      backgroundColor: Colors.alertRed,
+      marginRight: 0,
+    },
+    actionButtonText: {
+      color: Colors.white,
+      fontWeight: '600',
+    },
+    deleteButtonText: {
+      color: Colors.white,
+    },
+    linkText: {
+      color: Colors.primary,
+      fontWeight: '600',
+      fontSize: 16,
+      marginTop: 10,
+    },
+  });
