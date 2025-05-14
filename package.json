@@ -1,5 +1,8 @@
 {
   "dependencies": {
-    "@expo-google-fonts/abril-fatface": "^0.3.0"
+    "@expo-google-fonts/abril-fatface": "^0.3.0",
+    "react-dom": "18.2.0",
+    "react-native-web": "~0.19.10",
+    "@expo/metro-runtime": "~3.2.3"
   }
 }

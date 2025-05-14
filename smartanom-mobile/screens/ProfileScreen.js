@@ -49,13 +49,19 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('NotificationScreen')}
+          >
             <Ionicons name="notifications-outline" size={22} color={Colors.primary} />
             <Text style={styles.menuText}>Notifications</Text>
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('PrivacyandSecurityScreen')}
+          >
             <Ionicons name="lock-closed-outline" size={22} color={Colors.primary} />
             <Text style={styles.menuText}>Privacy & Security</Text>
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />

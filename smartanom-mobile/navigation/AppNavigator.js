@@ -13,6 +13,8 @@ import PersonalizeScreen from '../screens/PersonalizeScreen';
 import SetupScreen from '../screens/SetupScreen';
 import LoginScreen from '../screens/LoginScreen';
 
+import Notification from '../screens/NotificationScreen';
+
 // Main App Screens
 import DashboardScreen from '../screens/DashboardScreen';
 import DeviceDetailScreen from '../screens/DeviceDetailScreen';
@@ -107,6 +109,8 @@ export default function AppNavigator() {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="MainApp" component={MainTabNavigator} />
       <Stack.Screen name="DeviceDetail" component={DeviceDetailScreen} />
+      <Stack.Screen name="NotificationScreen" component={Notification} />
+      <Stack.Screen name="PrivacyandSecurityScreen" component={require('../screens/PrivacyandSecurityScreen').default} />
     </Stack.Navigator>
   );
 }
