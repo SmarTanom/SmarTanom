@@ -12,10 +12,9 @@ export const AppSettingsProvider = ({ children }) => {
   const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
-    // Load the user's preference or system setting for dark mode
-    const systemDarkMode = Appearance.getColorScheme() === 'dark';
-    setDarkMode(systemDarkMode);
+    setDarkMode(false); // Force light mode as default
   }, []);
+  
 
   // Toggle dark mode
   const toggleDarkMode = () => setDarkMode(prevMode => !prevMode);

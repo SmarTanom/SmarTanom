@@ -10,6 +10,7 @@ export default function ProfileScreen({ navigation }) {
   const { user, logout } = useContext(AuthContext);
   const { darkMode } = useContext(AppSettingsContext);
 
+
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_500Medium,
@@ -21,7 +22,8 @@ export default function ProfileScreen({ navigation }) {
     return null;
   }
 
-  const styles = getStyles(darkMode);
+
+  
 
   const handleLogout = async () => {
     await logout();
@@ -31,6 +33,8 @@ export default function ProfileScreen({ navigation }) {
     });
   };
 
+  const styles = getStyles(darkMode);
+  
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container}>
