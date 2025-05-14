@@ -10,5 +10,6 @@ export default {
   headerText: 'rgba(17, 17, 17, 0.86)', // #111111 with 86% opacity
   alertRed: '#CD5151',
   chartGreen: 'rgba(76, 175, 80, 0.9)', // Chart green with 90% opacity
-  chartLightGreen: 'rgba(165, 214, 167, 0.9)' // Chart light green with 90% opacity
+  chartLightGreen: 'rgba(165, 214, 167, 0.9)', // Chart light green with 90% opacity
+  black: '#000',
 };
