@@ -26,7 +26,8 @@ class User(AbstractBaseUser):
     email = models.EmailField(unique=True)
     is_admin = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)  # Changed to False by default
+    email_verified = models.BooleanField(default=False)  # New field
     contact = models.CharField(max_length=15, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
