@@ -26,13 +26,18 @@ import Colors from '../constants/Colors';
 
 export default function DeviceDetailScreen({ route }) {
   const navigation = useNavigation();
-  const { device } = route.params;
+  const { device, newCycleStarted, selectedPlants } = route.params || {};
   const [activeTab, setActiveTab] = useState('PLANTS');
   const { getDeviceImage, updateDeviceImage } = useDeviceImages();
   const [currentImage, setCurrentImage] = useState(getDeviceImage(device.id));
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
   const [sortOrder, setSortOrder] = useState('Date: Descending');
   const [showSortOptions, setShowSortOptions] = useState(false);
+  const [currentPlant, setCurrentPlant] = useState({
+    name: 'Romaine',
+    type: 'Lettuce',
+    daysToHarvest: 35
+  });
 
   // Sample log data
   const logData = [
@@ -268,6 +273,45 @@ export default function DeviceDetailScreen({ route }) {
     };
   }, []);
 
+  // Handle new cycle data when returning from NewCycleScreen
+  useEffect(() => {
+    if (newCycleStarted && selectedPlants && selectedPlants.length > 0) {
+      // Update the current plant with the first selected plant
+      const newPlant = selectedPlants[0];
+      setCurrentPlant({
+        name: newPlant.name,
+        type: newPlant.type,
+        daysToHarvest: 35 // Default days to harvest
+      });
+
+      // In a real app, we would add a new log entry for starting a new cycle
+      // For example:
+      // const newLogEntry = {
+      //   id: logData.length + 1,
+      //   type: 'info',
+      //   title: 'New cycle started',
+      //   message: `You just started a new cycle with ${newPlant.name} ${newPlant.type}.`,
+      //   icon: 'information-circle',
+      //   iconColor: '#339432',
+      //   date: new Date().toLocaleDateString('en-US', {
+      //     month: '2-digit',
+      //     day: '2-digit',
+      //     year: '2-digit'
+      //   }),
+      //   timeAgo: 'now'
+      // };
+      // logData.unshift(newLogEntry);
+
+      // We would normally update the log data here, but since it's static in this example,
+      // we'll just show an alert to simulate the change
+      Alert.alert(
+        'New Cycle Started',
+        `You've successfully started a new growing cycle with ${newPlant.name} ${newPlant.type}.`,
+        [{ text: 'OK', style: 'default' }]
+      );
+    }
+  }, [newCycleStarted, selectedPlants]);
+
   if (!fontsLoaded) {
     return null;
   }
@@ -335,7 +379,7 @@ export default function DeviceDetailScreen({ route }) {
               <View style={styles.statusRow}>
                 <Ionicons name="time-outline" size={24} color={Colors.primary} />
                 <Text style={styles.statusText}>
-                  Romaine Lettuce is estimated to be ready for harvest in 35 days.
+                  {currentPlant.name} {currentPlant.type} is estimated to be ready for harvest in {currentPlant.daysToHarvest} days.
                 </Text>
               </View>
             </View>
@@ -352,14 +396,17 @@ export default function DeviceDetailScreen({ route }) {
                   style={styles.plantImage}
                 />
                 <View style={styles.plantDetails}>
-                  <Text style={styles.plantName}>Romaine</Text>
-                  <Text style={styles.plantType}>Lettuce</Text>
+                  <Text style={styles.plantName}>{currentPlant.name}</Text>
+                  <Text style={styles.plantType}>{currentPlant.type}</Text>
                 </View>
-                <Text style={styles.harvestTime}>Harvest in 35 days</Text>
+                <Text style={styles.harvestTime}>Harvest in {currentPlant.daysToHarvest} days</Text>
               </View>
             </View>
 
-            <TouchableOpacity style={styles.newCycleButton}>
+            <TouchableOpacity
+              style={styles.newCycleButton}
+              onPress={() => navigation.navigate('NewCycle', { device })}
+            >
               <Text style={styles.newCycleButtonText}>Start New Cycle</Text>
             </TouchableOpacity>
           </>

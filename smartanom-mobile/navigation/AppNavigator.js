@@ -31,6 +31,7 @@ import ReportIssueScreen from '../screens/ReportIssueScreen';
 // Main App Screens
 import DashboardScreen from '../screens/DashboardScreen';
 import DeviceDetailScreen from '../screens/DeviceDetailScreen';
+import NewCycleScreen from '../screens/NewCycleScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
@@ -133,6 +134,7 @@ export default function AppNavigator() {
       <Stack.Screen name="SensorSettings" component={SensorSettingsScreen} />
       <Stack.Screen name="CycleSettings" component={CycleSettingsScreen} />
       <Stack.Screen name="ConnectivityScreen" component={ConnectivityScreen} />
+      <Stack.Screen name="NewCycle" component={NewCycleScreen} />
       <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="Language" component={LanguageScreen} />
