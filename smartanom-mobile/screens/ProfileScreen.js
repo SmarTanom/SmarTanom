@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import { AuthContext } from '../context/AuthContext';
 import Colors from '../constants/Colors';
+import { useAppSettings } from '../context/AppSettingsContext';
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout } = useContext(AuthContext);
@@ -18,6 +19,9 @@ export default function ProfileScreen({ navigation }) {
   if (!fontsLoaded) {
     return null;
   }
+
+  const { darkMode } = useAppSettings();
+  
 
   const handleLogout = async () => {
     await logout();
@@ -65,7 +69,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Preferences</Text>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Settings')}>
             <Ionicons name="settings-outline" size={22} color={Colors.primary} />
             <Text style={styles.menuText}>Settings</Text>
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
@@ -193,4 +197,5 @@ const styles = StyleSheet.create({
     color: Colors.white,
     marginLeft: 10,
   },
+  
 });
