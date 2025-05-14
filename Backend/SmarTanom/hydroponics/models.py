@@ -55,7 +55,7 @@ class SmarTanomData(models.Model):
     
     id = models.AutoField(primary_key=True)
     sensor = models.ForeignKey(Sensor, on_delete=models.CASCADE)
-    value = models.FloatField()
+    value = models.FloatField(null=False)  # Explicitly prevent null values
     data_type = models.CharField(max_length=20, choices=DATA_TYPE_CHOICES, default='other')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -65,17 +65,6 @@ class SmarTanomData(models.Model):
 
     def __str__(self):
         return f"Data {self.id} - {self.sensor.type} ({self.data_type})"
-    id = models.AutoField(primary_key=True)
-    sensor = models.ForeignKey(Sensor, on_delete=models.CASCADE)
-    value = models.FloatField()
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = "SmarTanom Data"
-        verbose_name_plural = "SmarTanom Data"
-
-    def __str__(self):
-        return f"Data {self.id} - {self.sensor.type}"
 
 class WaterLog(models.Model):
     id = models.AutoField(primary_key=True)
