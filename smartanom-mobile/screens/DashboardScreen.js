@@ -718,6 +718,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  cardActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  settingsButton: {
+    marginRight: 8,
+    padding: 4,
+  },
   cardTitle: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,

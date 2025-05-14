@@ -18,6 +18,11 @@ import Notification from '../screens/NotificationScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import EditUsernameScreen from '../screens/EditUsernameScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+
+import SyncSettingsScreen from '../screens/SyncSettingsScreen';
+import SensorSettingsScreen from '../screens/SensorSettingsScreen';
+import CycleSettingsScreen from '../screens/CycleSettingsScreen';
+import ConnectivityScreen from '../screens/ConnectivityScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import AboutScreen from '../screens/AboutScreen';
 import LanguageScreen from '../screens/LanguageScreen';
@@ -123,6 +128,11 @@ export default function AppNavigator() {
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="EditUsername" component={EditUsernameScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+
+      <Stack.Screen name="SyncSettings" component={SyncSettingsScreen} />
+      <Stack.Screen name="SensorSettings" component={SensorSettingsScreen} />
+      <Stack.Screen name="CycleSettings" component={CycleSettingsScreen} />
+      <Stack.Screen name="ConnectivityScreen" component={ConnectivityScreen} />
       <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
       <Stack.Screen name="About" component={AboutScreen} />
       <Stack.Screen name="Language" component={LanguageScreen} />
