@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useContext } from 'react';
+import React, { useEffect, useState, useRef, useContext } from "react";
 import {
   View,
   Text,
@@ -13,16 +13,28 @@ import {
   Modal,
   Animated,
   TouchableWithoutFeedback,
-  PanResponder
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from '@expo/vector-icons';
-import { LineChart } from 'react-native-chart-kit';
-import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
-import { AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
-import { useDeviceImages } from '../context/DeviceImageContext';
-import Colors from '../constants/Colors';
-import { AuthContext } from '../context/AuthContext';
+  PanResponder,
+} from "react-native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import {
+  Ionicons,
+  MaterialCommunityIcons,
+  FontAwesome5,
+  Feather,
+} from "@expo/vector-icons";
+import { LineChart } from "react-native-chart-kit";
+import {
+  useFonts,
+  Montserrat_400Regular,
+  Montserrat_500Medium,
+  Montserrat_600SemiBold,
+  Montserrat_700Bold,
+} from "@expo-google-fonts/montserrat";
+import { AbrilFatface_400Regular } from "@expo-google-fonts/abril-fatface";
+import { useDeviceImages } from "../context/DeviceImageContext";
+import Colors from "../constants/Colors";
+import { AuthContext } from "../context/AuthContext";
+import axios from "axios";
 
 export default function DashboardScreen() {
   const { user } = useContext(AuthContext);
@@ -37,55 +49,107 @@ export default function DashboardScreen() {
     AbrilFatface_400Regular,
   });
 
+  // Simplified state for temperature and humidity
+  const [temperature, setTemperature] = useState("--");
+  const [humidity, setHumidity] = useState("--");
+
+  const [activeDeviceIndex, setActiveDeviceIndex] = useState(0);
+  const [alertModalVisible, setAlertModalVisible] = useState(false);
+  const [chartPeriod, setChartPeriod] = useState("days");
+  const [chartWidth, setChartWidth] = useState(width - 60);
+
+  const flatListRef = useRef(null);
+  const slideAnim = useRef(new Animated.Value(300)).current;
+  const fetchIntervalRef = useRef(null);
+
   // Device data for swipeable cards
   const devices = [
     {
-      id: '0000000001',
-      name: 'Porch SmarTanom',
-      get image() { return getDeviceImage('0000000001'); }, // Dynamic getter for the image
+      id: "0000000001",
+      name: "Porch SmarTanom",
+      get image() {
+        return getDeviceImage("0000000001");
+      },
     },
     {
-      id: '0000000002',
-      name: 'Backyard SmarTanom',
-      get image() { return getDeviceImage('0000000002'); }, // Dynamic getter for the image
-    }
+      id: "0000000002",
+      name: "Backyard SmarTanom",
+      get image() {
+        return getDeviceImage("0000000002");
+      },
+    },
   ];
 
-  const [activeDeviceIndex, setActiveDeviceIndex] = useState(0);
-  const flatListRef = useRef(null);
-
-  // Alert modal state
-  const [alertModalVisible, setAlertModalVisible] = useState(false);
-  const slideAnim = useRef(new Animated.Value(300)).current;
-
-  // Create PanResponder for swipe gestures
   const panResponder = useRef(
-    React.useMemo(
-      () =>
-        PanResponder.create({
-          onStartShouldSetPanResponder: () => true,
-          onPanResponderMove: (_, gestureState) => {
-            if (gestureState.dy > 0) { // Only allow downward swipe
-              slideAnim.setValue(gestureState.dy);
-            }
-          },
-          onPanResponderRelease: (_, gestureState) => {
-            if (gestureState.dy > 50) { // If swiped down more than 50px, close the modal
-              hideAlertModal();
-            } else {
-              // Otherwise, snap back to open position
-              Animated.spring(slideAnim, {
-                toValue: 0,
-                useNativeDriver: true,
-              }).start();
-            }
-          },
-        }),
-      []
-    )
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          slideAnim.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 50) {
+          hideAlertModal();
+        } else {
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
   ).current;
 
-  // Function to show the alert modal with animation
+  const fetchDHT22Data = async () => {
+    try {
+      const response = await axios.get(
+        "http://192.168.1.9:8000/api/hydroponics/dht22-data/",
+        {
+          headers: {
+            Authorization: `Token d7a0f7759605f4895e11230baa021f08a416b01b`,
+          },
+        }
+      );
+  
+      if (response.data.success) {
+        // Validate the values before setting them
+        const temp = parseFloat(response.data.temperature);
+        const hum = parseFloat(response.data.humidity);
+        
+        // Temperature should be between -20 and 50 (reasonable range)
+        if (!isNaN(temp) && temp >= -20 && temp <= 50) {
+          setTemperature(temp.toFixed(1));
+        }
+        
+        // Humidity should be between 0 and 100
+        if (!isNaN(hum) && hum >= 0 && hum <= 100) {
+          setHumidity(hum.toFixed(1));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching DHT22 data:", error);
+    }
+  };
+
+  // Set up polling when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchDHT22Data(); // Initial fetch
+      fetchIntervalRef.current = setInterval(fetchDHT22Data, 3000); // Update every 3 seconds
+
+      return () => {
+        if (fetchIntervalRef.current) {
+          clearInterval(fetchIntervalRef.current);
+        }
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    setChartWidth(width - 60);
+  }, [width]);
+
   const showAlertModal = () => {
     setAlertModalVisible(true);
     Animated.timing(slideAnim, {
@@ -95,7 +159,6 @@ export default function DashboardScreen() {
     }).start();
   };
 
-  // Function to hide the alert modal with animation
   const hideAlertModal = () => {
     Animated.timing(slideAnim, {
       toValue: 300,
@@ -106,73 +169,56 @@ export default function DashboardScreen() {
     });
   };
 
-  // Chart period state (Days or Weeks)
-  const [chartPeriod, setChartPeriod] = useState('days');
-
-  // Calculate responsive sizes
-  const [chartWidth, setChartWidth] = useState(width - 60); // Width for the chart area
-
-  useEffect(() => {
-    // Update chart width when screen dimensions change
-    setChartWidth(width - 60); // Width for the chart area
-  }, [width]);
-
-
-
-  // Sample data for Porch SmarTanom - Days
+  // Sample data for charts
   const porchPhDataDays = {
     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     datasets: [
       {
         data: [6.0, 6.1, 6.3, 6.2, 6.4, 6.3, 6.2],
         color: () => Colors.chartGreen,
-        strokeWidth: 2
-      }
+        strokeWidth: 2,
+      },
     ],
   };
 
-  // Sample data for Porch SmarTanom - Weeks
   const porchPhDataWeeks = {
     labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
     datasets: [
       {
         data: [6.1, 6.3, 6.2, 6.2],
         color: () => Colors.chartGreen,
-        strokeWidth: 2
-      }
+        strokeWidth: 2,
+      },
     ],
   };
 
-  // Sample data for Backyard SmarTanom - Days
   const backyardPhDataDays = {
     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     datasets: [
       {
         data: [5.8, 5.9, 6.0, 6.1, 6.0, 5.9, 5.8],
         color: () => Colors.chartGreen,
-        strokeWidth: 2
-      }
+        strokeWidth: 2,
+      },
     ],
   };
 
-  // Sample data for Backyard SmarTanom - Weeks
   const backyardPhDataWeeks = {
     labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
     datasets: [
       {
         data: [5.9, 6.0, 5.9, 5.8],
         color: () => Colors.chartGreen,
-        strokeWidth: 2
-      }
+        strokeWidth: 2,
+      },
     ],
   };
 
-  // Get the appropriate data based on the selected device and period
   const getPhData = () => {
     if (activeDeviceIndex === 0) {
-      return chartPeriod === 'days' ? porchPhDataDays : porchPhDataWeeks;
+      return chartPeriod === "days" ? porchPhDataDays : porchPhDataWeeks;
     } else {
-      return chartPeriod === 'days' ? backyardPhDataDays : backyardPhDataWeeks;
+      return chartPeriod === "days" ? backyardPhDataDays : backyardPhDataWeeks;
     }
   };
 
@@ -194,22 +240,26 @@ export default function DashboardScreen() {
       strokeDasharray: "",
       stroke: Colors.lightGray,
     },
-    yAxisSuffix: '',
-    // Format y-axis labels to show actual pH values with 1 decimal place
+    yAxisSuffix: "",
     formatYLabel: (yValue) => yValue.toFixed(1),
-    // Add left padding for y-axis labels
     paddingLeft: 40,
   };
 
   if (!fontsLoaded) {
-    return null; // Return null or a loading screen while fonts are loading
+    return null;
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+      >
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hello, {user?.name || 'User'}<Text style={styles.emoji}>🌱</Text></Text>
+          <Text style={styles.greeting}>
+            Hello, {user?.name || "User"}
+            <Text style={styles.emoji}>🌱</Text>
+          </Text>
           <Ionicons name="settings-outline" size={24} color={Colors.primary} />
         </View>
 
@@ -223,14 +273,18 @@ export default function DashboardScreen() {
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item.id}
             onMomentumScrollEnd={(event) => {
-              const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+              const newIndex = Math.round(
+                event.nativeEvent.contentOffset.x / width
+              );
               setActiveDeviceIndex(newIndex);
             }}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[styles.deviceCard, { width: width - 32 }]}
                 activeOpacity={0.8}
-                onPress={() => navigation.navigate('DeviceDetail', { device: item })}
+                onPress={() =>
+                  navigation.navigate("DeviceDetail", { device: item })
+                }
               >
                 <Image
                   source={item.image}
@@ -242,7 +296,11 @@ export default function DashboardScreen() {
                     <Text style={styles.cardTitle}>{item.name}</Text>
                     <Text style={styles.cardSubtitle}>ID: {item.id}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={24} color={Colors.primary} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={24}
+                    color={Colors.primary}
+                  />
                 </View>
               </TouchableOpacity>
             )}
@@ -253,7 +311,7 @@ export default function DashboardScreen() {
                 key={index}
                 style={[
                   styles.paginationDot,
-                  index === activeDeviceIndex ? styles.paginationDotActive : {}
+                  index === activeDeviceIndex ? styles.paginationDotActive : {},
                 ]}
               />
             ))}
@@ -274,11 +332,15 @@ export default function DashboardScreen() {
           <View style={styles.alertContent}>
             <Text style={styles.alertTitle}>Alert Summary</Text>
             {activeDeviceIndex === 0 ? (
-              // Porch SmarTanom alert
-              <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(Inadequate nutrients)</Text></Text>
+              <Text style={styles.alertText}>
+                EC too low{" "}
+                <Text style={styles.alertNote}>(Inadequate nutrients)</Text>
+              </Text>
             ) : (
-              // Backyard SmarTanom alert
-              <Text style={styles.alertText}>pH too high <Text style={styles.alertNote}>(Adjust nutrient solution)</Text></Text>
+              <Text style={styles.alertText}>
+                pH too high{" "}
+                <Text style={styles.alertNote}>(Adjust nutrient solution)</Text>
+              </Text>
             )}
           </View>
           <View style={styles.alertArrow}>
@@ -299,9 +361,7 @@ export default function DashboardScreen() {
                 <Animated.View
                   style={[
                     styles.modalContent,
-                    {
-                      transform: [{ translateY: slideAnim }]
-                    }
+                    { transform: [{ translateY: slideAnim }] },
                   ]}
                 >
                   <View
@@ -313,46 +373,74 @@ export default function DashboardScreen() {
 
                   <View style={styles.modalBody}>
                     <Text style={styles.modalTitle}>Alert Summary</Text>
-
                     {activeDeviceIndex === 0 ? (
-                      // Porch SmarTanom alert details
-                      <Text style={styles.modalAlertText}>EC too low (Inadequate nutrients)</Text>
+                      <Text style={styles.modalAlertText}>
+                        EC too low (Inadequate nutrients)
+                      </Text>
                     ) : (
-                      // Backyard SmarTanom alert details
-                      <Text style={styles.modalAlertText}>pH too high (Adjust nutrient solution)</Text>
+                      <Text style={styles.modalAlertText}>
+                        pH too high (Adjust nutrient solution)
+                      </Text>
                     )}
 
                     <View style={styles.divider} />
 
-                    <Text style={styles.suggestedActionTitle}>Suggested Action</Text>
-
+                    <Text style={styles.suggestedActionTitle}>
+                      Suggested Action
+                    </Text>
                     {activeDeviceIndex === 0 ? (
-                      // Porch SmarTanom suggested action
                       <Text style={styles.suggestedActionText}>
-                        Refill Part A (Calcium Nitrate) and Part B (Micronutrient Mix) to maintain optimal nutrient levels.
+                        Refill Part A (Calcium Nitrate) and Part B
+                        (Micronutrient Mix)
                       </Text>
                     ) : (
-                      // Backyard SmarTanom suggested action
                       <Text style={styles.suggestedActionText}>
-                        Add pH down solution to bring pH levels within optimal range (5.8-6.2).
+                        Add pH down solution to bring pH levels within optimal
+                        range (5.8-6.2)
                       </Text>
                     )}
                   </View>
 
                   {/* Navigation Bar */}
                   <View style={styles.navBar}>
-                    <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Tanom')}>
-                      <MaterialCommunityIcons name="sprout" size={24} color={Colors.primary} />
-                      <Text style={[styles.navButtonText, { color: Colors.primary }]}>Tanom</Text>
+                    <TouchableOpacity
+                      style={styles.navButton}
+                      onPress={() => navigation.navigate("Tanom")}
+                    >
+                      <MaterialCommunityIcons
+                        name="sprout"
+                        size={24}
+                        color={Colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.navButtonText,
+                          { color: Colors.primary },
+                        ]}
+                      >
+                        Tanom
+                      </Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Alerts')}>
-                      <Ionicons name="notifications-outline" size={24} color={Colors.darkGray} />
+                    <TouchableOpacity
+                      style={styles.navButton}
+                      onPress={() => navigation.navigate("Alerts")}
+                    >
+                      <Ionicons
+                        name="notifications-outline"
+                        size={24}
+                        color={Colors.darkGray}
+                      />
                       <Text style={styles.navButtonText}>Alerts</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Profile')}>
-                      <Ionicons name="person-outline" size={24} color={Colors.darkGray} />
+                    <TouchableOpacity
+                      style={styles.navButton}
+                      onPress={() => navigation.navigate("Profile")}
+                    >
+                      <Ionicons
+                        name="person-outline"
+                        size={24}
+                        color={Colors.darkGray}
+                      />
                       <Text style={styles.navButtonText}>Profile</Text>
                     </TouchableOpacity>
                   </View>
@@ -364,41 +452,24 @@ export default function DashboardScreen() {
 
         {/* Device Info Summary */}
         <View style={styles.statusRow}>
-          <StatusBox
-            icon="wifi"
-            label="Connectivity"
-            value={activeDeviceIndex === 0 ? "Online" : "Online"}
-          />
-          <StatusBox
-            icon="time-outline"
-            label="Last Data"
-            value={activeDeviceIndex === 0 ? "5m ago" : "12m ago"}
-          />
-          <StatusBox
-            icon="battery-full"
-            label="Battery"
-            value={activeDeviceIndex === 0 ? "78%" : "92%"}
-          />
+          <StatusBox icon="wifi" label="Connectivity" value="Online" />
+          <StatusBox icon="time-outline" label="Last Data" value="Just now" />
+          <StatusBox icon="battery-full" label="Battery" value="85%" />
         </View>
 
         {/* Nutrient Level */}
         <View style={styles.nutrientCard}>
           <Text style={styles.nutrientTitle}>Nutrient Level</Text>
           <View style={styles.nutrientStatusContainer}>
-            <MaterialCommunityIcons name="sprout" size={24} color={Colors.primary} />
-            {activeDeviceIndex === 0 ? (
-              // Porch SmarTanom nutrient level
-              <Text style={styles.nutrientStatus}>
-                <Text style={styles.nutrientStatusText}>Low </Text>
-                <Text style={styles.nutrientNote}>(Nutrient needs refilling)</Text>
-              </Text>
-            ) : (
-              // Backyard SmarTanom nutrient level
-              <Text style={styles.nutrientStatus}>
-                <Text style={styles.nutrientStatusText}>Optimal </Text>
-                <Text style={styles.nutrientNote}>(Nutrient level is good)</Text>
-              </Text>
-            )}
+            <MaterialCommunityIcons
+              name="sprout"
+              size={24}
+              color={Colors.primary}
+            />
+            <Text style={styles.nutrientStatus}>
+              <Text style={styles.nutrientStatusText}>Optimal </Text>
+              <Text style={styles.nutrientNote}>(Nutrient level is good)</Text>
+            </Text>
           </View>
         </View>
 
@@ -406,29 +477,49 @@ export default function DashboardScreen() {
         <View style={styles.chartCard}>
           <View style={styles.chartHeader}>
             <View style={styles.chartTitleContainer}>
-              <MaterialCommunityIcons name="chart-line" size={20} color={Colors.primary} />
+              <MaterialCommunityIcons
+                name="chart-line"
+                size={20}
+                color={Colors.primary}
+              />
               <Text style={styles.chartTitle}>pH Levels over time</Text>
             </View>
             <View style={styles.chartPeriodSelector}>
-              <TouchableOpacity onPress={() => setChartPeriod('days')}>
-                <Text style={chartPeriod === 'days' ? styles.chartPeriodActive : styles.chartPeriod}>Days</Text>
+              <TouchableOpacity onPress={() => setChartPeriod("days")}>
+                <Text
+                  style={
+                    chartPeriod === "days"
+                      ? styles.chartPeriodActive
+                      : styles.chartPeriod
+                  }
+                >
+                  Days
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setChartPeriod('weeks')}>
-                <Text style={chartPeriod === 'weeks' ? styles.chartPeriodActive : styles.chartPeriod}>Weeks</Text>
+              <TouchableOpacity onPress={() => setChartPeriod("weeks")}>
+                <Text
+                  style={
+                    chartPeriod === "weeks"
+                      ? styles.chartPeriodActive
+                      : styles.chartPeriod
+                  }
+                >
+                  Weeks
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.deviceSelector}>
             <View style={styles.deviceSelectorDot}></View>
-            <Text style={styles.deviceSelectorText}>{devices[activeDeviceIndex].name}</Text>
+            <Text style={styles.deviceSelectorText}>
+              {devices[activeDeviceIndex].name}
+            </Text>
           </View>
 
           <View style={styles.chartContainer}>
-            {/* Custom pH labels on the left side */}
             <View style={styles.customYAxisLabels}>
               {activeDeviceIndex === 0 ? (
-                // Porch SmarTanom pH values
                 <>
                   <Text style={styles.yAxisLabel}>6.6 pH</Text>
                   <Text style={styles.yAxisLabel}>6.5 pH</Text>
@@ -439,7 +530,6 @@ export default function DashboardScreen() {
                   <Text style={styles.yAxisLabel}>6.0 pH</Text>
                 </>
               ) : (
-                // Backyard SmarTanom pH values
                 <>
                   <Text style={styles.yAxisLabel}>6.2 pH</Text>
                   <Text style={styles.yAxisLabel}>6.1 pH</Text>
@@ -452,19 +542,15 @@ export default function DashboardScreen() {
               )}
             </View>
 
-            {/* The actual chart */}
             <View style={styles.chartWrapper}>
               <LineChart
                 data={phData}
-                width={chartWidth - 50} // Reduce width to make room for custom labels
+                width={chartWidth - 50}
                 height={180}
                 chartConfig={{
                   ...chartConfig,
-                  // Hide the default y-axis labels completely
-                  formatYLabel: () => '',
-                  // Hide the y-axis completely
+                  formatYLabel: () => "",
                   propsForLabels: { opacity: 0 },
-                  // Remove left padding since we're using custom labels
                   paddingLeft: 0,
                 }}
                 bezier
@@ -475,37 +561,44 @@ export default function DashboardScreen() {
                 withOuterLines={true}
                 withShadow={false}
                 yAxisLabel=""
-                // Don't render any y-axis labels
                 renderDotContent={() => null}
-                // Don't show any y-axis labels
                 withVerticalLabels={true}
                 withHorizontalLabels={false}
-                // Don't start from zero
                 fromZero={false}
-                // Hide all y-axis elements
                 hidePointsAtIndex={[]}
                 style={styles.chart}
               />
             </View>
           </View>
 
-          <Text style={styles.currentPH}>Current pH level: <Text style={styles.phValue}>{activeDeviceIndex === 0 ? '6.2' : '5.8'} pH</Text></Text>
+          <Text style={styles.currentPH}>
+            Current pH level:{" "}
+            <Text style={styles.phValue}>
+              {activeDeviceIndex === 0 ? "6.2" : "5.8"} pH
+            </Text>
+          </Text>
         </View>
 
         {/* Sensor Metrics */}
         <View style={styles.metricsGrid}>
           {activeDeviceIndex === 0 ? (
-            // Porch SmarTanom metrics
             <>
-              <MetricBox icon="water-outline" label="EC Levels" value="2.4 mS/cm" />
+              <MetricBox
+                icon="water-outline"
+                label="EC Levels"
+                value="2.4 mS/cm"
+              />
               <MetricBox icon="flask-outline" label="TDS" value="950 ppm" />
               <MetricBox icon="water" label="Water Level" value="85%" />
               <MetricBox icon="water-opacity" label="Turbidity" value="3 NTU" />
             </>
           ) : (
-            // Backyard SmarTanom metrics
             <>
-              <MetricBox icon="water-outline" label="EC Levels" value="1.8 mS/cm" />
+              <MetricBox
+                icon="water-outline"
+                label="EC Levels"
+                value="1.8 mS/cm"
+              />
               <MetricBox icon="flask-outline" label="TDS" value="720 ppm" />
               <MetricBox icon="water" label="Water Level" value="92%" />
               <MetricBox icon="water-opacity" label="Turbidity" value="5 NTU" />
@@ -516,23 +609,32 @@ export default function DashboardScreen() {
         {/* Environmental Conditions */}
         <View style={styles.environmentCard}>
           <Text style={styles.environmentTitle}>Environment Conditions</Text>
-          {activeDeviceIndex === 0 ? (
-            // Porch SmarTanom environmental conditions
-            <>
-              <Condition icon="temperature-low" iconType="fa" label="Temperature" value="24.2°C" />
-              <Condition icon="droplet" iconType="feather" label="Humidity" value="68%" />
-              <Condition icon="white-balance-sunny" iconType="material" label="Light Intensity" value="9,000 Lux" />
-              <Condition icon="molecule-co2" iconType="material" label="CO₂ Level" value="415 ppm" />
-            </>
-          ) : (
-            // Backyard SmarTanom environmental conditions
-            <>
-              <Condition icon="temperature-low" iconType="fa" label="Temperature" value="26.8°C" />
-              <Condition icon="droplet" iconType="feather" label="Humidity" value="72%" />
-              <Condition icon="white-balance-sunny" iconType="material" label="Light Intensity" value="12,500 Lux" />
-              <Condition icon="molecule-co2" iconType="material" label="CO₂ Level" value="430 ppm" />
-            </>
-          )}
+          <>
+            <Condition
+              icon="temperature-low"
+              iconType="fa"
+              label="Temperature"
+              value={`${temperature}°C`}
+            />
+            <Condition
+              icon="droplet"
+              iconType="feather"
+              label="Humidity"
+              value={`${humidity}%`}
+            />
+            <Condition
+              icon="white-balance-sunny"
+              iconType="material"
+              label="Light Intensity"
+              value="9,000 Lux"
+            />
+            <Condition
+              icon="molecule-co2"
+              iconType="material"
+              label="CO₂ Level"
+              value="415 ppm"
+            />
+          </>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -566,9 +668,15 @@ function MetricBox({ icon, label, value }) {
 function Condition({ icon, iconType, label, value }) {
   return (
     <View style={styles.conditionRow}>
-      {iconType === 'fa' && <FontAwesome5 name={icon} size={18} color={Colors.primary} />}
-      {iconType === 'feather' && <Feather name={icon} size={18} color={Colors.primary} />}
-      {iconType === 'material' && <MaterialCommunityIcons name={icon} size={18} color={Colors.primary} />}
+      {iconType === "fa" && (
+        <FontAwesome5 name={icon} size={18} color={Colors.primary} />
+      )}
+      {iconType === "feather" && (
+        <Feather name={icon} size={18} color={Colors.primary} />
+      )}
+      {iconType === "material" && (
+        <MaterialCommunityIcons name={icon} size={18} color={Colors.primary} />
+      )}
       <Text style={styles.conditionText}>{label}</Text>
       <Text style={styles.conditionValue}>{value}</Text>
     </View>
@@ -578,23 +686,22 @@ function Condition({ icon, iconType, label, value }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f6fef8',
-    paddingTop: Platform.OS === 'android' ? 30 : 0, // Add extra padding for Android status bar
+    backgroundColor: "#f6fef8",
+    paddingTop: Platform.OS === "android" ? 30 : 0,
   },
   container: {
     flex: 1,
-    backgroundColor: '#f6fef8',
-    position: 'relative',
+    backgroundColor: "#f6fef8",
+    position: "relative",
   },
   contentContainer: {
     padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 90 : 70,
+    paddingBottom: Platform.OS === "ios" ? 90 : 70,
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
     backgroundColor: Colors.white,
@@ -604,13 +711,13 @@ const styles = StyleSheet.create({
   },
   modalPillContainer: {
     paddingVertical: 10,
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
   modalPill: {
     width: 40,
     height: 5,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
     borderRadius: 3,
   },
   modalBody: {
@@ -618,69 +725,68 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   modalTitle: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 20,
     color: Colors.secondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 15,
   },
   modalAlertText: {
-    fontFamily: 'Montserrat_500Medium',
+    fontFamily: "Montserrat_500Medium",
     fontSize: 18,
-    color: Colors.alertRed, // Using the SmarTanom alert color #CD5151
+    color: Colors.alertRed,
     marginBottom: 5,
-    textAlign: 'center',
+    textAlign: "center",
   },
   divider: {
     height: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
     marginVertical: 15,
   },
   suggestedActionTitle: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 18,
     color: Colors.secondary,
     marginBottom: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
   suggestedActionText: {
-    fontFamily: 'Montserrat_500Medium',
+    fontFamily: "Montserrat_500Medium",
     fontSize: 16,
     color: Colors.darkGray,
     lineHeight: 24,
-    textAlign: 'center',
+    textAlign: "center",
     paddingHorizontal: 10,
   },
   navBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: "#f0f0f0",
     paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 15,
+    paddingBottom: Platform.OS === "ios" ? 30 : 15,
     backgroundColor: Colors.white,
     marginTop: 20,
   },
   navButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 20,
   },
   navButtonText: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     fontSize: 12,
     color: Colors.darkGray,
     marginTop: 4,
   },
-
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   greeting: {
-    fontFamily: 'AbrilFatface_400Regular',
+    fontFamily: "AbrilFatface_400Regular",
     fontSize: 28,
     color: Colors.headerText,
     letterSpacing: 0.5,
@@ -695,39 +801,39 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: 12,
     elevation: 2,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
   },
   deviceImage: {
-    width: '100%',
+    width: "100%",
     height: 150,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
   deviceCardContent: {
     padding: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   cardTitle: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 16,
     color: Colors.secondary,
   },
   cardSubtitle: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     fontSize: 12,
     color: Colors.darkGray,
     marginTop: 2,
   },
   paginationDots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 8,
   },
   paginationDot: {
@@ -748,9 +854,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16,
     padding: 16,
-    flexDirection: 'row',
+    flexDirection: "row",
     elevation: 2,
-    alignItems: 'center',
+    alignItems: "center",
   },
   alertIconContainer: {
     marginRight: 16,
@@ -761,25 +867,25 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 2,
     borderColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   alertContent: {
     flex: 1,
   },
   alertTitle: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 18,
     color: Colors.secondary,
     marginBottom: 6,
   },
   alertText: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     color: Colors.alertRed,
     fontSize: 16,
   },
   alertNote: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     color: Colors.darkGray,
     fontSize: 15,
   },
@@ -787,8 +893,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   statusBox: {
@@ -797,18 +903,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     padding: 12,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
     elevation: 2,
   },
   statusValue: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 14,
     color: Colors.secondary,
     marginTop: 4,
     marginBottom: 2,
   },
   statusLabel: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     fontSize: 10,
     color: Colors.darkGray,
   },
@@ -820,25 +926,25 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   nutrientTitle: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 18,
     color: Colors.secondary,
     marginBottom: 12,
   },
   nutrientStatusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   nutrientStatus: {
     marginLeft: 10,
   },
   nutrientStatusText: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 16,
     color: Colors.primary,
   },
   nutrientNote: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     fontSize: 16,
     color: Colors.darkGray,
   },
@@ -847,42 +953,42 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16,
     padding: 16,
-    paddingLeft: 16, // Reset to default as we're using custom labels
+    paddingLeft: 16,
     paddingRight: 12,
     elevation: 2,
   },
   chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
     paddingHorizontal: 8,
   },
   chartTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   chartTitle: {
-    fontFamily: 'Montserrat_500Medium',
+    fontFamily: "Montserrat_500Medium",
     fontSize: 14,
     color: Colors.darkGray,
     marginLeft: 8,
   },
   chartPeriodSelector: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: Colors.lightGray,
     borderRadius: 12,
     padding: 2,
   },
   chartPeriod: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     fontSize: 12,
     color: Colors.darkGray,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   chartPeriodActive: {
-    fontFamily: 'Montserrat_500Medium',
+    fontFamily: "Montserrat_500Medium",
     fontSize: 12,
     color: Colors.secondary,
     backgroundColor: Colors.white,
@@ -891,8 +997,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   deviceSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
     paddingHorizontal: 8,
   },
@@ -904,38 +1010,37 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   deviceSelectorText: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     fontSize: 12,
     color: Colors.darkGray,
   },
-
   chartContainer: {
-    position: 'relative',
-    width: '100%',
-    flexDirection: 'row', // Arrange custom labels and chart side by side
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    position: "relative",
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
     paddingLeft: 0,
     paddingRight: 0,
   },
   customYAxisLabels: {
-    width: 50, // Fixed width for the labels column
-    height: 180, // Match the chart height
-    justifyContent: 'space-between', // Distribute labels evenly
-    alignItems: 'flex-end', // Align text to the right
-    paddingRight: 8, // Small padding between labels and chart
-    paddingVertical: 10, // Padding to align with chart grid lines
-    marginRight: 5, // Add margin to separate from chart
+    width: 50,
+    height: 180,
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingRight: 8,
+    paddingVertical: 10,
+    marginRight: 5,
   },
   yAxisLabel: {
-    fontFamily: 'Montserrat_500Medium',
+    fontFamily: "Montserrat_500Medium",
     fontSize: 10,
     color: Colors.darkGray,
-    textAlign: 'right',
-    lineHeight: 14, // Ensure consistent spacing
+    textAlign: "right",
+    lineHeight: 14,
   },
   chartWrapper: {
-    flex: 1, // Take remaining space
+    flex: 1,
   },
   chart: {
     borderRadius: 8,
@@ -943,40 +1048,40 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   currentPH: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     fontSize: 14,
-    textAlign: 'right',
+    textAlign: "right",
     color: Colors.darkGray,
     marginTop: 8,
     paddingHorizontal: 8,
   },
   phValue: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     color: Colors.secondary,
   },
   metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   metricBox: {
     backgroundColor: Colors.white,
-    width: '48%',
+    width: "48%",
     padding: 16,
     borderRadius: 10,
     marginBottom: 12,
     elevation: 2,
-    alignItems: 'center',
+    alignItems: "center",
   },
   metricLabel: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     color: Colors.darkGray,
     fontSize: 12,
     marginTop: 4,
   },
   metricValue: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 16,
     color: Colors.secondary,
     marginTop: 4,
@@ -989,25 +1094,25 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   environmentTitle: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 16,
     marginBottom: 12,
     color: Colors.secondary,
   },
   conditionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: 8,
   },
   conditionText: {
     flex: 1,
     marginLeft: 12,
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: "Montserrat_400Regular",
     fontSize: 14,
     color: Colors.darkGray,
   },
   conditionValue: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: "Montserrat_600SemiBold",
     fontSize: 14,
     color: Colors.secondary,
   },
