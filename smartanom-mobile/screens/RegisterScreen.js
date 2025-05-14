@@ -59,46 +59,29 @@ export default function RegisterScreen({ navigation }) {
     if (!validateForm()) return;
 
     setIsLoading(true);
-    try {
-      const response = await fetch("http://10.0.2.2:8000/api/accounts/register/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+
+    // Simulate a delay to make it feel like it's processing
+    setTimeout(() => {
+      setIsLoading(false);
+
+      // Store user data in AsyncStorage for demo purposes
+      try {
+        AsyncStorage.setItem('user_data', JSON.stringify({
           name: name,
           email: email,
-          contact: contact,
-          password: password,
-          password2: confirmPassword,
-        }),
-      });
+          contact: contact
+        }));
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || data.error || "Registration failed");
+        // Navigate to the username setup screen
+        navigation.navigate("UsernameSetup");
+      } catch (error) {
+        console.error("Storage Error:", error);
+        Alert.alert(
+          "Error",
+          "Failed to save user data. Please try again."
+        );
       }
-
-      Alert.alert(
-        "Success",
-        "Registration successful! Please check your email to activate your account.",
-        [
-          {
-            text: "OK",
-            onPress: () => navigation.navigate("Login")
-          }
-        ]
-      );
-    } catch (error) {
-      console.error("Registration Error:", error);
-      Alert.alert(
-        "Registration Error",
-        error.message || "Failed to register. Please check your connection and try again."
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    }, 1500);
   };
 
   return (

@@ -1,15 +1,16 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import { AuthContext } from '../context/AuthContext';
 import Colors from '../constants/Colors';
 import { AppSettingsContext } from '../context/AppSettingsContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileScreen({ navigation }) {
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout, updateUserProfile } = useContext(AuthContext);
   const { darkMode } = useContext(AppSettingsContext);
-
+  const [username, setUsername] = useState('');
 
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
@@ -18,12 +19,29 @@ export default function ProfileScreen({ navigation }) {
     Montserrat_700Bold,
   });
 
+  // Load username from AsyncStorage
+  useEffect(() => {
+    const loadUsername = async () => {
+      try {
+        const storedUsername = await AsyncStorage.getItem('username');
+        if (storedUsername) {
+          setUsername(storedUsername);
+        }
+      } catch (error) {
+        console.error('Failed to load username:', error);
+      }
+    };
+
+    loadUsername();
+  }, []);
+
   if (!fontsLoaded) {
     return null;
   }
 
-
-  
+  const handleEditUsername = () => {
+    navigation.navigate('EditUsername');
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -34,12 +52,12 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const styles = getStyles(darkMode);
-  
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
         style={styles.container1}
-        contentContainerStyle={styles.scrollContent} 
+        contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.header}>
           <View style={styles.profileImageContainer}>
@@ -47,7 +65,7 @@ export default function ProfileScreen({ navigation }) {
               <Ionicons name="person" size={50} color={Colors.primary} />
             </View>
           </View>
-          <Text style={styles.name}>{user?.name || 'User'}</Text>
+          <Text style={styles.name}>{username || user?.name || 'User'}</Text>
           <Text style={styles.email}>{user?.email || 'user@example.com'}</Text>
         </View>
 
@@ -57,6 +75,12 @@ export default function ProfileScreen({ navigation }) {
           <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('EditProfile')}>
             <Ionicons name="person-outline" size={22} color={Colors.primary} />
             <Text style={styles.menuText}>Edit Profile</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem} onPress={handleEditUsername}>
+            <Ionicons name="text-outline" size={22} color={Colors.primary} />
+            <Text style={styles.menuText}>Edit Username</Text>
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
           </TouchableOpacity>
 

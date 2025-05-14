@@ -10,11 +10,13 @@ import LaunchScreen from '../screens/LaunchScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import PersonalizeScreen from '../screens/PersonalizeScreen';
+import UsernameSetupScreen from '../screens/UsernameSetupScreen';
 import SetupScreen from '../screens/SetupScreen';
 import LoginScreen from '../screens/LoginScreen';
 
 import Notification from '../screens/NotificationScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
+import EditUsernameScreen from '../screens/EditUsernameScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import AboutScreen from '../screens/AboutScreen';
@@ -110,6 +112,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Launch" component={LaunchScreen} />
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="UsernameSetup" component={UsernameSetupScreen} />
       <Stack.Screen name="Personalize" component={PersonalizeScreen} />
       <Stack.Screen name="Setup" component={SetupScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
@@ -118,6 +121,7 @@ export default function AppNavigator() {
       <Stack.Screen name="NotificationScreen" component={Notification} />
       <Stack.Screen name="PrivacyandSecurityScreen" component={require('../screens/PrivacyandSecurityScreen').default} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="EditUsername" component={EditUsernameScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
       <Stack.Screen name="About" component={AboutScreen} />
