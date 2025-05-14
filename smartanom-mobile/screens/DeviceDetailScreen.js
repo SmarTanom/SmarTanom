@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,165 @@ import {
   Image,
   ScrollView,
   Platform,
-  StatusBar
+  StatusBar,
+  Modal,
+  Animated,
+  TouchableWithoutFeedback,
+  PanResponder,
+  Alert
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import { AbhayaLibre_800ExtraBold } from '@expo-google-fonts/abhaya-libre';
+import * as ImagePicker from 'expo-image-picker';
+import { useDeviceImages } from '../context/DeviceImageContext';
 import Colors from '../constants/Colors';
 
 export default function DeviceDetailScreen({ route }) {
   const navigation = useNavigation();
   const { device } = route.params;
   const [activeTab, setActiveTab] = useState('PLANTS');
+  const { getDeviceImage, updateDeviceImage } = useDeviceImages();
+  const [currentImage, setCurrentImage] = useState(getDeviceImage(device.id));
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
+
+  // Available photos for selection
+  const availablePhotos = [
+    { id: 1, source: require('../assets/porch-plant.png'), label: 'Porch Plant' },
+    { id: 2, source: require('../assets/hydroponic-plant.jpg'), label: 'Hydroponic Plant' },
+    { id: 3, source: require('../assets/romaine.png'), label: 'Romaine Lettuce' },
+  ];
+
+  // Animation for modal
+  const slideAnim = useRef(new Animated.Value(300)).current;
+
+  // Create PanResponder for swipe gestures
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) { // Only allow downward swipe
+          slideAnim.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 50) { // If swiped down more than 50px, close the modal
+          hidePhotoModal();
+        } else {
+          // Otherwise, snap back to open position
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  // Function to show the photo modal with animation
+  const showPhotoModal = () => {
+    setPhotoModalVisible(true);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Function to hide the photo modal with animation
+  const hidePhotoModal = () => {
+    Animated.timing(slideAnim, {
+      toValue: 300,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setPhotoModalVisible(false);
+    });
+  };
+
+  // Function to change the displayed photo
+  const changePhoto = (newPhoto) => {
+    // Update the global context with the new image
+    updateDeviceImage(device.id, newPhoto.source);
+
+    // Update the local state
+    setCurrentImage(newPhoto.source);
+
+    // Close the modal
+    hidePhotoModal();
+  };
+
+  // Function to pick an image from the device's photo library
+  const pickImage = async () => {
+    try {
+      // Request permission to access the photo library
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photo library to select a custom image.',
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+
+      // Launch the image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'Images',
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        // Create an image object with the URI
+        const newImage = { uri: result.assets[0].uri };
+
+        // Update the global context with the new image
+        updateDeviceImage(device.id, newImage);
+
+        // Update the local state
+        setCurrentImage(newImage);
+
+        // Close the modal
+        hidePhotoModal();
+      }
+    } catch (error) {
+      // If the image picker fails (likely because the package isn't installed),
+      // fall back to the simulated experience
+      Alert.alert(
+        'Feature Not Available',
+        'To use this feature, please install the expo-image-picker package. For now, we\'ll use a sample image.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Use one of our existing images as a fallback
+              const customImages = [
+                require('../assets/romaine.png'),
+                require('../assets/hydroponic-plant.jpg'),
+                require('../assets/porch-plant.png')
+              ];
+
+              // Randomly select one of the images as a fallback
+              const randomImage = customImages[Math.floor(Math.random() * customImages.length)];
+
+              // Update the global context with the new image
+              updateDeviceImage(device.id, randomImage);
+
+              // Update the local state
+              setCurrentImage(randomImage);
+
+              // Close the modal
+              hidePhotoModal();
+            }
+          }
+        ]
+      );
+    }
+  };
 
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
@@ -48,7 +195,7 @@ export default function DeviceDetailScreen({ route }) {
         {/* Header Image with back button and menu */}
         <View style={styles.headerImageContainer}>
           <Image
-            source={device.image}
+            source={currentImage}
             style={styles.headerImage}
             resizeMode="cover"
           />
@@ -61,7 +208,10 @@ export default function DeviceDetailScreen({ route }) {
               <Text style={styles.backText}>Go back</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuButton}>
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={showPhotoModal}
+            >
               <Ionicons name="ellipsis-horizontal" size={24} color="rgba(51, 148, 50, 0.9)" />
             </TouchableOpacity>
           </View>
@@ -173,6 +323,69 @@ export default function DeviceDetailScreen({ route }) {
           <Text style={styles.navButtonText}>Profile</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Photo Selection Modal */}
+      <Modal
+        animationType="none"
+        transparent={true}
+        visible={photoModalVisible}
+        onRequestClose={hidePhotoModal}
+      >
+        <TouchableWithoutFeedback onPress={hidePhotoModal}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <Animated.View
+                style={[
+                  styles.modalContent,
+                  {
+                    transform: [{ translateY: slideAnim }]
+                  }
+                ]}
+              >
+                <View
+                  {...panResponder.panHandlers}
+                  style={styles.modalPillContainer}
+                >
+                  <View style={styles.modalPill} />
+                </View>
+
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalTitle}>Change Photo</Text>
+
+                  {/* Option to select from device */}
+                  <TouchableOpacity
+                    style={styles.photoOption}
+                    onPress={pickImage}
+                  >
+                    <View style={styles.galleryIconContainer}>
+                      <FontAwesome5 name="images" size={24} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.photoLabel}>Select from device</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.divider} />
+                  <Text style={styles.sectionTitle}>Sample Photos</Text>
+
+                  {availablePhotos.map((photo) => (
+                    <TouchableOpacity
+                      key={photo.id}
+                      style={styles.photoOption}
+                      onPress={() => changePhoto(photo)}
+                    >
+                      <Image
+                        source={photo.source}
+                        style={styles.photoThumbnail}
+                        resizeMode="cover"
+                      />
+                      <Text style={styles.photoLabel}>{photo.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </Animated.View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -237,6 +450,78 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 0,
+  },
+  modalPillContainer: {
+    paddingVertical: 10,
+    alignItems: 'center',
+    width: '100%',
+  },
+  modalPill: {
+    width: 40,
+    height: 5,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+  },
+  modalBody: {
+    padding: 20,
+    paddingBottom: 30,
+  },
+  modalTitle: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 20,
+    color: Colors.secondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  photoOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.lightGray,
+  },
+  photoThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 16,
+  },
+  photoLabel: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 16,
+    color: Colors.secondary,
+  },
+  galleryIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: 'rgba(51, 148, 50, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.lightGray,
+    marginVertical: 15,
+  },
+  sectionTitle: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 16,
+    color: Colors.secondary,
+    marginBottom: 10,
   },
   deviceInfo: {
     padding: 16,
