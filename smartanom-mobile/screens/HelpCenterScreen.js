@@ -36,6 +36,10 @@ export default function HelpCenterScreen({ navigation }) {
             Need assistance? We're here to help! If you're experiencing issues, have questions about how SmartTanom works, or need technical support, reach out to us through the emails below.
           </Text>
 
+          <TouchableOpacity style={styles.reportButton} onPress={() => navigation.navigate('ReportIssueScreen')}>
+            <Text style={styles.reportButtonText}>Report a Problem</Text>
+          </TouchableOpacity>
+
           <Text style={styles.subtitle}>Contact Support</Text>
           <Text style={styles.text}>• villartaariel478@gmail.com</Text>
           <Text style={styles.text}>• salas.ivisusej@gmail.com</Text>
@@ -112,5 +116,17 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     resizeMode: 'contain',
+  },
+  reportButton: {
+    marginTop: 20,
+    backgroundColor: Colors.primary,
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  reportButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

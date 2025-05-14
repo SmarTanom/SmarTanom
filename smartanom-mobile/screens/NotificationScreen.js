@@ -33,6 +33,7 @@ export default function Notification({ navigation }) {
             <Ionicons name="arrow-back" size={22} color={Colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Notifications</Text>
+          {/* Removed warning icon as per user request */}
         </View>
 
         {/* Notification Settings */}
@@ -127,5 +128,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,
     color: Colors.darkText,
+  },
+  warningIcon: {
+    marginLeft: 'auto',
+    padding: 5,
   },
 });

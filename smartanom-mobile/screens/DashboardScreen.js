@@ -210,7 +210,12 @@ export default function DashboardScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         <View style={styles.header}>
           <Text style={styles.greeting}>Hello, {user?.name || 'User'}<Text style={styles.emoji}>🌱</Text></Text>
-          <Ionicons name="settings-outline" size={24} color={Colors.primary} />
+          {/* Removed warning icon */}
+          {/*
+          <TouchableOpacity onPress={() => navigation.navigate('ReportIssueScreen')}>
+            <Ionicons name="warning-outline" size={24} color="orange" />
+          </TouchableOpacity>
+          */}
         </View>
 
         {/* Device Cards - Swipeable */}
