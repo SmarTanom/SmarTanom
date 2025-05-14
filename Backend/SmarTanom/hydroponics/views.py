@@ -54,21 +54,24 @@ class DHT22DataView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        try:
+        try:    
             sensor = Sensor.objects.get(
                 smar_tanom__hydroponic__user=request.user,
                 type="DHT22"
             )
 
+            # Create separate records for temperature and humidity
             SmarTanomData.objects.create(
                 sensor=sensor,
                 value=request.data.get('temperature'),
+                data_type='temperature',  # Add this field to distinguish
                 created_at=timezone.now()
             )
 
             SmarTanomData.objects.create(
                 sensor=sensor,
                 value=request.data.get('humidity'),
+                data_type='humidity',  # Add this field to distinguish
                 created_at=timezone.now()
             )
 
@@ -90,22 +93,22 @@ class DHT22DataView(APIView):
                 type="DHT22"
             )
 
-            latest_data = SmarTanomData.objects.filter(sensor=sensor).order_by('-created_at')[:2]
-
-            temperature = None
-            humidity = None
-
-            for data in latest_data:
-                if not temperature and data.value < 100:
-                    temperature = data.value
-                else:
-                    humidity = data.value
+            # Get the most recent temperature and humidity readings separately
+            latest_temp = SmarTanomData.objects.filter(
+                sensor=sensor,
+                data_type='temperature'
+            ).order_by('-created_at').first()
+            
+            latest_humidity = SmarTanomData.objects.filter(
+                sensor=sensor,
+                data_type='humidity'
+            ).order_by('-created_at').first()
 
             return Response({
                 'success': True,
-                'temperature': temperature,
-                'humidity': humidity,
-                'timestamp': latest_data[0].created_at if latest_data else None
+                'temperature': latest_temp.value if latest_temp else None,
+                'humidity': latest_humidity.value if latest_humidity else None,
+                'timestamp': latest_temp.created_at if latest_temp else None
             })
 
         except Sensor.DoesNotExist:

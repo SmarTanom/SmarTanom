@@ -113,18 +113,25 @@ export default function DashboardScreen() {
       );
   
       if (response.data.success) {
-        // Validate the values before setting them
-        const temp = parseFloat(response.data.temperature);
-        const hum = parseFloat(response.data.humidity);
+        // Add debug logging
+        console.log("Raw API Response:", response.data);
         
-        // Temperature should be between -20 and 50 (reasonable range)
+        // Validate and set temperature
+        const temp = parseFloat(response.data.temperature);
         if (!isNaN(temp) && temp >= -20 && temp <= 50) {
           setTemperature(temp.toFixed(1));
+          console.log("Setting temperature:", temp.toFixed(1));
+        } else {
+          console.warn("Invalid temperature value received:", response.data.temperature);
         }
         
-        // Humidity should be between 0 and 100
+        // Validate and set humidity
+        const hum = parseFloat(response.data.humidity);
         if (!isNaN(hum) && hum >= 0 && hum <= 100) {
           setHumidity(hum.toFixed(1));
+          console.log("Setting humidity:", hum.toFixed(1));
+        } else {
+          console.warn("Invalid humidity value received:", response.data.humidity);
         }
       }
     } catch (error) {
