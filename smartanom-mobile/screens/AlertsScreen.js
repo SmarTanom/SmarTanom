@@ -64,13 +64,12 @@ export default function AlertsScreen() {
   ];
 
   // Render an alert item
-  const renderAlertItem = (alert, isLast = false, isHighlighted = false) => (
+  const renderAlertItem = (alert, isLast = false) => (
     <TouchableOpacity
       key={alert.id}
       style={[
         styles.alertItem,
-        isLast ? { borderBottomWidth: 0 } : null,
-        isHighlighted ? styles.highlightedAlert : null
+        isLast ? { borderBottomWidth: 0 } : null
       ]}
       activeOpacity={0.7}
       onPress={() => navigation.navigate('DeviceDetail', {
@@ -113,7 +112,7 @@ export default function AlertsScreen() {
           <Text style={styles.sectionTitle}>Yesterday</Text>
           <View style={styles.alertsContainer}>
             {yesterdayAlerts.map((alert, index) =>
-              renderAlertItem(alert, index === yesterdayAlerts.length - 1, true)
+              renderAlertItem(alert, index === yesterdayAlerts.length - 1)
             )}
           </View>
         </View>
@@ -163,15 +162,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
     alignItems: 'center',
   },
-  highlightedAlert: {
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    borderRadius: 12,
-  },
+
   deviceImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
   },
   alertContent: {
     flex: 1,
@@ -179,7 +174,7 @@ const styles = StyleSheet.create({
   },
   deviceName: {
     fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
+    fontSize: 16,
     color: Colors.secondary,
     marginBottom: 4,
   },
@@ -192,7 +187,7 @@ const styles = StyleSheet.create({
   },
   alertMessage: {
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 13,
+    fontSize: 14,
     color: Colors.darkGray,
     flex: 1,
   },
