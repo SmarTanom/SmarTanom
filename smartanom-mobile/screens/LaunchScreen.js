@@ -35,7 +35,7 @@ export default function LaunchScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#339432',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: -100,
