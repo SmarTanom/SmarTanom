@@ -1,48 +1,116 @@
 // HelpCenterScreen.js
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold } from '@expo-google-fonts/montserrat';
 import Colors from '../constants/Colors';
 
 export default function HelpCenterScreen({ navigation }) {
-  return (
-    <View style={styles.container}>
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name="arrow-back" size={20} color={Colors.white} />
-      </TouchableOpacity>
+  const [fontsLoaded] = useFonts({
+    Montserrat_400Regular,
+    Montserrat_500Medium,
+    Montserrat_600SemiBold,
+  });
 
-      {/* Empty Content */}
-      <Text style={styles.text}>Help Center (Coming Soon)</Text>
-    </View>
+  if (!fontsLoaded) {
+    return null;
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={22} color={Colors.white} />
+        </TouchableOpacity>
+
+        <View style={styles.header}>
+          <Image source={require('../assets/help.png')} style={styles.logo} />
+          <Text style={styles.title}>Help Center</Text>
+        </View>
+
+        <View style={styles.content}>
+          <Text style={styles.text}>
+            Need assistance? We're here to help! If you're experiencing issues, have questions about how SmartTanom works, or need technical support, reach out to us through the emails below.
+          </Text>
+
+          <Text style={styles.subtitle}>Contact Support</Text>
+          <Text style={styles.text}>• villartaariel478@gmail.com</Text>
+          <Text style={styles.text}>• salas.ivisusej@gmail.com</Text>
+          <Text style={styles.text}>• llagasneilandrew@gmail.com</Text>
+          <Text style={styles.text}>• olandria.iankent@gmail.com</Text>
+          <Text style={styles.text}>• rodillon.javy.32181@gmail.com</Text>
+
+          <Text style={styles.subtitle}>Common Issues</Text>
+          <Text style={styles.text}>• App not syncing with sensors</Text>
+          <Text style={styles.text}>• Incorrect plant data</Text>
+          <Text style={styles.text}>• Notifications not appearing</Text>
+
+          <Text style={styles.text}>
+            For all these and more, don’t hesitate to reach out. We'll get back to you as soon as possible.
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: Colors.white,
   },
+  scrollContent: {
+    paddingBottom: 40,
+  },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'green',
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'absolute',
-    top: 40,
-    left: 20,
+  },
+  header: {
+    paddingTop: 100,
+    paddingBottom: 30,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  title: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 24,
+    color: Colors.white,
+    marginTop: 10,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  subtitle: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 18,
+    color: Colors.primary,
+    marginTop: 20,
+    marginBottom: 5,
   },
   text: {
-    fontSize: 18,
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 15,
     color: Colors.darkText,
-    fontFamily: 'Montserrat_500Medium',
-    marginTop: 20,
+    marginBottom: 8,
+  },
+  logo: {
+    width: 200,
+    height: 200,
+    resizeMode: 'contain',
   },
 });
