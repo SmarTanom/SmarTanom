@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import InputField from '../components/InputField';
 import Colors from '../constants/Colors';
 
@@ -8,37 +8,72 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [contact, setContact] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const validateForm = () => {
+    if (!name.trim()) {
+      Alert.alert('Error', 'Please enter your name');
+      return false;
+    }
+    if (!email.trim()) {
+      Alert.alert('Error', 'Please enter your email');
+      return false;
+    }
+    if (!password) {
+      Alert.alert('Error', 'Please enter a password');
+      return false;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return false;
+    }
+    return true;
+  };
 
   const registerUser = async () => {
+    if (!validateForm()) return;
+
+    setIsLoading(true);
     try {
       const response = await fetch("http://10.0.2.2:8000/api/accounts/register/", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           name: name,
           email: email,
           contact: contact,
-          password: password
-        })
+          password: password,
+          password2: confirmPassword,
+        }),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Registration failed:", errorData);
-        Alert.alert("Registration Error", JSON.stringify(errorData));
-        return;
+        throw new Error(data.message || data.error || "Registration failed");
       }
 
-      const data = await response.json();
-      console.log("Registration success:", data);
-      Alert.alert("Success", "Account created successfully!");
-      navigation.navigate("Login");
-
+      Alert.alert(
+        "Success",
+        "Registration successful! Please check your email to activate your account.",
+        [
+          { 
+            text: "OK", 
+            onPress: () => navigation.navigate("Login") 
+          }
+        ]
+      );
     } catch (error) {
-      console.error("Error:", error);
-      Alert.alert("Network Error", "Failed to connect to backend.");
+      console.error("Registration Error:", error);
+      Alert.alert(
+        "Registration Error",
+        error.message || "Failed to register. Please check your connection and try again."
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -47,18 +82,57 @@ export default function RegisterScreen({ navigation }) {
       <Text style={styles.title}>Register on SmarTanom</Text>
       <Text style={styles.subtitle}>Create an account to get started.</Text>
 
-      <InputField placeholder="Full Name" value={name} onChangeText={setName} />
-      <InputField placeholder="Email Address" value={email} onChangeText={setEmail} />
-      <InputField placeholder="Contact Number" value={contact} onChangeText={setContact} keyboardType="phone-pad" />
-      <InputField placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} />
+      <InputField 
+        placeholder="Full Name*" 
+        value={name} 
+        onChangeText={setName} 
+      />
+      <InputField 
+        placeholder="Email Address*" 
+        value={email} 
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      <InputField 
+        placeholder="Contact Number" 
+        value={contact} 
+        onChangeText={setContact} 
+        keyboardType="phone-pad"
+      />
+      <InputField 
+        placeholder="Password*" 
+        secureTextEntry 
+        value={password} 
+        onChangeText={setPassword}
+      />
+      <InputField 
+        placeholder="Confirm Password*" 
+        secureTextEntry 
+        value={confirmPassword} 
+        onChangeText={setConfirmPassword}
+      />
 
-      <TouchableOpacity style={styles.button} onPress={registerUser}>
-        <Text style={styles.buttonText}>Register</Text>
+      <TouchableOpacity 
+        style={[styles.button, isLoading && styles.disabledButton]} 
+        onPress={registerUser}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color={Colors.primary} />
+        ) : (
+          <Text style={styles.buttonText}>Register</Text>
+        )}
       </TouchableOpacity>
 
       <Text style={styles.footer}>
         Already have an account?{' '}
-        <Text style={styles.link} onPress={() => navigation.navigate('Login')}>Login</Text>
+        <Text 
+          style={styles.link} 
+          onPress={() => navigation.navigate('Login')}
+        >
+          Login
+        </Text>
       </Text>
     </View>
   );
@@ -87,6 +161,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 20,
+  },
+  disabledButton: {
+    backgroundColor: Colors.lightGray,
   },
   buttonText: {
     color: Colors.primary,

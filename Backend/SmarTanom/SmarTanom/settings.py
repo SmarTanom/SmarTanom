@@ -71,10 +71,12 @@ MIDDLEWARE = [
 ]
 
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS settings (ensure these are correct)
+CORS_ALLOW_ALL_ORIGINS = True  # For development only
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
+    "http://10.0.2.2:8081",
 ]
 ROOT_URLCONF = 'SmarTanom.urls'
 
@@ -150,5 +152,15 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+
 AUTH_USER_MODEL = 'accounts.User'
 
+# ✅ Updated: Gmail SMTP email configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'reyfoxconner@gmail.com'  # 🔁 Replace with your Gmail address
+EMAIL_HOST_PASSWORD = 'wvuy cxnj bczr rhuq'  # 🔁 Use your Gmail App Password
+
+DEFAULT_FROM_EMAIL = 'noreply@smartanom.com'
