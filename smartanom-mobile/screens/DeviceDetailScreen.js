@@ -13,10 +13,11 @@ import {
   Animated,
   TouchableWithoutFeedback,
   PanResponder,
-  Alert
+  Alert,
+  Vibration
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import { AbhayaLibre_800ExtraBold } from '@expo-google-fonts/abhaya-libre';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,6 +31,88 @@ export default function DeviceDetailScreen({ route }) {
   const { getDeviceImage, updateDeviceImage } = useDeviceImages();
   const [currentImage, setCurrentImage] = useState(getDeviceImage(device.id));
   const [photoModalVisible, setPhotoModalVisible] = useState(false);
+  const [sortOrder, setSortOrder] = useState('Date: Descending');
+  const [showSortOptions, setShowSortOptions] = useState(false);
+
+  // Sample log data
+  const logData = [
+    {
+      id: 1,
+      type: 'warning',
+      title: 'Inadequate nutrients',
+      message: 'This SmarTanom\'s EC is too low (1.0 mS/cm). Please refill Part A (Calcium Nitrate) and Part B (Micronutrient mix).',
+      icon: 'warning',
+      iconColor: '#FFA500',
+      date: '05/07/25'
+    },
+    {
+      id: 2,
+      type: 'info',
+      title: 'New cycle started',
+      message: 'You just started a new cycle, time to grow new plants.',
+      icon: 'information-circle',
+      iconColor: '#339432',
+      date: '05/06/25',
+      timeAgo: '5m'
+    },
+    {
+      id: 3,
+      type: 'success',
+      title: 'Ready for harvest',
+      message: 'Your SmarTanom is now ready for harvest. Harvest now to start a new cycle of plants.',
+      icon: 'checkmark-circle',
+      iconColor: '#339432',
+      date: '05/06/25'
+    },
+    {
+      id: 4,
+      type: 'warning',
+      title: 'Low water levels',
+      message: 'Low water level detected. Refill reservoir with fresh water.',
+      icon: 'water',
+      iconColor: '#3498db',
+      date: '05/05/25'
+    }
+  ];
+
+  // Function to sort log entries based on selected sort order
+  const getSortedLogEntries = () => {
+    const entries = [...logData];
+
+    if (sortOrder === 'Date: Descending') {
+      // Sort by date descending (newest first)
+      return entries.sort((a, b) => {
+        // Handle entries with timeAgo (like "5m") - these are always newest
+        if (a.timeAgo && !b.timeAgo) return -1;
+        if (!a.timeAgo && b.timeAgo) return 1;
+        if (a.timeAgo && b.timeAgo) return 0;
+
+        // Otherwise sort by date
+        const dateA = new Date(a.date.split('/').reverse().join('-'));
+        const dateB = new Date(b.date.split('/').reverse().join('-'));
+        return dateB - dateA;
+      });
+    }
+    else if (sortOrder === 'Date: Ascending') {
+      // Sort by date ascending (oldest first)
+      return entries.sort((a, b) => {
+        // Handle entries with timeAgo (like "5m") - these are always newest
+        if (a.timeAgo && !b.timeAgo) return 1;
+        if (!a.timeAgo && b.timeAgo) return -1;
+        if (a.timeAgo && b.timeAgo) return 0;
+
+        // Otherwise sort by date
+        const dateA = new Date(a.date.split('/').reverse().join('-'));
+        const dateB = new Date(b.date.split('/').reverse().join('-'));
+        return dateA - dateB;
+      });
+    }
+
+    return entries;
+  };
+
+  // Get sorted log entries based on current sort order
+  const logEntries = getSortedLogEntries();
 
   // Available photos for selection
   const availablePhotos = [
@@ -284,9 +367,62 @@ export default function DeviceDetailScreen({ route }) {
 
         {/* Log Tab Content */}
         {activeTab === 'LOG' && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>No logs available</Text>
-          </View>
+          <>
+            {/* Sort dropdown */}
+            <View style={styles.sortContainer}>
+              <Text style={styles.sortLabel}>Sort by:</Text>
+              <TouchableOpacity
+                style={styles.sortButton}
+                onPress={() => {
+                  setShowSortOptions(!showSortOptions);
+                  // Add a small vibration feedback when pressed
+                  if (Platform.OS === 'ios' || Platform.OS === 'android') {
+                    try {
+                      Vibration.vibrate(10);
+                    } catch (e) {
+                      // Ignore if vibration is not supported
+                    }
+                  }
+                }}
+              >
+                <Text style={styles.sortButtonText}>{sortOrder}</Text>
+                <AntDesign
+                  name="down"
+                  size={14}
+                  color="#06492C"
+                />
+              </TouchableOpacity>
+
+
+            </View>
+
+            {/* Log entries */}
+            <ScrollView
+              style={styles.logsContainer}
+              contentContainerStyle={styles.logsContentContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {logEntries.map((entry) => (
+                <View key={entry.id} style={styles.logEntry}>
+                  {/* Icon */}
+                  <View style={styles.logIconContainer}>
+                    <Ionicons name={entry.icon} size={24} color={entry.iconColor} />
+                  </View>
+
+                  {/* Content */}
+                  <View style={styles.logContent}>
+                    <Text style={styles.logTitle}>{entry.title}</Text>
+                    <Text style={styles.logMessage}>{entry.message}</Text>
+                  </View>
+
+                  {/* Timestamp */}
+                  <Text style={styles.logDate}>
+                    {entry.timeAgo ? entry.timeAgo : entry.date}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          </>
         )}
 
         {/* Settings Tab Content */}
@@ -323,6 +459,62 @@ export default function DeviceDetailScreen({ route }) {
           <Text style={styles.navButtonText}>Profile</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Sort Options Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showSortOptions}
+        onRequestClose={() => setShowSortOptions(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowSortOptions(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={styles.sortModalContent}>
+                <TouchableOpacity
+                  style={styles.sortOption}
+                  onPress={() => {
+                    setSortOrder('Date: Descending');
+                    setShowSortOptions(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.sortOptionText,
+                    sortOrder === 'Date: Descending' && styles.selectedSortOption
+                  ]}>
+                    Date: Descending
+                  </Text>
+                  <AntDesign
+                    name="down"
+                    size={16}
+                    color={sortOrder === 'Date: Descending' ? "#339432" : "#06492C"}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.sortOption, { borderBottomWidth: 0 }]}
+                  onPress={() => {
+                    setSortOrder('Date: Ascending');
+                    setShowSortOptions(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.sortOptionText,
+                    sortOrder === 'Date: Ascending' && styles.selectedSortOption
+                  ]}>
+                    Date: Ascending
+                  </Text>
+                  <AntDesign
+                    name="up"
+                    size={16}
+                    color={sortOrder === 'Date: Ascending' ? "#339432" : "#06492C"}
+                  />
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
       {/* Photo Selection Modal */}
       <Modal
@@ -709,5 +901,142 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.darkGray,
     marginTop: 4,
+  },
+
+  // Log styles
+  sortContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'white',
+    padding: 16,
+    margin: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sortLabel: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 16,
+    color: '#06492C',
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  sortButtonText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14,
+    color: '#06492C',
+    marginRight: 8,
+  },
+  sortOptionsContainer: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 8,
+    width: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 2000,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  sortOptionText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 14,
+    color: '#06492C',
+  },
+  selectedSortOption: {
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#339432',
+  },
+  sortModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 8,
+    width: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    position: 'absolute',
+    top: 60,
+    right: 16,
+  },
+  logsContainer: {
+    backgroundColor: '#f6fef8',
+    borderRadius: 12,
+    margin: 16,
+    marginTop: 8,
+    maxHeight: 450, // Limit height to ensure it fits on one screen
+  },
+  logsContentContainer: {
+    paddingBottom: 8,
+  },
+  logEntry: {
+    flexDirection: 'row',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: 'white',
+    marginBottom: 8,
+  },
+  logIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  logContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  logTitle: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14,
+    color: Colors.secondary,
+    marginBottom: 4,
+  },
+  logMessage: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 14,
+    color: Colors.darkGray,
+    lineHeight: 20,
+  },
+  logDate: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 12,
+    color: Colors.darkGray,
+    alignSelf: 'flex-start',
+    minWidth: 50,
+    textAlign: 'right',
   },
 });

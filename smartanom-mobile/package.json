@@ -12,7 +12,6 @@
     "@expo-google-fonts/abhaya-libre": "^0.3.0",
     "@expo-google-fonts/abril-fatface": "^0.3.0",
     "@expo-google-fonts/alexandria": "^0.3.0",
-    "@expo-google-fonts/archivo": "^0.3.0",
     "@expo-google-fonts/montserrat": "^0.3.0",
     "@expo/metro-runtime": "~5.0.4",
     "@react-native-async-storage/async-storage": "^2.1.2",
