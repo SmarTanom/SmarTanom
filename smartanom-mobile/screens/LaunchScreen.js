@@ -1,30 +1,34 @@
-import React, { useEffect, useContext } from 'react';
-import { View, /* Image, */ StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useContext } from 'react';
+import { View, Image, StyleSheet, TouchableWithoutFeedback } from 'react-native';
 import Colors from '../constants/Colors';
 import { AuthContext } from '../context/AuthContext';
 
 export default function LaunchScreen({ navigation }) {
   const { user } = useContext(AuthContext);
+  const timerRef = useRef(null);
+  const hasNavigated = useRef(false); // to prevent double navigation
+
+  const handleSkip = () => {
+    if (hasNavigated.current) return; // Prevent multiple navigations
+    hasNavigated.current = true;
+    clearTimeout(timerRef.current);
+    navigation.replace(user ? 'MainApp' : 'Welcome');
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      // Check if user is logged in
-      if (user) {
-        // User is logged in, navigate to MainApp
-        navigation.replace('MainApp');
-      } else {
-        // User is not logged in, navigate to Welcome screen
-        navigation.replace('Welcome');
-      }
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [user, navigation]);
+    timerRef.current = setTimeout(() => {
+      handleSkip(); // auto navigate after 5 sec
+    }, 5000);
+
+    return () => clearTimeout(timerRef.current);
+  }, [user]);
 
   return (
-    <View style={styles.container}>
-      {/* Logo temporarily disabled */}
-      {/* <Image source={require('../assets/logo.png')} style={styles.logo} /> */}
-    </View>
+    <TouchableWithoutFeedback onPress={handleSkip}>
+      <View style={styles.container}>
+        <Image source={require('../assets/launch.png')} style={styles.logo} />
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -36,8 +40,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 150,
-    height: 150,
+    width: 450,
+    height: 450,
     resizeMode: 'contain',
   },
 });
