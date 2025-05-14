@@ -195,7 +195,13 @@ export default function DashboardScreen() {
         </View>
         <View style={styles.alertContent}>
           <Text style={styles.alertTitle}>Alert Summary</Text>
-          <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(Inadequate nutrients)</Text></Text>
+          {activeDeviceIndex === 0 ? (
+            // Porch SmarTanom alert
+            <Text style={styles.alertText}>EC too low <Text style={styles.alertNote}>(Inadequate nutrients)</Text></Text>
+          ) : (
+            // Backyard SmarTanom alert
+            <Text style={styles.alertText}>pH too high <Text style={styles.alertNote}>(Adjust nutrient solution)</Text></Text>
+          )}
         </View>
         <TouchableOpacity style={styles.alertArrow}>
           <Ionicons name="chevron-forward" size={24} color={Colors.primary} />
@@ -204,9 +210,21 @@ export default function DashboardScreen() {
 
       {/* Device Info Summary */}
       <View style={styles.statusRow}>
-        <StatusBox icon="wifi" label="Connectivity" value="Online" />
-        <StatusBox icon="time-outline" label="Last Data" value="5m ago" />
-        <StatusBox icon="battery-full" label="Battery" value="78%" />
+        <StatusBox
+          icon="wifi"
+          label="Connectivity"
+          value={activeDeviceIndex === 0 ? "Online" : "Online"}
+        />
+        <StatusBox
+          icon="time-outline"
+          label="Last Data"
+          value={activeDeviceIndex === 0 ? "5m ago" : "12m ago"}
+        />
+        <StatusBox
+          icon="battery-full"
+          label="Battery"
+          value={activeDeviceIndex === 0 ? "78%" : "92%"}
+        />
       </View>
 
       {/* Nutrient Level */}
@@ -214,10 +232,19 @@ export default function DashboardScreen() {
         <Text style={styles.nutrientTitle}>Nutrient Level</Text>
         <View style={styles.nutrientStatusContainer}>
           <MaterialCommunityIcons name="sprout" size={24} color={Colors.primary} />
-          <Text style={styles.nutrientStatus}>
-            <Text style={styles.nutrientStatusText}>Low </Text>
-            <Text style={styles.nutrientNote}>(Nutrient needs refilling)</Text>
-          </Text>
+          {activeDeviceIndex === 0 ? (
+            // Porch SmarTanom nutrient level
+            <Text style={styles.nutrientStatus}>
+              <Text style={styles.nutrientStatusText}>Low </Text>
+              <Text style={styles.nutrientNote}>(Nutrient needs refilling)</Text>
+            </Text>
+          ) : (
+            // Backyard SmarTanom nutrient level
+            <Text style={styles.nutrientStatus}>
+              <Text style={styles.nutrientStatusText}>Optimal </Text>
+              <Text style={styles.nutrientNote}>(Nutrient level is good)</Text>
+            </Text>
+          )}
         </View>
       </View>
 
@@ -313,19 +340,45 @@ export default function DashboardScreen() {
 
       {/* Sensor Metrics */}
       <View style={styles.metricsGrid}>
-        <MetricBox icon="water-outline" label="EC Levels" value="2.4 mS/cm" />
-        <MetricBox icon="flask-outline" label="TDS" value="950 ppm" />
-        <MetricBox icon="water" label="Water Level" value="85%" />
-        <MetricBox icon="water-opacity" label="Turbidity" value="3 NTU" />
+        {activeDeviceIndex === 0 ? (
+          // Porch SmarTanom metrics
+          <>
+            <MetricBox icon="water-outline" label="EC Levels" value="2.4 mS/cm" />
+            <MetricBox icon="flask-outline" label="TDS" value="950 ppm" />
+            <MetricBox icon="water" label="Water Level" value="85%" />
+            <MetricBox icon="water-opacity" label="Turbidity" value="3 NTU" />
+          </>
+        ) : (
+          // Backyard SmarTanom metrics
+          <>
+            <MetricBox icon="water-outline" label="EC Levels" value="1.8 mS/cm" />
+            <MetricBox icon="flask-outline" label="TDS" value="720 ppm" />
+            <MetricBox icon="water" label="Water Level" value="92%" />
+            <MetricBox icon="water-opacity" label="Turbidity" value="5 NTU" />
+          </>
+        )}
       </View>
 
       {/* Environmental Conditions */}
       <View style={styles.environmentCard}>
         <Text style={styles.environmentTitle}>Environment Conditions</Text>
-        <Condition icon="temperature-low" iconType="fa" label="Temperature" value="24.2°C" />
-        <Condition icon="droplet" iconType="feather" label="Humidity" value="68%" />
-        <Condition icon="white-balance-sunny" iconType="material" label="Light Intensity" value="9,000 Lux" />
-        <Condition icon="molecule-co2" iconType="material" label="CO₂ Level" value="415 ppm" />
+        {activeDeviceIndex === 0 ? (
+          // Porch SmarTanom environmental conditions
+          <>
+            <Condition icon="temperature-low" iconType="fa" label="Temperature" value="24.2°C" />
+            <Condition icon="droplet" iconType="feather" label="Humidity" value="68%" />
+            <Condition icon="white-balance-sunny" iconType="material" label="Light Intensity" value="9,000 Lux" />
+            <Condition icon="molecule-co2" iconType="material" label="CO₂ Level" value="415 ppm" />
+          </>
+        ) : (
+          // Backyard SmarTanom environmental conditions
+          <>
+            <Condition icon="temperature-low" iconType="fa" label="Temperature" value="26.8°C" />
+            <Condition icon="droplet" iconType="feather" label="Humidity" value="72%" />
+            <Condition icon="white-balance-sunny" iconType="material" label="Light Intensity" value="12,500 Lux" />
+            <Condition icon="molecule-co2" iconType="material" label="CO₂ Level" value="430 ppm" />
+          </>
+        )}
       </View>
       </ScrollView>
     </SafeAreaView>
