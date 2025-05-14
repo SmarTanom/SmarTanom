@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
           AsyncStorage.getItem("user"),
           AsyncStorage.getItem("token"),
         ]);
-        
+
         if (storedUser && storedToken) {
           setUser(JSON.parse(storedUser));
           setToken(storedToken);
@@ -27,30 +27,30 @@ export const AuthProvider = ({ children }) => {
         setIsLoading(false);
       }
     };
-    
+
     loadUserData();
   }, []);
 
   const login = async (email, password) => {
     try {
       setIsLoading(true);
-      const apiUrl = Platform.OS === 'android' 
-        ? 'http://10.0.2.2:8000/api/accounts/login/' 
+      const apiUrl = Platform.OS === 'android'
+        ? 'http://10.0.2.2:8000/api/accounts/login/'
         : 'http://127.0.0.1:8000/api/accounts/login/';
-  
+
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
-          email: email.trim(), 
-          password: password 
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password
         }),
       });
-      
+
       const responseData = await response.json();
-      
+
       if (!response.ok) {
         let errorMessage = "Login failed";
         if (responseData.error) {
@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
         }
         throw new Error(errorMessage);
       }
-  
+
       if (responseData.token && responseData.user) {
         setUser(responseData.user);
         setToken(responseData.token);
@@ -70,19 +70,37 @@ export const AuthProvider = ({ children }) => {
         await AsyncStorage.setItem("token", responseData.token);
         return { success: true };
       } else {
-        return { 
-          success: false, 
-          error: "Invalid response from server" 
+        return {
+          success: false,
+          error: "Invalid response from server"
         };
       }
     } catch (error) {
       console.error("Login error:", error.message);
-      return { 
-        success: false, 
-        error: error.message || "Network error. Please try again." 
+      return {
+        success: false,
+        error: error.message || "Network error. Please try again."
       };
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const updateUserProfile = async (userData) => {
+    try {
+      if (!user) return false;
+
+      // Update the user object with new data
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+
+      // Save to AsyncStorage
+      await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+
+      return true;
+    } catch (error) {
+      console.error("Update profile error:", error);
+      return false;
     }
   };
 
@@ -103,12 +121,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      token, 
+    <AuthContext.Provider value={{
+      user,
+      token,
       isLoading,
-      login, 
-      logout 
+      login,
+      logout,
+      updateUserProfile
     }}>
       {children}
     </AuthContext.Provider>

@@ -81,6 +81,28 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:19006",  # For React Native development
     "http://127.0.0.1:19006",  # For React Native development
 ]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
 ROOT_URLCONF = 'SmarTanom.urls'
 
 TEMPLATES = [
