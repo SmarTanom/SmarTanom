@@ -1,7 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { View, Text, StyleSheet, Platform, SafeAreaView } from 'react-native';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium } from '@expo-google-fonts/montserrat';
 
@@ -15,6 +15,7 @@ import LoginScreen from '../screens/LoginScreen';
 
 // Main App Screens
 import DashboardScreen from '../screens/DashboardScreen';
+import DeviceDetailScreen from '../screens/DeviceDetailScreen';
 
 // Import Colors
 import Colors from '../constants/Colors';
@@ -58,17 +59,15 @@ function MainTabNavigator() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-
           if (route.name === 'Tanom') {
-            iconName = 'leaf';
+            return <View><MaterialCommunityIcons name="sprout" size={size} color={color} /></View>;
           } else if (route.name === 'Alerts') {
-            iconName = focused ? 'notifications' : 'notifications-outline';
+            const iconName = focused ? 'notifications' : 'notifications-outline';
+            return <View><Ionicons name={iconName} size={size} color={color} /></View>;
           } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
+            const iconName = focused ? 'person' : 'person-outline';
+            return <View><Ionicons name={iconName} size={size} color={color} /></View>;
           }
-
-          return <View><Ionicons name={iconName} size={size} color={color} /></View>;
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.darkGray,
@@ -126,6 +125,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Setup" component={SetupScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="MainApp" component={MainTabNavigator} />
+      <Stack.Screen name="DeviceDetail" component={DeviceDetailScreen} />
     </Stack.Navigator>
   );
 }

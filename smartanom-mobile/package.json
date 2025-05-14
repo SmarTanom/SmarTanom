@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@expo-google-fonts/abhaya-libre": "^0.3.0",
     "@expo-google-fonts/abril-fatface": "^0.3.0",
     "@expo-google-fonts/montserrat": "^0.3.0",
     "@expo/metro-runtime": "~5.0.4",

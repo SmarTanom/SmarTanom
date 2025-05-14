@@ -1,5 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions, Platform, SafeAreaView, Image, FlatList } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  useWindowDimensions,
+  Platform,
+  SafeAreaView,
+  Image,
+  FlatList,
+  Modal,
+  Animated,
+  TouchableWithoutFeedback,
+  PanResponder
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
@@ -7,7 +23,8 @@ import { AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import Colors from '../constants/Colors';
 
 export default function DashboardScreen() {
-  const { width, height } = useWindowDimensions();
+  const navigation = useNavigation();
+  const { width } = useWindowDimensions();
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
     Montserrat_500Medium,
@@ -32,6 +49,58 @@ export default function DashboardScreen() {
 
   const [activeDeviceIndex, setActiveDeviceIndex] = useState(0);
   const flatListRef = useRef(null);
+
+  // Alert modal state
+  const [alertModalVisible, setAlertModalVisible] = useState(false);
+  const slideAnim = useRef(new Animated.Value(300)).current;
+
+  // Create PanResponder for swipe gestures
+  const panResponder = useRef(
+    React.useMemo(
+      () =>
+        PanResponder.create({
+          onStartShouldSetPanResponder: () => true,
+          onPanResponderMove: (_, gestureState) => {
+            if (gestureState.dy > 0) { // Only allow downward swipe
+              slideAnim.setValue(gestureState.dy);
+            }
+          },
+          onPanResponderRelease: (_, gestureState) => {
+            if (gestureState.dy > 50) { // If swiped down more than 50px, close the modal
+              hideAlertModal();
+            } else {
+              // Otherwise, snap back to open position
+              Animated.spring(slideAnim, {
+                toValue: 0,
+                useNativeDriver: true,
+              }).start();
+            }
+          },
+        }),
+      []
+    )
+  ).current;
+
+  // Function to show the alert modal with animation
+  const showAlertModal = () => {
+    setAlertModalVisible(true);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  // Function to hide the alert modal with animation
+  const hideAlertModal = () => {
+    Animated.timing(slideAnim, {
+      toValue: 300,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setAlertModalVisible(false);
+    });
+  };
 
   // Chart period state (Days or Weeks)
   const [chartPeriod, setChartPeriod] = useState('days');
@@ -157,6 +226,7 @@ export default function DashboardScreen() {
             <TouchableOpacity
               style={[styles.deviceCard, { width: width - 32 }]}
               activeOpacity={0.8}
+              onPress={() => navigation.navigate('DeviceDetail', { device: item })}
             >
               <Image
                 source={item.image}
@@ -187,7 +257,11 @@ export default function DashboardScreen() {
       </View>
 
       {/* Alert Summary */}
-      <View style={styles.alertCard}>
+      <TouchableOpacity
+        style={styles.alertCard}
+        activeOpacity={0.7}
+        onPress={showAlertModal}
+      >
         <View style={styles.alertIconContainer}>
           <View style={styles.alertIconCircle}>
             <Ionicons name="alert-outline" size={20} color={Colors.primary} />
@@ -203,10 +277,86 @@ export default function DashboardScreen() {
             <Text style={styles.alertText}>pH too high <Text style={styles.alertNote}>(Adjust nutrient solution)</Text></Text>
           )}
         </View>
-        <TouchableOpacity style={styles.alertArrow}>
+        <View style={styles.alertArrow}>
           <Ionicons name="chevron-forward" size={24} color={Colors.primary} />
-        </TouchableOpacity>
-      </View>
+        </View>
+      </TouchableOpacity>
+
+      {/* Alert Detail Modal */}
+      <Modal
+        animationType="none"
+        transparent={true}
+        visible={alertModalVisible}
+        onRequestClose={hideAlertModal}
+      >
+        <TouchableWithoutFeedback onPress={hideAlertModal}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <Animated.View
+                style={[
+                  styles.modalContent,
+                  {
+                    transform: [{ translateY: slideAnim }]
+                  }
+                ]}
+              >
+                <View
+                  {...panResponder.panHandlers}
+                  style={styles.modalPillContainer}
+                >
+                  <View style={styles.modalPill} />
+                </View>
+
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalTitle}>Alert Summary</Text>
+
+                  {activeDeviceIndex === 0 ? (
+                    // Porch SmarTanom alert details
+                    <Text style={styles.modalAlertText}>EC too low (Inadequate nutrients)</Text>
+                  ) : (
+                    // Backyard SmarTanom alert details
+                    <Text style={styles.modalAlertText}>pH too high (Adjust nutrient solution)</Text>
+                  )}
+
+                  <View style={styles.divider} />
+
+                  <Text style={styles.suggestedActionTitle}>Suggested Action</Text>
+
+                  {activeDeviceIndex === 0 ? (
+                    // Porch SmarTanom suggested action
+                    <Text style={styles.suggestedActionText}>
+                      Refill Part A (Calcium Nitrate) and Part B (Micronutrient Mix) to maintain optimal nutrient levels.
+                    </Text>
+                  ) : (
+                    // Backyard SmarTanom suggested action
+                    <Text style={styles.suggestedActionText}>
+                      Add pH down solution to bring pH levels within optimal range (5.8-6.2).
+                    </Text>
+                  )}
+                </View>
+
+                {/* Navigation Bar */}
+                <View style={styles.navBar}>
+                  <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Tanom')}>
+                    <MaterialCommunityIcons name="sprout" size={24} color={Colors.primary} />
+                    <Text style={[styles.navButtonText, { color: Colors.primary }]}>Tanom</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Alerts')}>
+                    <Ionicons name="notifications-outline" size={24} color={Colors.darkGray} />
+                    <Text style={styles.navButtonText}>Alerts</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.navButton} onPress={() => navigation.navigate('Profile')}>
+                    <Ionicons name="person-outline" size={24} color={Colors.darkGray} />
+                    <Text style={styles.navButtonText}>Profile</Text>
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
       {/* Device Info Summary */}
       <View style={styles.statusRow}>
@@ -436,6 +586,89 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: Platform.OS === 'ios' ? 90 : 70,
   },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 0,
+  },
+  modalPillContainer: {
+    paddingVertical: 10,
+    alignItems: 'center',
+    width: '100%',
+  },
+  modalPill: {
+    width: 40,
+    height: 5,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+  },
+  modalBody: {
+    padding: 20,
+    paddingBottom: 10,
+  },
+  modalTitle: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 20,
+    color: Colors.secondary,
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  modalAlertText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 18,
+    color: Colors.alertRed, // Using the SmarTanom alert color #CD5151
+    marginBottom: 5,
+    textAlign: 'center',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginVertical: 15,
+  },
+  suggestedActionTitle: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 18,
+    color: Colors.secondary,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  suggestedActionText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 16,
+    color: Colors.darkGray,
+    lineHeight: 24,
+    textAlign: 'center',
+    paddingHorizontal: 10,
+  },
+  navBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 15,
+    backgroundColor: Colors.white,
+    marginTop: 20,
+  },
+  navButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  navButtonText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: Colors.darkGray,
+    marginTop: 4,
+  },
+
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -459,6 +692,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     elevation: 2,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
   deviceImage: {
     width: '100%',

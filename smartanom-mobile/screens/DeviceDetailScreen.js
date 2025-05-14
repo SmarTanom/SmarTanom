@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold } from '@expo-google-fonts/montserrat';
+import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
+import { AbhayaLibre_800ExtraBold } from '@expo-google-fonts/abhaya-libre';
 import Colors from '../constants/Colors';
 
 export default function DeviceDetailScreen({ route }) {
@@ -24,6 +25,8 @@ export default function DeviceDetailScreen({ route }) {
     Montserrat_400Regular,
     Montserrat_500Medium,
     Montserrat_600SemiBold,
+    Montserrat_700Bold,
+    AbhayaLibre_800ExtraBold,
   });
 
   useEffect(() => {
@@ -97,33 +100,26 @@ export default function DeviceDetailScreen({ route }) {
           <>
             <View style={styles.statusCard}>
               <View style={styles.statusRow}>
-                <View style={styles.statusIconContainer}>
-                  <Ionicons name="checkmark-circle-outline" size={24} color={Colors.primary} />
-                </View>
+                <Ionicons name="time-outline" size={24} color={Colors.primary} />
                 <Text style={styles.statusText}>
                   Romaine Lettuce is estimated to be ready for harvest in 35 days.
                 </Text>
               </View>
             </View>
 
-            <View style={styles.sectionTitleContainer}>
-              <MaterialCommunityIcons name="sprout" size={18} color={Colors.darkGray} />
-              <Text style={styles.sectionTitle}>Growing now</Text>
-            </View>
+            <View style={styles.growingNowContainer}>
+              <View style={styles.sectionTitleContainer}>
+                <MaterialCommunityIcons name="sprout" size={18} color="rgba(6, 73, 44, 0.75)" />
+                <Text style={styles.sectionTitle}>Growing now</Text>
+              </View>
 
-            <View style={styles.plantCard}>
-              <View style={styles.plantInfo}>
+              <View style={styles.plantCard}>
                 <Image
                   source={require('../assets/romaine.png')}
                   style={styles.plantImage}
                 />
                 <View style={styles.plantDetails}>
-                  <View style={styles.plantNameRow}>
-                    <Text style={styles.plantName}>Romaine</Text>
-                    <View style={styles.infoIconContainer}>
-                      <Ionicons name="information-circle" size={18} color={Colors.white} />
-                    </View>
-                  </View>
+                  <Text style={styles.plantName}>Romaine</Text>
                   <Text style={styles.plantType}>Lettuce</Text>
                 </View>
                 <Text style={styles.harvestTime}>Harvest in 35 days</Text>
@@ -165,7 +161,7 @@ export default function DeviceDetailScreen({ route }) {
           style={styles.navButton}
           onPress={() => navigation.navigate('MainApp', { screen: 'Alerts' })}
         >
-          <Ionicons name="alarm-outline" size={24} color={Colors.darkGray} />
+          <Ionicons name="notifications-outline" size={24} color={Colors.darkGray} />
           <Text style={styles.navButtonText}>Alerts</Text>
         </TouchableOpacity>
 
@@ -247,20 +243,20 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   deviceName: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'AbhayaLibre_800ExtraBold',
     fontSize: 24,
-    color: '#333',
+    color: '#111111',
     marginBottom: 4,
   },
   deviceId: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
-    color: Colors.darkGray,
+    color: '#666666',
   },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#f0f7f0',
-    borderRadius: 30,
+    borderRadius: 12,
     margin: 16,
     marginTop: 8,
     marginBottom: 16,
@@ -270,11 +266,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 25,
+    borderRadius: 10,
   },
   activeTab: {
     backgroundColor: Colors.white,
-    borderRadius: 25,
+    borderRadius: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -282,13 +278,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   tabText: {
-    fontFamily: 'Montserrat_500Medium',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
     color: '#8bc48a',
   },
   activeTabText: {
     color: Colors.secondary,
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
   },
   statusCard: {
     backgroundColor: Colors.white,
@@ -303,86 +299,87 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusText: {
-    fontFamily: 'Montserrat_500Medium',
+    fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,
     color: Colors.secondary,
     flex: 1,
     marginLeft: 12,
   },
+  growingNowContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    margin: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    padding: 16,
+  },
   sectionTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(12, 147, 89, 0.05)',
     paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontFamily: 'Montserrat_500Medium',
     fontSize: 16,
-    color: Colors.darkGray,
+    color: 'rgba(6, 73, 44, 0.75)',
     marginLeft: 8,
   },
   plantCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    margin: 16,
-    marginTop: 0,
-    marginBottom: 16,
-  },
-  plantInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   plantImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
+    width: 70,
+    height: 70,
+    resizeMode: 'contain',
   },
   plantDetails: {
     marginLeft: 16,
     flex: 1,
   },
-  plantNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   plantName: {
     fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 18,
-    color: Colors.secondary,
-    marginRight: 8,
-  },
-  infoIconContainer: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    fontSize: 14,
+    color: '#06492C',
   },
   plantType: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
-    color: Colors.darkGray,
+    color: '#AAAAAA',
   },
   harvestTime: {
     fontFamily: 'Montserrat_500Medium',
     fontSize: 14,
-    color: Colors.secondary,
+    color: '#06492C',
+    textAlign: 'right',
   },
   newCycleButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
+    backgroundColor: '#339432',
+    borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     margin: 16,
     marginTop: 0,
     marginBottom: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   newCycleButtonText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,
-    color: Colors.white,
+    color: 'white',
   },
   emptyState: {
     backgroundColor: Colors.white,
