@@ -34,20 +34,20 @@ export default function ProfileScreen() {
   // Handle logout
   const handleLogout = () => {
     Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
+      "Confirm Logout",
+      "Are you sure you want to logout from your account?",
       [
         {
           text: "Cancel",
           style: "cancel"
         },
-        { 
-          text: "Logout", 
+        {
+          text: "Logout",
           onPress: () => {
             // Navigate to the login screen
             navigation.reset({
               index: 0,
-              routes: [{ name: 'Welcome' }],
+              routes: [{ name: 'Login' }],
             });
           },
           style: "destructive"
@@ -57,9 +57,12 @@ export default function ProfileScreen() {
   };
 
   // Render a menu item
-  const renderMenuItem = (title, onPress) => (
-    <TouchableOpacity 
-      style={styles.menuItem}
+  const renderMenuItem = (title, onPress, isLast = false) => (
+    <TouchableOpacity
+      style={[
+        styles.menuItem,
+        isLast ? { borderBottomWidth: 0 } : null
+      ]}
       activeOpacity={0.7}
       onPress={onPress}
     >
@@ -81,11 +84,11 @@ export default function ProfileScreen() {
           {renderMenuItem("Username", () => Alert.alert("Edit Username", "This feature will be available soon."))}
           {renderMenuItem("Email", () => Alert.alert("Edit Email", "This feature will be available soon."))}
           {renderMenuItem("Change Password", () => Alert.alert("Change Password", "This feature will be available soon."))}
-          {renderMenuItem("SmarTanom Sync Settings", () => Alert.alert("Sync Settings", "This feature will be available soon."))}
+          {renderMenuItem("SmarTanom Sync Settings", () => Alert.alert("Sync Settings", "This feature will be available soon."), true)}
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.logoutButton}
           activeOpacity={0.7}
           onPress={handleLogout}
@@ -100,7 +103,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f6fef8',
+    backgroundColor: '#f0f7f0',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   container: {
@@ -142,7 +145,8 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontFamily: 'Montserrat_500Medium',
     fontSize: 16,
-    color: Colors.secondary,
+    color: '#005500',
+    fontWeight: '500',
   },
   logoutButton: {
     backgroundColor: 'white',

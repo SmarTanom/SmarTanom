@@ -2,7 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { View, Text, StyleSheet, Platform, SafeAreaView } from 'react-native';
+import { View, Text, Platform } from 'react-native';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium } from '@expo-google-fonts/montserrat';
 
 // Auth Screens
@@ -17,19 +17,10 @@ import LoginScreen from '../screens/LoginScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import DeviceDetailScreen from '../screens/DeviceDetailScreen';
 import AlertsScreen from '../screens/AlertsScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
 // Import Colors
 import Colors from '../constants/Colors';
-
-function ProfileScreen() {
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <Text style={styles.text}>Profile Screen</Text>
-      </View>
-    </SafeAreaView>
-  );
-}
 
 // Create the bottom tab navigator
 const Tab = createBottomTabNavigator();
@@ -120,21 +111,4 @@ export default function AppNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f6fef8',
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f6fef8',
-    paddingBottom: Platform.OS === 'ios' ? 90 : 70, // Add padding for tab bar
-  },
-  text: {
-    fontFamily: 'Montserrat_500Medium',
-    fontSize: 18,
-    color: Colors.secondary,
-  },
-});
+

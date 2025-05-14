@@ -13,16 +13,17 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     try {
       // Call the login function from AuthContext to validate user credentials
-      const success = await login(email, password);
-      if (success) {
-        // Navigate to Dashboard upon successful login
+      const result = await login(email, password);
+      if (result.success) {
+        console.log("Login successful, navigating to MainApp");
+        // Navigate to MainApp upon successful login
         navigation.reset({
           index: 0,
-          routes: [{ name: "Dashboard" }],
+          routes: [{ name: "MainApp" }],
         });
       } else {
         // Display an error message if login failed
-        Alert.alert("Login Failed", "Invalid email or password. Please try again.");
+        Alert.alert("Login Failed", result.error || "Invalid email or password. Please try again.");
       }
     } catch (error) {
       // Handle any errors that occur during the login process

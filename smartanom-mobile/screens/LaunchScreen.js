@@ -1,16 +1,24 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useContext } from 'react';
 import { View, /* Image, */ StyleSheet } from 'react-native';
 import Colors from '../constants/Colors';
+import { AuthContext } from '../context/AuthContext';
 
 export default function LaunchScreen({ navigation }) {
+  const { user } = useContext(AuthContext);
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      // For testing, navigate directly to MainApp
-      // In production, you would navigate to 'Welcome' for new users
-      navigation.replace('MainApp');
+      // Check if user is logged in
+      if (user) {
+        // User is logged in, navigate to MainApp
+        navigation.replace('MainApp');
+      } else {
+        // User is not logged in, navigate to Welcome screen
+        navigation.replace('Welcome');
+      }
     }, 2000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [user, navigation]);
 
   return (
     <View style={styles.container}>
