@@ -3,16 +3,16 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User
 
 class UserAdmin(BaseUserAdmin):
-    filter_horizontal = ()  # Fixes the groups/permissions error
+    filter_horizontal = ()
     
     list_display = ('email', 'name', 'is_admin', 'is_active', 'email_verified')
     list_filter = ('is_admin', 'is_active', 'email_verified')
-    list_editable = ('is_active', 'email_verified')  # Allow direct editing
+    list_editable = ('is_active', 'email_verified')
     
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Personal info', {'fields': ('name', 'contact')}),
-        ('Permissions', {'fields': ('is_active', 'email_verified', 'is_admin')}),
+        ('Permissions', {'fields': ('is_active', 'email_verified', 'is_admin', 'is_superuser')}),
         ('Important dates', {'fields': ('last_login', 'created_at', 'updated_at')}),
     )
     

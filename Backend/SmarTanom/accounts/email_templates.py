@@ -4,9 +4,9 @@ from django.conf import settings
 
 def get_activation_email(user, request, token):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
-    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:8081')
-    activation_link = f"{frontend_url}/activate/{uid}/{token}"
-
+    # Use your actual domain or backend URL here
+    activation_url = f"http://127.0.0.1:8000/api/accounts/activate/{uid}/{token}/"
+    
     subject = "Activate your SmarTanom Account"
     message = f"""
     Hi {user.name},
@@ -15,9 +15,9 @@ def get_activation_email(user, request, token):
 
     Please click the link below to activate your account:
 
-    {activation_link}
+    {activation_url}
 
-    If you didn’t register, please ignore this email.
+    If you didn't register, please ignore this email.
 
     - SmarTanom Team
     """

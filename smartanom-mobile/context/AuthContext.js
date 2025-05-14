@@ -52,8 +52,15 @@ export const AuthProvider = ({ children }) => {
       const responseData = await response.json();
       
       if (!response.ok) {
-        console.log("Login error response:", responseData); // Debug logging
-        throw new Error(responseData.error || responseData.detail || "Login failed");
+        let errorMessage = "Login failed";
+        if (responseData.error) {
+          errorMessage = responseData.error;
+        } else if (responseData.detail) {
+          errorMessage = responseData.detail;
+        } else if (responseData.non_field_errors) {
+          errorMessage = responseData.non_field_errors.join(', ');
+        }
+        throw new Error(errorMessage);
       }
   
       if (responseData.token && responseData.user) {
@@ -65,7 +72,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         return { 
           success: false, 
-          error: responseData.error || "Invalid response from server" 
+          error: "Invalid response from server" 
         };
       }
     } catch (error) {
