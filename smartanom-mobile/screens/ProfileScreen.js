@@ -82,7 +82,7 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Language')}>
             <Ionicons name="language-outline" size={22} color={Colors.primary} />
             <Text style={styles.menuText}>Language</Text>
             <Ionicons name="chevron-forward" size={18} color={Colors.darkGray} />

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, Switch, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import Colors from '../constants/Colors';
@@ -24,11 +24,18 @@ export default function Notification({ navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <Ionicons name="notifications-outline" size={28} color={Colors.white} />
+        {/* Header Row */}
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={22} color={Colors.white} />
+          </TouchableOpacity>
           <Text style={styles.headerTitle}>Notifications</Text>
         </View>
 
+        {/* Notification Settings */}
         <View style={styles.settingsList}>
           <View style={styles.settingRow}>
             <Text style={styles.settingLabel}>Allow Notifications</Text>
@@ -84,23 +91,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.white,
   },
-  header: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 50,
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
     backgroundColor: Colors.primary,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
   },
   headerTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 22,
-    color: Colors.white,
-    marginLeft: 10,
+    color: Colors.darkText,
   },
   settingsList: {
-    padding: 20,
+    paddingHorizontal: 20,
   },
   settingRow: {
     flexDirection: 'row',

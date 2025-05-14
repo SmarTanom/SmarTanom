@@ -18,6 +18,7 @@ import EditProfileScreen from '../screens/EditProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import AboutScreen from '../screens/AboutScreen';
+import LanguageScreen from '../screens/LanguageScreen';
 
 // Main App Screens
 import DashboardScreen from '../screens/DashboardScreen';
@@ -119,7 +120,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
       <Stack.Screen name="About" component={AboutScreen} />
-      
+      <Stack.Screen name="Language" component={LanguageScreen} />
     </Stack.Navigator>
   );
 }

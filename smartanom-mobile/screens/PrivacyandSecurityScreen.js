@@ -9,13 +9,14 @@ import {
   Linking,
   Platform,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/Colors';
 
 const DATA_RETENTION_OPTIONS = ['1m', '6m', '12m', 'Custom'];
 
-export default function PrivacyandSecurityScreen() {
+export default function PrivacyandSecurityScreen({ navigation }) {
   const [dataRetention, setDataRetention] = useState('6m');
   const [locationAccess, setLocationAccess] = useState(false);
   const [cameraAccess, setCameraAccess] = useState(false);
@@ -33,7 +34,6 @@ export default function PrivacyandSecurityScreen() {
   };
 
   const onViewPolicy = () => {
-    // Replace with actual policy URL
     const url = 'https://example.com/gdpr-iot-security-policy';
     Linking.openURL(url).catch(() => {
       Alert.alert('Error', 'Failed to open policy URL.');
@@ -53,90 +53,99 @@ export default function PrivacyandSecurityScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Account Security */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account Security</Text>
-        <View style={styles.row}>
-          <Ionicons name="mail-outline" size={22} color={Colors.primary} />
-          <Text style={styles.rowText}>Email Verification</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
+        {/* Header Row with Back Button */}
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={22} color={Colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Privacy & Security</Text>
         </View>
-        <View style={styles.row}>
-          <Ionicons name="key-outline" size={22} color={Colors.primary} />
-          <Text style={styles.rowText}>Change Password</Text>
-          <TouchableOpacity style={styles.changeButton} onPress={onChangePassword}>
-            <Text style={styles.changeButtonText}>Change</Text>
+
+        {/* Sections */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account Security</Text>
+          <View style={styles.row}>
+            <Ionicons name="mail-outline" size={22} color={Colors.primary} />
+            <Text style={styles.rowText}>Email Verification</Text>
+          </View>
+          <View style={styles.row}>
+            <Ionicons name="key-outline" size={22} color={Colors.primary} />
+            <Text style={styles.rowText}>Change Password</Text>
+            <TouchableOpacity style={styles.changeButton} onPress={onChangePassword}>
+              <Text style={styles.changeButtonText}>Change</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Active Sessions</Text>
+          <View style={styles.row}>
+            <Ionicons name="eye-outline" size={22} color={Colors.primary} />
+            <Text style={styles.rowText}>This Device – Online</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Data Privacy</Text>
+          <View style={styles.row}>
+            <Ionicons name="brush-outline" size={22} color={Colors.primary} />
+            <Text style={styles.rowText}>Data Retention</Text>
+            <TouchableOpacity style={styles.dropdown} onPress={onSelectDataRetention}>
+              <Text style={styles.dropdownText}>{dataRetention}</Text>
+              <Ionicons name="chevron-down-outline" size={18} color={Colors.darkGray} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={styles.actionButton} onPress={onExportData}>
+              <Text style={styles.actionButtonText}>Export My Data</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={onDeleteData}>
+              <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete My Data</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Permissions</Text>
+          <View style={styles.row}>
+            <Ionicons name="location-outline" size={22} color={Colors.primary} />
+            <Text style={styles.rowText}>Location Access</Text>
+            <Switch
+              value={locationAccess}
+              onValueChange={setLocationAccess}
+              trackColor={{ false: Colors.lightGray, true: Colors.primary }}
+              thumbColor={Platform.OS === 'android' ? (locationAccess ? Colors.primary : Colors.white) : ''}
+            />
+          </View>
+          <View style={styles.row}>
+            <Ionicons name="camera-outline" size={22} color={Colors.primary} />
+            <Text style={styles.rowText}>Camera Access (for pairing)</Text>
+            <Switch
+              value={cameraAccess}
+              onValueChange={setCameraAccess}
+              trackColor={{ false: Colors.lightGray, true: Colors.primary }}
+              thumbColor={Platform.OS === 'android' ? (cameraAccess ? Colors.primary : Colors.white) : ''}
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Compliance & Info</Text>
+          <View style={styles.row}>
+            <Ionicons name="document-text-outline" size={22} color={Colors.primary} />
+            <Text style={styles.rowText}>GDPR & IoT Security Practices</Text>
+          </View>
+          <TouchableOpacity onPress={onViewPolicy}>
+            <Text style={styles.linkText}>Learn how we protect your data → View Policy</Text>
           </TouchableOpacity>
         </View>
-      </View>
-
-      {/* Active Sessions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Active Sessions</Text>
-        <View style={styles.row}>
-          <Ionicons name="eye-outline" size={22} color={Colors.primary} />
-          <Text style={styles.rowText}>This Device – Online</Text>
-        </View>
-      </View>
-
-      {/* Data Privacy */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Data Privacy</Text>
-        <View style={styles.row}>
-          <Ionicons name="brush-outline" size={22} color={Colors.primary} />
-          <Text style={styles.rowText}>Data Retention</Text>
-          <TouchableOpacity style={styles.dropdown} onPress={onSelectDataRetention}>
-            <Text style={styles.dropdownText}>{dataRetention}</Text>
-            <Ionicons name="chevron-down-outline" size={18} color={Colors.darkGray} />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.actionButton} onPress={onExportData}>
-            <Text style={styles.actionButtonText}>Export My Data</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={onDeleteData}>
-            <Text style={[styles.actionButtonText, styles.deleteButtonText]}>Delete My Data</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Permissions */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Permissions</Text>
-        <View style={styles.row}>
-          <Ionicons name="location-outline" size={22} color={Colors.primary} />
-          <Text style={styles.rowText}>Location Access</Text>
-          <Switch
-            value={locationAccess}
-            onValueChange={setLocationAccess}
-            trackColor={{ false: Colors.lightGray, true: Colors.primary }}
-            thumbColor={Platform.OS === 'android' ? (locationAccess ? Colors.primary : Colors.white) : ''}
-          />
-        </View>
-        <View style={styles.row}>
-          <Ionicons name="camera-outline" size={22} color={Colors.primary} />
-          <Text style={styles.rowText}>Camera Access (for pairing)</Text>
-          <Switch
-            value={cameraAccess}
-            onValueChange={setCameraAccess}
-            trackColor={{ false: Colors.lightGray, true: Colors.primary }}
-            thumbColor={Platform.OS === 'android' ? (cameraAccess ? Colors.primary : Colors.white) : ''}
-          />
-        </View>
-      </View>
-
-      {/* Compliance & Info */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Compliance & Info</Text>
-        <View style={styles.row}>
-          <Ionicons name="document-text-outline" size={22} color={Colors.primary} />
-          <Text style={styles.rowText}>GDPR & IoT Security Practices</Text>
-        </View>
-        <TouchableOpacity onPress={onViewPolicy}>
-          <Text style={styles.linkText}>Learn how we protect your data → View Policy</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -148,6 +157,26 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 20,
     paddingBottom: 40,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 30,
+    marginTop: 10,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.darkText,
   },
   section: {
     marginBottom: 30,
@@ -220,5 +249,6 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '600',
     fontSize: 16,
+    marginTop: 10,
   },
 });

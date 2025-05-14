@@ -30,7 +30,7 @@ export default function EditProfileScreen({ navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+          <Ionicons name="arrow-back" size={22} color="white" />
         </TouchableOpacity>
         <Text style={styles.title}>Edit Profile</Text>
       </View>
