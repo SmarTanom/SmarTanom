@@ -27,7 +27,7 @@ export default function HelpCenterScreen({ navigation }) {
         </TouchableOpacity>
 
         <View style={styles.header}>
-          <Image source={require('../assets/help.png')} style={styles.logo} />
+          <Image source={require('../assets/logo.png')} style={styles.logo} />
           <Text style={styles.title}>Help Center</Text>
         </View>
 
