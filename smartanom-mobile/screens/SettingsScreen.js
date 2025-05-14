@@ -11,7 +11,7 @@ export default function SettingsScreen({ navigation }) {
     <View style={[styles.container, darkMode && styles.darkContainer]}>
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backCircle}>
-          <Ionicons name="arrow-back" size={20} color={Colors.white} />
+          <Ionicons name="arrow-back" size={22} color={Colors.white} />
         </TouchableOpacity>
         <Text style={[styles.headerText, darkMode && styles.darkText]}>Settings</Text>
       </View>
