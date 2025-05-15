@@ -35,8 +35,11 @@ export default function LoginScreen({ navigation }) {
     }
 
     setIsLoading(true);
+    
     try {
+      console.log("Attempting login with:", email);
       const result = await login(email, password);
+      console.log("Login result:", result);
 
       if (result.success) {
         navigation.reset({
@@ -44,15 +47,29 @@ export default function LoginScreen({ navigation }) {
           routes: [{ name: "MainApp" }],
         });
       } else {
-        Alert.alert("Login Failed", result.error || "Invalid email or password");
+        // Display the specific error message from the backend
+        const isLocked = result.error && (
+          result.error.includes("locked") || 
+          result.error.includes("too many failed attempts")
+        );
+        
+        Alert.alert(
+          isLocked ? "Account Locked" : "Login Failed", 
+          result.error || "Invalid email or password"
+        );
+        
+        // Clear password field after failed attempt
+        setPassword("");
       }
     } catch (error) {
       console.error("Login Error:", error);
       Alert.alert(
         "Error",
-        error.message || "Something went wrong. Please try again."
+        "Connection error. Please check your internet connection and try again."
       );
+      setPassword("");
     } finally {
+      // Ensure loading state is always turned off
       setIsLoading(false);
     }
   };

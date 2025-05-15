@@ -8,6 +8,24 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Get the appropriate API URL based on platform
+  const getApiBaseUrl = () => {
+    if (__DEV__) {
+      // Development environment
+      if (Platform.OS === 'android') {
+        // Android emulator uses 10.0.2.2 to access host machine's localhost
+        return 'http://10.0.2.2:8000';
+      } else if (Platform.OS === 'ios') {
+        // iOS simulator can use localhost
+        return 'http://localhost:8000';
+      }
+      // Web development
+      return 'http://localhost:8000';
+    }
+    // Production environment - use your deployed backend
+    return 'https://smartanom-django-backend-prod.onrender.com';
+  };
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -34,22 +52,26 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       setIsLoading(true);
-      const apiUrl = Platform.OS === 'android'
-        ? 'http://10.0.2.2:8000/api/accounts/login/'
-        : 'http://127.0.0.1:8000/api/accounts/login/';
-
+      const baseUrl = getApiBaseUrl();
+      const apiUrl = `${baseUrl}/api/accounts/login`;
+      console.log("Attempting login to:", apiUrl);
+      
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         body: JSON.stringify({
           email: email.trim(),
           password: password
-        }),
+        })
       });
-
+      
+      console.log("Response status:", response.status);
+      
       const responseData = await response.json();
+      console.log("Login response data:", responseData);
 
       if (!response.ok) {
         let errorMessage = "Login failed";

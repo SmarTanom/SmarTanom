@@ -10,31 +10,76 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
-from pathlib import Path
-import dj_database_url
 import os
+import dj_database_url
+from pathlib import Path
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-x9!4w46i-%68mn9hcr2w73rf$nz26kfug3=3x35!*#$abc#pj8'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-x9!4w46i-%68mn9hcr2w73rf$nz26kfug3=3x35!*#$abc#pj8')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']  # For development only - tighten this for production
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8081",
-    "http://127.0.0.1:8081",
-    "http://10.0.2.2:8081",  # Android emulator's special alias to host
+# Database configuration
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL)
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+# Static files configuration
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Add whitenoise middleware for static files
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# CORS settings for production
+CORS_ALLOWED_ORIGINS = [
+    "https://smartanom-frontend.onrender.com",
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "http://10.0.2.2:8081",  # Android emulator special IP for localhost
+    "http://10.0.2.2:19006",  # Android emulator for Expo
+    "http://localhost:19006",
+    "http://127.0.0.1:19006",
+    "https://smartanom-django-backend-prod.onrender.com",
+    "https://smartanom-backend.onrender.com",
+    "exp://10.0.2.2:8081",    # Expo on Android emulator
+    "exp://localhost:8081",   # Expo on web
+    "exp://127.0.0.1:8081"    # Expo alternative
+]
 
+# Security settings for production
+if not DEBUG:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 # Application definition
 
@@ -60,7 +105,7 @@ REST_FRAMEWORK = {
 APPEND_SLASH = False
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # <-- MUST come first
+    'corsheaders.middleware.CorsMiddleware',  # This must come first
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -71,15 +116,20 @@ MIDDLEWARE = [
 ]
 
 
-# CORS settings (ensure these are correct)\
+# CORS settings (ensure these are correct)
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = True  # For development only
+# Only enable this for development
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
     "http://10.0.2.2:8081",
     "http://localhost:19006",  # For React Native development
     "http://127.0.0.1:19006",  # For React Native development
+    # Add your frontend's production URL if needed
 ]
 
 CORS_ALLOW_METHODS = [
@@ -102,6 +152,12 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# For React Native, you might need to allow all headers
+CORS_ALLOW_ALL_HEADERS = True
+
+# You might also need to expose additional headers
+CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken', 'Authorization']
 
 ROOT_URLCONF = 'SmarTanom.urls'
 
