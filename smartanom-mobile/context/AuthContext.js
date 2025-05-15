@@ -9,21 +9,9 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Get the appropriate API URL based on platform
+  // Get the appropriate API URL based on platform - always use production for now
   const getApiBaseUrl = () => {
-    if (__DEV__) {
-      // Development environment
-      if (Platform.OS === 'android') {
-        // Android emulator uses 10.0.2.2 to access host machine's localhost
-        return 'http://10.0.2.2:8000';
-      } else if (Platform.OS === 'ios') {
-        // iOS simulator can use localhost
-        return 'http://localhost:8000';
-      }
-      // Web development
-      return 'http://localhost:8000';
-    }
-    // Production environment - use your deployed backend
+    // Always use production URL to avoid connection issues
     return 'https://smartanom-django-backend-prod.onrender.com';
   };
 
@@ -56,6 +44,10 @@ export const AuthProvider = ({ children }) => {
       const apiUrl = `${baseUrl}/api/accounts/login`;
       console.log("Attempting login to:", apiUrl);
       
+      // Create an AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
@@ -65,8 +57,12 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({
           email: email.trim(),
           password: password
-        })
+        }),
+        signal: controller.signal
       });
+      
+      // Clear the timeout
+      clearTimeout(timeoutId);
       
       console.log("Response status:", response.status);
       
@@ -98,10 +94,21 @@ export const AuthProvider = ({ children }) => {
         };
       }
     } catch (error) {
-      console.error("Login error:", error.message);
+      console.error("Login error:", error);
+      
+      let errorMessage = "Network error. Please try again.";
+      
+      if (error.name === 'AbortError') {
+        errorMessage = "Request timed out. The server might be down or your connection is slow.";
+      } else if (error.message?.includes("Network request failed")) {
+        errorMessage = "Network connection failed. Please check your internet connection.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       return {
         success: false,
-        error: error.message || "Network error. Please try again."
+        error: errorMessage
       };
     } finally {
       setIsLoading(false);

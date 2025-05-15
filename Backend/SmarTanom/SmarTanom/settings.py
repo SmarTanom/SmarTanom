@@ -23,7 +23,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-x9!4w46i-%68mn9hcr2w7
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+# Allow all hosts in development, specific hosts in production
+ALLOWED_HOSTS = ['*']  # Allow all hosts for easier development and emulator access
 
 # Database configuration
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -56,20 +57,30 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# CORS settings for production
+# CORS settings - allow all origins for easier development and emulator access
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+# Keep the specific origins for reference, but with CORS_ALLOW_ALL_ORIGINS=True, these won't be used for restriction
 CORS_ALLOWED_ORIGINS = [
     "https://smartanom-frontend.onrender.com",
     "http://localhost:8081",
     "http://127.0.0.1:8081",
     "http://10.0.2.2:8081",  # Android emulator special IP for localhost
+    "http://10.0.2.16:8081", # Your Android emulator IP
     "http://10.0.2.2:19006",  # Android emulator for Expo
+    "http://10.0.2.16:19006", # Your Android emulator IP for Expo
     "http://localhost:19006",
     "http://127.0.0.1:19006",
     "https://smartanom-django-backend-prod.onrender.com",
     "https://smartanom-backend.onrender.com",
     "exp://10.0.2.2:8081",    # Expo on Android emulator
+    "exp://10.0.2.16:8081",   # Expo on your Android emulator
     "exp://localhost:8081",   # Expo on web
-    "exp://127.0.0.1:8081"    # Expo alternative
+    "exp://127.0.0.1:8081",   # Expo alternative
+    # The following line allows any subdomain
+    "https://*.expo.dev",     # For Expo Go on physical devices
+    "exp://*",                # Any Expo URL
 ]
 
 # Security settings for production
@@ -153,11 +164,31 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# For React Native, you might need to allow all headers
+# For React Native, allow all headers
 CORS_ALLOW_ALL_HEADERS = True
 
-# You might also need to expose additional headers
+# Allow all methods
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Expose necessary headers
 CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken', 'Authorization']
+
+# Add CSRF trusted origins to match CORS allowed origins
+CSRF_TRUSTED_ORIGINS = [
+    "https://smartanom-frontend.onrender.com",
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "https://smartanom-django-backend-prod.onrender.com",
+    "https://smartanom-backend.onrender.com",
+    "https://*.expo.dev",
+]
 
 ROOT_URLCONF = 'SmarTanom.urls'
 
