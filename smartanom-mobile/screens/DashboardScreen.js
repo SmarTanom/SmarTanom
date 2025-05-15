@@ -122,7 +122,7 @@ export default function DashboardScreen() {
   const fetchDHT22Data = async () => {
     try {
       const response = await axios.get(
-        "http://192.168.1.9:8000/api/hydroponics/dht22-data/",
+        "https://smartanom-django-backend-prod.onrender.com/api/hydroponics/dht22-data/",
         {
           headers: {
             Authorization: `Token d7a0f7759605f4895e11230baa021f08a416b01b`,
