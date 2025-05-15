@@ -136,24 +136,31 @@ export default function DashboardScreen() {
 
         // Validate and set temperature
         const temp = parseFloat(response.data.temperature);
-        if (!isNaN(temp) && temp >= -20 && temp <= 50) {
+        if (!isNaN(temp) && temp !== null) {
+          // Always display with 1 decimal place
           setTemperature(temp.toFixed(1));
           console.log("Setting temperature:", temp.toFixed(1));
         } else {
           console.warn("Invalid temperature value received:", response.data.temperature);
+          setTemperature("--"); // Set to default if invalid
         }
 
         // Validate and set humidity
         const hum = parseFloat(response.data.humidity);
-        if (!isNaN(hum) && hum >= 0 && hum <= 100) {
+        if (!isNaN(hum) && hum !== null) {
+          // Always display with 1 decimal place
           setHumidity(hum.toFixed(1));
           console.log("Setting humidity:", hum.toFixed(1));
         } else {
           console.warn("Invalid humidity value received:", response.data.humidity);
+          setHumidity("--"); // Set to default if invalid
         }
+      } else {
+        console.warn("API returned success: false", response.data);
       }
     } catch (error) {
       console.error("Error fetching DHT22 data:", error);
+      // Don't update state on error to keep previous values
     }
   };
 
@@ -161,7 +168,9 @@ export default function DashboardScreen() {
   useFocusEffect(
     React.useCallback(() => {
       fetchDHT22Data(); // Initial fetch
-      fetchIntervalRef.current = setInterval(fetchDHT22Data, 3000); // Update every 3 seconds
+      
+      // Update every 10 seconds instead of 3 for more stable readings
+      fetchIntervalRef.current = setInterval(fetchDHT22Data, 10000);
 
       return () => {
         if (fetchIntervalRef.current) {
