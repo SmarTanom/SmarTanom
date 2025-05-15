@@ -47,7 +47,7 @@ export default function LoginScreen({ navigation }) {
           routes: [{ name: "MainApp" }],
         });
       } else {
-        // Display the specific error message from the backend
+        // Display the specific error message from the backend or our custom lockout message
         const isLocked = result.error && (
           result.error.includes("locked") || 
           result.error.includes("too many failed attempts")

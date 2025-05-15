@@ -38,7 +38,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from "axios";
 
 export default function DashboardScreen() {
-  const { user } = useContext(AuthContext);
+  const { user, token } = useContext(AuthContext);
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const { getDeviceImage } = useDeviceImages();
@@ -125,7 +125,7 @@ export default function DashboardScreen() {
         "https://smartanom-django-backend-prod.onrender.com/api/hydroponics/dht22-data/",
         {
           headers: {
-            Authorization: `Token d7a0f7759605f4895e11230baa021f08a416b01b`,
+            Authorization: `Token ${token}`,
           },
         }
       );
