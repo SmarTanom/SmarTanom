@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '../constants/Colors';
 import { useFonts, Montserrat_400Regular, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import { AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState('');
@@ -60,28 +61,50 @@ export default function RegisterScreen({ navigation }) {
 
     setIsLoading(true);
 
-    // Simulate a delay to make it feel like it's processing
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      // Make API call to Django backend
+      const response = await fetch('https://smartanom-django-backend-prod.onrender.com/api/accounts/register/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          contact: contact,
+          password: password,
+          password2: confirmPassword
+        }),
+      });
 
-      // Store user data in AsyncStorage for demo purposes
-      try {
-        AsyncStorage.setItem('user_data', JSON.stringify({
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Registration successful
+        await AsyncStorage.setItem('user_data', JSON.stringify({
           name: name,
           email: email,
           contact: contact
         }));
-
-        // Navigate to the username setup screen
-        navigation.navigate("UsernameSetup");
-      } catch (error) {
-        console.error("Storage Error:", error);
+        
         Alert.alert(
-          "Error",
-          "Failed to save user data. Please try again."
+          "Registration Successful",
+          "Please check your email to activate your account.",
+          [{ text: "OK", onPress: () => navigation.navigate("Login") }]
         );
+      } else {
+        // Registration failed
+        Alert.alert("Registration Failed", data.error || "Please try again later");
       }
-    }, 1500);
+    } catch (error) {
+      console.error("API Error:", error);
+      Alert.alert(
+        "Connection Error",
+        "Could not connect to the server. Please check your internet connection."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
