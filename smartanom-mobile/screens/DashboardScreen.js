@@ -35,7 +35,6 @@ import { useDeviceImages } from "../context/DeviceImageContext";
 import Colors from "../constants/Colors";
 import { AuthContext } from "../context/AuthContext";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from "axios";
 
 export default function DashboardScreen() {
   const { user, token } = useContext(AuthContext);
@@ -121,46 +120,18 @@ export default function DashboardScreen() {
 
   const fetchDHT22Data = async () => {
     try {
-      const response = await axios.get(
-        "https://smartanom-django-backend-prod.onrender.com/api/hydroponics/dht22-data/",
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-        }
-      );
+      // Mock data instead of API call
+      const mockTemperature = (24 + Math.random() * 4).toFixed(1); // 24-28°C
+      const mockHumidity = (60 + Math.random() * 20).toFixed(1); // 60-80%
 
-      if (response.data.success) {
-        // Add debug logging
-        console.log("Raw API Response:", response.data);
+      setTemperature(mockTemperature);
+      setHumidity(mockHumidity);
 
-        // Validate and set temperature
-        const temp = parseFloat(response.data.temperature);
-        if (!isNaN(temp) && temp !== null) {
-          // Always display with 1 decimal place
-          setTemperature(temp.toFixed(1));
-          console.log("Setting temperature:", temp.toFixed(1));
-        } else {
-          console.warn("Invalid temperature value received:", response.data.temperature);
-          setTemperature("--"); // Set to default if invalid
-        }
-
-        // Validate and set humidity
-        const hum = parseFloat(response.data.humidity);
-        if (!isNaN(hum) && hum !== null) {
-          // Always display with 1 decimal place
-          setHumidity(hum.toFixed(1));
-          console.log("Setting humidity:", hum.toFixed(1));
-        } else {
-          console.warn("Invalid humidity value received:", response.data.humidity);
-          setHumidity("--"); // Set to default if invalid
-        }
-      } else {
-        console.warn("API returned success: false", response.data);
-      }
+      console.log("Mock data - Temperature:", mockTemperature, "Humidity:", mockHumidity);
     } catch (error) {
-      console.error("Error fetching DHT22 data:", error);
-      // Don't update state on error to keep previous values
+      console.error("Error generating mock data:", error);
+      setTemperature("--");
+      setHumidity("--");
     }
   };
 
@@ -168,7 +139,7 @@ export default function DashboardScreen() {
   useFocusEffect(
     React.useCallback(() => {
       fetchDHT22Data(); // Initial fetch
-      
+
       // Update every 10 seconds instead of 3 for more stable readings
       fetchIntervalRef.current = setInterval(fetchDHT22Data, 10000);
 

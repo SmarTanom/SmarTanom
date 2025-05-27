@@ -25,51 +25,22 @@ export default function LoginScreen({ navigation }) {
   }
 
   const handleLogin = async () => {
-    if (!email.trim()) {
-      Alert.alert("Error", "Please enter your email");
-      return;
-    }
-    if (!password) {
-      Alert.alert("Error", "Please enter your password");
-      return;
-    }
-
     setIsLoading(true);
-    
+
     try {
-      console.log("Attempting login with:", email);
+      // Allow login with any credentials or even empty fields
       const result = await login(email, password);
-      console.log("Login result:", result);
 
       if (result.success) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "MainApp" }],
-        });
+        // Navigation will be handled automatically by AppNavigator based on auth state
+        console.log("Login successful, user authenticated");
       } else {
-        // Display the specific error message from the backend or our custom lockout message
-        const isLocked = result.error && (
-          result.error.includes("locked") || 
-          result.error.includes("too many failed attempts")
-        );
-        
-        Alert.alert(
-          isLocked ? "Account Locked" : "Login Failed", 
-          result.error || "Invalid email or password"
-        );
-        
-        // Clear password field after failed attempt
-        setPassword("");
+        Alert.alert("Login Failed", result.error || "Please try again");
       }
     } catch (error) {
       console.error("Login Error:", error);
-      Alert.alert(
-        "Error",
-        "Connection error. Please check your internet connection and try again."
-      );
-      setPassword("");
+      Alert.alert("Error", "Something went wrong. Please try again.");
     } finally {
-      // Ensure loading state is always turned off
       setIsLoading(false);
     }
   };

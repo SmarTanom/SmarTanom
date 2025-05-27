@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { View, Text, Platform } from 'react-native';
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium } from '@expo-google-fonts/montserrat';
+import { AuthContext } from '../context/AuthContext';
 
 // Auth Screens
 import LaunchScreen from '../screens/LaunchScreen';
@@ -113,32 +114,46 @@ function MainTabNavigator() {
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
+  const { user, isLoading } = useContext(AuthContext);
+
+  if (isLoading) {
+    return <LaunchScreen />;
+  }
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Launch" component={LaunchScreen} />
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-      <Stack.Screen name="UsernameSetup" component={UsernameSetupScreen} />
-      <Stack.Screen name="Personalize" component={PersonalizeScreen} />
-      <Stack.Screen name="Setup" component={SetupScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="MainApp" component={MainTabNavigator} />
-      <Stack.Screen name="DeviceDetail" component={DeviceDetailScreen} />
-      <Stack.Screen name="NotificationScreen" component={Notification} />
-      <Stack.Screen name="PrivacyandSecurityScreen" component={require('../screens/PrivacyandSecurityScreen').default} />
-      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-      <Stack.Screen name="EditUsername" component={EditUsernameScreen} />
-      <Stack.Screen name="Settings" component={SettingsScreen} />
-
-      <Stack.Screen name="SyncSettings" component={SyncSettingsScreen} />
-      <Stack.Screen name="SensorSettings" component={SensorSettingsScreen} />
-      <Stack.Screen name="CycleSettings" component={CycleSettingsScreen} />
-      <Stack.Screen name="ConnectivityScreen" component={ConnectivityScreen} />
-      <Stack.Screen name="NewCycle" component={NewCycleScreen} />
-      <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
-      <Stack.Screen name="About" component={AboutScreen} />
-      <Stack.Screen name="Language" component={LanguageScreen} />
-      <Stack.Screen name="ReportIssueScreen" component={ReportIssueScreen} />
+      {user ? (
+        // User is logged in - show main app screens
+        <>
+          <Stack.Screen name="MainApp" component={MainTabNavigator} />
+          <Stack.Screen name="DeviceDetail" component={DeviceDetailScreen} />
+          <Stack.Screen name="NotificationScreen" component={Notification} />
+          <Stack.Screen name="PrivacyandSecurityScreen" component={require('../screens/PrivacyandSecurityScreen').default} />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+          <Stack.Screen name="EditUsername" component={EditUsernameScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="SyncSettings" component={SyncSettingsScreen} />
+          <Stack.Screen name="SensorSettings" component={SensorSettingsScreen} />
+          <Stack.Screen name="CycleSettings" component={CycleSettingsScreen} />
+          <Stack.Screen name="ConnectivityScreen" component={ConnectivityScreen} />
+          <Stack.Screen name="NewCycle" component={NewCycleScreen} />
+          <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+          <Stack.Screen name="About" component={AboutScreen} />
+          <Stack.Screen name="Language" component={LanguageScreen} />
+          <Stack.Screen name="ReportIssueScreen" component={ReportIssueScreen} />
+        </>
+      ) : (
+        // User is not logged in - show auth screens
+        <>
+          <Stack.Screen name="Launch" component={LaunchScreen} />
+          <Stack.Screen name="Welcome" component={WelcomeScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="UsernameSetup" component={UsernameSetupScreen} />
+          <Stack.Screen name="Personalize" component={PersonalizeScreen} />
+          <Stack.Screen name="Setup" component={SetupScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+        </>
+      )}
     </Stack.Navigator>
   );
 }

@@ -62,46 +62,21 @@ export default function RegisterScreen({ navigation }) {
     setIsLoading(true);
 
     try {
-      // Make API call to Django backend
-      const response = await fetch('https://smartanom-django-backend-prod.onrender.com/api/accounts/register/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name,
-          email: email,
-          contact: contact,
-          password: password,
-          password2: confirmPassword
-        }),
-      });
+      // Save user data locally (no backend call)
+      await AsyncStorage.setItem('user_data', JSON.stringify({
+        name: name,
+        email: email,
+        contact: contact
+      }));
 
-      const data = await response.json();
-      
-      if (response.ok) {
-        // Registration successful
-        await AsyncStorage.setItem('user_data', JSON.stringify({
-          name: name,
-          email: email,
-          contact: contact
-        }));
-        
-        Alert.alert(
-          "Registration Successful",
-          "Please check your email to activate your account.",
-          [{ text: "OK", onPress: () => navigation.navigate("Login") }]
-        );
-      } else {
-        // Registration failed
-        Alert.alert("Registration Failed", data.error || "Please try again later");
-      }
-    } catch (error) {
-      console.error("API Error:", error);
       Alert.alert(
-        "Connection Error",
-        "Could not connect to the server. Please check your internet connection."
+        "Registration Successful",
+        "Welcome to SmarTanom! You can now login.",
+        [{ text: "OK", onPress: () => navigation.navigate("Login") }]
       );
+    } catch (error) {
+      console.error("Storage Error:", error);
+      Alert.alert("Error", "Failed to save registration data. Please try again.");
     } finally {
       setIsLoading(false);
     }
