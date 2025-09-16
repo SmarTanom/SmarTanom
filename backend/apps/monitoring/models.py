@@ -104,10 +104,15 @@ class Sensor(TimeStampedModel):
 
 	class SensorType(models.TextChoices):
 		TEMPERATURE = "temperature", "Temperature"
+		WATER_TEMPERATURE = "water_temperature", "Water Temperature"
+		AIR_TEMPERATURE = "air_temperature", "Air Temperature"
 		HUMIDITY = "humidity", "Humidity"
 		PH = "ph", "pH"
 		EC = "ec", "Electrical Conductivity"
 		LIGHT = "light", "Light"
+		CO2 = "co2", "CO₂"
+		WATER_LEVEL = "water_level", "Water Level"
+		TURBIDITY = "turbidity", "Turbidity"
 		OTHER = "other", "Other"
 
 	device = models.ForeignKey(

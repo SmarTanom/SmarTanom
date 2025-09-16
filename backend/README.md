@@ -60,3 +60,22 @@ python manage.py test apps.monitoring
 - Add drf-spectacular for docs
 - Add Celery for background anomaly detection
 
+## Mock Data Seeder
+Seeds realistic demo data for users, devices, reservoirs, sensors, and sensor readings.
+
+Safety guarantees:
+- Does not create any superuser.
+- Does not remove or modify existing superusers.
+- Idempotent: uses get_or_create on unique fields.
+
+Run (PowerShell):
+```powershell
+cd backend
+python manage.py seed_mock_data --readings-per-sensor 24 --days 3
+```
+
+Options:
+- `--readings-per-sensor` (default 24): number of readings per sensor
+- `--days` (default 3): spread generated timestamps across the last N days
+- `--force`: create additional readings even if some exist
+
