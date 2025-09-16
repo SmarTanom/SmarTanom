@@ -1,0 +1,62 @@
+# ---- Python / Django ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Django stuff
+*.log
+staticfiles/
+media/
+
+# SQLite database
+backend/db.sqlite3
+*.sqlite3
+
+# Migrations cache (keep migration files themselves)
+**/migrations/**/__pycache__/
+
+# Byte-compiled / optimized / DLL files
+*.so
+
+# Coverage / test
+htmlcov/
+.coverage*
+.cache/
+.pytest_cache/
+.tox/
+
+# IDE / tooling
+.vscode/
+.idea/
+*.iml
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+
+# macOS / OS artifacts
+.DS_Store
+Thumbs.db
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# Reports
+coverage.xml
+pytest.xml
+
+# Misc
+*.swp
+*.tmp
