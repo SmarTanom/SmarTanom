@@ -1,0 +1,22 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+logs/
+
+# Node / Frontend
+node_modules/
+**/node_modules/
+dist/
+build/
+**/dist/
+**/build/
+.vite/
+
+# Env
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
