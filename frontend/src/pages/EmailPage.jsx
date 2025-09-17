@@ -5,6 +5,10 @@ import HelperText from '../components/ui/HelperText.jsx';
 import Spinner from '../components/ui/Spinner.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
+import BrandMark from '../components/brand/BrandMark.jsx';
+import { Mail as MailIcon } from '../components/ui/Icon.jsx';
+import BackButton from '../components/ui/BackButton.jsx';
+import AuthLayout from '../components/layout/AuthLayout.jsx';
 
 function isValidEmail(email) {
   return /[^@\s]+@[^@\s]+\.[^@\s]+/.test(email);
@@ -41,19 +45,20 @@ export default function EmailPage({ mode = 'signin' }) {
   }
 
   return (
-    <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', background: 'radial-gradient(1200px 1200px at 0% 0%, rgba(51,148,50,0.05), transparent)' }}>
-      <form onSubmit={handleSendCode} className="card" style={{ maxWidth: 420, width: '92%' }}>
+    <AuthLayout>
+      <form onSubmit={handleSendCode}>
         <div style={{ display: 'grid', gap: 16 }}>
-          <button type="button" onClick={() => navigate(-1)} aria-label="Back" style={{ background: 'transparent', border: 'none', color: '#339432', justifySelf: 'start' }}>←</button>
-          <div style={{ display: 'grid', justifyItems: 'center', gap: 8 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#E6F3E6', display: 'grid', placeItems: 'center' }}>🌿</div>
+          <BackButton />
+          <div style={{ display: 'grid', justifyItems: 'center', gap: 10 }}>
+            <BrandMark size={56} />
             <h2 className="h2" style={{ margin: 0 }}>{mode === 'signin' ? 'Welcome Back' : 'Create Your Account'}</h2>
-            <p className="small text-center" style={{ maxWidth: 320 }}>
-              {mode === 'signin' ? 'Enter your email to continue' : 'Create new account here to start your hydroponic monitoring journey'}
+            <p className="small text-center" style={{ maxWidth: 360 }}>
+              {mode === 'signin' ? 'Enter your email to continue' : 'Create new account to start your hydroponic monitoring journey'}
             </p>
           </div>
-          <label>
+          <label className="input-wrapper">
             <span className="small">Email Address</span>
+            <MailIcon className="input-icon" size={18} color="#6b7280" />
             <TextInput
               type="email"
               name="email"
@@ -63,6 +68,7 @@ export default function EmailPage({ mode = 'signin' }) {
               aria-invalid={!!error}
               aria-describedby={error ? 'email-error' : undefined}
               error={error}
+              className="with-icon"
             />
           </label>
           <Button type="submit" disabled={loading}>
@@ -71,6 +77,6 @@ export default function EmailPage({ mode = 'signin' }) {
           <HelperText>We’ll send a secure code to verify your identity</HelperText>
         </div>
       </form>
-    </div>
+    </AuthLayout>
   );
 }

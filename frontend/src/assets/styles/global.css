@@ -12,29 +12,62 @@ button { font-family: inherit; }
 .text-muted { color: var(--color-muted); }
 .container { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 var(--space-4); }
 
+/* App background — subtle diagonal gradient for depth */
+body {
+  background: radial-gradient(1000px 500px at 95% -10%, rgba(51,148,50,0.08), transparent),
+              radial-gradient(800px 400px at 0% 110%, rgba(51,148,50,0.06), transparent),
+              #ffffff;
+}
+
 /* Primary button baseline for web */
-.btn { 
+.btn {
   display: inline-flex; align-items: center; justify-content: center;
   gap: 8px; border: none; cursor: pointer;
   border-radius: var(--radius-lg);
-  padding: 14px 20px; font-weight: 700; transition: transform .05s ease, opacity .2s ease;
+  padding: 14px 20px; font-weight: 700; transition: transform .05s ease, opacity .2s ease, box-shadow .2s ease;
 }
 .btn:disabled { opacity: .6; cursor: not-allowed; }
-.btn-primary { background: var(--color-primary); color: var(--color-white); }
-.btn-primary:hover { filter: brightness(1.03); }
+.btn-primary { background: var(--color-primary); color: var(--color-white); box-shadow: 0 6px 16px rgba(51,148,50,0.2); }
+.btn-primary:hover { filter: brightness(1.03); box-shadow: 0 10px 22px rgba(51,148,50,0.25); }
+.btn-primary:focus-visible { outline: 3px solid rgba(51,148,50,0.3); }
 .btn-outline { background: transparent; color: var(--color-primary); border: 2px solid var(--color-primary); }
+.btn-outline:hover { background: rgba(51,148,50,0.06); }
 
 .input { width: 100%; padding: 14px 16px; border: 1px solid #e5e7eb; border-radius: var(--radius-md); font-size: var(--fs-body); }
-.input:focus { outline: 2px solid rgba(51,148,50,0.2); border-color: var(--color-primary); }
+.input:focus { outline: 3px solid rgba(51,148,50,0.25); border-color: var(--color-primary); }
 .input.error { border-color: #ef4444; outline-color: rgba(239,68,68,0.2); }
 
 .error-text { color: #b91c1c; font-size: var(--fs-small); margin-top: 6px; }
 .success-text { color: #15803d; font-size: var(--fs-small); margin-top: 6px; }
 
-.card { background: white; border-radius: 20px; box-shadow: var(--shadow-md); padding: clamp(16px, 4vw, 32px); }
+.card { background: white; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.08); padding: clamp(20px, 4.5vw, 36px); border: 1px solid rgba(17,17,17,0.04); }
 
 /* Gradient button option matching mock */
 .btn-gradient { 
   background: linear-gradient(180deg, #9ddaa0 0%, #339432 100%);
   color: #fff; border: none; 
+}
+
+/* Back button utility */
+.back-btn { background: transparent; border: 0; color: var(--color-primary); display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 12px; }
+.back-btn:hover { background: rgba(51,148,50,0.06); }
+.back-btn:focus-visible { outline: 3px solid rgba(51,148,50,0.25); }
+
+/* OTP inputs utility */
+.otp-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.otp-box { text-align: center; font-size: 20px; padding: 12px 0; }
+
+/* Auth cards in layout */
+.card > form, .card > div {
+  width: 100%;
+}
+/* Input icon support */
+.input-wrapper { position: relative; }
+.input.with-icon { padding-left: 42px; }
+.input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-muted); }
+
+/* Mobile tweaks */
+@media (max-width: 480px) {
+  .card { border-radius: 18px; padding: 18px; box-shadow: 0 12px 36px rgba(0,0,0,0.08); }
+  .btn { padding: 12px 16px; }
 }

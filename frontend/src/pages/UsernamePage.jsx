@@ -3,6 +3,8 @@ import TextInput from '../components/ui/TextInput.jsx';
 import Button from '../components/ui/Button.jsx';
 import HelperText from '../components/ui/HelperText.jsx';
 import Spinner from '../components/ui/Spinner.jsx';
+import AuthLayout from '../components/layout/AuthLayout.jsx';
+import BackButton from '../components/ui/BackButton.jsx';
 
 export default function UsernamePage() {
   const [username, setUsername] = useState('');
@@ -49,9 +51,10 @@ export default function UsernamePage() {
   }
 
   return (
-    <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center' }}>
-      <form onSubmit={finishSetup} className="card" style={{ maxWidth: 420, width: '92%' }}>
+    <AuthLayout>
+      <form onSubmit={finishSetup}>
         <div style={{ display: 'grid', gap: 16 }}>
+          <BackButton />
           <h2 className="h2" style={{ margin: 0 }}>Choose Username</h2>
           <label>
             <span className="small">Desired Username</span>
@@ -72,6 +75,6 @@ export default function UsernamePage() {
           </Button>
         </div>
       </form>
-    </div>
+    </AuthLayout>
   );
 }

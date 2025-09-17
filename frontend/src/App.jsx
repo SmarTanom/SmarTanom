@@ -5,11 +5,13 @@ import LandingPage from './pages/LandingPage.jsx';
 import EmailPage from './pages/EmailPage.jsx';
 import CodePage from './pages/CodePage.jsx';
 import UsernamePage from './pages/UsernamePage.jsx';
+import SplashPage from './pages/SplashPage.jsx';
 
 export default function App() {
   return (
     <AuthFlowProvider>
       <Routes>
+        <Route path="/splash" element={<SplashPage />} />
         <Route path="/" element={<LandingPage />} />
         <Route path="/signin/email" element={<EmailPage mode="signin" />} />
         <Route path="/signup/email" element={<EmailPage mode="signup" />} />

@@ -4,6 +4,10 @@ import HelperText from '../components/ui/HelperText.jsx';
 import Spinner from '../components/ui/Spinner.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
+import BrandMark from '../components/brand/BrandMark.jsx';
+import { Shield as ShieldIcon } from '../components/ui/Icon.jsx';
+import BackButton from '../components/ui/BackButton.jsx';
+import AuthLayout from '../components/layout/AuthLayout.jsx';
 
 export default function CodePage({ mode = 'signin' }) {
   const navigate = useNavigate();
@@ -48,24 +52,23 @@ export default function CodePage({ mode = 'signin' }) {
   }
 
   return (
-    <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center' }}>
-      <form onSubmit={handleConfirm} className="card" style={{ maxWidth: 420, width: '92%' }}>
+    <AuthLayout>
+      <form onSubmit={handleConfirm}>
         <div style={{ display: 'grid', gap: 16 }}>
-          <button type="button" onClick={() => navigate(-1)} aria-label="Back" style={{ background: 'transparent', border: 'none', color: '#339432', justifySelf: 'start' }}>←</button>
+          <BackButton />
           <div style={{ display: 'grid', justifyItems: 'center', gap: 8 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#E6F3E6', display: 'grid', placeItems: 'center' }}>🛡️</div>
+            <BrandMark size={52} />
             <h2 className="h2" style={{ margin: 0 }}>Verify Your Identity</h2>
             <p className="small text-center" style={{ maxWidth: 320 }}>Enter the 6-digit code sent to <strong>{email?.replace(/(.{3}).*(@.*)/, '$1***$2') || 'your email'}</strong></p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+          <div className="otp-grid">
             {digits.map((d, i) => (
               <input
                 key={i}
                 inputMode="numeric"
                 aria-label={`Digit ${i + 1}`}
-                className={`input ${error ? 'error' : ''}`}
-                style={{ textAlign: 'center' }}
+                className={`input otp-box ${error ? 'error' : ''}`}
                 value={d}
                 onChange={e => handleChange(i, e.target.value)}
                 maxLength={1}
@@ -77,9 +80,9 @@ export default function CodePage({ mode = 'signin' }) {
           <Button type="submit" disabled={loading}>
             {loading ? <><Spinner size={18} /> Confirming...</> : 'Confirm'}
           </Button>
-          <button type="button" onClick={() => { /* TODO: Resend code via backend */ }} style={{ background: 'transparent', border: 'none', color: '#339432' }}>Resend Code</button>
+          <button type="button" onClick={() => { /* TODO: Resend code via backend */ }} className="back-btn" style={{ justifySelf: 'center' }}>Resend Code</button>
         </div>
       </form>
-    </div>
+    </AuthLayout>
   );
 }
