@@ -1,5 +1,5 @@
-/* Montserrat typography scale and usage */
-/* Web note: index.html already links Google Fonts for Montserrat (400/600/700). */
+/* Montserrat (headings) + Inter (body) */
+/* Web note: index.html links Google Fonts for Montserrat and Inter. */
 :root {
   --font-family-heading: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   --font-family-body: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;

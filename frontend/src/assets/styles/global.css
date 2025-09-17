@@ -14,9 +14,11 @@ button { font-family: inherit; }
 
 /* App background — subtle diagonal gradient for depth */
 body {
+  margin: 0; /* Remove default margin that can show page background as a border */
   background: radial-gradient(1000px 500px at 95% -10%, rgba(51,148,50,0.08), transparent),
               radial-gradient(800px 400px at 0% 110%, rgba(51,148,50,0.06), transparent),
               #ffffff;
+  background-attachment: fixed;
 }
 
 /* Primary button baseline for web */
@@ -25,6 +27,8 @@ body {
   gap: 8px; border: none; cursor: pointer;
   border-radius: var(--radius-lg);
   padding: 14px 20px; font-weight: 700; transition: transform .05s ease, opacity .2s ease, box-shadow .2s ease;
+  font-family: var(--font-family-heading);
+  letter-spacing: 0.01em;
 }
 .btn:disabled { opacity: .6; cursor: not-allowed; }
 .btn-primary { background: var(--color-primary); color: var(--color-white); box-shadow: 0 6px 16px rgba(51,148,50,0.2); }

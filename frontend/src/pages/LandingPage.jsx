@@ -1,34 +1,28 @@
 import React from 'react';
-import Button from '../components/ui/Button.jsx';
-import HelperText from '../components/ui/HelperText.jsx';
-import BrandMark from '../components/brand/BrandMark.jsx';
 import { useNavigate } from 'react-router-dom';
-import AuthLayout from '../components/layout/AuthLayout.jsx';
+import BrandMark from '../components/brand/BrandMark.jsx';
+import './LandingPage.css';
 
 export default function LandingPage() {
   const navigate = useNavigate();
   return (
-    <AuthLayout>
-      <div style={{ display: 'grid', gap: 14 }}>
-        <div style={{ display: 'grid', justifyItems: 'center', gap: 14 }}>
-          {/* Branding */}
-          {/* TODO: Replace with image logo import when assets are added */}
-          <BrandMark size={84} />
-          <h1 className="h1" style={{ margin: 0 }}>SmarTanom</h1>
-          <p className="small text-center" style={{ maxWidth: 360 }}>Smart Hydroponic Monitoring</p>
-          <p className="body text-center" style={{ maxWidth: 420 }}>
-            Watch every drop, every ray, every moment, with complete hydroponic monitoring at your fingertips.
-          </p>
+    <div className="landing-root landing-arcs">
+      <header className="landing-header hero-fade-item">
+        <BrandMark variant="white" className="brand-logo-img" />
+        <span className="landing-wordmark">SMARTANOM</span>
+      </header>
+      <main className="landing-main">
+        <div className="landing-hero">
+          <h1 className="landing-title hero-fade-item">Welcome to SmarTanom</h1>
+          <p className="landing-tagline hero-fade-item">Watch every drop, every ray, every moment, with complete hydroponic monitoring at your fingertips.</p>
+          <div className="landing-actions hero-fade-item">
+            <button className="landing-btn primary" onClick={() => navigate('/signin/email')}>Login with Email</button>
+            <button className="landing-btn outline" onClick={() => navigate('/signup/email')}>Register New Account</button>
+          </div>
         </div>
-
-        <div style={{ height: 8 }} />
-
-        <div style={{ display: 'grid', gap: 12 }}>
-          <Button onClick={() => { navigate('/signin/email'); }}>Sign In</Button>
-          <Button variant="outline" onClick={() => { navigate('/signup/email'); }}>Create Account</Button>
-          <HelperText>Secure access for hydroponic farm management</HelperText>
-        </div>
-      </div>
-    </AuthLayout>
+      </main>
+      {/* Visual panel for ultra-wide screens (empty placeholder for future illustration) */}
+      <div className="landing-visual-panel" aria-hidden="true"></div>
+    </div>
   );
 }

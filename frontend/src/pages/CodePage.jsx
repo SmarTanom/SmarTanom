@@ -5,7 +5,6 @@ import Spinner from '../components/ui/Spinner.jsx';
 import { useNavigate } from 'react-router-dom';
 import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
 import BrandMark from '../components/brand/BrandMark.jsx';
-import { Shield as ShieldIcon } from '../components/ui/Icon.jsx';
 import BackButton from '../components/ui/BackButton.jsx';
 import AuthLayout from '../components/layout/AuthLayout.jsx';
 
