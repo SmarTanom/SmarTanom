@@ -3,7 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#339432" />
+  <meta name="description" content="SmarTanom – Smart hydroponic monitoring" />
   <title>SmarTanom</title>
+  <!-- Fonts: Montserrat (Regular 400, SemiBold 600, Bold 700) -->
+  <!-- NOTE: If using a bundler, you can also import via CSS; this link ensures fonts load before app boot. -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Base font setup for the whole app */
+    :root {
+      --color-primary: #339432;
+      --color-white: #ffffff;
+      --color-text: #111111;
+      --color-muted: #6b7280; /* neutral gray for subtitles */
+    }
+    html, body, #root { height: 100%; }
+    body {
+      margin: 0;
+      font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+      color: var(--color-text);
+      background: var(--color-white);
+    }
+  </style>
+  <!-- Developer note: global CSS variables for colors are defined here and in src/assets/styles/variables.css -->
+  <!-- TODO (Frontend): Ensure your bundler imports src/assets/styles/global.css in your entry (e.g., src/index.js) -->
 </head>
 <body>
   <div id="root"></div>
