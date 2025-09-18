@@ -1,22 +1,13 @@
-# General
-.DS_Store
-Thumbs.db
-*.log
-logs/
+# Minimal ignore file: only ignore dependency modules / environments
 
-# Node / Frontend
+# Python virtual environments
+.venv/
+venv/
+ENV/
+
+# Node modules
+frontend/node_modules/
+mobile/node_modules/
 node_modules/
-**/node_modules/
-dist/
-build/
-**/dist/
-**/build/
-.vite/
 
-# Env
-.env
-.env.*
-
-# IDE
-.vscode/
-.idea/
+# (Keep everything else versioned intentionally)
