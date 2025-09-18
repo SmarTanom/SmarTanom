@@ -1,24 +1,74 @@
 /* Auth Email Pages (signin / signup)
-   Design aligned with landing (pure #339432 background).
-   Typography:
-     - Headline: Abril Fatface
-     - Body: Montserrat Regular
+   Design aligned with landing page - two-column layout with hydroponic image
+   Typography matching landing page sizing:
+     - Headline: Abril Fatface (large responsive sizing)
+     - Body: Montserrat Regular (enhanced sizing)
      - Field labels/placeholders: Montserrat 600 (Semibold)
      - Buttons: Montserrat 700 (Bold)
 */
 
+/* Auth Email Pages - Two-column layout matching landing page
+   Left column: content (logo, form, buttons)  
+   Right column: hydroponic background image
+   Mobile: single column with centered content
+*/
+
+/* Main container with two-column grid */
 .auth-screen-root {
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+}
+
+/* Mobile layout - single column centered */
+.auth-content-wrapper {
   min-height: 100vh;
   background: #339432;
   color: #fff;
   display: flex;
   flex-direction: column;
-  padding: clamp(20px,4vw,40px) clamp(18px,5vw,54px) clamp(48px,8vh,72px);
+  padding: clamp(20px, 4vw, 40px) clamp(18px, 5vw, 54px) clamp(48px, 8vh, 72px);
   box-sizing: border-box;
   font-family: Montserrat, Inter, sans-serif;
+  align-items: center;
+  justify-content: center;
 }
 
-.auth-screen-inner { max-width: 560px; width: 100%; display: flex; flex-direction: column; gap: clamp(32px,5vh,54px); }
+/* Two-column layout for larger screens - matching landing page */
+@media (min-width: 769px) {
+  .auth-screen-root {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "content image";
+  }
+  
+  .auth-content-wrapper {
+    grid-area: content;
+    padding: clamp(40px, 6vw, 80px);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .auth-image-column {
+    grid-area: image;
+    background-image: url('../assets/images/landingpage_img.png');
+    background-size: cover;
+    background-position: bottom center;
+    background-repeat: no-repeat;
+    min-height: 100vh;
+  }
+}
+
+.auth-screen-inner { 
+  max-width: 560px; 
+  width: 100%; 
+  display: flex; 
+  flex-direction: column; 
+  gap: clamp(32px, 5vh, 54px); 
+}
 
 /* Top bar layout */
 .auth-top-bar { display:flex; align-items:center; justify-content:space-between; min-height:56px; }
@@ -46,14 +96,51 @@
 /* (Old back button styles superseded by redesigned block above) */
 
 /* Branding header */
-.auth-brand { display: flex; align-items: center; gap: 12px; }
-.auth-brand-wordmark { font-family: Alexandria, Montserrat, sans-serif; font-weight: 600; letter-spacing: 0.07em; font-size: 15px; }
+.auth-brand { display: flex; align-items: center; gap: clamp(0.75rem, 1.2vw, 1.2rem); }
+.auth-brand-wordmark { 
+  font-family: Alexandria, Montserrat, sans-serif; 
+  font-weight: 600; 
+  letter-spacing: 0.07em; 
+  font-size: clamp(14px, 1.5vw, 22px); 
+}
+
+/* Brand logo sizing to match landing */
+.brand-logo-img { 
+  width: clamp(30px, 3vw, 48px); 
+  height: auto; 
+}
 
 /* Content block */
 .auth-content { display: flex; flex-direction: column; gap: 28px; }
 
-.auth-title { font-family: 'Abril Fatface', serif; font-weight: 400; margin: 0; font-size: clamp(30px,5.2vw,46px); line-height: 1.15; letter-spacing: -0.5px; }
-.auth-subtext { margin: 0; font-size: clamp(14px,1.5vw,15px); line-height: 1.55; max-width: 520px; color: rgba(255,255,255,0.92); }
+/* Typography matching landing page scale */
+.auth-title { 
+  font-family: 'Abril Fatface', serif; 
+  font-weight: 400; 
+  margin: 0; 
+  font-size: clamp(38px, 6.5vw, 72px); 
+  line-height: 1.15; 
+  letter-spacing: -0.5px; 
+}
+
+.auth-subtext { 
+  margin: 0; 
+  font-size: clamp(16px, 2vw, 20px); 
+  line-height: 1.55; 
+  max-width: 520px; 
+  color: rgba(255, 255, 255, 0.92); 
+}
+
+/* Enhanced typography for larger screens */
+@media (min-width: 1200px) {
+  .auth-title { font-size: clamp(56px, 7.5vw, 84px); }
+  .auth-subtext { font-size: clamp(18px, 2.2vw, 22px); }
+}
+
+@media (min-width: 1600px) {
+  .auth-title { font-size: clamp(72px, 8vw, 96px); }
+  .auth-subtext { font-size: clamp(20px, 2.4vw, 24px); }
+}
 
 /* Form */
 .auth-form { display: flex; flex-direction: column; gap: 20px; width: 100%; }
@@ -84,20 +171,26 @@
 /* Helper text */
 .auth-helper { font-size: 12px; opacity: 0.85; text-align: center; }
 
-/* Layout distribution for larger screens */
-@media (min-width: 900px) {
-  .auth-screen-root { padding-left: clamp(60px,8vw,120px); padding-right: clamp(60px,8vw,120px); }
-  .auth-screen-inner { gap: clamp(40px,6vh,70px); }
-  .auth-title { font-size: clamp(36px,4.5vw,54px); }
-  .auth-subtext { font-size: clamp(14px,1.2vw,16px); }
+/* Layout distribution for larger screens - updated to match landing page breakpoints */
+@media (min-width: 769px) {
+  .auth-content-wrapper { 
+    padding: clamp(50px, 7vw, 100px); 
+  }
+  .auth-screen-inner { 
+    gap: clamp(40px, 6vh, 70px); 
+  }
+  .auth-brand-wordmark { 
+    font-size: clamp(16px, 1.8vw, 24px); 
+  }
 }
 
-@media (min-width: 1300px) {
-  .auth-screen-root { display: grid; grid-template-columns: 1fr 1fr; align-items: center; }
-  .auth-screen-inner { grid-column: 1; }
-  .auth-visual-panel { grid-column: 2; display: flex; align-items: center; justify-content: center; }
-  .auth-visual-panel::before { content: ""; width: 70%; aspect-ratio: 1/1; border-radius: 50%; background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.2), rgba(255,255,255,0) 70%); filter: blur(8px); opacity: 0.35; }
+@media (min-width: 1200px) {
+  .auth-content-wrapper { 
+    padding: clamp(60px, 8vw, 120px); 
+  }
 }
+
+/* Remove outdated large screen grid - replaced with two-column layout */
 
 /* Motion & entrance */
 .auth-fade-item { opacity: 0; animation: authFade .8s ease forwards; }

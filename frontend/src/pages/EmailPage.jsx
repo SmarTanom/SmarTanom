@@ -53,59 +53,61 @@ export default function EmailPage({ mode = 'signin' }) {
 
   return (
     <div className="auth-screen-root">
-      <div className="auth-screen-inner">
-        <div className="auth-top-bar auth-fade-item">
-          <button
-            type="button"
-            className="auth-back-btn"
-            onClick={() => navigate(-1)}
-            aria-label="Go back"
-          >
-            <ChevronLeftFilled className="auth-back-icon" size={22} color="#ffffff" aria-hidden="true" />
-            <span className="auth-back-text">BACK</span>
-          </button>
-          <div className="auth-brand">
-            <BrandMark variant="white" className="brand-logo-img" />
-            <span className="auth-brand-wordmark">SMARTANOM</span>
+      <div className="auth-content-wrapper">
+        <div className="auth-screen-inner">
+          <div className="auth-top-bar auth-fade-item">
+            <button
+              type="button"
+              className="auth-back-btn"
+              onClick={() => navigate(-1)}
+              aria-label="Go back"
+            >
+              <ChevronLeftFilled className="auth-back-icon" size={22} color="#ffffff" aria-hidden="true" />
+              <span className="auth-back-text">BACK</span>
+            </button>
+            <div className="auth-brand">
+              <BrandMark variant="white" className="brand-logo-img" />
+              <span className="auth-brand-wordmark">SMARTANOM</span>
+            </div>
+          </div>
+          <div className="auth-content auth-fade-item">
+            <header style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <h1 className="auth-title">{heading}</h1>
+              <p className="auth-subtext">{subtext}</p>
+            </header>
+            <form className="auth-form" onSubmit={handleSendCode} noValidate>
+              <div className="auth-field">
+                <label htmlFor="email" className="auth-field-label">Email</label>
+                <div className="auth-input-wrapper">
+                  <MailIcon className="auth-mail-icon" size={20} color="#ffffff" stroke={2} aria-hidden="true" />
+                  <input
+                    ref={inputRef}
+                    id="email"
+                    name="email"
+                    type="email"
+                    className="auth-input"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    aria-invalid={!!error}
+                    aria-describedby={error ? 'email-error' : undefined}
+                    autoComplete="email"
+                    inputMode="email"
+                  />
+                </div>
+                {error && <div id="email-error" className="auth-error" role="alert">{error}</div>}
+              </div>
+              <button type="submit" className="auth-submit" disabled={loading}>
+                {loading && <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />}
+                <span>{loading ? 'Sending...' : 'Send Verification Code'}</span>
+              </button>
+              <div className="auth-helper auth-fade-item">We'll send a secure code to verify your identity.</div>
+              <span role="status" aria-live="polite">{loading ? 'Request in progress' : ''}</span>
+            </form>
           </div>
         </div>
-        <div className="auth-content auth-fade-item">
-          <header style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            <h1 className="auth-title">{heading}</h1>
-            <p className="auth-subtext">{subtext}</p>
-          </header>
-          <form className="auth-form" onSubmit={handleSendCode} noValidate>
-            <div className="auth-field">
-              <label htmlFor="email" className="auth-field-label">Email</label>
-              <div className="auth-input-wrapper">
-                <MailIcon className="auth-mail-icon" size={20} color="#ffffff" stroke={2} aria-hidden="true" />
-                <input
-                  ref={inputRef}
-                  id="email"
-                  name="email"
-                  type="email"
-                  className="auth-input"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  aria-invalid={!!error}
-                  aria-describedby={error ? 'email-error' : undefined}
-                  autoComplete="email"
-                  inputMode="email"
-                />
-              </div>
-              {error && <div id="email-error" className="auth-error" role="alert">{error}</div>}
-            </div>
-            <button type="submit" className="auth-submit" disabled={loading}>
-              {loading && <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />}
-              <span>{loading ? 'Sending...' : 'Send Verification Code'}</span>
-            </button>
-            <div className="auth-helper auth-fade-item">We'll send a secure code to verify your identity.</div>
-            <span role="status" aria-live="polite">{loading ? 'Request in progress' : ''}</span>
-          </form>
-        </div>
       </div>
-      <div className="auth-visual-panel" aria-hidden="true" />
+      <div className="auth-image-column" aria-hidden="true" />
     </div>
   );
 }
