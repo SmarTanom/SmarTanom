@@ -22,16 +22,17 @@
 
 /* Mobile layout - single column centered */
 .auth-content-wrapper {
-  min-height: 100vh;
+  height: 100vh;
   background: #339432;
   color: #fff;
   display: flex;
   flex-direction: column;
-  padding: clamp(20px, 4vw, 40px) clamp(18px, 5vw, 54px) clamp(48px, 8vh, 72px);
+  padding: clamp(16px, 3vw, 24px) clamp(16px, 4vw, 32px);
   box-sizing: border-box;
   font-family: Montserrat, Inter, sans-serif;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 /* Two-column layout for larger screens - matching landing page */
@@ -44,12 +45,13 @@
   
   .auth-content-wrapper {
     grid-area: content;
-    padding: clamp(40px, 6vw, 80px);
-    min-height: 100vh;
+    padding: clamp(24px, 4vw, 48px);
+    height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
   }
   
   .auth-image-column {
@@ -58,16 +60,18 @@
     background-size: cover;
     background-position: bottom center;
     background-repeat: no-repeat;
-    min-height: 100vh;
+    height: 100vh;
   }
 }
 
 .auth-screen-inner { 
-  max-width: 560px; 
+  max-width: 520px; 
   width: 100%; 
   display: flex; 
   flex-direction: column; 
-  gap: clamp(32px, 5vh, 54px); 
+  gap: clamp(20px, 3vh, 32px); 
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 /* Top bar layout */
@@ -111,27 +115,32 @@
 }
 
 /* Content block */
-.auth-content { display: flex; flex-direction: column; gap: 28px; }
+.auth-content { display: flex; flex-direction: column; gap: clamp(20px, 4vh, 28px); }
 
 /* Typography matching landing page scale */
 .auth-title { 
   font-family: 'Abril Fatface', serif; 
   font-weight: 400; 
   margin: 0; 
-  font-size: clamp(38px, 6.5vw, 72px); 
-  line-height: 1.15; 
+  font-size: clamp(28px, 8vw, 72px); 
+  line-height: 1.1; 
   letter-spacing: -0.5px; 
 }
 
 .auth-subtext { 
   margin: 0; 
-  font-size: clamp(16px, 2vw, 20px); 
-  line-height: 1.55; 
+  font-size: clamp(14px, 3.5vw, 20px); 
+  line-height: 1.4; 
   max-width: 520px; 
   color: rgba(255, 255, 255, 0.92); 
 }
 
 /* Enhanced typography for larger screens */
+@media (min-width: 769px) {
+  .auth-title { font-size: clamp(42px, 6vw, 72px); }
+  .auth-subtext { font-size: clamp(16px, 2vw, 20px); line-height: 1.55; }
+}
+
 @media (min-width: 1200px) {
   .auth-title { font-size: clamp(56px, 7.5vw, 84px); }
   .auth-subtext { font-size: clamp(18px, 2.2vw, 22px); }
@@ -143,9 +152,9 @@
 }
 
 /* Form */
-.auth-form { display: flex; flex-direction: column; gap: 20px; width: 100%; }
+.auth-form { display: flex; flex-direction: column; gap: clamp(16px, 3vw, 20px); width: 100%; }
 
-.auth-field { display: flex; flex-direction: column; gap: 8px; position: relative; }
+.auth-field { display: flex; flex-direction: column; gap: 6px; position: relative; }
 .auth-field-label { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.95; }
 
 .auth-input-wrapper { position: relative; display: flex; align-items: center; }
@@ -153,7 +162,7 @@
 /* New SVG mail icon */
 .auth-mail-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); stroke: #ffffff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
 
-.auth-input { width: 100%; padding: 16px 16px 16px 44px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.08); color: #fff; font-size: 15px; font-weight: 600; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px; outline: none; transition: border-color .25s ease, background .25s ease, box-shadow .25s ease; }
+.auth-input { width: 100%; padding: clamp(14px, 3vw, 16px) 16px clamp(14px, 3vw, 16px) 44px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.08); color: #fff; font-size: 15px; font-weight: 600; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px; outline: none; transition: border-color .25s ease, background .25s ease, box-shadow .25s ease; }
 .auth-input::placeholder { color: rgba(255,255,255,0.85); font-weight: 600; }
 .auth-input:focus { border-color: #ffffff; background: rgba(255,255,255,0.16); box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
 .auth-input[aria-invalid="true"] { border-color: #ffb3b3; background: rgba(255,0,0,0.10); }
@@ -162,7 +171,7 @@
 .auth-error { color: #ffe2e2; font-size: 13px; margin-top: 6px; font-weight: 500; }
 
 /* Submit button */
-.auth-submit { width: 100%; background: #ffffff; color: #016b22; font-weight: 700; font-size: 15px; border: none; padding: 16px 20px; border-radius: 8px; cursor: pointer; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.18); transition: background .25s ease, transform .25s ease, box-shadow .25s ease; }
+.auth-submit { width: 100%; background: #ffffff; color: #016b22; font-weight: 700; font-size: 15px; border: none; padding: clamp(14px, 3vw, 16px) 20px; border-radius: 8px; cursor: pointer; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.18); transition: background .25s ease, transform .25s ease, box-shadow .25s ease; }
 .auth-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -4px rgba(0,0,0,0.32); }
 .auth-submit:active { transform: translateY(0); box-shadow: 0 5px 16px rgba(0,0,0,0.22); }
 .auth-submit:focus-visible { outline: 3px solid rgba(255,255,255,0.55); outline-offset: 3px; }
@@ -174,10 +183,11 @@
 /* Layout distribution for larger screens - updated to match landing page breakpoints */
 @media (min-width: 769px) {
   .auth-content-wrapper { 
-    padding: clamp(50px, 7vw, 100px); 
+    padding: clamp(32px, 5vw, 64px); 
   }
   .auth-screen-inner { 
-    gap: clamp(40px, 6vh, 70px); 
+    gap: clamp(24px, 4vh, 40px); 
+    max-height: 95vh;
   }
   .auth-brand-wordmark { 
     font-size: clamp(16px, 1.8vw, 24px); 
@@ -186,7 +196,7 @@
 
 @media (min-width: 1200px) {
   .auth-content-wrapper { 
-    padding: clamp(60px, 8vw, 120px); 
+    padding: clamp(48px, 6vw, 80px); 
   }
 }
 
