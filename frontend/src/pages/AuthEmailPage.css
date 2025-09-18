@@ -120,6 +120,15 @@
 /* Content block */
 .auth-content { display: flex; flex-direction: column; gap: clamp(20px, 4vh, 28px); }
 
+/* Header section with left-aligned content */
+.auth-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start !important;
+  width: 100%;
+  text-align: left !important;
+}
+
 /* Typography matching landing page scale */
 .auth-title { 
   font-family: 'Abril Fatface', serif; 
@@ -128,6 +137,7 @@
   font-size: clamp(28px, 8vw, 72px); 
   line-height: 1.1; 
   letter-spacing: -0.5px; 
+  text-align: left !important;
 }
 
 .auth-subtext { 
@@ -136,7 +146,7 @@
   line-height: 1.4; 
   max-width: 520px; 
   color: rgba(255, 255, 255, 0.92); 
-  text-align: left;
+  text-align: left !important;
 }
 
 /* Enhanced typography for larger screens */

@@ -71,7 +71,7 @@ export default function EmailPage({ mode = 'signin' }) {
             </div>
           </div>
           <div className="auth-content auth-fade-item">
-            <header style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 2vh, 18px)', alignItems: 'flex-start', width: '100%' }}>
+            <header className="auth-header" style={{ gap: 'clamp(12px, 2vh, 18px)' }}>
               <h1 className="auth-title">{heading}</h1>
               <p className="auth-subtext">{subtext}</p>
             </header>
