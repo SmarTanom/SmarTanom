@@ -1,0 +1,111 @@
+/* Auth Email Pages (signin / signup)
+   Design aligned with landing (pure #339432 background).
+   Typography:
+     - Headline: Abril Fatface
+     - Body: Montserrat Regular
+     - Field labels/placeholders: Montserrat 600 (Semibold)
+     - Buttons: Montserrat 700 (Bold)
+*/
+
+.auth-screen-root {
+  min-height: 100vh;
+  background: #339432;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(20px,4vw,40px) clamp(18px,5vw,54px) clamp(48px,8vh,72px);
+  box-sizing: border-box;
+  font-family: Montserrat, Inter, sans-serif;
+}
+
+.auth-screen-inner { max-width: 560px; width: 100%; display: flex; flex-direction: column; gap: clamp(32px,5vh,54px); }
+
+/* Top bar layout */
+.auth-top-bar { display:flex; align-items:center; justify-content:space-between; min-height:56px; }
+
+/* Back button redesigned */
+.auth-back-btn { position:relative; display:inline-flex; align-items:center; gap:10px; font-size:14px; font-weight:600; letter-spacing:0.8px; color:#fff; background:rgba(255,255,255,0.10); padding:12px 18px; border-radius:100px; cursor:pointer; border:1px solid rgba(255,255,255,0.25); transition:background .25s ease, transform .25s ease, box-shadow .25s ease, opacity .25s ease; user-select:none; -webkit-tap-highlight-color:transparent; min-height:44px; }
+.auth-back-btn:hover { background:rgba(255,255,255,0.18); }
+.auth-back-btn:active { transform:translateY(1px); opacity:0.85; }
+.auth-back-btn:focus-visible { outline:3px solid rgba(255,255,255,0.55); outline-offset:3px; }
+.auth-back-icon { width:22px; height:22px; display:inline-block; line-height:1; }
+.auth-back-text { font-size:13px; font-weight:700; }
+
+/* Mobile: hide BACK text, keep icon; ensure 44px touch area */
+@media (max-width: 767.98px) {
+  .auth-back-text { display:none; }
+  .auth-back-btn { padding:12px 16px; }
+}
+
+/* Larger screens: keep text visible */
+@media (min-width: 768px) {
+  .auth-back-btn { padding:12px 20px; }
+}
+
+/* Back button */
+/* (Old back button styles superseded by redesigned block above) */
+
+/* Branding header */
+.auth-brand { display: flex; align-items: center; gap: 12px; }
+.auth-brand-wordmark { font-family: Alexandria, Montserrat, sans-serif; font-weight: 600; letter-spacing: 0.07em; font-size: 15px; }
+
+/* Content block */
+.auth-content { display: flex; flex-direction: column; gap: 28px; }
+
+.auth-title { font-family: 'Abril Fatface', serif; font-weight: 400; margin: 0; font-size: clamp(30px,5.2vw,46px); line-height: 1.15; letter-spacing: -0.5px; }
+.auth-subtext { margin: 0; font-size: clamp(14px,1.5vw,15px); line-height: 1.55; max-width: 520px; color: rgba(255,255,255,0.92); }
+
+/* Form */
+.auth-form { display: flex; flex-direction: column; gap: 20px; width: 100%; }
+
+.auth-field { display: flex; flex-direction: column; gap: 8px; position: relative; }
+.auth-field-label { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.95; }
+
+.auth-input-wrapper { position: relative; display: flex; align-items: center; }
+.auth-input-wrapper i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 18px; color: #ffffff; opacity: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
+/* New SVG mail icon */
+.auth-mail-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); stroke: #ffffff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
+
+.auth-input { width: 100%; padding: 16px 16px 16px 44px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.08); color: #fff; font-size: 15px; font-weight: 600; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px; outline: none; transition: border-color .25s ease, background .25s ease, box-shadow .25s ease; }
+.auth-input::placeholder { color: rgba(255,255,255,0.85); font-weight: 600; }
+.auth-input:focus { border-color: #ffffff; background: rgba(255,255,255,0.16); box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
+.auth-input[aria-invalid="true"] { border-color: #ffb3b3; background: rgba(255,0,0,0.10); }
+
+/* Error message */
+.auth-error { color: #ffe2e2; font-size: 13px; margin-top: 6px; font-weight: 500; }
+
+/* Submit button */
+.auth-submit { width: 100%; background: #ffffff; color: #016b22; font-weight: 700; font-size: 15px; border: none; padding: 16px 20px; border-radius: 8px; cursor: pointer; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.18); transition: background .25s ease, transform .25s ease, box-shadow .25s ease; }
+.auth-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -4px rgba(0,0,0,0.32); }
+.auth-submit:active { transform: translateY(0); box-shadow: 0 5px 16px rgba(0,0,0,0.22); }
+.auth-submit:focus-visible { outline: 3px solid rgba(255,255,255,0.55); outline-offset: 3px; }
+.auth-submit[disabled] { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+/* Helper text */
+.auth-helper { font-size: 12px; opacity: 0.85; text-align: center; }
+
+/* Layout distribution for larger screens */
+@media (min-width: 900px) {
+  .auth-screen-root { padding-left: clamp(60px,8vw,120px); padding-right: clamp(60px,8vw,120px); }
+  .auth-screen-inner { gap: clamp(40px,6vh,70px); }
+  .auth-title { font-size: clamp(36px,4.5vw,54px); }
+  .auth-subtext { font-size: clamp(14px,1.2vw,16px); }
+}
+
+@media (min-width: 1300px) {
+  .auth-screen-root { display: grid; grid-template-columns: 1fr 1fr; align-items: center; }
+  .auth-screen-inner { grid-column: 1; }
+  .auth-visual-panel { grid-column: 2; display: flex; align-items: center; justify-content: center; }
+  .auth-visual-panel::before { content: ""; width: 70%; aspect-ratio: 1/1; border-radius: 50%; background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.2), rgba(255,255,255,0) 70%); filter: blur(8px); opacity: 0.35; }
+}
+
+/* Motion & entrance */
+.auth-fade-item { opacity: 0; animation: authFade .8s ease forwards; }
+.auth-fade-item:nth-child(1) { animation-delay: .05s; }
+.auth-fade-item:nth-child(2) { animation-delay: .15s; }
+.auth-fade-item:nth-child(3) { animation-delay: .25s; }
+.auth-fade-item:nth-child(4) { animation-delay: .35s; }
+@keyframes authFade { from { opacity:0; transform: translateY(12px);} to { opacity:1; transform: translateY(0);} }
+
+/* Accessibility utility */
+[role="status"][aria-live] { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
