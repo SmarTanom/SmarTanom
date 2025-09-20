@@ -117,6 +117,15 @@
 /* Content block */
 .auth-content { display: flex; flex-direction: column; gap: clamp(20px, 4vh, 28px); }
 
+/* Header section with center-aligned content for code verification */
+.auth-code-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  text-align: center;
+}
+
 /* Typography matching landing page scale */
 .auth-title { 
   font-family: 'Abril Fatface', serif; 
@@ -125,6 +134,7 @@
   font-size: clamp(28px, 8vw, 72px); 
   line-height: 1.1; 
   letter-spacing: -0.5px; 
+  text-align: center;
 }
 
 .auth-subtext { 
