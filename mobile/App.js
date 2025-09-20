@@ -1,13 +1,13 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, Montserrat_400Regular, Montserrat_600SemiBold, Montserrat_700Bold } from '@expo-google-fonts/montserrat';
 import { AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
 import * as SplashScreen from 'expo-splash-screen';
 import { enableScreens } from 'react-native-screens';
-import { CardStyleInterpolators } from '@react-navigation/stack';
+import { Platform } from 'react-native';
 import { Asset } from 'expo-asset';
 
 // Import screens
@@ -21,7 +21,7 @@ import HomeScreen from './src/screens/HomeScreen';
 // Import providers
 import { AuthFlowProvider } from './src/context/AuthFlowContext';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 
 // Keep splash screen visible while loading fonts
 SplashScreen.preventAutoHideAsync();
@@ -72,20 +72,21 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="light" backgroundColor="#339432" />
       <AuthFlowProvider>
-        <NavigationContainer>
+        <NavigationContainer theme={{
+          ...DefaultTheme,
+          colors: { ...DefaultTheme.colors, background: 'transparent' },
+        }}>
           <Stack.Navigator
             initialRouteName="Splash"
             screenOptions={{
               headerShown: false,
-              // Keep cards transparent so shared background/gradients don't flash
-              cardStyle: { backgroundColor: 'transparent' },
-              sceneContainerStyle: { backgroundColor: 'transparent' },
-              animationEnabled: true,
-              // Use a smooth cross-fade between screens
-              cardStyleInterpolator: CardStyleInterpolators.forFadeFromCenter,
-              animationTypeForReplace: 'push',
+              animation: Platform.select({
+                ios: 'slide_from_right',
+                android: 'fade', // Android fade feels natural and avoids jank
+                default: 'fade',
+              }),
+              // For native-stack, background flicker avoidance is handled by AuthLayout gradient
               gestureEnabled: true,
-              detachPreviousScreen: false,
             }}
           >
             <Stack.Screen name="Splash" component={SplashScreenComponent} />
