@@ -1,17 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet,
-  Alert 
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { Brand } from '../components/Brand';
 import { BackButton } from '../components/Icons';
+import { AuthLayout } from '../components/AuthLayout';
+import { useResponsive } from '../hooks/useResponsive';
 import { useAuthFlow } from '../context/AuthFlowContext';
 
 const UsernameScreen = ({ navigation }) => {
@@ -87,144 +79,81 @@ const UsernameScreen = ({ navigation }) => {
     setError('');
   };
 
+  const { clampVw } = useResponsive();
+
   return (
-    <LinearGradient
-      colors={['#2d7d32', '#339432', '#43a047']}
-      style={styles.container}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAwareScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          enableOnAndroid={true}
-          extraScrollHeight={50}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <BackButton onPress={() => navigation.goBack()} />
-            <Brand showText={true} variant="white" size={32} />
+    <AuthLayout headerLeft={<BackButton onPress={() => navigation.goBack()} />}> 
+      <KeyboardAwareScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ alignItems: 'center', gap: 24, paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        extraScrollHeight={50}
+      >
+        <View style={[styles.titleSection]}> 
+          <Text style={[styles.title, { fontSize: clampVw(28, 8, 72) }]}>Choose Your Username</Text>
+          <Text style={[styles.subtitle, { fontSize: clampVw(14, 3.5, 20) }]}>Pick a unique username for your SmarTanom account. This will be your identity in the community.</Text>
+        </View>
+
+        <View style={styles.inputSection}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={[styles.input, error && styles.inputError]}
+              value={inputUsername}
+              onChangeText={handleUsernameChange}
+              placeholder="your_username"
+              placeholderTextColor="rgba(255,255,255,0.5)"
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={20}
+            />
+            <View style={styles.inputHint}>
+              <Text style={styles.hintText}>3-20 characters, lowercase letters, numbers, and underscores only</Text>
+            </View>
           </View>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        </View>
 
-          {/* Content */}
-          <View style={styles.content}>
-            <View style={styles.titleSection}>
-              <Text style={styles.title}>Choose Your Username</Text>
-              <Text style={styles.subtitle}>
-                Create a unique username for your SmarTanom account
-              </Text>
-            </View>
-
-            {/* Username Input */}
-            <View style={styles.inputSection}>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={[styles.input, error && styles.inputError]}
-                  value={inputUsername}
-                  onChangeText={handleUsernameChange}
-                  placeholder="Enter username"
-                  placeholderTextColor="rgba(255,255,255,0.5)"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  maxLength={20}
-                />
-                <View style={styles.inputHint}>
-                  <Text style={styles.hintText}>
-                    3-20 characters, letters, numbers, and underscores only
-                  </Text>
-                </View>
-              </View>
-              
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            </View>
-
-            {/* Suggestions */}
-            <View style={styles.suggestionsSection}>
-              <Text style={styles.suggestionsTitle}>Suggestions:</Text>
-              <View style={styles.suggestionsContainer}>
-                {suggestedUsernames.map((suggestion, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.suggestionChip}
-                    onPress={() => handleSuggestionPress(suggestion)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.suggestionText}>{suggestion}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Actions */}
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={[styles.continueButton, loading && styles.disabledButton]}
-                onPress={handleContinue}
-                disabled={loading}
-                activeOpacity={0.9}
-              >
-                <Text style={styles.continueButtonText}>
-                  {loading ? 'Creating Account...' : 'Create Account'}
-                </Text>
+        <View style={styles.suggestionsSection}>
+          <Text style={styles.suggestionsTitle}>Suggestions:</Text>
+          <View style={styles.suggestionsContainer}>
+            {suggestedUsernames.map((suggestion, index) => (
+              <TouchableOpacity key={index} style={styles.suggestionChip} onPress={() => handleSuggestionPress(suggestion)} activeOpacity={0.85}>
+                <Text style={styles.suggestionText}>{suggestion}</Text>
               </TouchableOpacity>
-
-              <Text style={styles.termsText}>
-                By creating an account, you agree to our Terms of Service and Privacy Policy
-              </Text>
-            </View>
+            ))}
           </View>
-        </KeyboardAwareScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+        </View>
+
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.continueButton, loading && styles.disabledButton]}
+            onPress={handleContinue}
+            disabled={loading}
+            activeOpacity={0.92}
+          >
+            <Text style={styles.continueButtonText}>{loading ? 'Creating Account...' : 'Complete Setup'}</Text>
+          </TouchableOpacity>
+          <Text style={styles.termsText}>Your username will be visible to other users and cannot be changed later.</Text>
+        </View>
+      </KeyboardAwareScrollView>
+    </AuthLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 40,
-  },
-  content: {
-    flex: 1,
-    gap: 32,
-    alignItems: 'center',
-  },
   titleSection: {
-    alignItems: 'center',
     gap: 12,
   },
   title: {
     fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 32,
     color: '#ffffff',
-    textAlign: 'center',
-    lineHeight: 38,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 16,
     color: 'rgba(255,255,255,0.9)',
-    textAlign: 'center',
     lineHeight: 24,
-    paddingHorizontal: 20,
   },
   inputSection: {
     width: '100%',
@@ -239,15 +168,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 12,
-    fontFamily: 'Montserrat_500Medium',
+    borderColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 8,
+    fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,
     color: '#ffffff',
   },
   inputError: {
-    borderColor: '#ffcccb',
-    backgroundColor: 'rgba(255,0,0,0.1)',
+    borderColor: '#ffb3b3',
+    backgroundColor: 'rgba(255,0,0,0.10)',
   },
   inputHint: {
     paddingHorizontal: 8,
@@ -288,7 +217,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
   },
   suggestionText: {
-    fontFamily: 'Montserrat_500Medium',
+    fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
     color: 'rgba(255,255,255,0.9)',
   },
@@ -301,7 +230,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
     width: '100%',
     elevation: 4,
@@ -316,7 +245,7 @@ const styles = StyleSheet.create({
   continueButtonText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#339432',
+    color: '#016b22',
     letterSpacing: 0.5,
   },
   termsText: {
@@ -325,7 +254,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.7)',
     textAlign: 'center',
     lineHeight: 16,
-    paddingHorizontal: 20,
   },
 });
 
