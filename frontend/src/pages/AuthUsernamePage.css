@@ -1,0 +1,229 @@
+/* Auth Username Page (signup final step)
+   Design aligned with landing page and email pages - two-column layout with hydroponic image
+   Typography matching landing page sizing:
+     - Headline: Abril Fatface (large responsive sizing)
+     - Body: Montserrat Regular (enhanced sizing)
+     - Field labels/placeholders: Montserrat 600 (Semibold)
+     - Buttons: Montserrat 700 (Bold)
+*/
+
+/* Auth Username Page - Two-column layout matching landing page
+   Left column: content (logo, form, buttons)  
+   Right column: hydroponic background image
+   Mobile: single column with centered content
+*/
+
+/* Main container with two-column grid */
+.auth-screen-root {
+  height: 100vh;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+/* Mobile layout - single column centered */
+.auth-content-wrapper {
+  height: 100vh;
+  background: #339432;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(16px, 3vw, 24px) clamp(16px, 4vw, 32px);
+  box-sizing: border-box;
+  font-family: Montserrat, Inter, sans-serif;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Two-column layout for larger screens - matching landing page */
+@media (min-width: 769px) {
+  .auth-screen-root {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "content image";
+  }
+  
+  .auth-content-wrapper {
+    grid-area: content;
+    padding: clamp(24px, 4vw, 48px);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  
+  .auth-image-column {
+    grid-area: image;
+    background-image: url('../assets/images/landingpage_img.png');
+    background-size: cover;
+    background-position: bottom center;
+    background-repeat: no-repeat;
+    height: 100vh;
+  }
+}
+
+.auth-screen-inner { 
+  max-width: 520px; 
+  width: 100%; 
+  display: flex; 
+  flex-direction: column; 
+  gap: clamp(20px, 3vh, 32px); 
+  max-height: 85vh;
+  overflow: hidden;
+}
+
+/* Top bar layout */
+.auth-top-bar { display:flex; align-items:center; justify-content:space-between; min-height:56px; }
+
+/* Back button redesigned */
+.auth-back-btn { position:relative; display:inline-flex; align-items:center; gap:10px; font-size:14px; font-weight:600; letter-spacing:0.8px; color:#fff; background:rgba(255,255,255,0.10); padding:12px 18px; border-radius:100px; cursor:pointer; border:1px solid rgba(255,255,255,0.25); transition:background .25s ease, transform .25s ease, box-shadow .25s ease, opacity .25s ease; user-select:none; -webkit-tap-highlight-color:transparent; min-height:44px; }
+.auth-back-btn:hover { background:rgba(255,255,255,0.18); }
+.auth-back-btn:active { transform:translateY(1px); opacity:0.85; }
+.auth-back-btn:focus-visible { outline:3px solid rgba(255,255,255,0.55); outline-offset:3px; }
+.auth-back-icon { width:22px; height:22px; display:inline-block; line-height:1; }
+.auth-back-text { font-size:13px; font-weight:700; }
+
+/* Mobile: hide BACK text, keep icon; ensure 44px touch area */
+@media (max-width: 767.98px) {
+  .auth-back-text { display:none; }
+  .auth-back-btn { padding:12px 16px; }
+}
+
+/* Larger screens: keep text visible */
+@media (min-width: 768px) {
+  .auth-back-btn { padding:12px 20px; }
+}
+
+/* Branding header */
+.auth-brand { display: flex; align-items: center; gap: clamp(0.75rem, 1.2vw, 1.2rem); }
+.auth-brand-wordmark { 
+  font-family: Alexandria, Montserrat, sans-serif; 
+  font-weight: 600; 
+  letter-spacing: 0.07em; 
+  font-size: clamp(14px, 1.5vw, 22px); 
+}
+
+/* Brand logo sizing to match landing */
+.brand-logo-img { 
+  width: clamp(30px, 3vw, 48px); 
+  height: auto; 
+}
+
+/* Content block */
+.auth-content { display: flex; flex-direction: column; gap: clamp(20px, 4vh, 28px); }
+
+/* Header section with left-aligned content */
+.auth-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start !important;
+  width: 100%;
+  text-align: left !important;
+}
+
+/* Typography matching landing page scale */
+.auth-title { 
+  font-family: 'Abril Fatface', serif; 
+  font-weight: 400; 
+  margin: 0; 
+  font-size: clamp(28px, 8vw, 72px); 
+  line-height: 1.1; 
+  letter-spacing: -0.5px; 
+  text-align: left !important;
+}
+
+.auth-subtext { 
+  margin: 0; 
+  font-size: clamp(14px, 3.5vw, 20px); 
+  line-height: 1.4; 
+  max-width: 520px; 
+  color: rgba(255, 255, 255, 0.92); 
+  text-align: left !important;
+}
+
+/* Enhanced typography for larger screens */
+@media (min-width: 769px) {
+  .auth-title { font-size: clamp(42px, 6vw, 72px); }
+  .auth-subtext { font-size: clamp(16px, 2vw, 20px); line-height: 1.55; }
+}
+
+@media (min-width: 1200px) {
+  .auth-title { font-size: clamp(56px, 7.5vw, 84px); }
+  .auth-subtext { font-size: clamp(18px, 2.2vw, 22px); }
+}
+
+@media (min-width: 1600px) {
+  .auth-title { font-size: clamp(72px, 8vw, 96px); }
+  .auth-subtext { font-size: clamp(20px, 2.4vw, 24px); }
+}
+
+/* Form */
+.auth-form { display: flex; flex-direction: column; gap: clamp(16px, 3vw, 20px); width: 100%; }
+
+.auth-field { display: flex; flex-direction: column; gap: 6px; position: relative; }
+.auth-field-label { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.95; }
+
+.auth-input-wrapper { position: relative; display: flex; align-items: center; }
+.auth-input-wrapper i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 18px; color: #ffffff; opacity: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
+/* SVG icon for username */
+.auth-username-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); stroke: #ffffff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
+
+.auth-input { width: 100%; padding: clamp(14px, 3vw, 16px) 16px clamp(14px, 3vw, 16px) 44px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.08); color: #fff; font-size: 15px; font-weight: 600; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px; outline: none; transition: border-color .25s ease, background .25s ease, box-shadow .25s ease; }
+.auth-input::placeholder { color: rgba(255,255,255,0.85); font-weight: 600; }
+.auth-input:focus { border-color: #ffffff; background: rgba(255,255,255,0.16); box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
+.auth-input[aria-invalid="true"] { border-color: #ffb3b3; background: rgba(255,0,0,0.10); }
+
+/* Username validation states */
+.auth-input.available { border-color: #90EE90; background: rgba(144,238,144,0.10); }
+.auth-input.taken { border-color: #ffb3b3; background: rgba(255,0,0,0.10); }
+
+/* Status messages */
+.auth-error { color: #ffe2e2; font-size: 13px; margin-top: 6px; font-weight: 500; }
+.auth-success { color: #90EE90; font-size: 13px; margin-top: 6px; font-weight: 500; }
+
+/* Submit button */
+.auth-submit { width: 100%; background: #ffffff; color: #016b22; font-weight: 700; font-size: 15px; border: none; padding: clamp(14px, 3vw, 16px) 20px; border-radius: 8px; cursor: pointer; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 6px 18px rgba(0,0,0,0.18); transition: background .25s ease, transform .25s ease, box-shadow .25s ease; }
+.auth-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -4px rgba(0,0,0,0.32); }
+.auth-submit:active { transform: translateY(0); box-shadow: 0 5px 16px rgba(0,0,0,0.22); }
+.auth-submit:focus-visible { outline: 3px solid rgba(255,255,255,0.55); outline-offset: 3px; }
+.auth-submit[disabled] { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+/* Helper text */
+.auth-helper { font-size: 12px; opacity: 0.85; text-align: center; }
+
+/* Layout distribution for larger screens - updated to match landing page breakpoints */
+@media (min-width: 769px) {
+  .auth-content-wrapper { 
+    padding: clamp(32px, 5vw, 64px); 
+  }
+  .auth-screen-inner { 
+    gap: clamp(24px, 4vh, 40px); 
+    max-height: 90vh;
+    overflow: hidden;
+  }
+  .auth-brand-wordmark { 
+    font-size: clamp(16px, 1.8vw, 24px); 
+  }
+}
+
+@media (min-width: 1200px) {
+  .auth-content-wrapper { 
+    padding: clamp(48px, 6vw, 80px); 
+  }
+}
+
+/* Motion & entrance */
+.auth-fade-item { opacity: 0; animation: authFade .8s ease forwards; }
+.auth-fade-item:nth-child(1) { animation-delay: .05s; }
+.auth-fade-item:nth-child(2) { animation-delay: .15s; }
+.auth-fade-item:nth-child(3) { animation-delay: .25s; }
+.auth-fade-item:nth-child(4) { animation-delay: .35s; }
+@keyframes authFade { from { opacity:0; transform: translateY(12px);} to { opacity:1; transform: translateY(0);} }
+
+/* Accessibility utility */
+[role="status"][aria-live] { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
