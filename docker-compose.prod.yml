@@ -1,0 +1,61 @@
+# Production Docker setup
+version: '3.8'
+
+services:
+  # PostgreSQL database (production)
+  postgres:
+    image: postgres:15-alpine
+    container_name: smartanom-db-prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-smartanom_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-smartanom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - smartanom-prod-network
+    restart: unless-stopped
+
+  # Redis (production)
+  redis:
+    image: redis:7-alpine
+    container_name: smartanom-redis-prod
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - smartanom-prod-network
+    restart: unless-stopped
+
+  # Main application (backend + frontend)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartanom-app-prod
+    environment:
+      - DEBUG=0
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-smartanom}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-smartanom_prod}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    ports:
+      - "80:8000"
+    volumes:
+      - app_logs:/app/logs
+      - static_files:/app/static
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - smartanom-prod-network
+    restart: unless-stopped
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+  app_logs:
+  static_files:
+
+networks:
+  smartanom-prod-network:
+    driver: bridge
