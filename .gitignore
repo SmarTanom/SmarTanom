@@ -1,4 +1,4 @@
-# Minimal ignore file: only ignore dependency modules / environments
+# Ignore dependency modules / environments and common build caches
 
 # Python virtual environments
 .venv/
@@ -9,5 +9,37 @@ ENV/
 frontend/node_modules/
 mobile/node_modules/
 node_modules/
+
+# Expo / Metro / React Native caches
+.expo/
+.expo-shared/
+*.expo/
+dist/
+.cache/
+.parcel-cache/
+.vercel/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Build outputs
+android/
+ios/
+web-build/
+build/
+*.apk
+*.aab
+*.ipa
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
 
 # (Keep everything else versioned intentionally)
