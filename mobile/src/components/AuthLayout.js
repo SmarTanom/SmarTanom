@@ -16,7 +16,7 @@ export function AuthLayout({ children, headerLeft, headerRight, showImagePanel =
 
   return (
     <LinearGradient colors={['#2d7d32', '#339432', '#43a047']} style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top','left','right']}>
         <View style={[styles.grid, isWide && styles.gridWide]}>
           <View style={[styles.contentWrapper, { paddingHorizontal: pad(16, 4, 48) }]}> 
             <View style={styles.topBar}>
@@ -25,7 +25,7 @@ export function AuthLayout({ children, headerLeft, headerRight, showImagePanel =
                 {headerRight || (<Brand showText={true} variant="white" size={isWide ? 40 : 32} />)}
               </View>
             </View>
-            <View style={styles.content}>{children}</View>
+            <View style={[styles.content, { paddingTop: pad(8, 12, 24), paddingBottom: pad(16, 24, 32) }]}>{children}</View>
           </View>
 
           {isWide && showImagePanel && (
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   brandWrap: {},
-  content: { flex: 1, justifyContent: 'center' },
+  content: { flex: 1 },
   imagePanel: { flex: 1, height: '100%' },
   imageStyle: { resizeMode: 'cover' },
 });
