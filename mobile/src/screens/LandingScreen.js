@@ -8,7 +8,8 @@ const LandingScreen = ({ navigation }) => {
 
   return (
     <AuthLayout>
-      <View style={styles.heroWrap}>
+      <View style={styles.centerWrap}>
+        <View style={styles.heroWrap}>
         <Text
           style={[
             styles.title,
@@ -44,12 +45,17 @@ const LandingScreen = ({ navigation }) => {
             <Text style={styles.outlineBtnText}>Register New Account</Text>
           </TouchableOpacity>
         </View>
+        </View>
       </View>
     </AuthLayout>
   );
 };
 
 const styles = StyleSheet.create({
+  centerWrap: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   heroWrap: {
     gap: 18,
     maxWidth: 700,

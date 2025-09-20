@@ -66,7 +66,7 @@ const EmailScreen = ({ navigation, route }) => {
     >
       <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
         enableOnAndroid={true}
         extraScrollHeight={50}

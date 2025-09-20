@@ -85,7 +85,7 @@ const CodeScreen = ({ navigation, route }) => {
     <AuthLayout headerLeft={<BackButton onPress={() => navigation.goBack()} />}> 
       <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ alignItems: 'center', gap: 24, paddingBottom: 24 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', gap: 24, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
         enableOnAndroid={true}
         extraScrollHeight={50}
