@@ -1,0 +1,12 @@
+# Docker-related files
+.env
+.env.prod
+.env.local
+
+# Container logs and data
+docker-logs/
+postgres-data/
+redis-data/
+
+# Docker Compose override files
+docker-compose.override.yml
