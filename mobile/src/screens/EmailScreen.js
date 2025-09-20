@@ -1,19 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  KeyboardAvoidingView, 
-  Platform,
-  Alert
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { Brand } from '../components/Brand';
 import { BackButton, Mail } from '../components/Icons';
+import { AuthLayout } from '../components/AuthLayout';
+import { useResponsive } from '../hooks/useResponsive';
 import { useAuthFlow } from '../context/AuthFlowContext';
 
 const EmailScreen = ({ navigation, route }) => {
@@ -68,137 +58,93 @@ const EmailScreen = ({ navigation, route }) => {
     ? 'Sign in to access your hydroponic dashboard'
     : 'Join the SmarTanom community and start monitoring your garden';
 
+  const { clampVw } = useResponsive();
+
   return (
-    <LinearGradient
-      colors={['#2d7d32', '#339432', '#43a047']}
-      style={styles.container}
+    <AuthLayout
+      headerLeft={<BackButton onPress={() => navigation.goBack()} />}
     >
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAwareScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          enableOnAndroid={true}
-          extraScrollHeight={50}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <BackButton onPress={() => navigation.goBack()} />
-            <Brand showText={true} variant="white" size={32} />
+      <KeyboardAwareScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        extraScrollHeight={50}
+      >
+        <View style={styles.titleSection}>
+          <Text style={[styles.title, { fontSize: clampVw(28, 8, 72) }]}>{title}</Text>
+          <Text style={[styles.subtitle, { fontSize: clampVw(14, 3.5, 20) }]}>{subtitle}</Text>
+        </View>
+
+        <View style={styles.form}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>EMAIL</Text>
+            <View style={styles.inputWrapper}>
+              <Mail size={20} color="#ffffff" />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your email"
+                placeholderTextColor="rgba(255,255,255,0.7)"
+                value={localEmail}
+                onChangeText={setLocalEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+              />
+            </View>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
 
-          {/* Content */}
-          <View style={styles.content}>
-            <View style={styles.titleSection}>
-              <Text style={styles.title}>{title}</Text>
-              <Text style={styles.subtitle}>{subtitle}</Text>
-            </View>
+          <TouchableOpacity
+            style={[styles.submit, loading && styles.disabled]}
+            onPress={handleContinue}
+            disabled={loading}
+            activeOpacity={0.92}
+          >
+            <Text style={styles.submitText}>{loading ? 'Sending...' : 'Send Verification Code'}</Text>
+          </TouchableOpacity>
 
-            {/* Form */}
-            <View style={styles.form}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
-                <View style={styles.inputWrapper}>
-                  <Mail size={20} color="#ffffff" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your email"
-                    placeholderTextColor="rgba(255,255,255,0.7)"
-                    value={localEmail}
-                    onChangeText={setLocalEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="email"
-                  />
-                </View>
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-              </View>
+          <Text style={styles.helperText}>We'll send a secure code to verify your identity.</Text>
+        </View>
 
-              <TouchableOpacity
-                style={[styles.continueButton, loading && styles.disabledButton]}
-                onPress={handleContinue}
-                disabled={loading}
-                activeOpacity={0.9}
-              >
-                <Text style={styles.continueButtonText}>
-                  {loading ? 'Sending...' : 'Continue'}
-                </Text>
-              </TouchableOpacity>
-
-              <Text style={styles.helperText}>
-                We'll send you a verification code to confirm your email address
-              </Text>
-            </View>
-
-            {/* Switch Mode */}
-            <View style={styles.switchMode}>
-              <Text style={styles.switchText}>
-                {mode === 'signin' ? "Don't have an account?" : "Already have an account?"}
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  const nextScreen = mode === 'signin' ? 'SignUpEmail' : 'SignInEmail';
-                  navigation.replace(nextScreen);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.switchLink}>
-                  {mode === 'signin' ? 'Sign up' : 'Sign in'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAwareScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+        <View style={styles.switchMode}>
+          <Text style={styles.switchText}>
+            {mode === 'signin' ? "Don't have an account?" : "Already have an account?"}
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              const nextScreen = mode === 'signin' ? 'SignUpEmail' : 'SignInEmail';
+              navigation.replace(nextScreen);
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.switchLink}>
+              {mode === 'signin' ? 'Sign up' : 'Sign in'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAwareScrollView>
+    </AuthLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 40,
-  },
-  content: {
-    flex: 1,
-    gap: 32,
-  },
   titleSection: {
     gap: 12,
   },
   title: {
     fontFamily: 'AbrilFatface_400Regular',
-    fontSize: 36,
     color: '#ffffff',
-    lineHeight: 42,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 16,
     color: 'rgba(255,255,255,0.9)',
     lineHeight: 24,
   },
   form: {
-    gap: 24,
+    gap: 20,
   },
   inputContainer: {
     gap: 8,
@@ -215,8 +161,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 12,
+    borderColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 12,
@@ -233,11 +179,11 @@ const styles = StyleSheet.create({
     color: '#ffcccb',
     marginTop: 4,
   },
-  continueButton: {
+  submit: {
     backgroundColor: '#ffffff',
     paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
     elevation: 4,
     shadowColor: '#000',
@@ -245,13 +191,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
   },
-  disabledButton: {
+  disabled: {
     opacity: 0.7,
   },
-  continueButtonText: {
+  submitText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#339432',
+    color: '#016b22',
     letterSpacing: 0.5,
   },
   helperText: {
