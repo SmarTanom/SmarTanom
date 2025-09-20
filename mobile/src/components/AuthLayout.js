@@ -31,8 +31,11 @@ export function AuthLayout({ children, headerLeft, headerRight, showImagePanel =
           {isWide && showImagePanel && (
             <ImageBackground
               source={require('../../assets/images/landingpage_img.png')}
+              defaultSource={require('../../assets/images/landingpage_img.png')}
               style={styles.imagePanel}
               imageStyle={styles.imageStyle}
+              resizeMode="cover"
+              fadeDuration={0}
               accessibilityIgnoresInvertColors
               importantForAccessibility="no-hide-descendants"
             />
