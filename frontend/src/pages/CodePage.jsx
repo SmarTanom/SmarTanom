@@ -96,9 +96,9 @@ export default function CodePage({ mode = 'signin' }) {
             </div>
           </div>
           <div className="auth-content auth-fade-item">
-            <header className="auth-code-header" style={{ gap: 'clamp(12px, 2vh, 18px)' }}>
-              <h1 className="auth-title">{heading}</h1>
-              <p className="auth-subtext">{subtext}</p>
+            <header className="auth-code-header" style={{ gap: 'clamp(12px, 2vh, 18px)', textAlign: 'center', alignItems: 'center' }}>
+              <h1 className="auth-title" style={{ textAlign: 'center' }}>{heading}</h1>
+              <p className="auth-subtext" style={{ textAlign: 'center' }}>{subtext}</p>
             </header>
             <form className="auth-form" onSubmit={handleConfirm} noValidate>
               <div className="auth-otp-grid">
