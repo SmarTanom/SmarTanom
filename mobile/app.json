@@ -1,18 +1,32 @@
 {
   "expo": {
     "name": "SmarTanom",
-    "slug": "smartanom",
+    "slug": "smartanom-mobile",
     "version": "1.0.0",
-    "orientation": "default",
+    "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#339432"
     },
     "assetBundlePatterns": [
       "**/*"
-    ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartanom.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#339432"
+      },
+      "package": "com.smartanom.mobile"
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    }
   }
 }
