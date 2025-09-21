@@ -51,6 +51,7 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     nginx \
     supervisor \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python dependencies from build stage (match Python version)
@@ -68,7 +69,9 @@ COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Create necessary directories
-RUN mkdir -p /var/log/nginx /var/log/supervisor /app/logs
+RUN mkdir -p /var/log/nginx /var/log/supervisor /app/logs /app/media \
+    && useradd -r -u 1001 -g www-data appuser \
+    && chown -R appuser:www-data /app /var/log/nginx /var/log/supervisor
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -77,6 +80,7 @@ ENV PYTHONUNBUFFERED=1 \
 # Copy start script and make executable
 COPY docker/start.sh /start.sh
 RUN chmod +x /start.sh
+USER appuser
 
 # Expose port
 EXPOSE 8000

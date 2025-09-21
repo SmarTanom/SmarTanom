@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 from rest_framework import viewsets, filters
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from django.db import connections
+from django.db.utils import OperationalError
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -83,4 +88,15 @@ class SensorDataViewSet(BaseAuthViewSet):
 		if user.is_staff:
 			return qs
 		return qs.filter(sensor__device__user=user)
+
+
+@api_view(["GET"])  # Lightweight health check
+@permission_classes([AllowAny])
+def healthz(request):
+	db_ok = True
+	try:
+		connections["default"].cursor()
+	except OperationalError:
+		db_ok = False
+	return Response({"status": "ok" if db_ok else "degraded", "db": db_ok})
 
