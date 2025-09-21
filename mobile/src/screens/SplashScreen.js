@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import BrandMark from '../components/Brand';
 
@@ -7,6 +7,9 @@ const SplashScreen = ({ navigation }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const breatheAnim = useRef(new Animated.Value(0)).current; // 0..1 loop, drives subtle pulse
+  const { width } = useWindowDimensions();
+  // Make logo much bigger on phones, with a sane cap for tablets
+  const logoSize = Math.max(140, Math.min(width * 0.5, 260));
 
   useEffect(() => {
     // Animate entrance (fade + spring-in)
@@ -64,7 +67,7 @@ const SplashScreen = ({ navigation }) => {
           },
         ]}
       >
-        <BrandMark variant="white" size={112} />
+  <BrandMark variant="white" size={logoSize} />
         <Text style={styles.title}>SmarTanom</Text>
         <Text style={styles.subtitle}>Smart Hydroponic Monitoring</Text>
       </Animated.View>
