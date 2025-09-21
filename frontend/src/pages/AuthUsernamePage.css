@@ -184,7 +184,7 @@
   flex-direction: column; 
   gap: clamp(14px, 2.5vw, 18px); 
   width: 100%;
-  flex-shrink: 0;
+  flex-shrink: 1; /* allow slight shrink to avoid overflow */
 }
 
 .auth-field { display: flex; flex-direction: column; gap: 6px; position: relative; }
@@ -229,9 +229,8 @@
   flex-wrap: wrap; 
   gap: 8px; 
   /* Constrain suggestions height so they don't push layout */
-  max-height: clamp(72px, 12vh, 144px);
-  overflow-y: auto;
-  overflow-x: hidden;
+  max-height: clamp(56px, 10vh, 96px);
+  overflow: hidden; /* clip extra chips; no scrollbar */
 }
 .auth-suggestion-chip { 
   appearance: none; 
@@ -279,7 +278,7 @@
   .auth-screen-inner { 
     gap: clamp(18px, 3vh, 28px); 
     max-height: 100%; /* remain within padded viewport height */
-    overflow-y: auto;
+    overflow: hidden; /* disable inner scroll on large screens */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
   }
