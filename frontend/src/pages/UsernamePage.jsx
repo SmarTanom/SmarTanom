@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
 import BrandMark from '../components/brand/BrandMark.jsx';
@@ -81,6 +81,38 @@ export default function UsernamePage() {
   const heading = 'Choose Your Username';
   const subtext = 'Pick a unique username for your SmarTanom account. This will be your identity in the community.';
 
+  // Generate username suggestions based on current input
+  const suggestions = useMemo(() => {
+    const base = (username || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const seeds = ['smart', 'hydro', 'grow', 'plant', 'garden'];
+    const rand2 = () => Math.floor(10 + Math.random() * 90); // 10..99
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    if (base.length >= 3) {
+      const b = base.replace(/^_+|_+$/g, '').slice(0, 16); // leave room for suffix
+      return [
+        `${b}${rand2()}`,
+        `${b}_${pick(seeds)}`,
+        `${pick(seeds)}_${b}`,
+      ];
+    }
+    const seed = pick(seeds);
+    return [
+      `${seed}${rand2()}`,
+      `${seed}_grow${rand2()}`,
+      `smart_${seed}${rand2()}`,
+    ];
+  }, [username]);
+
+  function applySuggestion(s) {
+    setUsername(s);
+    setError('');
+    setStatus('');
+    // Optionally check immediately
+    checkAvailability(s);
+    // Re-focus input for quick edits
+    inputRef.current?.focus();
+  }
+
   return (
     <div className="auth-screen-root">
       <div className="auth-content-wrapper">
@@ -126,9 +158,26 @@ export default function UsernamePage() {
                     maxLength={20}
                   />
                 </div>
+                <div id="username-hint" className="auth-hint">3-20 characters, lowercase letters, numbers, and underscores only</div>
                 {error && <div id="username-error" className="auth-error" role="alert">{error}</div>}
                 {status === 'available' && !error && <div id="username-status" className="auth-success">✓ Username is available!</div>}
                 {checking && <div className="auth-helper">Checking availability...</div>}
+              </div>
+              <div className="auth-suggestions-section">
+                <div className="auth-suggestions-title">Suggestions:</div>
+                <div className="auth-suggestions-container">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={`${s}-${i}`}
+                      type="button"
+                      className="auth-suggestion-chip"
+                      onClick={() => applySuggestion(s)}
+                      aria-label={`Use suggested username ${s}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
               <button type="submit" className="auth-submit" disabled={saving || checking || status !== 'available'}>
                 {saving && <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />}
