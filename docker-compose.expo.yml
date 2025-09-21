@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   expo:
     build:
@@ -19,4 +18,4 @@ services:
     volumes:
       - ./mobile:/app
       - /app/node_modules
-    command: ["npm", "run", "start", "--", "--tunnel", "--non-interactive", "--host", "tunnel"]
+    command: ["npm", "run", "web"]
