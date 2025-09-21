@@ -76,6 +76,8 @@
   max-height: 100%; /* fit within padded area to avoid page scroll */
   overflow-y: auto;
   overflow-x: hidden;
+  flex: 1;              /* allow inner to take available height */
+  min-height: 0;        /* enable child overflow scrolling inside flex parent */
   /* Hide scrollbar but maintain functionality */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
@@ -222,7 +224,15 @@
 /* Suggestions */
 .auth-suggestions-section { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
 .auth-suggestions-title { font-size: 13px; font-weight: 600; opacity: 0.95; }
-.auth-suggestions-container { display: flex; flex-wrap: wrap; gap: 8px; }
+.auth-suggestions-container { 
+  display: flex; 
+  flex-wrap: wrap; 
+  gap: 8px; 
+  /* Constrain suggestions height so they don't push layout */
+  max-height: clamp(72px, 12vh, 144px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
 .auth-suggestion-chip { 
   appearance: none; 
   border: 1px solid rgba(255,255,255,0.25); 
@@ -234,6 +244,13 @@
   font-weight: 600; 
   cursor: pointer; 
   transition: background .2s ease, transform .2s ease, border-color .2s ease; 
+  /* Prevent overlong usernames from overflowing */
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .auth-suggestion-chip:hover { background: rgba(255,255,255,0.16); }
 .auth-suggestion-chip:active { transform: translateY(1px); }
