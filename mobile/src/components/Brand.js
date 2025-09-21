@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   brandText: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
     letterSpacing: 1.2,
   },
