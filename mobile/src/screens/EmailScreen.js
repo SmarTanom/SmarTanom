@@ -80,7 +80,7 @@ const EmailScreen = ({ navigation, route }) => {
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>EMAIL</Text>
             <View style={styles.inputWrapper}>
-              <Mail size={20} color="#ffffff" />
+              <Mail size={18} color="#ffffff" />
               <TextInput
                 style={styles.input}
                 placeholder="Enter your email"
@@ -145,9 +145,10 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 20,
+    marginTop: 8, // give a bit more breathing room above EMAIL label
   },
   inputContainer: {
-    gap: 8,
+    gap: 10,
   },
   inputLabel: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -163,15 +164,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.6)',
     borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 10,
   },
   input: {
     flex: 1,
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,
     color: '#ffffff',
+    paddingVertical: 2,
   },
   errorText: {
     fontFamily: 'Montserrat_400Regular',

@@ -24,7 +24,7 @@ export const Mail = ({ size = 24, color = '#ffffff' }) => (
       strokeLinejoin="round"
     />
     <Path
-      d="L22 6L12 13L2 6"
+      d="M2 6L12 13L22 6"
       stroke={color}
       strokeWidth={2}
       strokeLinecap="round"
