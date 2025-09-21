@@ -15,15 +15,26 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv(
-	"DJANGO_SECRET_KEY",
-	"dev-insecure-secret-key-change-me",  # nosec - placeholder for development
+# Support both DJANGO_SECRET_KEY and generic SECRET_KEY (compose/prod convenience)
+SECRET_KEY = (
+	os.getenv("DJANGO_SECRET_KEY")
+	or os.getenv("SECRET_KEY")
+	or "dev-insecure-secret-key-change-me"  # nosec - placeholder for development
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
+DEBUG = (
+	os.getenv("DJANGO_DEBUG")
+	or os.getenv("DEBUG")
+	or "true"
+).lower() == "true"
 
-ALLOWED_HOSTS: list[str] = os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",")
+# Accept both DJANGO_ALLOWED_HOSTS and ALLOWED_HOSTS (comma separated)
+ALLOWED_HOSTS: list[str] = (
+	os.getenv("DJANGO_ALLOWED_HOSTS")
+	or os.getenv("ALLOWED_HOSTS")
+	or "*"
+).split(",")
 
 
 # Application definition
@@ -76,17 +87,48 @@ WSGI_APPLICATION = "smartanom.wsgi.application"
 ASGI_APPLICATION = "smartanom.asgi.application"
 
 
-# Database (SQLite by default; swap to Postgres/MySQL in production)
-DATABASES = {
-	"default": {
-		"ENGINE": os.getenv("DB_ENGINE", "django.db.backends.sqlite3"),
-		"NAME": os.getenv("DB_NAME", BASE_DIR / "db.sqlite3"),
-		"USER": os.getenv("DB_USER", ""),
-		"PASSWORD": os.getenv("DB_PASSWORD", ""),
-		"HOST": os.getenv("DB_HOST", ""),
-		"PORT": os.getenv("DB_PORT", ""),
+"""Database configuration.
+
+Priority:
+1. If DATABASE_URL provided, parse it.
+2. Else use discrete DB_* variables.
+Falls back to SQLite.
+"""
+
+from urllib.parse import urlparse  # noqa: E402 (import after docstring for clarity)
+
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+	parsed = urlparse(database_url)
+	engine_map = {
+		"postgres": "django.db.backends.postgresql",
+		"postgresql": "django.db.backends.postgresql",
+		"pgsql": "django.db.backends.postgresql",
 	}
-}
+	scheme = parsed.scheme.split("+")[0]
+	db_engine = engine_map.get(scheme, "django.db.backends.sqlite3")
+	db_name = parsed.path.lstrip("/") or "postgres"
+	DATABASES = {
+		"default": {
+			"ENGINE": db_engine,
+			"NAME": db_name,
+			"USER": parsed.username or "",
+			"PASSWORD": parsed.password or "",
+			"HOST": parsed.hostname or "",
+			"PORT": str(parsed.port or ""),
+		}
+	}
+else:
+	DATABASES = {
+		"default": {
+			"ENGINE": os.getenv("DB_ENGINE", "django.db.backends.sqlite3"),
+			"NAME": os.getenv("DB_NAME", BASE_DIR / "db.sqlite3"),
+			"USER": os.getenv("DB_USER", ""),
+			"PASSWORD": os.getenv("DB_PASSWORD", ""),
+			"HOST": os.getenv("DB_HOST", ""),
+			"PORT": os.getenv("DB_PORT", ""),
+		}
+	}
 
 
 # Password validation

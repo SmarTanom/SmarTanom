@@ -31,11 +31,12 @@ RUN apk add --no-cache postgresql15-client libpq
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/bin /usr/bin
 COPY --from=builder /build /app
-RUN mkdir -p /app/logs
+RUN mkdir -p /app/logs \
+    && chmod +x /app/entrypoint.sh
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown -R appuser:appgroup /app
 USER appuser
 EXPOSE 8000
 LABEL org.opencontainers.image.source="SmarTanom" \
-      org.opencontainers.image.description="SmarTanom backend (multi-stage)" \
-      org.opencontainers.image.licenses="Proprietary"
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    org.opencontainers.image.description="SmarTanom backend (multi-stage)" \
+    org.opencontainers.image.licenses="Proprietary"
+ENTRYPOINT ["/app/entrypoint.sh"]

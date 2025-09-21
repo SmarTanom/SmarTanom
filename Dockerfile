@@ -1,19 +1,30 @@
 # Multi-stage Docker build for SmarTanom
-# Stage 1: Build the React frontend
-FROM node:18-alpine as frontend-build
+# Stage 1: Build the React frontend (Debian slim to mitigate Alpine CVE)
+ARG NODE_VERSION=20.17.0
+FROM node:${NODE_VERSION}-bookworm-slim AS frontend-build
 
 WORKDIR /app/frontend
 
+ENV DEBIAN_FRONTEND=noninteractive \
+    NODE_ENV=production
+
 # Copy package files for better caching
 COPY frontend/package*.json ./
-RUN npm ci --only=production
+
+# Update system packages (security patches) and clean layer
+RUN apt-get update \
+    && apt-get -y upgrade \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install production dependencies only
+RUN npm ci --omit=dev
 
 # Copy frontend source and build
 COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Python backend with Django
-FROM python:3.11-slim as backend-build
+FROM python:3.12-slim AS backend-build
 
 WORKDIR /app
 
@@ -31,7 +42,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./
 
 # Stage 3: Production image
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -42,8 +53,8 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python dependencies from build stage
-COPY --from=backend-build /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Copy Python dependencies from build stage (match Python version)
+COPY --from=backend-build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=backend-build /usr/local/bin /usr/local/bin
 
 # Copy backend application
@@ -60,14 +71,15 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN mkdir -p /var/log/nginx /var/log/supervisor /app/logs
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV DJANGO_SETTINGS_MODULE=smartanom.settings.production
+ENV PYTHONUNBUFFERED=1 \
+    DJANGO_SETTINGS_MODULE=smartanom.settings
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
+# Copy start script and make executable
+COPY docker/start.sh /start.sh
+RUN chmod +x /start.sh
 
 # Expose port
 EXPOSE 8000
 
-# Start supervisor (manages both Django and Nginx)
-CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Use start script (handles migrate + collectstatic + supervisord)
+CMD ["/start.sh"]
