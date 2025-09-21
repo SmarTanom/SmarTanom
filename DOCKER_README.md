@@ -36,6 +36,16 @@ Docker containerization for the SmarTanom hydroponic monitoring system, providin
    - Backend API: http://localhost:8000/api
    - Admin: http://localhost:8000/admin
 
+6. **(Optional) Start Mobile (Expo) Dev Server**:
+   ```powershell
+   docker compose -f docker-compose.expo.yml up --build
+   ```
+   - Expo Web: http://localhost:19006
+   - Metro (native): port 19000 (QR code in container logs)
+   - Logs/WebSocket: 19001
+
+   To stop: `docker compose -f docker-compose.expo.yml down`
+
 ### Production Deployment
 
 1. **Setup environment**:
@@ -56,6 +66,16 @@ Docker containerization for the SmarTanom hydroponic monitoring system, providin
    docker-compose -f docker-compose.prod.yml exec app python manage.py createsuperuser
    ```
 
+4. **(Optional) Verify static + reverse proxy**:
+   - Visit `http://localhost/` (should serve frontend build via Nginx)
+   - API at `http://localhost/api/`
+
+> Note: The production `Dockerfile` sets `ENV DJANGO_SETTINGS_MODULE=smartanom.settings.production` but no `production.py` exists. Either:
+> - Create `backend/smartanom/settings/production.py` importing from `settings` and overriding prod values, or
+> - Change the Dockerfile to `ENV DJANGO_SETTINGS_MODULE=smartanom.settings`.
+>
+> Until adjusted, Django will fallback incorrectly and may error on startup. Update before real deployment.
+
 ## 🛠 Services
 
 ### Development (`docker-compose.yml`)
@@ -70,6 +90,10 @@ Docker containerization for the SmarTanom hydroponic monitoring system, providin
 - **Database**: PostgreSQL with persistent storage
 - **Cache**: Redis with persistent storage
 - **Security**: Rate limiting, security headers, gzip compression
+### Mobile / Expo (`docker-compose.expo.yml`)
+- **Expo Dev**: Runs the React Native (web + native) development server
+- **Ports**: 19000 (Metro), 19001 (WS/logs), 19006 (web preview)
+- **Hot Reload**: Code changes in `mobile/` reflected automatically
 
 ## 📋 Available Commands
 
@@ -84,6 +108,11 @@ docker-compose logs -f [service_name]
 # Execute commands in containers
 docker-compose exec backend python manage.py [command]
 docker-compose exec frontend npm run [script]
+
+# Mobile (Expo)
+docker compose -f docker-compose.expo.yml up --build
+docker compose -f docker-compose.expo.yml logs -f expo
+docker compose -f docker-compose.expo.yml down
 
 # Stop services
 docker-compose down

@@ -1,8 +1,9 @@
-# Lightweight Node base suitable for Expo dev
-FROM node:18-alpine
+FROM node:18-bullseye
 
-# Install OS deps required by Expo/React Native Web (web dev)
-RUN apk add --no-cache bash git libc6-compat
+# Install OS deps required by Expo/React Native (some native deps & git)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git bash ca-certificates python3 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set workdir
 WORKDIR /app
@@ -24,5 +25,5 @@ ENV EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0 \
     EXPO_USE_DEV_SERVER=true \
     WATCHMAN_DISABLE=true
 
-# Start Expo. Use tunnel to work with devices off LAN; override with docker run if desired.
-CMD ["npm", "run", "start", "--", "--tunnel", "--non-interactive", "--host", "tunnel"]
+# Default to LAN start (override with tunnel flags if needed)
+CMD ["npm", "run", "start"]

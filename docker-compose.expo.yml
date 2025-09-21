@@ -17,5 +17,6 @@ services:
       - NODE_ENV=development
     volumes:
       - ./mobile:/app
-      - /app/node_modules
-    command: ["npm", "run", "web"]
+    # Do not mask node_modules; keep those installed at build
+    # Use LAN mode to avoid interactive tunnel install prompt
+    command: ["npm", "run", "start"]
