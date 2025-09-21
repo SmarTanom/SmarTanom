@@ -58,16 +58,21 @@ const SplashScreen = ({ navigation }) => {
           styles.content,
           {
             opacity: fadeAnim,
-            transform: [
-              { scale: Animated.multiply(scaleAnim, breatheAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [1, 1.02],
-                })) },
-            ],
           },
         ]}
       >
-  <BrandMark variant="white" size={logoSize} />
+        <Animated.View
+          style={{
+            transform: [
+              { scale: Animated.multiply(
+                  scaleAnim,
+                  breatheAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] })
+                ) },
+            ],
+          }}
+        >
+          <BrandMark variant="white" size={logoSize} />
+        </Animated.View>
         <Text style={styles.title}>SmarTanom</Text>
         <Text style={styles.subtitle}>Smart Hydroponic Monitoring</Text>
       </Animated.View>
