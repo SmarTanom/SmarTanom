@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 20,
-    marginTop: 8, // give a bit more breathing room above EMAIL label
+    marginTop: 14, // a bit more breathing room above EMAIL label
   },
   inputContainer: {
     gap: 10,
