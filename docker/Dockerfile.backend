@@ -1,36 +1,41 @@
-# Backend Dockerfile for development
-FROM python:3.11-slim
+ARG PYTHON_VERSION=3.12.5
+ARG ALPINE_VERSION=3.20
+ARG INSTALL_DEV=false
 
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements and install dependencies
+# ================= Builder Stage =================
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS builder
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+WORKDIR /build
+RUN apk add --no-cache --virtual .build-deps \
+    build-base \
+    postgresql15-client \
+    libpq \
+    linux-headers
 COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install development dependencies
-RUN pip install --no-cache-dir \
-    django-debug-toolbar \
-    django-extensions \
-    ipython
-
-# Copy backend source
+RUN python -m pip install --upgrade pip setuptools wheel
+RUN pip install -r requirements.txt
+RUN if [ "$INSTALL_DEV" = "true" ]; then pip install django-debug-toolbar django-extensions ipython; fi
 COPY backend/ ./
+RUN python -m compileall -q .
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV DJANGO_SETTINGS_MODULE=smartanom.settings.development
-
-# Create logs directory
+# ================= Runtime Stage =================
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS runtime
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DJANGO_SETTINGS_MODULE=smartanom.settings \
+    PIP_NO_CACHE_DIR=1
+WORKDIR /app
+RUN apk add --no-cache postgresql15-client libpq
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/bin /usr/bin
+COPY --from=builder /build /app
 RUN mkdir -p /app/logs
-
-# Expose port
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup && chown -R appuser:appgroup /app
+USER appuser
 EXPOSE 8000
-
-# Default command (can be overridden)
+LABEL org.opencontainers.image.source="SmarTanom" \
+      org.opencontainers.image.description="SmarTanom backend (multi-stage)" \
+      org.opencontainers.image.licenses="Proprietary"
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

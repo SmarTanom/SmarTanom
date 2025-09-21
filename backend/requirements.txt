@@ -3,7 +3,7 @@
 # Pin versions for reproducibility. Adjust & upgrade routinely.
 ############################################################
 
-Django==4.2.0
+Django==4.2.16
 djangorestframework==3.15.1
 django-filter==24.2
 
