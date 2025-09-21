@@ -183,7 +183,6 @@ export default function UsernamePage() {
                 {saving && <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />}
                 <span>{saving ? 'Creating Account...' : 'Complete Setup'}</span>
               </button>
-              <div className="auth-helper auth-fade-item">Your username will be visible to other users and cannot be changed later.</div>
               <span role="status" aria-live="polite">{saving ? 'Account creation in progress' : checking ? 'Checking username availability' : ''}</span>
             </form>
           </div>
