@@ -1,6 +1,6 @@
 """Django settings for smartanom project.
 
-Simplified baseline settings; adjust for production (env vars, security hardening).
+Single-module settings file. (Planned modular split not yet applied.)
 """
 
 from __future__ import annotations
@@ -13,6 +13,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Ensure logs directory exists (avoid FileHandler errors inside container)
+(BASE_DIR / "logs").mkdir(exist_ok=True)
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # Support both DJANGO_SECRET_KEY and generic SECRET_KEY (compose/prod convenience)
@@ -170,6 +173,15 @@ REST_FRAMEWORK = {
 	],
 	"DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
 	"PAGE_SIZE": 50,
+	# Throttling (basic default; can tune rates via env)
+	"DEFAULT_THROTTLE_CLASSES": [
+		"rest_framework.throttling.UserRateThrottle",
+		"rest_framework.throttling.AnonRateThrottle",
+	],
+	"DEFAULT_THROTTLE_RATES": {
+		"user": os.getenv("DRF_USER_THROTTLE", "5000/day"),
+		"anon": os.getenv("DRF_ANON_THROTTLE", "1000/day"),
+	},
 }
 
 # Simple user auth redirect defaults
@@ -178,14 +190,27 @@ LOGIN_REDIRECT_URL = "/admin/"
 
 # Basic security improvements toggled for production
 if not DEBUG:
-	SESSION_COOKIE_SECURE = True  # noqa: N816 (dynamic attr creation acceptable in settings)
+	# Core cookie & transport security
+	SESSION_COOKIE_SECURE = True  # noqa: N816
 	CSRF_COOKIE_SECURE = True
+	SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+	CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
 	SECURE_BROWSER_XSS_FILTER = True
 	SECURE_CONTENT_TYPE_NOSNIFF = True
 	X_FRAME_OPTIONS = "DENY"
+	SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "true").lower() == "true"
+	SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+	# HSTS
 	SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
 	SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 	SECURE_HSTS_PRELOAD = True
+	# CSRF trusted origins (comma separated, auto https:// prefix optional)
+	_csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+	if _csrf_origins:
+		CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]  # noqa: F401
+
+# Simple optional admin path obfuscation (override via env)
+ADMIN_URL = os.getenv("ADMIN_URL", "admin/")
 
 
 # Custom User Model

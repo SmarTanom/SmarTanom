@@ -8,6 +8,7 @@ djangorestframework==3.15.1
 django-filter==24.2
 python-dotenv==1.0.1
 psycopg2-binary==2.9.9
+gunicorn==22.0.0
 
 ############################################################
 # (Optional) Add-ons you might install later:
