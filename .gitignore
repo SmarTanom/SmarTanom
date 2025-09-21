@@ -43,3 +43,18 @@ Thumbs.db
 *.swp
 
 # (Keep everything else versioned intentionally)
+
+# Python cache / build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Local environment & secrets
+backend/.env
+
+# Local SQLite databases
+backend/db.sqlite3
+backend/db.sqlite3.backup
+

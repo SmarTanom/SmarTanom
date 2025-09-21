@@ -14,6 +14,7 @@ def health(_: HttpRequest):
 urlpatterns = [
 	path("admin/", admin.site.urls),
 	path("api/monitoring/", include("apps.monitoring.urls")),
+	path("api/auth/", include("apps.accounts.urls")),
 	path("api/health/", health, name="health"),
 	path("api-auth/", include("rest_framework.urls")),  # browsable API login/logout
 ]
