@@ -37,9 +37,16 @@ services:
     container_name: smartanom-backend
     environment:
       - DEBUG=1
-      - DATABASE_URL=postgresql://smartanom:dev_password_change_in_production@postgres:5432/smartanom_dev
-      - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=dev-secret-key-change-in-production
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=smartanom_dev
+      - DB_USER=smartanom
+      - DB_PASSWORD=dev_password_change_in_production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - ALLOWED_HOSTS=localhost,127.0.0.1
+      - COLLECT_STATIC=0
     ports:
       - "8000:8000"
     volumes:
@@ -50,7 +57,7 @@ services:
       - redis
     networks:
       - smartanom-network
-    command: python manage.py runserver 0.0.0.0:8000
+  # Command handled by entrypoint script defined in Dockerfile
 
   # Frontend React application (development)
   frontend:
