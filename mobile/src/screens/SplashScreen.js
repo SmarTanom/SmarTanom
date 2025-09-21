@@ -1,34 +1,48 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import BrandMark from '../components/Brand';
 
 const SplashScreen = ({ navigation }) => {
-  const fadeAnim = new Animated.Value(0);
-  const scaleAnim = new Animated.Value(0.8);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const breatheAnim = useRef(new Animated.Value(0)).current; // 0..1 loop, drives subtle pulse
 
   useEffect(() => {
-    // Animate entrance
+    // Animate entrance (fade + spring-in)
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 800,
+        duration: 600,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
-        tension: 100,
-        friction: 8,
+        tension: 140,
+        friction: 10,
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Gentle breathing/pulse while waiting
+    const breathe = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breatheAnim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(breatheAnim, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ])
+    );
+    breathe.start();
 
     // Navigate to landing after delay
     const timer = setTimeout(() => {
       navigation.replace('Landing');
     }, 2500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      breathe.stop();
+    };
   }, []);
 
   return (
@@ -41,13 +55,18 @@ const SplashScreen = ({ navigation }) => {
           styles.content,
           {
             opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
+            transform: [
+              { scale: Animated.multiply(scaleAnim, breatheAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 1.02],
+                })) },
+            ],
           },
         ]}
       >
-        <BrandMark variant="white" size={80} />
+        <BrandMark variant="white" size={112} />
         <Text style={styles.title}>SmarTanom</Text>
-        <Text style={styles.subtitle}>Hydroponic Intelligence</Text>
+        <Text style={styles.subtitle}>Smart Hydroponic Monitoring</Text>
       </Animated.View>
     </LinearGradient>
   );
