@@ -15,6 +15,7 @@ const CodeScreen = ({ navigation, route }) => {
   const inputRefs = useRef([]);
   const [otpSize, setOtpSize] = useState(54);
   const [otpGap, setOtpGap] = useState(8);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
 
   // Use screen width to compute box size and gap (~2% of width), ensure ≥44pt
   const { width } = useResponsive();
@@ -129,6 +130,7 @@ const CodeScreen = ({ navigation, route }) => {
                 style={[
                   styles.otpInput,
                   { width: otpSize, height: otpSize, fontSize: Math.max(16, Math.round(otpSize * 0.36)), marginHorizontal: otpGap / 2 },
+                  focusedIndex === index ? styles.otpInputFocused : null,
                   error && styles.otpInputError,
                 ]}
                 value={digit}
@@ -137,6 +139,8 @@ const CodeScreen = ({ navigation, route }) => {
                 keyboardType="numeric"
                 maxLength={1}
                 selectTextOnFocus={true}
+                onFocus={() => setFocusedIndex(index)}
+                onBlur={() => setFocusedIndex(-1)}
               />
             ))}
             </View>
@@ -196,13 +200,21 @@ const styles = StyleSheet.create({
     flexWrap: 'nowrap',
   },
   otpInput: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#339432',
     borderWidth: 2,
-    borderColor: '#339432',
+    borderColor: 'rgba(255,255,255,0.6)',
     borderRadius: 8,
     textAlign: 'center',
-    fontFamily: 'Montserrat_700Bold',
-    color: '#339432',
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#ffffff',
+  },
+  otpInputFocused: {
+    borderColor: '#ffffff',
+    shadowColor: '#ffffff',
+    shadowOpacity: 0.45,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    // Android has no white glow; stronger border will indicate focus
   },
   otpInputError: {
     borderColor: '#ffb3b3',
