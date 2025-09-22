@@ -12,7 +12,7 @@ import { Brand } from './Brand';
  * - Provides consistent padding and background gradient
  */
 export function AuthLayout({ children, headerLeft, headerRight, showImagePanel = true }) {
-  const { isWide, pad, width } = useResponsive();
+  const { isWide, pad } = useResponsive();
 
   return (
     <LinearGradient colors={['#2d7d32', '#339432', '#43a047']} style={styles.container}>
