@@ -121,18 +121,18 @@ const CodeScreen = ({ navigation, route }) => {
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.otpContainer}>
-            <View style={[styles.otpGrid, { gap: otpGap }]}>
+            <View style={styles.otpGrid}>
             {digits.map((digit, index) => (
               <TextInput
                 key={index}
                 ref={ref => inputRefs.current[index] = ref}
                 style={[
                   styles.otpInput,
-                  { width: otpSize, height: otpSize, fontSize: Math.max(16, Math.round(otpSize * 0.36)) },
+                  { width: otpSize, height: otpSize, fontSize: Math.max(16, Math.round(otpSize * 0.36)), marginHorizontal: otpGap / 2 },
                   error && styles.otpInputError,
                 ]}
                 value={digit}
-                onChangeText={value => handleDigitChange(index, value)}
+                onChangeText={value => handleDigitChange(index, value.replace(/[^0-9]/g, ''))}
                 onKeyPress={({ nativeEvent }) => handleKeyPress(index, nativeEvent.key)}
                 keyboardType="numeric"
                 maxLength={1}
@@ -191,16 +191,18 @@ const styles = StyleSheet.create({
     width: '92%',
     alignSelf: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
   },
   otpInput: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#ffffff',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.6)',
+    borderColor: '#339432',
     borderRadius: 8,
     textAlign: 'center',
     fontFamily: 'Montserrat_700Bold',
-    color: '#ffffff',
+    color: '#339432',
   },
   otpInputError: {
     borderColor: '#ffb3b3',
