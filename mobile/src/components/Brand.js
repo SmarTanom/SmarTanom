@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
+import { useResponsive } from '../hooks/useResponsive';
 
 const sources = {
   white: require('../../assets/images/logo-mark-white.png'),
@@ -17,16 +18,20 @@ const BrandMark = ({ variant = 'white', size = 40 }) => {
   );
 };
 
-export const Brand = ({ showText = true, variant = 'white', size = 40 }) => (
-  <View style={styles.container}>
-    <BrandMark variant={variant} size={size} />
-    {showText && (
-      <Text style={[styles.brandText, { color: variant === 'white' ? '#ffffff' : '#339432' }]}>
-        SMARTANOM
-      </Text>
-    )}
-  </View>
-);
+export const Brand = ({ showText = true, variant = 'white', size = 40 }) => {
+  const { moderateScale, font, tapMin } = useResponsive();
+  const logoSize = Math.max(tapMin * 0.8, Math.min(56, moderateScale(size)));
+  return (
+    <View style={styles.container}>
+      <BrandMark variant={variant} size={logoSize} />
+      {showText && (
+        <Text style={[styles.brandText, { color: variant === 'white' ? '#ffffff' : '#339432', fontSize: font(16) }]}>
+          SMARTANOM
+        </Text>
+      )}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {

@@ -13,6 +13,24 @@ const CodeScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const inputRefs = useRef([]);
+  const [otpSize, setOtpSize] = useState(54);
+  const [otpGap, setOtpGap] = useState(8);
+
+  const handleGridLayout = (e) => {
+    const { width } = e.nativeEvent.layout;
+    const COUNT = 6;
+    // Start with default gap and reduce if needed to preserve 44pt min
+    let gap = 8;
+    let raw = Math.floor((width - gap * (COUNT - 1)) / COUNT);
+    if (raw < 44) {
+      gap = 6;
+      raw = Math.floor((width - gap * (COUNT - 1)) / COUNT);
+    }
+    // Clamp between 44 (HIG tap min) and 54 (design max)
+    const clamped = Math.max(44, Math.min(54, raw));
+    if (clamped !== otpSize) setOtpSize(clamped);
+    if (gap !== otpGap) setOtpGap(gap);
+  };
 
   const handleDigitChange = (index, value) => {
     // Only allow single digits
@@ -85,7 +103,7 @@ const CodeScreen = ({ navigation, route }) => {
     <AuthLayout headerLeft={<BackButton onPress={() => navigation.goBack()} />}> 
       <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', gap: 24, paddingBottom: 24 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', gap: 24, paddingBottom: 24, paddingHorizontal: 8 }}
         showsVerticalScrollIndicator={false}
         enableOnAndroid={true}
         extraScrollHeight={50}
@@ -96,12 +114,16 @@ const CodeScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.otpContainer}>
-          <View style={styles.otpGrid}>
+          <View style={[styles.otpGrid, { gap: otpGap }]} onLayout={handleGridLayout}>
             {digits.map((digit, index) => (
               <TextInput
                 key={index}
                 ref={ref => inputRefs.current[index] = ref}
-                style={[styles.otpInput, error && styles.otpInputError]}
+                style={[
+                  styles.otpInput,
+                  { width: otpSize, height: otpSize, fontSize: Math.max(16, Math.round(otpSize * 0.36)) },
+                  error && styles.otpInputError,
+                ]}
                 value={digit}
                 onChangeText={value => handleDigitChange(index, value)}
                 onKeyPress={({ nativeEvent }) => handleKeyPress(index, nativeEvent.key)}
@@ -158,19 +180,21 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   otpGrid: {
+    width: '100%',
+    paddingHorizontal: 12,
+    maxWidth: 520,
+    alignSelf: 'center',
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
+    justifyContent: 'space-between',
   },
   otpInput: {
-    width: 54,
-    height: 54,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.6)',
     borderRadius: 8,
     textAlign: 'center',
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 18,
     color: '#ffffff',
   },
   otpInputError: {
