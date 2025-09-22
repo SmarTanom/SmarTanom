@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { BackButton } from '../components/Icons';
 import { AuthLayout } from '../components/AuthLayout';
@@ -16,21 +16,27 @@ const CodeScreen = ({ navigation, route }) => {
   const [otpSize, setOtpSize] = useState(54);
   const [otpGap, setOtpGap] = useState(8);
 
-  const handleGridLayout = (e) => {
-    const { width } = e.nativeEvent.layout;
+  // Use screen width to compute box size and gap (~2% of width), ensure ≥44pt
+  const { width } = useResponsive();
+  React.useEffect(() => {
     const COUNT = 6;
-    // Start with default gap and reduce if needed to preserve 44pt min
-    let gap = 8;
-    let raw = Math.floor((width - gap * (COUNT - 1)) / COUNT);
-    if (raw < 44) {
-      gap = 6;
-      raw = Math.floor((width - gap * (COUNT - 1)) / COUNT);
+    const sidePad = 16; // container side padding
+    const available = Math.max(200, width - sidePad * 2);
+    const baseGap = Math.max(4, Math.min(16, Math.round(width * 0.02))); // ~2% width
+    let size = Math.floor((available - baseGap * (COUNT - 1)) / COUNT);
+
+    if (size < 44) {
+      // Recompute minimal gap to keep 44pt boxes within available width
+      const gap2 = Math.max(2, Math.floor((available - 44 * COUNT) / (COUNT - 1)));
+      setOtpGap(gap2);
+      setOtpSize(44);
+    } else {
+      // Allow bigger boxes on larger screens but keep proportional
+      const maxBox = Math.min(72, Math.round(width * 0.14));
+      setOtpGap(baseGap);
+      setOtpSize(Math.max(44, Math.min(maxBox, size)));
     }
-    // Clamp between 44 (HIG tap min) and 54 (design max)
-    const clamped = Math.max(44, Math.min(54, raw));
-    if (clamped !== otpSize) setOtpSize(clamped);
-    if (gap !== otpGap) setOtpGap(gap);
-  };
+  }, [width]);
 
   const handleDigitChange = (index, value) => {
     // Only allow single digits
@@ -113,8 +119,9 @@ const CodeScreen = ({ navigation, route }) => {
           <Text style={[styles.subtitle, { fontSize: clampVw(14, 3.5, 20), textAlign: 'center' }]}>Enter the 6-digit code sent to {maskedEmail}</Text>
         </View>
 
-        <View style={styles.otpContainer}>
-          <View style={[styles.otpGrid, { gap: otpGap }]} onLayout={handleGridLayout}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.otpContainer}>
+            <View style={[styles.otpGrid, { gap: otpGap }]}>
             {digits.map((digit, index) => (
               <TextInput
                 key={index}
@@ -132,9 +139,10 @@ const CodeScreen = ({ navigation, route }) => {
                 selectTextOnFocus={true}
               />
             ))}
+            </View>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        </View>
+        </KeyboardAvoidingView>
 
         <View style={[styles.actions, { alignItems: 'center' }]}>
           <TouchableOpacity
@@ -180,12 +188,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   otpGrid: {
-    width: '100%',
-    paddingHorizontal: 12,
-    maxWidth: 520,
+    width: '92%',
     alignSelf: 'center',
     flexDirection: 'row',
-    gap: 8,
     justifyContent: 'space-between',
   },
   otpInput: {
