@@ -17,6 +17,12 @@ services:
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - smartanom-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartanom -d smartanom_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
   # Redis for caching and task queue
   redis:
@@ -53,8 +59,10 @@ services:
       - ./backend:/app
       - backend_logs:/app/logs
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - smartanom-network
   # Command handled by entrypoint script defined in Dockerfile
