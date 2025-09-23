@@ -17,26 +17,35 @@ const CodeScreen = ({ navigation, route }) => {
   const [otpGap, setOtpGap] = useState(8);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
-  // Use screen width to compute box size and gap (~2% of width), ensure ≥44pt
+  // Use screen width to compute box size and gap; support ultra-narrow widths (<315px)
   const { width } = useResponsive();
   React.useEffect(() => {
     const COUNT = 6;
-    const sidePad = 16; // container side padding
-    const available = Math.max(200, width - sidePad * 2);
-    const baseGap = Math.max(4, Math.min(16, Math.round(width * 0.02))); // ~2% width
-    let size = Math.floor((available - baseGap * (COUNT - 1)) / COUNT);
+    // Compute based on grid width (~92% of screen, matches style)
+    const gridWidth = Math.max(120, Math.floor(width * 0.92));
 
-    if (size < 44) {
-      // Recompute minimal gap to keep 44pt boxes within available width
-      const gap2 = Math.max(2, Math.floor((available - 44 * COUNT) / (COUNT - 1)));
-      setOtpGap(gap2);
-      setOtpSize(44);
-    } else {
-      // Allow bigger boxes on larger screens but keep proportional
-      const maxBox = Math.min(72, Math.round(width * 0.14));
-      setOtpGap(baseGap);
-      setOtpSize(Math.max(44, Math.min(maxBox, size)));
+    // Gap scales with screen size, clamped 4–12 px
+    const gapMin = 4;
+    const gapMax = 12;
+    let gap = Math.max(gapMin, Math.min(gapMax, Math.round(width * 0.02)));
+
+    // Raw size from available width (per-box margin means COUNT*gap total)
+    let rawSize = (gridWidth - gap * COUNT) / COUNT;
+
+    // Clamp to 35–60 px to avoid tiny or giant boxes
+    const minBox = 35;
+    const maxBox = 60;
+
+    // If raw is below min, try reducing gap to min (4) once
+    if (rawSize < minBox) {
+      gap = gapMin;
+      rawSize = (gridWidth - gap * COUNT) / COUNT;
     }
+
+    // Final clamped box size
+    const finalSize = Math.max(minBox, Math.min(maxBox, Math.floor(rawSize)));
+    setOtpGap(gap);
+    setOtpSize(finalSize);
   }, [width]);
 
   const handleDigitChange = (index, value) => {
@@ -129,7 +138,12 @@ const CodeScreen = ({ navigation, route }) => {
                 ref={ref => inputRefs.current[index] = ref}
                 style={[
                   styles.otpInput,
-                  { width: otpSize, height: otpSize, fontSize: Math.max(16, Math.round(otpSize * 0.36)), marginHorizontal: otpGap / 2 },
+                  {
+                    width: otpSize,
+                    height: otpSize,
+                    fontSize: Math.max(14, Math.round(otpSize * 0.42)),
+                    marginHorizontal: otpGap / 2
+                  },
                   focusedIndex === index ? styles.otpInputFocused : null,
                   error && styles.otpInputError,
                 ]}
@@ -141,6 +155,7 @@ const CodeScreen = ({ navigation, route }) => {
                 selectTextOnFocus={true}
                 onFocus={() => setFocusedIndex(index)}
                 onBlur={() => setFocusedIndex(-1)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               />
             ))}
             </View>
