@@ -11,6 +11,8 @@ const UsernameScreen = ({ navigation }) => {
   const [inputUsername, setInputUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [status, setStatus] = useState(''); // 'available' | 'taken' | ''
 
   const isValidUsername = (username) => {
     const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
@@ -68,6 +70,33 @@ const UsernameScreen = ({ navigation }) => {
     }
   };
 
+  const handleCheckAvailability = async () => {
+    if (!inputUsername) {
+      setError('Username is required');
+      setStatus('');
+      return;
+    }
+    if (!isValidUsername(inputUsername)) {
+      setError('Username must be 3-20 characters long and contain only letters, numbers, and underscores');
+      setStatus('');
+      return;
+    }
+    setChecking(true);
+    setError('');
+    setStatus('');
+    try {
+      // TODO: Replace with actual API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const available = inputUsername.length % 2 === 0; // mock
+      setStatus(available ? 'available' : 'taken');
+      if (!available) setError('This username is already taken. Please choose another.');
+    } catch (e) {
+      setError('Could not check availability. Please try again.');
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const suggestedUsernames = [
     `smartgardener${Math.floor(Math.random() * 100)}`,
     `hydrogrower${Math.floor(Math.random() * 100)}`,
@@ -107,10 +136,23 @@ const UsernameScreen = ({ navigation }) => {
               autoCorrect={false}
               maxLength={20}
             />
+            <View style={styles.inlineActions}>
+              <TouchableOpacity
+                style={[styles.checkButton, (checking || !inputUsername || !isValidUsername(inputUsername)) && styles.disabledButton]}
+                onPress={handleCheckAvailability}
+                disabled={checking || !inputUsername || !isValidUsername(inputUsername)}
+                activeOpacity={0.9}
+              >
+                <Text style={styles.checkButtonText}>{checking ? 'Checking…' : 'Check'}</Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.inputHint}>
               <Text style={styles.hintText}>3-20 characters, lowercase letters, numbers, and underscores only</Text>
             </View>
           </View>
+          {status === 'available' && !error ? (
+            <Text style={styles.successText}>✓ Username is available!</Text>
+          ) : null}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
 
@@ -129,7 +171,7 @@ const UsernameScreen = ({ navigation }) => {
           <TouchableOpacity
             style={[styles.continueButton, loading && styles.disabledButton]}
             onPress={handleContinue}
-            disabled={loading}
+            disabled={loading || checking || status !== 'available'}
             activeOpacity={0.92}
           >
             <Text style={styles.continueButtonText}>{loading ? 'Creating Account...' : 'Complete Setup'}</Text>
@@ -166,6 +208,7 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 16,
     paddingHorizontal: 20,
+    paddingRight: 120,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.6)',
@@ -173,6 +216,33 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 16,
     color: '#ffffff',
+  },
+  inlineActions: {
+    position: 'absolute',
+    right: 6,
+    top: 6,
+    bottom: 6,
+    justifyContent: 'center',
+  },
+  checkButton: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  checkButtonText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#016b22',
+    letterSpacing: 0.3,
   },
   inputError: {
     borderColor: '#ffb3b3',
@@ -186,6 +256,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.7)',
     lineHeight: 16,
+  },
+  successText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 13,
+    color: '#90EE90',
+    paddingHorizontal: 8,
   },
   errorText: {
     fontFamily: 'Montserrat_400Regular',
