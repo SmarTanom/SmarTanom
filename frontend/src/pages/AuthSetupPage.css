@@ -128,34 +128,22 @@
 .setup-stepper { width: 100%; position: relative; padding-top: clamp(8px, 1.4vh, 12px); }
 .setup-track { position: absolute; left: 0; right: 0; top: clamp(16px, 2.4vh, 22px); height: 4px; background: rgba(255,255,255,0.18); border-radius: 999px; }
 .setup-track-active { position: absolute; left: 0; top: clamp(16px, 2.4vh, 22px); height: 4px; background: #ffffff; border-radius: 999px; transition: width .35s ease; box-shadow: 0 1px 8px rgba(0,0,0,0.25); }
-.setup-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); align-items: start; }
-.setup-step { display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; padding-inline: clamp(2px, 0.8vw, 6px); }
+.setup-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); align-items: end; }
+.setup-step { display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; padding-inline: clamp(4px, 1.2vw, 10px); }
 .setup-step .setup-step-node { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.setup-step .setup-step-icon {
-  width: clamp(22px, 2.9vw, 30px); height: clamp(22px, 2.9vw, 30px);
-  border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
-  font-family: Montserrat, Inter, sans-serif; font-weight: 800; font-size: clamp(11px, 1.8vw, 13px);
-  border: 2px solid rgba(255,255,255,0.45); color: rgba(255,255,255,0.92); background: rgba(255,255,255,0.08);
-}
 .setup-step .setup-step-label {
-  font-family: Montserrat, Inter, sans-serif; font-weight: 700; letter-spacing: 0.2px;
-  color: rgba(255,255,255,0.88); font-size: clamp(10px, 1.6vw, 12px);
+  font-family: Montserrat, Inter, sans-serif; font-weight: 800; letter-spacing: 0.2px;
+  color: rgba(255,255,255,0.94); font-size: clamp(11px, 1.8vw, 13px);
+  text-transform: uppercase;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.setup-step .setup-step-bar {
-  width: 100%; height: 3px; border-radius: 2px; margin-top: 2px;
-  background: rgba(255,255,255,0.16);
 }
 
 /* States */
-.setup-step.completed .setup-step-icon { background: #ffffff; color: #339432; border-color: rgba(255,255,255,0.95); box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
-.setup-step.current .setup-step-icon { background: #339432; color: #ffffff; border-color: #ffffff; box-shadow: 0 0 0 3px rgba(255,255,255,0.28), 0 4px 14px rgba(0,0,0,0.35); }
-.setup-step.upcoming .setup-step-icon { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.35); }
-.setup-step.current .setup-step-label, .setup-step.completed .setup-step-label { color: #ffffff; }
-.setup-step.completed .setup-step-bar { background: rgba(255,255,255,0.85); }
-.setup-step.current .setup-step-bar { background: #ffffff; }
+.setup-step.completed .setup-step-label { color: #ffffff; }
+.setup-step.current .setup-step-label { color: #ffffff; text-shadow: 0 1px 8px rgba(0,0,0,0.25); }
+.setup-step.upcoming .setup-step-label { color: rgba(255,255,255,0.82); }
 
 /* Responsive: collapse labels on very narrow widths */
 @media (max-width: 360px) {
-  .setup-step .setup-step-label { display: none; }
+  .setup-step .setup-step-label { font-size: 10px; letter-spacing: 0.15px; }
 }
