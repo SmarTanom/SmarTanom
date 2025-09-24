@@ -32,6 +32,8 @@ export default function SignupSetup() {
     'Choose an account username',
   ];
 
+  const stepLabels = ['Device', 'Setup', 'Bind', 'Verify', 'WiFi', 'Username'];
+
   function goPrev() { if (step > 1) setStep(step - 1); else navigate(-1); }
   function goNext() { if (step < total) setStep(step + 1); }
 
@@ -80,7 +82,28 @@ export default function SignupSetup() {
 
           <div className="auth-content auth-fade-item">
             <header className="auth-header" style={{ gap: 'clamp(12px, 2vh, 18px)' }}>
-              <div className="setup-progress">Step {step} of {total}</div>
+              <nav className="setup-stepper" aria-label="Progress">
+                <div className="setup-track" aria-hidden="true" />
+                <div
+                  className="setup-track-active"
+                  aria-hidden="true"
+                  style={{ width: `${((step - 1) / (total - 1)) * 100}%` }}
+                />
+                <ol className="setup-steps" role="list">
+                  {Array.from({ length: total }).map((_, i) => {
+                    const idx = i + 1;
+                    const state = idx < step ? 'completed' : (idx === step ? 'current' : 'upcoming');
+                    return (
+                      <li key={idx} className={`setup-step ${state}`} aria-current={state === 'current' ? 'step' : undefined}>
+                        <div className="setup-step-node">
+                          <span className="setup-step-icon" aria-hidden="true">{state === 'completed' ? '✓' : idx}</span>
+                          <span className="setup-step-label">{stepLabels[i]}</span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </nav>
               <h1 className="auth-title">{headings[step - 1]}</h1>
               <p className="auth-subtext">{subtexts[step - 1]}</p>
             </header>
