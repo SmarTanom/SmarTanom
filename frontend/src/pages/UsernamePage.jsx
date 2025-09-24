@@ -157,6 +157,15 @@ export default function UsernamePage() {
                     autoComplete="username"
                     maxLength={20}
                   />
+                  <button
+                    type="button"
+                    className="auth-check-btn"
+                    onClick={() => checkAvailability(username)}
+                    disabled={checking || !username || !!localValidate(username)}
+                    aria-label="Check username availability"
+                  >
+                    {checking ? 'Checking…' : 'Check'}
+                  </button>
                 </div>
                 <div id="username-hint" className="auth-hint">3-20 characters, lowercase letters, numbers, and underscores only</div>
                 {error && <div id="username-error" className="auth-error" role="alert">{error}</div>}
