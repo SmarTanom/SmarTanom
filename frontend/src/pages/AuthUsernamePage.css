@@ -198,10 +198,37 @@
 /* SVG icon for username */
 .auth-username-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); stroke: #ffffff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
 
-.auth-input { width: 100%; padding: clamp(14px, 3vw, 16px) 16px clamp(14px, 3vw, 16px) 44px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.08); color: #fff; font-size: 15px; font-weight: 600; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px; outline: none; transition: border-color .25s ease, background .25s ease, box-shadow .25s ease; }
+.auth-input { width: 100%; padding: clamp(14px, 3vw, 16px) clamp(56px, 8vw, 112px) clamp(14px, 3vw, 16px) 44px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.08); color: #fff; font-size: 15px; font-weight: 600; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px; outline: none; transition: border-color .25s ease, background .25s ease, box-shadow .25s ease; }
 .auth-input::placeholder { color: rgba(255,255,255,0.85); font-weight: 600; }
 .auth-input:focus { border-color: #ffffff; background: rgba(255,255,255,0.16); box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
 .auth-input[aria-invalid="true"] { border-color: #ffb3b3; background: rgba(255,0,0,0.10); }
+
+/* Inline check button inside input wrapper */
+.auth-check-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #ffffff;
+  color: #016b22;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: Montserrat, Inter, sans-serif;
+  letter-spacing: 0.3px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.20);
+  transition: background .25s ease, transform .25s ease, box-shadow .25s ease;
+}
+.auth-check-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.28); }
+.auth-check-btn:active { transform: translateY(0); box-shadow: 0 3px 9px rgba(0,0,0,0.18); }
+.auth-check-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
 /* Username validation states */
 .auth-input.available { border-color: #90EE90; background: rgba(144,238,144,0.10); }
