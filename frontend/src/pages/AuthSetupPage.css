@@ -1,0 +1,32 @@
+/* Auth Setup Wizard - Step-based setup (signup) */
+@import './AuthUsernamePage.css';
+
+.setup-progress {
+  font-family: Montserrat, Inter, sans-serif;
+  font-weight: 600;
+  font-size: clamp(12px, 2vw, 14px);
+  color: rgba(255,255,255,0.9);
+}
+
+.setup-body {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 2.5vh, 18px);
+  width: 100%;
+}
+
+.setup-placeholder {
+  color: rgba(255,255,255,0.9);
+  font-family: Montserrat, Inter, sans-serif;
+  font-size: 14px;
+}
+
+.setup-actions {
+  margin-top: clamp(12px, 3vh, 20px);
+  display: flex;
+  gap: 12px;
+}
+
+.setup-actions .landing-btn {
+  min-height: 44px;
+}
