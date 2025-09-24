@@ -18,7 +18,7 @@ export default function LandingPage() {
             <p className="landing-tagline hero-fade-item">Watch every drop, every ray, every moment, with complete hydroponic monitoring at your fingertips.</p>
             <div className="landing-actions hero-fade-item">
               <button className="landing-btn primary" onClick={() => navigate('/signin/email')}>Login with Email</button>
-              <button className="landing-btn outline" onClick={() => navigate('/signup/email')}>Register New Account</button>
+              <button className="landing-btn outline" onClick={() => navigate('/signup/setup')}>Register New Account</button>
             </div>
           </div>
         </main>
