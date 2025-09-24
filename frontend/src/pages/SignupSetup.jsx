@@ -96,10 +96,8 @@ export default function SignupSetup() {
                     return (
                       <li key={idx} className={`setup-step ${state}`} aria-current={state === 'current' ? 'step' : undefined}>
                         <div className="setup-step-node">
-                          <span className="setup-step-icon" aria-hidden="true">{state === 'completed' ? '✓' : idx}</span>
                           <span className="setup-step-label">{stepLabels[i]}</span>
                         </div>
-                        <span className="setup-step-bar" aria-hidden="true" />
                       </li>
                     );
                   })}
