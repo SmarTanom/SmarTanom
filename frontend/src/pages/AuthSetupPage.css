@@ -156,6 +156,6 @@
 .setup-step.current .setup-step-bar { background: #ffffff; }
 
 /* Responsive: collapse labels on very narrow widths */
-@media (max-width: 460px) {
+@media (max-width: 360px) {
   .setup-step .setup-step-label { display: none; }
 }
