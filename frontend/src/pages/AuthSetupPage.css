@@ -125,9 +125,9 @@
 }
 
 /* Stepper (horizontal progress tracker) */
-.setup-stepper { width: 100%; position: relative; padding-top: clamp(8px, 1.4vh, 12px); }
-.setup-track { position: absolute; left: 0; right: 0; top: clamp(16px, 2.4vh, 22px); height: 4px; background: rgba(255,255,255,0.18); border-radius: 999px; }
-.setup-track-active { position: absolute; left: 0; top: clamp(16px, 2.4vh, 22px); height: 4px; background: #ffffff; border-radius: 999px; transition: width .35s ease; box-shadow: 0 1px 8px rgba(0,0,0,0.25); }
+.setup-stepper { width: 100%; position: relative; padding-top: clamp(8px, 1.4vh, 12px); padding-bottom: clamp(10px, 2.2vh, 16px); }
+.setup-track { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,0.18); border-radius: 999px; }
+.setup-track-active { position: absolute; left: 0; bottom: 0; height: 3px; background: #ffffff; border-radius: 999px; transition: width .35s ease; box-shadow: 0 1px 8px rgba(0,0,0,0.25); }
 .setup-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); align-items: end; }
 .setup-step { display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; padding-inline: clamp(4px, 1.2vw, 10px); }
 .setup-step .setup-step-node { display: flex; flex-direction: column; align-items: center; gap: 6px; }
@@ -136,6 +136,7 @@
   color: rgba(255,255,255,0.94); font-size: clamp(11px, 1.8vw, 13px);
   text-transform: uppercase;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: clamp(6px, 1.2vh, 10px);
 }
 
 /* States */
