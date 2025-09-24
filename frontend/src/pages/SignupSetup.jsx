@@ -8,6 +8,11 @@ export default function SignupSetup() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1..6
   const total = 6;
+  const [deviceId, setDeviceId] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [verified, setVerified] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [modal, setModal] = useState({ open: false, message: '' });
 
   const headings = [
     'Identify your device',
@@ -29,6 +34,29 @@ export default function SignupSetup() {
 
   function goPrev() { if (step > 1) setStep(step - 1); else navigate(-1); }
   function goNext() { if (step < total) setStep(step + 1); }
+
+  async function verifyDevice() {
+    setChecking(true);
+    setVerified(false);
+    try {
+      // Mock verification: require either a 6+ char ID starting with SMRT or a file name present
+      await new Promise(r => setTimeout(r, 500));
+      const ok = (/^smrt\w{2,}$/i.test(deviceId)) || !!fileName;
+      if (!ok) throw new Error('Invalid device QR/ID. Please try again.');
+      setVerified(true);
+    } catch (e) {
+      setModal({ open: true, message: e.message || 'Invalid device QR/ID. Please try again.' });
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  function closeModal() { setModal({ open: false, message: '' }); }
+
+  function onPickFile(e) {
+    const f = e.target.files?.[0];
+    if (f) setFileName(f.name);
+  }
 
   return (
     <div className="auth-screen-root">
@@ -58,14 +86,56 @@ export default function SignupSetup() {
             </header>
 
             <div className="setup-body">
-              {/* Steps will be implemented incrementally */}
-              <div className="setup-placeholder">This setup step will be implemented next.</div>
+              {step === 1 && (
+                <div className="setup-step-1">
+                  <div className="setup-options">
+                    <div className="setup-card">
+                      <h4>Scan QR Code</h4>
+                      <p>Use your camera to scan the QR on your device.</p>
+                      <button type="button" className="setup-btn">Open Camera</button>
+                      <div className="setup-hint">Tip: allow camera permission when prompted.</div>
+                    </div>
+                    <div className="setup-card">
+                      <h4>Upload QR Image</h4>
+                      <p>Select a photo of your device QR code.</p>
+                      <input id="qrfile" type="file" accept="image/*" className="setup-file" onChange={onPickFile} />
+                      <label htmlFor="qrfile" className="setup-btn">Choose Image</label>
+                      {fileName && <div className="setup-file-name">Selected: {fileName}</div>}
+                    </div>
+                    <div className="setup-card">
+                      <h4>Manual Entry</h4>
+                      <p>Enter Device ID (e.g., SMRT00).</p>
+                      <div className="setup-field">
+                        <input type="text" placeholder="SMRT00" value={deviceId} onChange={e => setDeviceId(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                    <button type="button" className="setup-btn" onClick={verifyDevice} disabled={checking}>
+                      {checking ? 'Verifying…' : 'Verify Device'}
+                    </button>
+                    {verified && <div className="setup-status success">✓ Device verified</div>}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="setup-actions">
-              <button type="button" className="landing-btn outline" onClick={goPrev} aria-label="Previous step">Previous</button>
-              <button type="button" className="landing-btn" onClick={goNext} aria-label="Next step">Next</button>
+              <button type="button" className="setup-btn outline" onClick={goPrev} aria-label="Previous step">Previous</button>
+              <button type="button" className="setup-btn" onClick={goNext} aria-label="Next step" disabled={step === 1 && !verified}>Next</button>
             </div>
+
+            {modal.open && (
+              <div className="setup-modal" role="dialog" aria-modal="true" aria-label="Verification error">
+                <div className="setup-modal-content">
+                  <h4 style={{ margin: 0 }}>Verification Error</h4>
+                  <p style={{ margin: 0 }}>{modal.message}</p>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                    <button type="button" className="setup-btn" onClick={closeModal}>OK</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

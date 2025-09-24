@@ -27,6 +27,99 @@
   gap: 12px;
 }
 
-.setup-actions .landing-btn {
+/* Setup buttons (consistent with auth buttons) */
+.setup-btn {
+  background: #ffffff;
+  color: #016b22;
+  font-weight: 700;
+  font-size: 15px;
+  border: none;
+  padding: clamp(12px, 3vw, 16px) 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: Montserrat, Inter, sans-serif;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   min-height: 44px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+  transition: background .25s ease, transform .25s ease, box-shadow .25s ease, opacity .25s ease;
+}
+.setup-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -4px rgba(0,0,0,0.32); }
+.setup-btn:active { transform: translateY(0); box-shadow: 0 5px 16px rgba(0,0,0,0.22); }
+.setup-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+.setup-btn.outline {
+  background: rgba(255,255,255,0.10);
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,0.25);
+  box-shadow: none;
+}
+.setup-btn.outline:hover { background: rgba(255,255,255,0.18); }
+
+/* Step 1 Identify Device */
+.setup-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 680px) {
+  .setup-options { grid-template-columns: repeat(3, 1fr); }
+}
+
+.setup-card {
+  background: rgba(255,255,255,0.08);
+  border: 2px solid rgba(255,255,255,0.6);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.setup-card h4 {
+  margin: 0;
+  font-family: Montserrat, Inter, sans-serif;
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 15px;
+}
+.setup-card p {
+  margin: 0;
+  font-family: Montserrat, Inter, sans-serif;
+  color: rgba(255,255,255,0.9);
+  font-size: 13px;
+}
+.setup-card .setup-btn { align-self: flex-start; }
+
+.setup-field { display: flex; flex-direction: column; gap: 6px; }
+.setup-field input[type="text"] {
+  width: 100%;
+  padding: clamp(12px, 3vw, 16px) 16px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.6);
+  background: rgba(255,255,255,0.08);
+  color: #fff; font-size: 15px; font-weight: 600; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.3px;
+  outline: none; transition: border-color .25s ease, background .25s ease, box-shadow .25s ease;
+}
+.setup-field input[type="text"]:focus { border-color: #ffffff; background: rgba(255,255,255,0.16); box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
+
+.setup-hint { color: rgba(255,255,255,0.85); font-size: clamp(11px, 2.2vw, 13px); }
+.setup-status { font-size: 13px; }
+.setup-status.success { color: #90EE90; }
+.setup-status.error { color: #ffe2e2; }
+
+.setup-file { display:none; }
+.setup-file-name { font-size: 13px; color: rgba(255,255,255,0.85); }
+
+/* Modal */
+.setup-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.setup-modal-content {
+  background: #339432; color: #fff; border: 2px solid rgba(255,255,255,0.6);
+  border-radius: 10px; padding: 20px; width: min(520px, 92vw);
+  display: flex; flex-direction: column; gap: 12px;
 }
