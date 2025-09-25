@@ -96,6 +96,7 @@ export default function SignupSetup() {
                     return (
                       <li key={idx} className={`setup-step ${state}`} aria-current={state === 'current' ? 'step' : undefined}>
                         <div className="setup-step-node">
+                          <span className="setup-step-icon" aria-hidden="true">{state === 'completed' ? '✓' : idx}</span>
                           <span className="setup-step-label">{stepLabels[i]}</span>
                         </div>
                       </li>
@@ -109,7 +110,7 @@ export default function SignupSetup() {
 
             <div className="setup-body">
               {step === 1 && (
-                <div className="setup-step-1">
+                <section className="setup-step setup-step-1" aria-label="Identify your SmarTanom device">
                   <div className="setup-options">
                     <div className="setup-card">
                       <h4>Scan QR Code</h4>
@@ -132,13 +133,13 @@ export default function SignupSetup() {
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                  <div className="setup-verify-row">
                     <button type="button" className="setup-btn" onClick={verifyDevice} disabled={checking}>
                       {checking ? 'Verifying…' : 'Verify Device'}
                     </button>
                     {verified && <div className="setup-status success">✓ Device verified</div>}
                   </div>
-                </div>
+                </section>
               )}
             </div>
 
