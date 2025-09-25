@@ -11,18 +11,12 @@
 .setup-body {
   display: flex;
   flex-direction: column;
-  gap: clamp(16px, 2.5vh, 22px);
+  gap: clamp(18px, 2.8vh, 26px);
   width: 100%;
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: clamp(10px, 2.5vh, 16px) clamp(8px, 3vw, 18px) clamp(110px, 16vh, 150px);
-  scroll-padding-bottom: clamp(110px, 16vh, 150px);
-  scrollbar-width: thin;
+  justify-content: center;
+  padding: clamp(12px, 3vh, 32px) 0;
 }
-.setup-body::-webkit-scrollbar { width: 6px; }
-.setup-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); border-radius: 20px; }
-.setup-body::-webkit-scrollbar-track { background: rgba(255,255,255,0.08); }
 
 .setup-placeholder {
   color: rgba(255,255,255,0.9);
@@ -31,24 +25,17 @@
 }
 
 .setup-actions {
-  margin-top: auto;
+  margin-top: clamp(18px, 3vh, 28px);
   display: flex;
   gap: clamp(10px, 2vw, 16px);
   justify-content: flex-end;
   flex-wrap: wrap;
-  position: sticky;
-  bottom: clamp(8px, 2vh, 18px);
-  background: linear-gradient(180deg, rgba(51,148,50,0) 0%, rgba(51,148,50,0.72) 58%, rgba(51,148,50,0.92) 100%);
-  padding: clamp(12px, 2vh, 18px) clamp(10px, 3vw, 18px);
-  border-radius: clamp(16px, 3vw, 20px);
-  border: 1px solid rgba(255,255,255,0.16);
-  box-shadow: 0 18px 38px -18px rgba(0,0,0,0.35);
-  backdrop-filter: blur(16px);
-  z-index: 3;
+  padding-top: clamp(12px, 2vh, 18px);
+  border-top: 1px solid rgba(255,255,255,0.25);
 }
-.setup-actions .setup-btn { flex: 1 1 160px; }
+.setup-actions .setup-btn { flex: 0 0 auto; min-width: clamp(132px, 26vw, 168px); }
 @media (max-width: 560px) {
-  .setup-actions { flex-direction: column; align-items: stretch; gap: 10px; }
+  .setup-actions { flex-direction: column; align-items: stretch; }
   .setup-actions .setup-btn { width: 100%; }
 }
 
@@ -84,40 +71,135 @@
 }
 .setup-btn.outline:hover { background: rgba(255,255,255,0.18); }
 
-/* Step 1 Identify Device */
-.setup-options {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: clamp(12px, 2.5vh, 18px);
+/* Header enhancements */
+.setup-header { gap: clamp(12px, 2vh, 18px); }
+.setup-step-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(10px, 2vw, 16px);
+  font-family: Montserrat, Inter, sans-serif;
 }
-@media (min-width: 680px) {
-  .setup-options { grid-template-columns: repeat(3, 1fr); }
+.setup-step-count {
+  font-weight: 700;
+  font-size: clamp(12px, 2vw, 14px);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.92);
+  letter-spacing: 0.4px;
+}
+.setup-step-tag {
+  text-transform: uppercase;
+  font-size: clamp(11px, 2vw, 13px);
+  letter-spacing: 1.2px;
+  color: rgba(255,255,255,0.78);
 }
 
-.setup-card {
-  background: rgba(255,255,255,0.08);
-  border: 2px solid rgba(255,255,255,0.6);
-  border-radius: 10px;
-  padding: clamp(16px, 3vw, 20px);
+/* Step 1 Identify Device - streamlined layout */
+.setup-section { display: flex; flex-direction: column; gap: clamp(18px, 2.6vh, 24px); }
+
+.setup-methods {
+  display: grid;
+  gap: clamp(14px, 2.4vh, 20px);
+}
+@media (min-width: 960px) {
+  .setup-methods { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.setup-method {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 100%;
+  gap: clamp(10px, 1.8vh, 14px);
+  padding: clamp(4px, 1vh, 8px) clamp(4px, 1vw, 10px);
+  border-bottom: 1px solid rgba(255,255,255,0.18);
 }
-.setup-card h4 {
+.setup-method:last-of-type { border-bottom: none; }
+
+.setup-method-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: clamp(10px, 2vw, 16px);
+  align-items: center;
+}
+.setup-method-index {
+  width: clamp(28px, 3.4vw, 36px);
+  height: clamp(28px, 3.4vw, 36px);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #016b22;
+  font-family: Montserrat, Inter, sans-serif;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+.setup-method-head h4 {
   margin: 0;
   font-family: Montserrat, Inter, sans-serif;
   font-weight: 700;
   color: #ffffff;
-  font-size: 15px;
+  font-size: clamp(15px, 2.2vw, 17px);
 }
-.setup-card p {
+.setup-method-head p {
+  margin: 2px 0 0;
+  font-size: clamp(12px, 2.2vw, 14px);
+  color: rgba(255,255,255,0.84);
+  line-height: 1.4;
+}
+
+.setup-method-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(10px, 2vw, 16px);
+  align-items: center;
+}
+.setup-btn.sm {
+  padding: clamp(10px, 2.2vh, 12px) clamp(16px, 4vw, 20px);
+  min-height: 42px;
+  font-size: clamp(13px, 2vw, 14px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+}
+.setup-file-name {
+  font-size: clamp(12px, 2.1vw, 13px);
+  color: rgba(255,255,255,0.78);
+  max-width: clamp(120px, 34vw, 220px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.setup-verify-block {
+  display: grid;
+  gap: clamp(12px, 2vw, 16px);
+  align-items: center;
+  grid-template-columns: 1fr;
+  padding: clamp(14px, 2.4vh, 18px) clamp(16px, 4vw, 22px);
+  background: rgba(255,255,255,0.08);
+  border-radius: clamp(16px, 3vw, 22px);
+  border: 1px solid rgba(255,255,255,0.22);
+}
+.setup-verify-copy h5 {
   margin: 0;
-  font-family: Montserrat, Inter, sans-serif;
-  color: rgba(255,255,255,0.9);
-  font-size: 13px;
+  font-size: clamp(14px, 2.2vw, 16px);
+  font-weight: 700;
 }
-.setup-card .setup-btn { align-self: flex-start; }
+.setup-verify-copy p {
+  margin: 4px 0 0;
+  font-size: clamp(12px, 2.1vw, 14px);
+  color: rgba(255,255,255,0.82);
+}
+.setup-verify-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(10px, 2vw, 14px);
+  align-items: center;
+}
+.setup-verify-actions .setup-status { font-weight: 600; letter-spacing: 0.2px; }
+@media (min-width: 720px) {
+  .setup-verify-block { grid-template-columns: 2fr 3fr; }
+  .setup-verify-actions { justify-content: flex-end; }
+}
 
 .setup-field { display: flex; flex-direction: column; gap: 6px; }
 .setup-field input[type="text"] {
@@ -137,29 +219,6 @@
 .setup-status.error { color: #ffe2e2; }
 
 .setup-file { display:none; }
-.setup-file-name { font-size: 13px; color: rgba(255,255,255,0.85); }
-
-.setup-step { display: flex; flex-direction: column; gap: clamp(14px, 2.4vh, 20px); }
-.setup-verify-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: clamp(10px, 2vw, 14px);
-  background: rgba(255,255,255,0.04);
-  border-radius: 12px;
-  padding: clamp(12px, 2.4vh, 16px) clamp(14px, 3vw, 18px);
-  border: 1px solid rgba(255,255,255,0.18);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
-}
-.setup-verify-row .setup-status { font-weight: 600; letter-spacing: 0.2px; }
-
-@media (min-width: 960px) {
-  .setup-body {
-    padding: clamp(16px, 3vh, 22px) clamp(16px, 3vw, 28px) clamp(130px, 16vh, 160px);
-  }
-  .setup-verify-row { justify-content: space-between; }
-  .setup-verify-row .setup-status { margin-left: auto; }
-}
 
 /* Modal */
 .setup-modal {
@@ -173,21 +232,21 @@
 }
 
 /* Stepper (horizontal progress tracker) */
-.setup-stepper { width: 100%; position: relative; padding-top: clamp(8px, 1.4vh, 12px); }
-.setup-track { position: absolute; left: 0; right: 0; top: clamp(16px, 2.4vh, 22px); height: 4px; background: rgba(255,255,255,0.18); border-radius: 999px; }
-.setup-track-active { position: absolute; left: 0; top: clamp(16px, 2.4vh, 22px); height: 4px; background: #ffffff; border-radius: 999px; transition: width .35s ease; box-shadow: 0 1px 8px rgba(0,0,0,0.25); }
-.setup-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); align-items: start; }
+.setup-stepper { width: 100%; position: relative; padding-top: clamp(6px, 1.2vh, 10px); margin-top: clamp(4px, 0.8vh, 10px); margin-bottom: clamp(8px, 1.8vh, 16px); }
+.setup-track { position: absolute; left: 0; right: 0; top: clamp(14px, 2.2vh, 20px); height: 3px; background: rgba(255,255,255,0.2); border-radius: 999px; }
+.setup-track-active { position: absolute; left: 0; top: clamp(14px, 2.2vh, 20px); height: 3px; background: #ffffff; border-radius: 999px; transition: width .35s ease; box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
+.setup-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: start; }
 .setup-step { display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
 .setup-step .setup-step-node { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .setup-step .setup-step-icon {
-  width: clamp(22px, 2.9vw, 30px); height: clamp(22px, 2.9vw, 30px);
+  width: clamp(24px, 3vw, 32px); height: clamp(24px, 3vw, 32px);
   border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
   font-family: Montserrat, Inter, sans-serif; font-weight: 800; font-size: clamp(11px, 1.8vw, 13px);
   border: 2px solid rgba(255,255,255,0.45); color: rgba(255,255,255,0.92); background: rgba(255,255,255,0.08);
 }
 .setup-step .setup-step-label {
-  font-family: Montserrat, Inter, sans-serif; font-weight: 700; letter-spacing: 0.2px;
-  color: rgba(255,255,255,0.88); font-size: clamp(10px, 1.6vw, 12px);
+  font-family: Montserrat, Inter, sans-serif; font-weight: 700; letter-spacing: 0.16px;
+  color: rgba(255,255,255,0.9); font-size: clamp(10px, 1.5vw, 12px);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
