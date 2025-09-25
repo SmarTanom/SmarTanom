@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthSetupPage.css';
@@ -81,7 +81,11 @@ export default function SignupSetup() {
           </div>
 
           <div className="auth-content auth-fade-item">
-            <header className="auth-header" style={{ gap: 'clamp(12px, 2vh, 18px)' }}>
+            <header className="auth-header setup-header">
+              <div className="setup-step-meta" aria-live="polite">
+                <span className="setup-step-count">Step {step} of {total}</span>
+                <span className="setup-step-tag">{headings[step - 1]}</span>
+              </div>
               <nav className="setup-stepper" aria-label="Progress">
                 <div className="setup-track" aria-hidden="true" />
                 <div
@@ -110,34 +114,61 @@ export default function SignupSetup() {
 
             <div className="setup-body">
               {step === 1 && (
-                <section className="setup-step setup-step-1" aria-label="Identify your SmarTanom device">
-                  <div className="setup-options">
-                    <div className="setup-card">
-                      <h4>Scan QR Code</h4>
-                      <p>Use your camera to scan the QR on your device.</p>
-                      <button type="button" className="setup-btn">Open Camera</button>
-                      <div className="setup-hint">Tip: allow camera permission when prompted.</div>
-                    </div>
-                    <div className="setup-card">
-                      <h4>Upload QR Image</h4>
-                      <p>Select a photo of your device QR code.</p>
-                      <input id="qrfile" type="file" accept="image/*" className="setup-file" onChange={onPickFile} />
-                      <label htmlFor="qrfile" className="setup-btn">Choose Image</label>
-                      {fileName && <div className="setup-file-name">Selected: {fileName}</div>}
-                    </div>
-                    <div className="setup-card">
-                      <h4>Manual Entry</h4>
-                      <p>Enter Device ID (e.g., SMRT00).</p>
-                      <div className="setup-field">
-                        <input type="text" placeholder="SMRT00" value={deviceId} onChange={e => setDeviceId(e.target.value)} />
+                <section className="setup-section setup-step-1" aria-label="Identify your SmarTanom device">
+                  <div className="setup-methods">
+                    <article className="setup-method">
+                      <div className="setup-method-head">
+                        <span className="setup-method-index">1</span>
+                        <div>
+                          <h4>Scan QR Code</h4>
+                          <p>Use your camera to scan the QR on your device.</p>
+                        </div>
                       </div>
-                    </div>
+                      <div className="setup-method-actions">
+                        <button type="button" className="setup-btn sm" aria-label="Open camera to scan device QR">Open Camera</button>
+                        <span className="setup-hint">Allow camera permission when prompted.</span>
+                      </div>
+                    </article>
+                    <article className="setup-method">
+                      <div className="setup-method-head">
+                        <span className="setup-method-index">2</span>
+                        <div>
+                          <h4>Upload QR Image</h4>
+                          <p>Select a photo of the QR sticker on your device.</p>
+                        </div>
+                      </div>
+                      <div className="setup-method-actions">
+                        <input id="qrfile" type="file" accept="image/*" className="setup-file" onChange={onPickFile} />
+                        <label htmlFor="qrfile" className="setup-btn sm" aria-label="Choose QR code image">Choose Image</label>
+                        {fileName && <span className="setup-file-name">{fileName}</span>}
+                      </div>
+                    </article>
+                    <article className="setup-method">
+                      <div className="setup-method-head">
+                        <span className="setup-method-index">3</span>
+                        <div>
+                          <h4>Manual Entry</h4>
+                          <p>Enter the Device ID printed under the QR label.</p>
+                        </div>
+                      </div>
+                      <div className="setup-method-actions">
+                        <div className="setup-field">
+                          <input type="text" placeholder="SMRT00" value={deviceId} onChange={e => setDeviceId(e.target.value)} aria-label="Manual device ID" />
+                        </div>
+                      </div>
+                    </article>
                   </div>
-                  <div className="setup-verify-row">
-                    <button type="button" className="setup-btn" onClick={verifyDevice} disabled={checking}>
-                      {checking ? 'Verifying…' : 'Verify Device'}
-                    </button>
-                    {verified && <div className="setup-status success">✓ Device verified</div>}
+                  <div className="setup-verify-block">
+                    <div className="setup-verify-copy">
+                      <h5>Verify your device</h5>
+                      <p>We’ll confirm your SmarTanom before moving on.</p>
+                    </div>
+                    <div className="setup-verify-actions">
+                      <button type="button" className="setup-btn" onClick={verifyDevice} disabled={checking}>
+                        {checking ? 'Verifying…' : 'Verify Device'}
+                      </button>
+                      {verified && <div className="setup-status success">✓ Device verified</div>}
+                    </div>
                   </div>
                 </section>
               )}
