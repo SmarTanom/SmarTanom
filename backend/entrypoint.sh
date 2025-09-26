@@ -28,7 +28,6 @@ try:
 except Exception as e:
     raise SystemExit(1)
 PY
-      then
         log "PostgreSQL is ready"
         return 0
       else
