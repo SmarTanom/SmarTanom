@@ -1,44 +1,73 @@
 #!/bin/sh
-set -e
+set -eu
 
-echo "[entrypoint] Boot sequence start"
+timestamp() { date +"%Y-%m-%d %H:%M:%S.%3N" 2>/dev/null || date +"%Y-%m-%d %H:%M:%S"; }
+log() { echo "$(timestamp) | [entrypoint] $*"; }
+err() { echo "$(timestamp) | [entrypoint][error] $*" >&2; }
+
+log "Boot sequence start"
 
 DB_ENGINE_EFFECTIVE="${DB_ENGINE:-}"
-if [ -n "$DATABASE_URL" ] && echo "$DATABASE_URL" | grep -qi 'postgres'; then
+if [ -n "${DATABASE_URL:-}" ] && echo "$DATABASE_URL" | grep -qi 'postgres'; then
   DB_ENGINE_EFFECTIVE="django.db.backends.postgresql"
 fi
 
+wait_for_postgres() {
+  host="$1"; port="$2"; user="$3"; password="$4"; dbname="${5:-$DB_NAME}"; max_tries="${6:-60}";
+  log "Waiting for PostgreSQL ${host}:${port} (user=${user} db=${dbname}) ..."
+  i=0
+  while [ $i -lt "$max_tries" ]; do
+    if PGPASSWORD="$password" pg_isready -h "$host" -p "$port" -U "$user" >/dev/null 2>&1; then
+      # Deep check using psycopg2 to catch auth/db issues hidden by pg_isready
+      if python - <<PY 2>/dev/null; then
+import os, psycopg2
+from psycopg2 import sql
+try:
+    conn = psycopg2.connect(host=os.environ.get('DB_HOST'), port=os.environ.get('DB_PORT'), user=os.environ.get('DB_USER'), password=os.environ.get('DB_PASSWORD'), dbname=os.environ.get('DB_NAME'))
+    cur = conn.cursor(); cur.execute('SELECT 1'); cur.fetchone(); conn.close()
+except Exception as e:
+    raise SystemExit(1)
+PY
+      then
+        log "PostgreSQL is ready"
+        return 0
+      else
+        err "pg_isready OK but Python connection failed (auth/db?). Retrying..."
+      fi
+    else
+      log "DB not ready (attempt $((i+1))/$max_tries)"
+    fi
+    sleep 2
+    i=$((i+1))
+  done
+  err "Failed to connect to PostgreSQL after ${max_tries} attempts"
+  PGPASSWORD="$password" pg_isready -h "$host" -p "$port" -U "$user" || true
+  # Socket diagnostic (may fail on busybox shells without /dev/tcp support)
+  if (echo > /dev/tcp/$host/$port) 2>/dev/null; then
+    err "TCP port open; likely authentication / db name issue"
+  else
+    err "TCP port closed; network / service issue"
+  fi
+  return 1
+}
+
 if [ "$DB_ENGINE_EFFECTIVE" = "django.db.backends.postgresql" ]; then
-  if [ -z "$DB_HOST" ] || [ -z "$DB_PORT" ]; then
-    echo "[entrypoint] Postgres engine selected but DB_HOST/DB_PORT missing" >&2
+  if [ -z "${DB_HOST:-}" ] || [ -z "${DB_PORT:-}" ] || [ -z "${DB_USER:-}" ]; then
+    err "Postgres engine selected but DB_HOST/DB_PORT/DB_USER missing"
     exit 1
   fi
-  echo "[entrypoint] Waiting for PostgreSQL $DB_HOST:$DB_PORT ..."
-  tries=60
-  while ! PGPASSWORD="$DB_PASSWORD" pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "${DB_USER:-postgres}" >/dev/null 2>&1; do
-    tries=$((tries - 1))
-    if [ $tries -le 0 ]; then
-      echo "[entrypoint] PostgreSQL not reachable after timeout ($DB_HOST:$DB_PORT)" >&2
-      PGPASSWORD="$DB_PASSWORD" pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "${DB_USER:-postgres}" || true
-      echo "[entrypoint] Network debug: attempting TCP connect..." >&2
-      (echo > /dev/tcp/$DB_HOST/$DB_PORT) >/dev/null 2>&1 && echo "[entrypoint] TCP port open but pg_isready failing (auth/startup?)" || echo "[entrypoint] TCP port closed" >&2
-      exit 1
-    fi
-    echo "[entrypoint] DB not ready, retrying... ($tries left)"
-    sleep 2
-  done
-  echo "[entrypoint] PostgreSQL is ready"
+  wait_for_postgres "$DB_HOST" "$DB_PORT" "$DB_USER" "${DB_PASSWORD:-}" "${DB_NAME:-postgres}" "${DB_WAIT_TRIES:-60}"
 else
-  echo "[entrypoint] Non-Postgres engine or SQLite in use; skipping network DB wait"
+  log "Non-Postgres engine or SQLite in use; skipping network DB wait"
 fi
 
-echo "[entrypoint] Applying migrations"
-python manage.py migrate --noinput
+log "Applying migrations"
+python manage.py migrate --noinput || { err "Migrations failed"; exit 1; }
 
 if [ "${COLLECT_STATIC:-0}" = "1" ]; then
-  echo "[entrypoint] Collecting static files"
-  python manage.py collectstatic --noinput
+  log "Collecting static files"
+  python manage.py collectstatic --noinput || { err "collectstatic failed"; exit 1; }
 fi
 
-echo "[entrypoint] Starting Django dev server"
+log "Starting Django dev server (runserver)"
 exec python manage.py runserver 0.0.0.0:8000
