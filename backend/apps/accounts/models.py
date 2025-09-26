@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 import random
 import string
 from datetime import timedelta
+from django.conf import settings
 
 
 class CustomUserManager(BaseUserManager):
@@ -131,7 +132,9 @@ class OTPCode(models.Model):
         if not self.code:
             self.code = self.generate_code()
         if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(minutes=5)
+            # Use configurable expiry minutes from settings (default 5)
+            expire_mins = getattr(settings, 'OTP_EXPIRE_MINUTES', 5)
+            self.expires_at = timezone.now() + timedelta(minutes=expire_mins)
         super().save(*args, **kwargs)
     
     @staticmethod
@@ -242,8 +245,11 @@ class LoginAttempt(models.Model):
         )
     
     @classmethod
-    def is_rate_limited(cls, email, ip_address=None, window_minutes=15, max_attempts=5):
+    def is_rate_limited(cls, email, ip_address=None, window_minutes=None, max_attempts=None):
         """Check if email or IP is rate limited."""
+        from django.conf import settings
+        window_minutes = window_minutes if window_minutes is not None else getattr(settings, 'OTP_RATE_LIMIT_MINUTES', 15)
+        max_attempts = max_attempts if max_attempts is not None else getattr(settings, 'OTP_RATE_LIMIT_ATTEMPTS', 5)
         cutoff_time = timezone.now() - timedelta(minutes=window_minutes)
         
         # Check email-based rate limiting
