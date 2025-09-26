@@ -6,9 +6,20 @@
  * @param {{ email: string, mode: 'signin'|'signup' }} params
  */
 export async function requestCode(params) {
-  // TODO: Call backend endpoint POST /api/auth/request-code
-  // return fetch('/api/auth/request-code', { method: 'POST', body: JSON.stringify(params) })
-  throw new Error('Not implemented: backend integration');
+  const res = await fetch('/api/auth/request-code/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: params.email, purpose: params.mode === 'signup' ? 'register' : 'login' }),
+    credentials: 'include',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error || 'Failed to send verification code';
+    const err = new Error(msg);
+    err.details = data;
+    throw err;
+  }
+  return data;
 }
 
 /**
@@ -16,9 +27,20 @@ export async function requestCode(params) {
  * @param {{ email: string, code: string, mode: 'signin'|'signup' }} params
  */
 export async function verifyCode(params) {
-  // TODO: Call backend endpoint POST /api/auth/verify-code
-  // Expected return: { success: boolean, tokens?: { access, refresh } }
-  throw new Error('Not implemented: backend integration');
+  const res = await fetch('/api/auth/verify-code/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: params.email, code: params.code, purpose: params.mode === 'signup' ? 'register' : 'login' }),
+    credentials: 'include',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error || 'Verification failed';
+    const err = new Error(msg);
+    err.details = data;
+    throw err;
+  }
+  return data; // { message, token, user }
 }
 
 /**

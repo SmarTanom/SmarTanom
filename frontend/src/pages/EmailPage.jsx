@@ -4,6 +4,7 @@ import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthEmailPage.css';
 import { Mail as MailIcon, ChevronLeftFilled } from '../components/ui/Icon.jsx';
+import { requestCode } from '../services/api/auth.js';
 
 // Inline validation helpers
 function isValidEmail(email) { return /[^@\s]+@[^@\s]+\.[^@\s]+/.test(email); }
@@ -33,14 +34,11 @@ export default function EmailPage({ mode = 'signin' }) {
     }
     setLoading(true);
     try {
-      // TODO: Integrate backend request for verification code
-      // await api.auth.requestCode({ email: trimmed, mode });
-      await new Promise(r => setTimeout(r, 650));
+      await requestCode({ email: trimmed, mode });
       setCodeSent(true);
       navigate(`/${mode}/code`);
     } catch (err) {
-      // TODO: Map backend error codes to friendly messages
-      setError('Could not send code. Please retry.');
+      setError(err?.message || 'Could not send code. Please retry.');
     } finally {
       setLoading(false);
     }

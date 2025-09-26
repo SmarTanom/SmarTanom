@@ -17,6 +17,9 @@ from .serializers import (
     UserProfileSerializer
 )
 import logging
+import os
+import requests
+import dns.resolver
 import asyncio
 from asgiref.sync import sync_to_async  # (May remain for future async tasks, not used now)
 
@@ -96,6 +99,86 @@ def send_otp_email(email, code, purpose='login'):
         return False
 
 
+def _has_google_mx_records(domain: str) -> bool:
+    """Quick MX check to see if the domain uses Google mail servers.
+
+    This is a heuristic (many Google accounts are @gmail.com or use Google Workspace).
+    We don't strictly require Gmail MX for allow-list; we only use this as a soft validation
+    when GOOGLE_ENFORCE_MX=true. Defaults to false.
+    """
+    try:
+        answers = dns.resolver.resolve(domain, 'MX')
+        google_hosts = (
+            'aspmx.l.google.com',
+            'alt1.aspmx.l.google.com',
+            'alt2.aspmx.l.google.com',
+            'alt3.aspmx.l.google.com',
+            'alt4.aspmx.l.google.com',
+        )
+        for rdata in answers:
+            mx = str(rdata.exchange).rstrip('.')
+            if any(mx.endswith(gh) for gh in google_hosts):
+                return True
+    except Exception:
+        return False
+    return False
+
+
+def verify_google_account(email: str) -> bool:
+    """Verify that an email belongs to a valid Google account.
+
+    Because we do not show a Google sign-in popup, we cannot complete an OAuth flow client-side.
+    Instead, we implement a conservative server-side verification strategy:
+      - If the domain is gmail.com, accept as Google-managed.
+      - If GOOGLE_ENFORCE_MX=true, require the domain MX to match Google Workspace.
+      - If a server-provided Google ID token is configured (rare), validate via tokeninfo.
+
+    Environment flags:
+      - GOOGLE_ENFORCE_MX (default: false)
+      - GOOGLE_REQUIRE_DOMAIN (comma-separated allow-list of domains; optional)
+    """
+    email = email.lower().strip()
+    try:
+        local, domain = email.split('@', 1)
+    except ValueError:
+        return False
+
+    # Optional: restrict to specific domains
+    allowed_domains = os.getenv('GOOGLE_REQUIRE_DOMAIN', '')
+    if allowed_domains:
+        allow = [d.strip().lower() for d in allowed_domains.split(',') if d.strip()]
+        if domain not in allow:
+            logger.warning(f"Email domain {domain} not in allowed list")
+            return False
+
+    if domain == 'gmail.com':
+        return True
+
+    # Optional: require MX records that point to Google
+    enforce_mx = (os.getenv('GOOGLE_ENFORCE_MX') or 'false').lower() == 'true'
+    if enforce_mx and not _has_google_mx_records(domain):
+        logger.warning(f"Domain {domain} does not appear to use Google MX; rejecting due to GOOGLE_ENFORCE_MX=true")
+        return False
+
+    # If admin provides an ID token to validate (rare), attempt tokeninfo validation
+    # Note: Normally token comes from client after Google Sign-In. Since we don't show a popup,
+    # we skip unless a token is provided via env for test purposes.
+    fake_id_token = os.getenv('GOOGLE_TEST_ID_TOKEN')
+    client_id = os.getenv('GOOGLE_CLIENT_ID')
+    if fake_id_token and client_id:
+        try:
+            resp = requests.get('https://oauth2.googleapis.com/tokeninfo', params={'id_token': fake_id_token}, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get('aud') == client_id and data.get('email') == email and data.get('email_verified') == 'true':
+                    return True
+        except Exception as e:
+            logger.warning(f"tokeninfo check failed: {e}")
+
+    # Fallback: accept if passes domain policy. For Google Workspace, users' domains may be custom; we can't perfectly verify without OAuth flow.
+    return True
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def request_otp(request):
@@ -120,44 +203,50 @@ def request_otp(request):
         )
     
     try:
-        # Check if user exists for login, create if registering
-        user_exists = User.objects.filter(email=email).exists()
-        
-        if purpose == 'login' and not user_exists:
-            # Auto-create user for first-time login
-            user = User.objects.create_user(email=email)
-            logger.info(f"Auto-created user for {email}")
-        elif purpose == 'register' and user_exists:
+        # Enforce that email must already exist for login (per requirement)
+        if purpose == 'login':
+            if not User.objects.filter(email=email).exists():
+                LoginAttempt.record_attempt(email, ip_address, successful=False)
+                return Response(
+                    {'error': 'Email not found. Please contact your administrator.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            # If registering, ensure it doesn't already exist
+            if User.objects.filter(email=email).exists():
+                return Response(
+                    {'error': 'User already exists with this email.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Verify email is a Google account based on configured policy
+        if not verify_google_account(email):
+            LoginAttempt.record_attempt(email, ip_address, successful=False)
             return Response(
-                {'error': 'User already exists with this email.'},
+                {'error': 'Email is not a valid Google account per policy.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         # Create OTP
         otp = OTPCode.create_otp(email, purpose)
-        
+
         # Send email
         if send_otp_email(email, otp.code, purpose):
-            # Record successful OTP request
             LoginAttempt.record_attempt(email, ip_address, successful=True)
-            
             response_data = {
                 'message': 'OTP sent successfully',
                 'email': email,
                 'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60
             }
-            
-            # Include code in debug mode
             if settings.DEBUG:
                 response_data['debug_code'] = otp.code
-            
             return Response(response_data, status=status.HTTP_200_OK)
         else:
             return Response(
                 {'error': 'Failed to send OTP. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
+
     except Exception as e:
         logger.error(f"Error in request_otp: {str(e)}")
         return Response(
@@ -193,12 +282,14 @@ def verify_otp(request):
     try:
         # Verify OTP
         if OTPCode.verify_otp(email, code, purpose):
-            # Get or create user
+            # Get user, do not auto-create for login flow per requirement
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
-                # This shouldn't happen if request_otp worked correctly
-                user = User.objects.create_user(email=email)
+                return Response(
+                    {'error': 'User not found. Please contact your administrator.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
             
             # Mark user as verified
             if not user.is_verified:

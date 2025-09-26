@@ -7,6 +7,9 @@ urlpatterns = [
     # Authentication endpoints
     path('request-otp/', views.request_otp, name='request_otp'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),
+    # Aliases for frontend placeholders
+    path('request-code/', views.request_otp, name='request_code'),
+    path('verify-code/', views.verify_otp, name='verify_code'),
     path('logout/', views.logout, name='logout'),
     path('status/', views.auth_status, name='auth_status'),
     

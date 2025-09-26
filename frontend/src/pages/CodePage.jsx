@@ -4,6 +4,7 @@ import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthCodePage.css';
 import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
+import { verifyCode } from '../services/api/auth.js';
 
 export default function CodePage({ mode = 'signin' }) {
   const navigate = useNavigate();
@@ -56,18 +57,19 @@ export default function CodePage({ mode = 'signin' }) {
     }
     setLoading(true);
     try {
-      // TODO: Call backend to verify code for email
-      // const ok = await api.auth.verifyCode({ email, code, mode })
-      await new Promise(r => setTimeout(r, 650));
+      const resp = await verifyCode({ email, code, mode });
       if (mode === 'signup') {
         navigate('/signup/username');
       } else {
-        // TODO: On success, backend will return tokens/session. Store via secure storage.
+        // Store token in memory/localStorage if desired by app; backend also supports DRF Token
+        // Example minimal handling:
+        if (resp?.token) {
+          try { localStorage.setItem('auth_token', resp.token); } catch {}
+        }
         navigate('/');
       }
     } catch (err) {
-      // TODO: Display backend error message here if verification fails
-      setError('Code expired or invalid. Please try again or request a new code.');
+      setError(err?.message || 'Code expired or invalid. Please try again or request a new code.');
     } finally {
       setLoading(false);
     }
