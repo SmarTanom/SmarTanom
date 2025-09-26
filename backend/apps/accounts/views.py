@@ -18,7 +18,7 @@ from .serializers import (
 )
 import logging
 import asyncio
-from asgiref.sync import sync_to_async
+from asgiref.sync import sync_to_async  # (May remain for future async tasks, not used now)
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -34,50 +34,53 @@ def get_client_ip(request):
     return ip
 
 
-@sync_to_async
-def send_otp_email_async(email, code, purpose='login'):
-    """Send OTP email asynchronously."""
-    try:
-        subject_map = {
-            'login': 'Your Login Code',
-            'register': 'Welcome! Your Verification Code',
-            'reset': 'Password Reset Code'
-        }
-        
-        subject = subject_map.get(purpose, 'Your Verification Code')
-        
-        # Create HTML content
-        html_message = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-                <h2 style="color: #333; text-align: center;">SmarTanom</h2>
-                <h3 style="color: #666;">Your verification code</h3>
-                <div style="background-color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                    <h1 style="color: #007bff; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
-                </div>
-                <p style="color: #666;">This code will expire in 5 minutes.</p>
-                <p style="color: #666;">If you didn't request this code, please ignore this email.</p>
-                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="color: #999; font-size: 12px; text-align: center;">
-                    This is an automated message from SmarTanom. Please do not reply.
-                </p>
+def send_otp_email(email, code, purpose='login'):
+    """Send OTP email (synchronous & reliable).
+
+    Previously this used asyncio + sync_to_async which could mask failures;
+    now it sends directly and returns a real success boolean.
+    """
+    if settings.DEBUG:
+        logger.info(f"DEBUG MODE - OTP Code for {email}: {code}")
+        print(f"DEBUG MODE - OTP Code for {email}: {code}")
+
+    subject_map = {
+        'login': 'Your Login Code',
+        'register': 'Welcome! Your Verification Code',
+        'reset': 'Password Reset Code'
+    }
+    subject = subject_map.get(purpose, 'Your Verification Code')
+
+    expire_minutes = getattr(settings, 'OTP_EXPIRE_MINUTES', 5)
+
+    html_message = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+            <h2 style="color: #333; text-align: center;">SmarTanom</h2>
+            <h3 style="color: #666;">Your verification code</h3>
+            <div style="background-color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                <h1 style="color: #007bff; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
             </div>
-        </body>
-        </html>
-        """
-        
-        # Plain text version
-        plain_message = f"""
-        SmarTanom - Your verification code
-        
-        Your verification code is: {code}
-        
-        This code will expire in 5 minutes.
-        
-        If you didn't request this code, please ignore this email.
-        """
-        
+            <p style="color: #666;">This code will expire in {expire_minutes} minute(s).</p>
+            <p style="color: #666;">If you didn't request this code, please ignore this email.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #999; font-size: 12px; text-align: center;">
+                This is an automated message from SmarTanom. Please do not reply.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    plain_message = (
+        "SmarTanom - Your verification code\n\n"
+        f"Your verification code is: {code}\n\n"
+        f"This code will expire in {expire_minutes} minute(s).\n\n"
+        "If you didn't request this code, please ignore this email."
+    )
+
+    try:
         send_mail(
             subject=subject,
             message=plain_message,
@@ -86,28 +89,10 @@ def send_otp_email_async(email, code, purpose='login'):
             html_message=html_message,
             fail_silently=False,
         )
-        
         logger.info(f"OTP email sent successfully to {email}")
         return True
-        
     except Exception as e:
         logger.error(f"Failed to send OTP email to {email}: {str(e)}")
-        return False
-
-
-def send_otp_email(email, code, purpose='login'):
-    """Send OTP email."""
-    if settings.DEBUG:
-        # In debug mode, log the code for debugging
-        logger.info(f"DEBUG MODE - OTP Code for {email}: {code}")
-        print(f"DEBUG MODE - OTP Code for {email}: {code}")
-    
-    try:
-        # Run async email sending (always send email, even in debug mode)
-        asyncio.run(send_otp_email_async(email, code, purpose))
-        return True
-    except Exception as e:
-        logger.error(f"Failed to send OTP email: {str(e)}")
         return False
 
 
@@ -159,7 +144,7 @@ def request_otp(request):
             response_data = {
                 'message': 'OTP sent successfully',
                 'email': email,
-                'expires_in': 300  # 5 minutes
+                'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60
             }
             
             # Include code in debug mode
