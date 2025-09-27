@@ -1,8 +1,64 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthSetupPage.css';
 import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
+
+const CameraIcon = ({ size = 28, color = '#ffffff' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M4 7h2.34a1 1 0 0 0 .92-.6l.56-1.29A1 1 0 0 1 8.74 4h6.52a1 1 0 0 1 .92.59L16.74 6a1 1 0 0 0 .92.59H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+    <circle cx="12" cy="13" r="4" />
+    <circle cx="18" cy="9" r="1" fill={color} stroke="none" />
+  </svg>
+);
+
+const UploadIcon = ({ size = 28, color = '#ffffff' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M4 17v1.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V17" />
+    <path d="M12 4v10" />
+    <path d="m8 8 4-4 4 4" />
+  </svg>
+);
+
+const KeyboardIcon = ({ size = 28, color = '#ffffff' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M7 9h2" />
+    <path d="M11 9h2" />
+    <path d="M15 9h2" />
+    <path d="M7 13h10" />
+  </svg>
+);
 
 export default function SignupSetup() {
   const navigate = useNavigate();
@@ -13,6 +69,13 @@ export default function SignupSetup() {
   const [verified, setVerified] = useState(false);
   const [checking, setChecking] = useState(false);
   const [modal, setModal] = useState({ open: false, message: '' });
+
+  const progressFraction = useMemo(() => {
+    if (total <= 1) return 0;
+    return Math.min(1, Math.max(0, (step - 1) / (total - 1)));
+  }, [step, total]);
+
+  const progressPercent = useMemo(() => Math.round(progressFraction * 100), [progressFraction]);
 
   const headings = [
     'Identify your device',
@@ -57,7 +120,13 @@ export default function SignupSetup() {
 
   function onPickFile(e) {
     const f = e.target.files?.[0];
-    if (f) setFileName(f.name);
+    if (f) {
+      setFileName(f.name);
+      if (verified) setVerified(false);
+    } else {
+      setFileName('');
+      if (verified) setVerified(false);
+    }
   }
 
   return (
@@ -82,16 +151,21 @@ export default function SignupSetup() {
 
           <div className="auth-content auth-fade-item">
             <header className="auth-header setup-header">
-              <div className="setup-step-meta" aria-live="polite">
-                <span className="setup-step-count">Step {step} of {total}</span>
-                <span className="setup-step-tag">{headings[step - 1]}</span>
+              <div className="setup-step-topline">
+                <div className="setup-step-meta" aria-live="polite">
+                  <span className="setup-step-count">Step {step} of {total}</span>
+                  <span className="setup-step-tag">{headings[step - 1]}</span>
+                </div>
+                <div className="setup-progress-pill" role="status" aria-live="polite">
+                  <span>{progressPercent}% complete</span>
+                </div>
               </div>
               <nav className="setup-stepper" aria-label="Progress">
                 <div className="setup-track" aria-hidden="true" />
                 <div
                   className="setup-track-active"
                   aria-hidden="true"
-                  style={{ width: `${((step - 1) / (total - 1)) * 100}%` }}
+                  style={{ width: `${progressFraction * 100}%` }}
                 />
                 <ol className="setup-steps" role="list">
                   {Array.from({ length: total }).map((_, i) => {
@@ -116,58 +190,99 @@ export default function SignupSetup() {
               {step === 1 && (
                 <section className="setup-section setup-step-1" aria-label="Identify your SmarTanom device">
                   <div className="setup-methods">
-                    <article className="setup-method">
-                      <div className="setup-method-head">
-                        <span className="setup-method-index">1</span>
-                        <div>
-                          <h4>Scan QR Code</h4>
-                          <p>Use your camera to scan the QR on your device.</p>
+                    <article className="setup-method-card">
+                      <header className="setup-method-card-head">
+                        <span className="setup-method-index" aria-hidden="true">1</span>
+                        <div className="setup-method-copy">
+                          <div className="setup-method-icon" aria-hidden="true">
+                            <CameraIcon />
+                          </div>
+                          <div className="setup-method-text">
+                            <h3>Scan QR Code</h3>
+                            <p>Open your camera and point to the QR sticker on your device.</p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="setup-method-actions">
-                        <button type="button" className="setup-btn sm" aria-label="Open camera to scan device QR">Open Camera</button>
-                        <span className="setup-hint">Allow camera permission when prompted.</span>
+                      </header>
+                      <div className="setup-method-card-body">
+                        <div className="setup-input-inline">
+                          <button
+                            type="button"
+                            className="setup-btn sm"
+                            aria-label="Open camera to scan device QR"
+                          >
+                            Open Camera
+                          </button>
+                          <span className="setup-hint">Allow camera permission when prompted.</span>
+                        </div>
                       </div>
                     </article>
-                    <article className="setup-method">
-                      <div className="setup-method-head">
-                        <span className="setup-method-index">2</span>
-                        <div>
-                          <h4>Upload QR Image</h4>
-                          <p>Select a photo of the QR sticker on your device.</p>
+
+                    <article className="setup-method-card">
+                      <header className="setup-method-card-head">
+                        <span className="setup-method-index" aria-hidden="true">2</span>
+                        <div className="setup-method-copy">
+                          <div className="setup-method-icon" aria-hidden="true">
+                            <UploadIcon />
+                          </div>
+                          <div className="setup-method-text">
+                            <h3>Upload QR Image</h3>
+                            <p>Choose an existing photo of the QR sticker if you have it saved.</p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="setup-method-actions">
+                      </header>
+                      <div className="setup-method-card-body">
                         <input id="qrfile" type="file" accept="image/*" className="setup-file" onChange={onPickFile} />
-                        <label htmlFor="qrfile" className="setup-btn sm" aria-label="Choose QR code image">Choose Image</label>
-                        {fileName && <span className="setup-file-name">{fileName}</span>}
+                        <label htmlFor="qrfile" className="setup-btn sm" aria-label="Choose QR code image">
+                          Choose Image
+                        </label>
+                        {fileName && <span className="setup-file-name" aria-live="polite">{fileName}</span>}
                       </div>
                     </article>
-                    <article className="setup-method">
-                      <div className="setup-method-head">
-                        <span className="setup-method-index">3</span>
-                        <div>
-                          <h4>Manual Entry</h4>
-                          <p>Enter the Device ID printed under the QR label.</p>
+
+                    <article className="setup-method-card">
+                      <header className="setup-method-card-head">
+                        <span className="setup-method-index" aria-hidden="true">3</span>
+                        <div className="setup-method-copy">
+                          <div className="setup-method-icon" aria-hidden="true">
+                            <KeyboardIcon />
+                          </div>
+                          <div className="setup-method-text">
+                            <h3>Manual Entry</h3>
+                            <p>Type the Device ID printed underneath the QR label.</p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="setup-method-actions">
+                      </header>
+                      <div className="setup-method-card-body">
                         <div className="setup-field">
-                          <input type="text" placeholder="SMRT00" value={deviceId} onChange={e => setDeviceId(e.target.value)} aria-label="Manual device ID" />
+                          <label className="setup-field-label" htmlFor="deviceId">Device ID</label>
+                          <input
+                            id="deviceId"
+                            type="text"
+                            placeholder="SMRT00"
+                            value={deviceId}
+                            onChange={e => {
+                              setDeviceId(e.target.value);
+                              if (verified) setVerified(false);
+                            }}
+                            aria-label="Manual device ID"
+                          />
                         </div>
                       </div>
                     </article>
                   </div>
-                  <div className="setup-verify-block">
-                    <div className="setup-verify-copy">
-                      <h5>Verify your device</h5>
+
+                  <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify your device" data-section="verify">
+                    <div className="setup-verify-content">
+                      <h4>Verify your device</h4>
                       <p>We’ll confirm your SmarTanom before moving on.</p>
                     </div>
                     <div className="setup-verify-actions">
                       <button type="button" className="setup-btn" onClick={verifyDevice} disabled={checking}>
                         {checking ? 'Verifying…' : 'Verify Device'}
                       </button>
-                      {verified && <div className="setup-status success">✓ Device verified</div>}
+                      {verified && (
+                        <span className="setup-status success" role="status">✓ Device verified</span>
+                      )}
                     </div>
                   </div>
                 </section>
