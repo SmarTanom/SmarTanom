@@ -12,6 +12,17 @@
   }
 }
 
+.setup-shell {
+  max-width: clamp(560px, 72vw, 960px);
+  width: 100%;
+}
+
+@media (min-width: 1440px) {
+  .setup-shell {
+    max-width: clamp(600px, 64vw, 1040px);
+  }
+}
+
 .setup-progress {
   font-family: Montserrat, Inter, sans-serif;
   font-weight: 600;
@@ -22,11 +33,11 @@
 .setup-body {
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 2.8vh, 26px);
+  gap: clamp(6px, 1vh, 12px);
   width: 100%;
   flex: 1;
   justify-content: flex-start;
-  padding: clamp(12px, 3vh, 28px) 0 clamp(36px, 8vh, 72px);
+  padding: clamp(6px, 1.2vh, 12px) 0 clamp(8px, 2.2vh, 18px);
   overflow-y: visible;
   scrollbar-width: thin;
 }
@@ -45,15 +56,28 @@
 }
 
 .setup-actions {
-  margin-top: clamp(18px, 3vh, 28px);
+  margin-top: clamp(10px, 1.4vh, 16px);
   display: flex;
   gap: clamp(10px, 2vw, 16px);
   justify-content: flex-end;
   flex-wrap: wrap;
-  padding-top: clamp(12px, 2vh, 18px);
+  padding-top: clamp(6px, 1vh, 10px);
   border-top: 1px solid rgba(255,255,255,0.25);
 }
-.setup-actions .setup-btn { flex: 0 0 auto; min-width: clamp(132px, 26vw, 168px); }
+.setup-actions .setup-btn {
+  flex: 0 0 auto;
+  min-width: clamp(108px, 22vw, 150px);
+  padding: clamp(8px, 2.2vw, 12px) clamp(12px, 3vw, 16px);
+  font-size: clamp(11.5px, 2.4vw, 13px);
+  min-height: 38px;
+  border-radius: 7px;
+  box-shadow: 0 5px 14px -12px rgba(0,0,0,0.28);
+}
+
+.setup-actions .setup-btn.outline {
+  padding: clamp(8px, 2.2vw, 12px) clamp(12px, 3vw, 16px);
+  border-radius: 7px;
+}
 @media (max-width: 560px) {
   .setup-actions { flex-direction: column; align-items: stretch; }
   .setup-actions .setup-btn { width: 100%; }
@@ -92,14 +116,11 @@
 .setup-btn.outline:hover { background: rgba(255,255,255,0.18); }
 
 /* Header enhancements */
-.setup-header { gap: clamp(12px, 2vh, 18px); }
-.setup-step-topline {
-  width: 100%;
+.setup-progress-header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: clamp(10px, 2vw, 14px);
+  flex-direction: column;
+  align-items: stretch;
+  gap: clamp(14px, 2.4vh, 24px);
 }
 
 .setup-step-meta {
@@ -107,6 +128,7 @@
   align-items: center;
   gap: clamp(10px, 2vw, 16px);
   font-family: Montserrat, Inter, sans-serif;
+  margin-top: clamp(4px, 1vh, 10px);
 }
 .setup-step-count {
   font-weight: 700;
@@ -136,16 +158,18 @@
   font-weight: 600;
   letter-spacing: 0.5px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
+  align-self: flex-start;
 }
 
 @media (max-width: 640px) {
-  .setup-step-topline {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .setup-progress-pill {
+  .setup-progress-header .setup-progress-pill {
     width: 100%;
     justify-content: center;
+  }
+  .setup-progress-header .setup-step-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(6px, 1.6vw, 10px);
   }
 }
 
@@ -159,6 +183,15 @@
   max-width: 640px;
 }
 
+.setup-heading .auth-title {
+  font-size: clamp(24px, 4.4vw, 42px);
+  letter-spacing: -0.18px;
+}
+
+.setup-heading .auth-subtext {
+  font-size: clamp(13px, 2.6vw, 17px);
+}
+
 @media (min-width: 1280px) {
   .setup-header .auth-title {
     font-size: clamp(36px, 4vw, 54px);
@@ -167,55 +200,57 @@
   .setup-header .auth-subtext {
     font-size: clamp(16px, 2.3vw, 20px);
   }
+
+  .setup-heading .auth-title {
+    font-size: clamp(28px, 3.4vw, 46px);
+  }
+
+  .setup-heading .auth-subtext {
+    font-size: clamp(14px, 2vw, 18px);
+  }
 }
 
 /* Step 1 Identify Device - Vertical card layout */
 .setup-section {
   display: flex;
   flex-direction: column;
-  gap: clamp(20px, 3vh, 28px);
+  gap: clamp(6px, 0.9vh, 10px);
+  width: 100%;
 }
 
 .setup-methods {
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3vh, 26px);
+  gap: clamp(6px, 0.9vh, 10px);
 }
 
 .setup-method-card {
   display: flex;
   flex-direction: column;
-  gap: clamp(16px, 2.6vh, 22px);
-  padding: clamp(18px, 3vw, 28px);
-  border-radius: clamp(18px, 3vw, 28px);
-  border: 1px solid rgba(255,255,255,0.18);
-  background: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
-  box-shadow: 0 22px 44px -28px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255,255,255,0.15);
-  transition: transform .25s ease, box-shadow .25s ease, border .25s ease;
-}
-
-.setup-method-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 24px 52px -24px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255,255,255,0.22);
-  border-color: rgba(255,255,255,0.26);
+  gap: clamp(5px, 0.8vh, 9px);
+  padding: clamp(7px, 1.5vw, 12px);
+  border-radius: clamp(8px, 1.4vw, 12px);
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  box-shadow: 0 8px 20px -22px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255,255,255,0.1);
+  transition: border .25s ease, box-shadow .25s ease, background .25s ease;
 }
 
 .setup-method-card:focus-within {
-  transform: translateY(-3px);
   border-color: rgba(255,255,255,0.32);
-  box-shadow: 0 18px 42px -26px rgba(0,0,0,0.72), 0 0 0 2px rgba(255,255,255,0.18);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.16), 0 18px 36px -26px rgba(0,0,0,0.62);
 }
 
 .setup-method-card-head {
   display: flex;
-  gap: clamp(16px, 3vw, 24px);
+  gap: clamp(8px, 1.4vw, 12px);
   align-items: center;
 }
 
 .setup-method-index {
-  width: clamp(40px, 4.5vw, 48px);
-  height: clamp(40px, 4.5vw, 48px);
-  border-radius: 16px;
+  width: clamp(22px, 2.4vw, 28px);
+  height: clamp(22px, 2.4vw, 28px);
+  border-radius: 8px;
   background: rgba(255,255,255,0.14);
   color: #ffffff;
   font-family: Montserrat, Inter, sans-serif;
@@ -223,21 +258,23 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(16px, 2.4vw, 18px);
+  font-size: clamp(10.5px, 1.3vw, 12.5px);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
 }
 
 .setup-method-copy {
   display: flex;
-  gap: clamp(14px, 2.4vw, 18px);
   align-items: flex-start;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: clamp(8px, 1.2vw, 16px);
+  width: 100%;
+  min-width: 0;
 }
 
 .setup-method-icon {
-  width: clamp(44px, 5vw, 56px);
-  height: clamp(44px, 5vw, 56px);
-  border-radius: 14px;
+  width: clamp(24px, 3.2vw, 32px);
+  height: clamp(24px, 3.2vw, 32px);
+  border-radius: 8px;
   background: rgba(1, 107, 34, 0.15);
   display: inline-flex;
   align-items: center;
@@ -245,18 +282,20 @@
   color: #ffffff;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 10px 24px -16px rgba(1,107,34,0.65);
   flex: 0 0 auto;
+  margin-left: clamp(8px, 1.4vw, 18px);
 }
 
 .setup-method-icon svg {
-  width: 52%;
-  height: 52%;
+  width: 54%;
+  height: 54%;
 }
 
 .setup-method-text {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 180px;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .setup-method-text h3 {
@@ -264,38 +303,38 @@
   font-family: Montserrat, Inter, sans-serif;
   font-weight: 700;
   color: #ffffff;
-  font-size: clamp(17px, 2.4vw, 20px);
-  letter-spacing: 0.2px;
+  font-size: clamp(11px, 1.5vw, 14px);
+  letter-spacing: 0.05px;
 }
 
 .setup-method-text p {
   margin: 0;
-  font-size: clamp(13px, 2.3vw, 15px);
-  line-height: 1.5;
-  color: rgba(255,255,255,0.88);
-  max-width: 460px;
+  font-size: clamp(9.5px, 1.3vw, 10.5px);
+  line-height: 1.38;
+  color: rgba(255,255,255,0.84);
+  max-width: 360px;
 }
 
 .setup-method-card-body {
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 2.2vh, 16px);
+  gap: clamp(3px, 0.7vh, 5px);
 }
 
 .setup-input-inline {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 3px;
 }
 
 .setup-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 3px;
 }
 
 .setup-field-label {
-  font-size: clamp(12px, 2.2vw, 13px);
+  font-size: clamp(9.8px, 1.5vw, 10.5px);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -304,12 +343,12 @@
 
 .setup-field input[type="text"] {
   width: 100%;
-  padding: clamp(14px, 3.2vw, 18px) clamp(16px, 4vw, 20px);
-  border-radius: 12px;
+  padding: clamp(7px, 1.6vw, 9px) clamp(8px, 2vw, 11px);
+  border-radius: 7px;
   border: 2px solid rgba(255,255,255,0.55);
   background: rgba(255,255,255,0.08);
   color: #fff;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.4px;
   outline: none;
@@ -323,67 +362,67 @@
 }
 
 .setup-btn.sm {
-  padding: clamp(11px, 2.6vh, 14px) clamp(18px, 5vw, 24px);
-  min-height: 44px;
-  font-size: clamp(13px, 2vw, 14px);
-  box-shadow: 0 8px 22px -12px rgba(0,0,0,0.38);
+  padding: clamp(6px, 1.3vh, 8px) clamp(10px, 3vw, 14px);
+  min-height: 34px;
+  font-size: clamp(10px, 1.3vw, 11px);
+  box-shadow: 0 3px 12px -11px rgba(0,0,0,0.3);
 }
 
 .setup-file-name {
-  font-size: clamp(12px, 2.1vw, 13px);
-  color: rgba(255,255,255,0.82);
-  max-width: clamp(160px, 38vw, 240px);
+  font-size: clamp(9.5px, 1.4vw, 10.5px);
+  color: rgba(255,255,255,0.8);
+  max-width: clamp(150px, 34vw, 220px);
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
 }
 
 .setup-hint {
-  color: rgba(255,255,255,0.78);
-  font-size: clamp(11px, 2.1vw, 13px);
+  color: rgba(255,255,255,0.75);
+  font-size: clamp(11px, 1.9vw, 12px);
 }
 
 .setup-verify-panel {
   display: flex;
   flex-direction: column;
-  gap: clamp(16px, 2.6vh, 22px);
-  padding: clamp(20px, 3.2vw, 32px);
-  border-radius: clamp(20px, 3vw, 28px);
+  gap: clamp(5px, 0.8vh, 9px);
+  padding: clamp(7px, 1.6vw, 12px);
+  border-radius: clamp(10px, 1.6vw, 16px);
   border: 1px solid rgba(255,255,255,0.22);
-  background: linear-gradient(160deg, rgba(1,107,34,0.65), rgba(1,107,34,0.42));
-  box-shadow: 0 26px 50px -32px rgba(1,107,34,0.65);
+  background: linear-gradient(160deg, rgba(1,107,34,0.58), rgba(1,107,34,0.32));
+  box-shadow: 0 20px 42px -28px rgba(1,107,34,0.55);
 }
 
 .setup-verify-panel h4 {
   margin: 0;
-  font-size: clamp(17px, 2.5vw, 20px);
+  font-size: clamp(12px, 1.6vw, 15px);
   font-weight: 700;
 }
 
 .setup-verify-panel p {
-  margin: 6px 0 0;
-  font-size: clamp(13px, 2.3vw, 15px);
-  color: rgba(255,255,255,0.9);
-  line-height: 1.5;
+  margin: 0;
+  font-size: clamp(9px, 1.3vw, 10.5px);
+  color: rgba(255,255,255,0.85);
+  line-height: 1.34;
 }
 
 .setup-verify-content {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
 }
 
 .setup-verify-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: clamp(12px, 2vw, 16px);
+  gap: clamp(5px, 0.9vw, 9px);
   align-items: center;
 }
 
 .setup-verify-actions .setup-status {
   font-weight: 600;
-  letter-spacing: 0.3px;
-  font-size: clamp(12px, 2vw, 14px);
+  letter-spacing: 0.22px;
+  font-size: clamp(9px, 1.3vw, 10.5px);
 }
 
 @media (min-width: 900px) {
@@ -391,14 +430,60 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    gap: clamp(8px, 1vw, 12px);
   }
 
   .setup-verify-content {
-    max-width: 420px;
+    max-width: 300px;
   }
 
   .setup-verify-actions {
     justify-content: flex-end;
+  }
+}
+
+@media (min-width: 1040px) {
+  .setup-body {
+    align-items: stretch;
+  }
+
+  .setup-section {
+    align-items: stretch;
+  }
+
+  .setup-methods {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(10px, 1.6vw, 22px);
+  }
+
+  .setup-method-card {
+    height: 100%;
+  }
+
+  .setup-methods .setup-method-card:last-child {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .setup-method-card {
+    padding: clamp(9px, 3.6vw, 14px);
+    border-radius: 11px;
+  }
+
+  .setup-method-index {
+    width: clamp(22px, 5.4vw, 28px);
+    height: clamp(22px, 5.4vw, 28px);
+  }
+
+  .setup-method-icon {
+    width: clamp(26px, 6.8vw, 32px);
+    height: clamp(26px, 6.8vw, 32px);
+  }
+
+  .setup-verify-panel {
+    padding: clamp(9px, 3.8vw, 14px);
   }
 }
 

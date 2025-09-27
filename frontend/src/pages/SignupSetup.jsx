@@ -132,180 +132,189 @@ export default function SignupSetup() {
   return (
     <div className="auth-screen-root">
       <div className="auth-content-wrapper">
-        <div className="auth-screen-inner">
-          <div className="auth-top-bar auth-fade-item">
-            <button
-              type="button"
-              className="auth-back-btn"
-              onClick={goPrev}
-              aria-label="Go back"
-            >
-              <ChevronLeftFilled className="auth-back-icon" size={22} color="#ffffff" aria-hidden="true" />
-              <span className="auth-back-text">BACK</span>
-            </button>
-            <div className="auth-brand">
-              <BrandMark variant="white" className="brand-logo-img" />
-              <span className="auth-brand-wordmark">SMARTANOM</span>
-            </div>
-          </div>
+        <div className="auth-screen-inner setup-shell">
+          <div className="auth-content setup-flow">
+            <div className="setup-top">
+              <div className="auth-top-bar auth-fade-item">
+                <button
+                  type="button"
+                  className="auth-back-btn"
+                  onClick={goPrev}
+                  aria-label="Go back"
+                >
+                  <ChevronLeftFilled className="auth-back-icon" size={22} color="#ffffff" aria-hidden="true" />
+                  <span className="auth-back-text">BACK</span>
+                </button>
+                <div className="auth-brand">
+                  <BrandMark variant="white" className="brand-logo-img" />
+                  <span className="auth-brand-wordmark">SMARTANOM</span>
+                </div>
+              </div>
 
-          <div className="auth-content auth-fade-item">
-            <header className="auth-header setup-header">
-              <div className="setup-step-topline">
+              <header className="auth-header setup-progress-header auth-fade-item" aria-label="Setup progress overview">
+                <div className="setup-progress-pill" role="status" aria-live="polite">
+                  <span>{progressPercent}% complete</span>
+                </div>
+                <nav className="setup-stepper" aria-label="Progress">
+                  <div className="setup-track" aria-hidden="true" />
+                  <div
+                    className="setup-track-active"
+                    aria-hidden="true"
+                    style={{ width: `${progressFraction * 100}%` }}
+                  />
+                  <ol className="setup-steps" role="list">
+                    {Array.from({ length: total }).map((_, i) => {
+                      const idx = i + 1;
+                      const state = idx < step ? 'completed' : (idx === step ? 'current' : 'upcoming');
+                      return (
+                        <li key={idx} className={`setup-step ${state}`} aria-current={state === 'current' ? 'step' : undefined}>
+                          <div className="setup-step-node">
+                            <span className="setup-step-icon" aria-hidden="true">{state === 'completed' ? '✓' : idx}</span>
+                            <span className="setup-step-label">{stepLabels[i]}</span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </nav>
                 <div className="setup-step-meta" aria-live="polite">
                   <span className="setup-step-count">Step {step} of {total}</span>
                   <span className="setup-step-tag">{headings[step - 1]}</span>
                 </div>
-                <div className="setup-progress-pill" role="status" aria-live="polite">
-                  <span>{progressPercent}% complete</span>
-                </div>
-              </div>
-              <nav className="setup-stepper" aria-label="Progress">
-                <div className="setup-track" aria-hidden="true" />
-                <div
-                  className="setup-track-active"
-                  aria-hidden="true"
-                  style={{ width: `${progressFraction * 100}%` }}
-                />
-                <ol className="setup-steps" role="list">
-                  {Array.from({ length: total }).map((_, i) => {
-                    const idx = i + 1;
-                    const state = idx < step ? 'completed' : (idx === step ? 'current' : 'upcoming');
-                    return (
-                      <li key={idx} className={`setup-step ${state}`} aria-current={state === 'current' ? 'step' : undefined}>
-                        <div className="setup-step-node">
-                          <span className="setup-step-icon" aria-hidden="true">{state === 'completed' ? '✓' : idx}</span>
-                          <span className="setup-step-label">{stepLabels[i]}</span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              </nav>
-              <h1 className="auth-title">{headings[step - 1]}</h1>
-              <p className="auth-subtext">{subtexts[step - 1]}</p>
-            </header>
+              </header>
+            </div>
 
-            <div className="setup-body">
+            <div className="setup-middle auth-fade-item" role="region" aria-live="polite" aria-label={headings[step - 1]}>
+              <div className="setup-heading">
+                <h1 className="auth-title">{headings[step - 1]}</h1>
+                <p className="auth-subtext">{subtexts[step - 1]}</p>
+              </div>
+
+              <div className="setup-body">
+                {step === 1 && (
+                  <section className="setup-section setup-step-1" aria-label="Identify your SmarTanom device">
+                    <div className="setup-methods">
+                      <article className="setup-method-card">
+                        <header className="setup-method-card-head">
+                          <span className="setup-method-index" aria-hidden="true">1</span>
+                          <div className="setup-method-copy">
+                            <div className="setup-method-text">
+                              <h3>Scan QR Code</h3>
+                              <p>Open your camera and point to the QR sticker on your device.</p>
+                            </div>
+                            <div className="setup-method-icon" aria-hidden="true">
+                              <CameraIcon />
+                            </div>
+                          </div>
+                        </header>
+                        <div className="setup-method-card-body">
+                          <div className="setup-input-inline">
+                            <button
+                              type="button"
+                              className="setup-btn sm"
+                              aria-label="Open camera to scan device QR"
+                            >
+                              Open Camera
+                            </button>
+                            <span className="setup-hint">Allow camera permission when prompted.</span>
+                          </div>
+                        </div>
+                      </article>
+
+                      <article className="setup-method-card">
+                        <header className="setup-method-card-head">
+                          <span className="setup-method-index" aria-hidden="true">2</span>
+                          <div className="setup-method-copy">
+                            <div className="setup-method-text">
+                              <h3>Upload QR Image</h3>
+                              <p>Choose an existing photo of the QR sticker if you have it saved.</p>
+                            </div>
+                            <div className="setup-method-icon" aria-hidden="true">
+                              <UploadIcon />
+                            </div>
+                          </div>
+                        </header>
+                        <div className="setup-method-card-body">
+                          <input id="qrfile" type="file" accept="image/*" className="setup-file" onChange={onPickFile} />
+                          <label htmlFor="qrfile" className="setup-btn sm" aria-label="Choose QR code image">
+                            Choose Image
+                          </label>
+                          {fileName && <span className="setup-file-name" aria-live="polite">{fileName}</span>}
+                        </div>
+                      </article>
+
+                      <article className="setup-method-card">
+                        <header className="setup-method-card-head">
+                          <span className="setup-method-index" aria-hidden="true">3</span>
+                          <div className="setup-method-copy">
+                            <div className="setup-method-text">
+                              <h3>Manual Entry</h3>
+                              <p>Type the Device ID printed underneath the QR label.</p>
+                            </div>
+                            <div className="setup-method-icon" aria-hidden="true">
+                              <KeyboardIcon />
+                            </div>
+                          </div>
+                        </header>
+                        <div className="setup-method-card-body">
+                          <div className="setup-field">
+                            <label className="setup-field-label" htmlFor="deviceId">Device ID</label>
+                            <input
+                              id="deviceId"
+                              type="text"
+                              placeholder="SMRT00"
+                              value={deviceId}
+                              onChange={e => {
+                                setDeviceId(e.target.value);
+                                if (verified) setVerified(false);
+                              }}
+                              aria-label="Manual device ID"
+                            />
+                          </div>
+                        </div>
+                      </article>
+                    </div>
+                  </section>
+                )}
+              </div>
+            </div>
+
+            <div className="setup-bottom auth-fade-item">
               {step === 1 && (
-                <section className="setup-section setup-step-1" aria-label="Identify your SmarTanom device">
-                  <div className="setup-methods">
-                    <article className="setup-method-card">
-                      <header className="setup-method-card-head">
-                        <span className="setup-method-index" aria-hidden="true">1</span>
-                        <div className="setup-method-copy">
-                          <div className="setup-method-icon" aria-hidden="true">
-                            <CameraIcon />
-                          </div>
-                          <div className="setup-method-text">
-                            <h3>Scan QR Code</h3>
-                            <p>Open your camera and point to the QR sticker on your device.</p>
-                          </div>
-                        </div>
-                      </header>
-                      <div className="setup-method-card-body">
-                        <div className="setup-input-inline">
-                          <button
-                            type="button"
-                            className="setup-btn sm"
-                            aria-label="Open camera to scan device QR"
-                          >
-                            Open Camera
-                          </button>
-                          <span className="setup-hint">Allow camera permission when prompted.</span>
-                        </div>
-                      </div>
-                    </article>
-
-                    <article className="setup-method-card">
-                      <header className="setup-method-card-head">
-                        <span className="setup-method-index" aria-hidden="true">2</span>
-                        <div className="setup-method-copy">
-                          <div className="setup-method-icon" aria-hidden="true">
-                            <UploadIcon />
-                          </div>
-                          <div className="setup-method-text">
-                            <h3>Upload QR Image</h3>
-                            <p>Choose an existing photo of the QR sticker if you have it saved.</p>
-                          </div>
-                        </div>
-                      </header>
-                      <div className="setup-method-card-body">
-                        <input id="qrfile" type="file" accept="image/*" className="setup-file" onChange={onPickFile} />
-                        <label htmlFor="qrfile" className="setup-btn sm" aria-label="Choose QR code image">
-                          Choose Image
-                        </label>
-                        {fileName && <span className="setup-file-name" aria-live="polite">{fileName}</span>}
-                      </div>
-                    </article>
-
-                    <article className="setup-method-card">
-                      <header className="setup-method-card-head">
-                        <span className="setup-method-index" aria-hidden="true">3</span>
-                        <div className="setup-method-copy">
-                          <div className="setup-method-icon" aria-hidden="true">
-                            <KeyboardIcon />
-                          </div>
-                          <div className="setup-method-text">
-                            <h3>Manual Entry</h3>
-                            <p>Type the Device ID printed underneath the QR label.</p>
-                          </div>
-                        </div>
-                      </header>
-                      <div className="setup-method-card-body">
-                        <div className="setup-field">
-                          <label className="setup-field-label" htmlFor="deviceId">Device ID</label>
-                          <input
-                            id="deviceId"
-                            type="text"
-                            placeholder="SMRT00"
-                            value={deviceId}
-                            onChange={e => {
-                              setDeviceId(e.target.value);
-                              if (verified) setVerified(false);
-                            }}
-                            aria-label="Manual device ID"
-                          />
-                        </div>
-                      </div>
-                    </article>
+                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify your device" data-section="verify">
+                  <div className="setup-verify-content">
+                    <h4>Verify your device</h4>
+                    <p>We’ll confirm your SmarTanom before moving on.</p>
                   </div>
-
-                  <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify your device" data-section="verify">
-                    <div className="setup-verify-content">
-                      <h4>Verify your device</h4>
-                      <p>We’ll confirm your SmarTanom before moving on.</p>
-                    </div>
-                    <div className="setup-verify-actions">
-                      <button type="button" className="setup-btn" onClick={verifyDevice} disabled={checking}>
-                        {checking ? 'Verifying…' : 'Verify Device'}
-                      </button>
-                      {verified && (
-                        <span className="setup-status success" role="status">✓ Device verified</span>
-                      )}
-                    </div>
-                  </div>
-                </section>
-              )}
-            </div>
-
-            <div className="setup-actions">
-              <button type="button" className="setup-btn outline" onClick={goPrev} aria-label="Previous step">Previous</button>
-              <button type="button" className="setup-btn" onClick={goNext} aria-label="Next step" disabled={step === 1 && !verified}>Next</button>
-            </div>
-
-            {modal.open && (
-              <div className="setup-modal" role="dialog" aria-modal="true" aria-label="Verification error">
-                <div className="setup-modal-content">
-                  <h4 style={{ margin: 0 }}>Verification Error</h4>
-                  <p style={{ margin: 0 }}>{modal.message}</p>
-                  <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-                    <button type="button" className="setup-btn" onClick={closeModal}>OK</button>
+                  <div className="setup-verify-actions">
+                    <button type="button" className="setup-btn" onClick={verifyDevice} disabled={checking}>
+                      {checking ? 'Verifying…' : 'Verify Device'}
+                    </button>
+                    {verified && (
+                      <span className="setup-status success" role="status">✓ Device verified</span>
+                    )}
                   </div>
                 </div>
+              )}
+
+              <div className="setup-actions">
+                <button type="button" className="setup-btn outline" onClick={goPrev} aria-label="Previous step">Previous</button>
+                <button type="button" className="setup-btn" onClick={goNext} aria-label="Next step" disabled={step === 1 && !verified}>Next</button>
               </div>
-            )}
+            </div>
           </div>
+
+          {modal.open && (
+            <div className="setup-modal" role="dialog" aria-modal="true" aria-label="Verification error">
+              <div className="setup-modal-content">
+                <h4 style={{ margin: 0 }}>Verification Error</h4>
+                <p style={{ margin: 0 }}>{modal.message}</p>
+                <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                  <button type="button" className="setup-btn" onClick={closeModal}>OK</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <div className="auth-image-column" aria-hidden="true" />
