@@ -355,6 +355,11 @@
   transition: border-color .25s ease, background .25s ease, box-shadow .25s ease;
 }
 
+.setup-field input[type="text"]::placeholder {
+  color: #ffffff;
+  opacity: 0.92;
+}
+
 .setup-field input[type="text"]:focus {
   border-color: #ffffff;
   background: rgba(255,255,255,0.16);
