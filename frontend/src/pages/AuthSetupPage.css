@@ -44,9 +44,48 @@
   }
 }
 
+/* Extreme vertical constraints - mobile landscape */
+@media (max-height: 500px) {
+  .auth-content-wrapper {
+    padding: clamp(4px, 1vh, 8px) clamp(12px, 3vw, 20px);
+  }
+  .setup-flow {
+    gap: clamp(3px, 0.8vh, 6px);
+  }
+  .setup-top, .setup-bottom {
+    gap: clamp(3px, 0.6vh, 6px);
+  }
+}
+
+/* Small laptops and tablets */
+@media (min-height: 600px) and (max-height: 800px) {
+  .auth-content-wrapper {
+    padding: clamp(10px, 1.5vh, 16px) clamp(20px, 3.5vw, 28px);
+  }
+}
+
+/* Large screens - center content */
 @media (min-height: 920px) {
   .auth-content-wrapper {
     justify-content: center;
+  }
+}
+
+/* Ultra-wide screens - limit maximum width and center */
+@media (min-width: 1920px) {
+  .setup-shell {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}
+
+/* High DPI displays - ensure sharp rendering */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .setup-method-card {
+    border-width: 0.5px;
+  }
+  .setup-field input[type="text"] {
+    border-width: 1px;
   }
 }
 
@@ -292,6 +331,21 @@
   display: flex;
   flex-direction: column;
   gap: clamp(5px, 0.8vh, 9px);
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+
+/* Allow horizontal layout on wide screens with limited height */
+@media (min-aspect-ratio: 16/9) and (max-height: 600px) {
+  .setup-methods {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: clamp(6px, 1vw, 12px);
+  }
+  .setup-method-card {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 280px;
+  }
 }
 
 .setup-method-card {
@@ -375,6 +429,10 @@
   color: #ffffff;
   font-size: clamp(10px, 1.4vw, 13px);
   letter-spacing: 0.05px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: 1.2;
 }
 
 .setup-method-text p {
@@ -383,6 +441,9 @@
   line-height: 1.38;
   color: rgba(255,255,255,0.84);
   max-width: 360px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .setup-method-card-body {
@@ -423,6 +484,8 @@
   letter-spacing: 0.4px;
   outline: none;
   transition: border-color .25s ease, background .25s ease, box-shadow .25s ease;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .setup-field input[type="text"]::placeholder {
