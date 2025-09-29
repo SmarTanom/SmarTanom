@@ -50,6 +50,24 @@
   .setup-top, .setup-bottom {
     gap: clamp(1px, 0.4vh, 3px);
   }
+  
+  /* Hide step labels on extremely small heights */
+  .setup-step .setup-step-label {
+    display: none;
+  }
+  
+  /* Ultra-compact progress pill */
+  .setup-progress-pill {
+    padding: clamp(1px, 0.3vh, 2px) clamp(3px, 1vw, 6px);
+    font-size: clamp(0.4375rem, 1.1vw, 0.625rem); /* 7px-10px */
+  }
+  
+  /* Micro stepper */
+  .setup-step .setup-step-icon {
+    width: clamp(14px, 2vw, 16px);
+    height: clamp(14px, 2vw, 16px);
+    font-size: clamp(0.375rem, 1vw, 0.5rem); /* 6px-8px */
+  }
 }
 
 /* Extreme vertical constraints - mobile landscape */
@@ -1047,13 +1065,6 @@
     font-size: clamp(0.75rem, 1.8vw, 0.875rem); /* 12px-14px */
   }
   
-  /* Enable horizontal layout for extreme aspect ratios */
-  @media (min-aspect-ratio: 16/9) and (max-height: 600px) {
-    .setup-methods {
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: clamp(8px, 1.2vw, 14px);
-    }
-  }
 }
 
 /* Desktop and large screens (1024px+) */
@@ -1089,6 +1100,14 @@
   .setup-btn {
     font-size: clamp(0.875rem, 1.8vw, 1rem); /* 14px-16px */
     padding: clamp(10px, 2vw, 14px) clamp(16px, 3.2vw, 22px);
+  }
+}
+
+/* Enable horizontal layout for extreme aspect ratios */
+@media (min-width: 768px) and (min-aspect-ratio: 16/9) and (max-height: 600px) {
+  .setup-methods {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: clamp(8px, 1.2vw, 14px);
   }
 }
 
