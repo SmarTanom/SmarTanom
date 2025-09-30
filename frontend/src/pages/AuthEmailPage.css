@@ -60,7 +60,8 @@
     height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    /* Stretch inner so it can take full column width */
+    align-items: stretch;
     justify-content: center;
     /* Let content scroll if needed on short landscapes */
     overflow: auto;
@@ -78,7 +79,8 @@
 }
 
 .auth-screen-inner { 
-  max-width: 520px; 
+  /* Base: mobile can use full width */
+  max-width: none; 
   width: 100%; 
   display: flex; 
   flex-direction: column; 
@@ -169,7 +171,8 @@
   margin: 0; 
   font-size: clamp(14px, 3.5vw, 20px); 
   line-height: 1.4; 
-  max-width: 520px; 
+  /* Allow wider readable measure on large screens while capping for readability */
+  max-width: clamp(520px, 70%, 900px);
   color: rgba(255, 255, 255, 0.92); 
   text-align: left !important;
 }
@@ -182,7 +185,7 @@
 
 @media (min-width: 1200px) {
   .auth-title { font-size: clamp(56px, 7.5vw, 84px); }
-  .auth-subtext { font-size: clamp(18px, 2.2vw, 22px); }
+  .auth-subtext { font-size: clamp(18px, 2.2vw, 22px); max-width: 65ch; }
 }
 
 @media (min-width: 1600px) {
@@ -240,10 +243,39 @@
   }
 }
 
+/* Inner tracks the wrapper width at all breakpoints */
+
 /* On very tall viewports, loosen distribution to avoid excessive gaps between sections */
 @media (min-height: 900px) {
   .auth-screen-inner { justify-content: space-evenly; }
   .auth-content { justify-content: center; }
+}
+
+/* Match Identify screen left width utilization */
+@media (min-width: 600px) {
+  .auth-screen-inner { max-width: clamp(480px, 80vw, 640px); margin: 0; }
+}
+
+@media (min-width: 768px) {
+  .auth-screen-inner { max-width: clamp(560px, 75vw, 720px); }
+}
+
+@media (min-width: 1024px) {
+  .auth-screen-inner { max-width: clamp(600px, 70vw, 800px); }
+}
+
+@media (min-width: 1440px) {
+  .auth-screen-inner { max-width: clamp(640px, 65vw, 900px); }
+}
+
+@media (min-width: 1920px) {
+  .auth-screen-inner { max-width: 960px; }
+}
+
+/* Force full-width usage of left column on desktops while keeping safe paddings */
+@media (min-width: 1024px) {
+  .auth-content-wrapper { align-items: stretch; }
+  .auth-screen-inner { max-width: none; width: 100%; margin: 0; }
 }
 
 @media (min-width: 1200px) {
@@ -253,28 +285,6 @@
     padding-bottom: max(clamp(48px, 6vw, 80px), env(safe-area-inset-bottom));
     padding-left: max(clamp(48px, 6vw, 80px), env(safe-area-inset-left));
     padding-right: max(clamp(48px, 6vw, 80px), env(safe-area-inset-right));
-  }
-}
-
-/* Widen left content column on larger screens to utilize space */
-@media (min-width: 1024px) {
-  .auth-screen-inner {
-    /* Expand within reasonable bounds on laptops/desktops */
-    max-width: clamp(560px, 48vw, 720px);
-  }
-}
-
-@media (min-width: 1440px) {
-  .auth-screen-inner {
-    /* Allow more breathing room on wide monitors */
-    max-width: clamp(640px, 42vw, 820px);
-  }
-}
-
-@media (min-width: 1920px) {
-  .auth-screen-inner {
-    /* Ultra-wide displays get a bit more width without over-expanding */
-    max-width: clamp(720px, 38vw, 900px);
   }
 }
 
