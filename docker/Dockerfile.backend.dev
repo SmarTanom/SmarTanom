@@ -1,0 +1,47 @@
+ARG PYTHON_VERSION=3.12.5
+ARG ALPINE_VERSION=3.20
+
+# Development Dockerfile for backend with volume mount support
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DJANGO_SETTINGS_MODULE=smartanom.settings \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache \
+    postgresql15-client \
+    libpq \
+    build-base \
+    linux-headers
+
+# Create user first
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Install Python dependencies
+COPY backend/requirements.txt ./
+RUN python -m pip install --upgrade pip setuptools wheel
+RUN pip install -r requirements.txt
+
+# Create a simple startup script for development
+RUN echo '#!/bin/sh' > /startup.sh && \
+    echo 'set -e' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo 'cd /app' >> /startup.sh && \
+    echo 'echo "Starting Django development server..."' >> /startup.sh && \
+    echo 'echo "Running migrations..."' >> /startup.sh && \
+    echo 'python manage.py migrate --noinput || true' >> /startup.sh && \
+    echo 'echo "Starting server on 0.0.0.0:8000"' >> /startup.sh && \
+    echo 'exec python manage.py runserver 0.0.0.0:8000' >> /startup.sh && \
+    chmod +x /startup.sh
+
+# Create logs directory and set permissions
+RUN mkdir -p /app/logs && chown -R appuser:appgroup /app /startup.sh
+
+USER appuser
+EXPOSE 8000
+
+ENTRYPOINT ["/startup.sh"]

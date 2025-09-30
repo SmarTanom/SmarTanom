@@ -1,10 +1,11 @@
-# Backend and Frontend only - Lightweight development setup
+# Complete development environment with backend, frontend, mobile, and database
+version: '3.8'
 
 services:
   # PostgreSQL database
   postgres:
     image: postgres:15-alpine
-    container_name: smartanom-db
+    container_name: smartanom-db-dev
     environment:
       POSTGRES_DB: smartanom_dev
       POSTGRES_USER: smartanom
@@ -13,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_dev:/var/lib/postgresql/data
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - smartanom-network
@@ -28,11 +29,11 @@ services:
   # Redis for caching and task queue
   redis:
     image: redis:7-alpine
-    container_name: smartanom-redis
+    container_name: smartanom-redis-dev
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - redis_data_dev:/data
     networks:
       - smartanom-network
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
@@ -47,8 +48,10 @@ services:
   backend:
     build:
       context: .
-      dockerfile: docker/Dockerfile.backend.dev
-    container_name: smartanom-backend
+      dockerfile: docker/Dockerfile.backend
+      args:
+        INSTALL_DEV: "true"
+    container_name: smartanom-backend-dev
     environment:
       - DEBUG=1
       - SECRET_KEY=dev-secret-key-change-in-production
@@ -66,7 +69,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - backend_logs:/app/logs
+      - backend_logs_dev:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,11 +84,12 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
-    container_name: smartanom-frontend
+    container_name: smartanom-frontend-dev
     environment:
       - NODE_ENV=development
       - VITE_API_URL=http://localhost:8000/api
       - VITE_WS_URL=ws://localhost:8000/ws
+      - VITE_APP_BACKEND_HOST=backend
     ports:
       - "5173:5173"
     volumes:
@@ -97,11 +101,52 @@ services:
       - smartanom-network
     restart: unless-stopped
 
+  # Mobile Expo application (development)
+  mobile:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile
+    container_name: smartanom-mobile-dev
+    tty: true
+    stdin_open: true
+    ports:
+      - "19000:19000"   # Metro (native)
+      - "19001:19001"   # WebSocket/Logs
+      - "19002:19002"   # DevTools (legacy)
+      - "19006:19006"   # Expo Web
+      - "8081:8081"     # Metro bundler
+    environment:
+      - EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
+      - EXPO_USE_DEV_SERVER=true
+      - WATCHMAN_DISABLE=true
+      - REACT_NATIVE_PACKAGER_HOSTNAME=0.0.0.0
+      - NODE_ENV=development
+      - EXPO_NO_TELEMETRY=1
+      - EXPO_API_URL=http://localhost:8000/api
+    volumes:
+      - ./mobile:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - smartanom-network
+    command: >
+      sh -c "echo 'Installing dependencies if needed...' &&
+             if [ ! -d node_modules ] || [ ! -f node_modules/.package-lock.json ]; then
+               npm install;
+             fi &&
+             echo 'Starting Expo development server...' &&
+             npm run start -- --tunnel"
+    restart: unless-stopped
+
 volumes:
-  postgres_data:
-  redis_data:
-  backend_logs:
+  postgres_data_dev:
+  redis_data_dev:
+  backend_logs_dev:
 
 networks:
   smartanom-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

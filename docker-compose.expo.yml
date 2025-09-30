@@ -1,4 +1,4 @@
-version: "3.9"
+version: "3.8"
 
 services:
   expo:
@@ -22,9 +22,21 @@ services:
       REACT_NATIVE_PACKAGER_HOSTNAME: 0.0.0.0
       NODE_ENV: development
       EXPO_NO_TELEMETRY: "1"
+      EXPO_API_URL: "http://localhost:8000/api"
     volumes:
       - ./mobile:/app
       - /app/node_modules        # anonymous volume to persist deps inside container
+    networks:
+      - smartanom-mobile-network
+    restart: unless-stopped
     command: >-
-      sh -c "if [ ! -d node_modules ]; then echo 'Installing node modules...' && (npm ci || npm install); fi; \
-      echo 'Starting Expo dev server'; npm run start"
+      sh -c "echo 'Installing dependencies if needed...' &&
+             if [ ! -d node_modules ] || [ ! -f node_modules/.package-lock.json ]; then
+               npm install;
+             fi &&
+             echo 'Starting Expo development server...' &&
+             npm run start -- --tunnel"
+
+networks:
+  smartanom-mobile-network:
+    driver: bridge
