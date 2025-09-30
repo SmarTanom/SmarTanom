@@ -50,7 +50,8 @@
 @media (min-width: 769px) {
   .auth-screen-root {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* Allocate more space to the left content column vs right image */
+    grid-template-columns: 1.2fr 0.8fr; /* ~60% left / 40% right */
     grid-template-areas: "content image";
   }
   
@@ -76,6 +77,14 @@
     background-repeat: no-repeat;
     height: 100vh;
   }
+}
+
+/* Ultra-wide monitors: progressively give more width to the left panel */
+@media (min-width: 1440px) {
+  .auth-screen-root { grid-template-columns: 1.35fr 0.65fr; }
+}
+@media (min-width: 1920px) {
+  .auth-screen-root { grid-template-columns: 1.5fr 0.5fr; }
 }
 
 .auth-screen-inner { 
@@ -172,7 +181,7 @@
   font-size: clamp(14px, 3.5vw, 20px); 
   line-height: 1.4; 
   /* Allow wider readable measure on large screens while capping for readability */
-  max-width: clamp(520px, 70%, 900px);
+  max-width: clamp(520px, 80%, 1100px);
   color: rgba(255, 255, 255, 0.92); 
   text-align: left !important;
 }
@@ -185,12 +194,13 @@
 
 @media (min-width: 1200px) {
   .auth-title { font-size: clamp(56px, 7.5vw, 84px); }
-  .auth-subtext { font-size: clamp(18px, 2.2vw, 22px); max-width: 65ch; }
+  /* Keep readability but let copy breathe wider */
+  .auth-subtext { font-size: clamp(18px, 2.2vw, 22px); max-width: min(80ch, 92%); }
 }
 
 @media (min-width: 1600px) {
   .auth-title { font-size: clamp(72px, 8vw, 96px); }
-  .auth-subtext { font-size: clamp(20px, 2.4vw, 24px); }
+  .auth-subtext { font-size: clamp(20px, 2.4vw, 24px); max-width: min(90ch, 94%); }
 }
 
 /* Form */
@@ -252,24 +262,9 @@
 }
 
 /* Match Identify screen left width utilization */
-@media (min-width: 600px) {
-  .auth-screen-inner { max-width: clamp(480px, 80vw, 640px); margin: 0; }
-}
-
-@media (min-width: 768px) {
-  .auth-screen-inner { max-width: clamp(560px, 75vw, 720px); }
-}
-
-@media (min-width: 1024px) {
-  .auth-screen-inner { max-width: clamp(600px, 70vw, 800px); }
-}
-
-@media (min-width: 1440px) {
-  .auth-screen-inner { max-width: clamp(640px, 65vw, 900px); }
-}
-
-@media (min-width: 1920px) {
-  .auth-screen-inner { max-width: 960px; }
+/* Remove previous inner max-width clamps so left column can fully expand */
+@media (min-width: 769px) {
+  .auth-screen-inner { max-width: none; width: 100%; margin: 0; }
 }
 
 /* Force full-width usage of left column on desktops while keeping safe paddings */
@@ -286,6 +281,34 @@
     padding-left: max(clamp(48px, 6vw, 80px), env(safe-area-inset-left));
     padding-right: max(clamp(48px, 6vw, 80px), env(safe-area-inset-right));
   }
+}
+
+/* Increase side paddings and spacing for large/ultra-wide to fill space intentionally */
+@media (min-width: 1440px) {
+  .auth-content-wrapper {
+    padding: clamp(56px, 8vw, 160px);
+    padding-top: max(clamp(56px, 8vw, 160px), env(safe-area-inset-top));
+    padding-bottom: max(clamp(56px, 8vw, 160px), env(safe-area-inset-bottom));
+    padding-left: max(clamp(56px, 8vw, 160px), env(safe-area-inset-left));
+    padding-right: max(clamp(56px, 8vw, 160px), env(safe-area-inset-right));
+  }
+  .auth-content { gap: clamp(28px, 5vh, 48px); }
+  .auth-form { gap: clamp(20px, 3vh, 28px); }
+  .auth-input { font-size: 16px; padding: clamp(16px, 1.2vw, 20px) 20px clamp(16px, 1.2vw, 20px) 48px; }
+  .auth-field-label { font-size: 14px; }
+  .auth-submit { font-size: 16px; padding: clamp(16px, 1.2vw, 20px) 24px; }
+}
+
+@media (min-width: 1920px) {
+  .auth-content-wrapper {
+    padding: clamp(72px, 10vw, 200px);
+    padding-top: max(clamp(72px, 10vw, 200px), env(safe-area-inset-top));
+    padding-bottom: max(clamp(72px, 10vw, 200px), env(safe-area-inset-bottom));
+    padding-left: max(clamp(72px, 10vw, 200px), env(safe-area-inset-left));
+    padding-right: max(clamp(72px, 10vw, 200px), env(safe-area-inset-right));
+  }
+  .auth-content { gap: clamp(32px, 6vh, 56px); }
+  .auth-form { gap: clamp(24px, 3.5vh, 32px); }
 }
 
 /* Landscape and short-height optimization to prevent crowding/cut-offs */
