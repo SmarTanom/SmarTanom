@@ -30,12 +30,20 @@
   color: #fff;
   display: flex;
   flex-direction: column;
+  /* Safe-area aware padding to avoid notches and system bars */
   padding: clamp(16px, 3vw, 24px) clamp(16px, 4vw, 32px);
+  padding-top: max(clamp(16px, 3vw, 24px), env(safe-area-inset-top));
+  padding-bottom: max(clamp(16px, 3vw, 24px), env(safe-area-inset-bottom));
+  padding-left: max(clamp(16px, 4vw, 32px), env(safe-area-inset-left));
+  padding-right: max(clamp(16px, 4vw, 32px), env(safe-area-inset-right));
   box-sizing: border-box;
   font-family: Montserrat, Inter, sans-serif;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  /* Allow content to scroll on constrained heights to prevent cut-offs */
+  overflow: auto;
+  /* Ensure flex children can shrink correctly */
+  min-height: 0;
 }
 
 /* Two-column layout for larger screens - matching landing page */
@@ -54,7 +62,9 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
+    /* Let content scroll if needed on short landscapes */
+    overflow: auto;
+    min-height: 0;
   }
   
   .auth-image-column {
@@ -74,11 +84,13 @@
   flex-direction: column; 
   gap: clamp(20px, 3vh, 32px); 
   max-height: 85vh;
-  overflow: hidden;
+  /* Allow internal scrolling to avoid overlap on small heights */
+  overflow: auto;
+  min-height: 0;
 }
 
 /* Top bar layout */
-.auth-top-bar { display:flex; align-items:center; justify-content:space-between; min-height:56px; }
+.auth-top-bar { display:flex; align-items:center; justify-content:space-between; min-height:56px; margin-bottom: clamp(8px, 2vh, 16px); }
 
 /* Back button redesigned */
 .auth-back-btn { position:relative; display:inline-flex; align-items:center; gap:10px; font-size:14px; font-weight:600; letter-spacing:0.8px; color:#fff; background:rgba(255,255,255,0.10); padding:12px 18px; border-radius:100px; cursor:pointer; border:1px solid rgba(255,255,255,0.25); transition:background .25s ease, transform .25s ease, box-shadow .25s ease, opacity .25s ease; user-select:none; -webkit-tap-highlight-color:transparent; min-height:44px; }
@@ -127,6 +139,7 @@
   align-items: flex-start !important;
   width: 100%;
   text-align: left !important;
+  gap: clamp(8px, 1.6vh, 16px);
 }
 
 /* Typography matching landing page scale */
@@ -166,7 +179,7 @@
 }
 
 /* Form */
-.auth-form { display: flex; flex-direction: column; gap: clamp(16px, 3vw, 20px); width: 100%; }
+.auth-form { display: flex; flex-direction: column; gap: clamp(16px, 2.2vh, 24px); width: 100%; }
 
 .auth-field { display: flex; flex-direction: column; gap: 6px; position: relative; }
 .auth-field-label { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; opacity: 0.95; }
@@ -192,17 +205,22 @@
 .auth-submit[disabled] { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 
 /* Helper text */
-.auth-helper { font-size: 12px; opacity: 0.85; text-align: center; }
+.auth-helper { font-size: 12px; opacity: 0.85; text-align: center; margin-top: clamp(4px, 1vh, 8px); }
 
 /* Layout distribution for larger screens - updated to match landing page breakpoints */
 @media (min-width: 769px) {
   .auth-content-wrapper { 
     padding: clamp(32px, 5vw, 64px); 
+    padding-top: max(clamp(32px, 5vw, 64px), env(safe-area-inset-top));
+    padding-bottom: max(clamp(32px, 5vw, 64px), env(safe-area-inset-bottom));
+    padding-left: max(clamp(32px, 5vw, 64px), env(safe-area-inset-left));
+    padding-right: max(clamp(32px, 5vw, 64px), env(safe-area-inset-right));
   }
   .auth-screen-inner { 
     gap: clamp(24px, 4vh, 40px); 
     max-height: 90vh;
-    overflow: hidden;
+    overflow: auto;
+    min-height: 0;
   }
   .auth-brand-wordmark { 
     font-size: clamp(16px, 1.8vw, 24px); 
@@ -212,7 +230,32 @@
 @media (min-width: 1200px) {
   .auth-content-wrapper { 
     padding: clamp(48px, 6vw, 80px); 
+    padding-top: max(clamp(48px, 6vw, 80px), env(safe-area-inset-top));
+    padding-bottom: max(clamp(48px, 6vw, 80px), env(safe-area-inset-bottom));
+    padding-left: max(clamp(48px, 6vw, 80px), env(safe-area-inset-left));
+    padding-right: max(clamp(48px, 6vw, 80px), env(safe-area-inset-right));
   }
+}
+
+/* Landscape and short-height optimization to prevent crowding/cut-offs */
+@media (orientation: landscape) and (max-height: 560px) {
+  .auth-content-wrapper { 
+    padding: clamp(10px, 2vh, 16px) clamp(12px, 4vw, 24px);
+  }
+  .auth-screen-inner { 
+    gap: clamp(12px, 2vh, 16px); 
+    max-height: 100vh; 
+  }
+  .auth-header { gap: clamp(6px, 1.4vh, 12px); }
+  .auth-title { line-height: 1.08; }
+  .auth-subtext { line-height: 1.35; }
+  .auth-form { gap: clamp(12px, 1.6vh, 16px); }
+}
+
+/* Ultra-narrow phones: keep comfortable side padding and avoid edge collisions */
+@media (max-width: 360px) {
+  .auth-content-wrapper { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+  .auth-screen-inner { padding-inline: 0; }
 }
 
 /* Remove outdated large screen grid - replaced with two-column layout */
