@@ -256,6 +256,28 @@
   }
 }
 
+/* Widen left content column on larger screens to utilize space */
+@media (min-width: 1024px) {
+  .auth-screen-inner {
+    /* Expand within reasonable bounds on laptops/desktops */
+    max-width: clamp(560px, 48vw, 720px);
+  }
+}
+
+@media (min-width: 1440px) {
+  .auth-screen-inner {
+    /* Allow more breathing room on wide monitors */
+    max-width: clamp(640px, 42vw, 820px);
+  }
+}
+
+@media (min-width: 1920px) {
+  .auth-screen-inner {
+    /* Ultra-wide displays get a bit more width without over-expanding */
+    max-width: clamp(720px, 38vw, 900px);
+  }
+}
+
 /* Landscape and short-height optimization to prevent crowding/cut-offs */
 @media (orientation: landscape) and (max-height: 560px) {
   .auth-content-wrapper { 
