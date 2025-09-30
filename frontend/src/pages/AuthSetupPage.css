@@ -473,10 +473,9 @@
 }
 
 .setup-methods {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(2px, 0.5vh, 4px);
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(8px, 1.2vh, 14px);
   overflow: visible;
   min-height: 0;
 }
@@ -484,9 +483,9 @@
 .setup-method-card {
   display: flex;
   flex-direction: column;
-  gap: clamp(2px, 0.4vh, 4px);
-  padding: clamp(3px, 0.8vh, 6px);
-  border-radius: clamp(4px, 1vw, 6px);
+  gap: clamp(6px, 0.8vh, 10px);
+  padding: clamp(8px, 1.2vh, 12px);
+  border-radius: clamp(8px, 1.2vw, 10px);
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.05);
   box-shadow: 0 2px 8px -14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.06);
@@ -502,14 +501,14 @@
 
 .setup-method-card-head {
   display: flex;
-  gap: clamp(4px, 1vw, 6px);
+  gap: clamp(8px, 1.2vw, 12px);
   align-items: center;
   min-height: 0;
 }
 
 .setup-method-index {
-  width: clamp(14px, 2vw, 18px);
-  height: clamp(14px, 2vw, 18px);
+  width: clamp(18px, 2.2vw, 22px);
+  height: clamp(18px, 2.2vw, 22px);
   border-radius: 4px;
   background: rgba(255,255,255,0.14);
   color: #ffffff;
@@ -518,7 +517,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(0.5rem, 1vw, 0.625rem); /* 8px-10px */
+  font-size: clamp(0.625rem, 1.2vw, 0.75rem); /* 10px-12px */
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14);
   flex: 0 0 auto;
 }
@@ -535,8 +534,8 @@
 }
 
 .setup-method-icon {
-  width: clamp(16px, 2.4vw, 20px);
-  height: clamp(16px, 2.4vw, 20px);
+  width: clamp(28px, 3vw, 34px);
+  height: clamp(28px, 3vw, 34px);
   border-radius: 4px;
   background: rgba(1, 107, 34, 0.15);
   display: inline-flex;
@@ -545,7 +544,7 @@
   color: #ffffff;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 6px -8px rgba(1,107,34,0.4);
   flex: 0 0 auto;
-  margin-left: clamp(2px, 0.8vw, 4px);
+  margin-left: clamp(4px, 0.8vw, 6px);
 }
 
 .setup-method-icon svg {
@@ -556,7 +555,7 @@
 .setup-method-text {
   display: flex;
   flex-direction: column;
-  gap: 0px;
+  gap: 2px;
   min-width: 0;
   flex: 1 1 auto;
   min-height: 0;
@@ -567,7 +566,7 @@
   font-family: Montserrat, Inter, sans-serif;
   font-weight: 700;
   color: #ffffff;
-  font-size: clamp(0.5625rem, 1.2vw, 0.75rem); /* 9px-12px */
+  font-size: clamp(0.75rem, 1.4vw, 0.95rem); /* 12px-15px */
   letter-spacing: 0.01em;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -577,10 +576,10 @@
 
 .setup-method-text p {
   margin: 0;
-  font-size: clamp(0.5rem, 1vw, 0.625rem); /* 8px-10px */
-  line-height: 1.25;
+  font-size: clamp(0.6875rem, 1.2vw, 0.875rem); /* 11px-14px */
+  line-height: 1.35;
   color: rgba(255,255,255,0.8);
-  max-width: 240px;
+  max-width: 520px;
   word-wrap: break-word;
   overflow-wrap: break-word;
   hyphens: auto;
@@ -595,7 +594,7 @@
 .setup-input-inline {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
 }
 
 .setup-field {
@@ -614,12 +613,12 @@
 
 .setup-field input[type="text"] {
   width: 100%;
-  padding: clamp(4px, 1vw, 6px) clamp(5px, 1.5vw, 8px);
-  border-radius: clamp(4px, 1vw, 6px);
+  padding: clamp(6px, 1.2vw, 10px) clamp(8px, 2vw, 12px);
+  border-radius: clamp(6px, 1vw, 8px);
   border: 2px solid rgba(255,255,255,0.45);
   background: rgba(255,255,255,0.04);
   color: #fff;
-  font-size: clamp(0.625rem, 2vw, 0.8125rem); /* 10px-13px */
+  font-size: clamp(0.75rem, 2vw, 0.9375rem); /* 12px-15px */
   font-weight: 600;
   letter-spacing: 0.01em;
   outline: none;
@@ -641,10 +640,10 @@
 }
 
 .setup-btn.sm {
-  padding: clamp(6px, 1.4vh, 9px) clamp(10px, 3vw, 14px);
-  min-height: clamp(44px, 6vh, 50px);
-  font-size: clamp(10px, 1.8vw, 11.5px);
-  box-shadow: 0 3px 12px -11px rgba(0,0,0,0.3);
+  font-size: clamp(0.6875rem, 1.6vw, 0.875rem); /* 11px-14px */
+  padding: clamp(6px, 1.6vw, 10px) clamp(10px, 2.5vw, 14px);
+  min-height: 38px;
+  min-width: 38px;
 }
 
 .setup-file-name {
@@ -664,9 +663,9 @@
 .setup-verify-panel {
   display: flex;
   flex-direction: column;
-  gap: clamp(5px, 0.8vh, 8px);
-  padding: clamp(6px, 1.3vh, 11px);
-  border-radius: clamp(10px, 1.6vw, 16px);
+  gap: clamp(8px, 1.2vh, 12px);
+  padding: clamp(8px, 1.4vh, 14px);
+  border-radius: clamp(10px, 1.2vw, 14px);
   border: 1px solid rgba(255,255,255,0.22);
   background: linear-gradient(160deg, rgba(1,107,34,0.58), rgba(1,107,34,0.32));
   box-shadow: 0 20px 42px -28px rgba(1,107,34,0.55);
@@ -701,7 +700,7 @@
 .setup-verify-actions .setup-status {
   font-weight: 600;
   letter-spacing: 0.22px;
-  font-size: clamp(9px, 1.2vw, 10.3px);
+  font-size: clamp(11px, 1.2vw, 12.5px);
 }
 
 @media (min-width: 900px) {
@@ -732,7 +731,7 @@
 
   .setup-methods {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: clamp(10px, 1.6vw, 22px);
   }
 
@@ -740,9 +739,7 @@
     height: 100%;
   }
 
-  .setup-methods .setup-method-card:last-child {
-    grid-column: span 2;
-  }
+  .setup-methods .setup-method-card:last-child { grid-column: auto; }
 }
 
 @media (max-height: 860px) {
@@ -881,24 +878,30 @@
   display: flex; flex-direction: column; gap: 12px;
 }
 
-/* Ultra-compact mobile-first stepper */
-.setup-stepper { 
-  width: 100%; 
-  position: relative; 
-  padding-top: clamp(2px, 0.6vh, 4px); 
-  margin-top: clamp(0px, 0.3vh, 2px); 
-  margin-bottom: clamp(2px, 0.6vh, 4px); 
+/* Ultra-compact mobile-first stepper (refined for alignment and visibility) */
+.setup-stepper {
+  /* sizing tokens */
+  --step-icon-size: clamp(22px, 2.6vw, 28px);
+  --track-thickness: clamp(2px, 0.4vh, 3px);
+  --track-top-offset: clamp(0px, 0.4vh, 2px);
+
+  width: 100%;
+  position: relative;
+  padding-top: clamp(2px, 0.6vh, 4px);
+  margin-top: clamp(0px, 0.3vh, 2px);
+  margin-bottom: clamp(2px, 0.6vh, 4px);
 }
 
-.setup-track { 
-  position: absolute; 
-  left: 0; 
-  right: 0; 
-  top: clamp(8px, 1.5vh, 12px); 
-  height: clamp(1px, 0.2vh, 2px); 
-  background: rgba(255,255,255,0.12); 
-  border-radius: 999px; 
-  overflow: hidden; 
+.setup-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Center the track through the circle centers */
+  top: calc((var(--step-icon-size) - var(--track-thickness)) / 2 + var(--track-top-offset));
+  height: var(--track-thickness);
+  background: rgba(255,255,255,0.18);
+  border-radius: 999px;
+  overflow: hidden;
 }
 
 .setup-track::before {
@@ -908,24 +911,24 @@
   background: linear-gradient(90deg, rgba(255,255,255,0.16), rgba(255,255,255,0.04));
 }
 
-.setup-track-active { 
-  position: absolute; 
-  left: 0; 
-  top: clamp(8px, 1.5vh, 12px); 
-  height: clamp(1px, 0.2vh, 2px); 
-  background: linear-gradient(90deg, #ffffff, rgba(255,255,255,0.4)); 
-  border-radius: 999px; 
-  transition: width .25s ease; 
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15); 
+.setup-track-active {
+  position: absolute;
+  left: 0;
+  top: calc((var(--step-icon-size) - var(--track-thickness)) / 2 + var(--track-top-offset));
+  height: var(--track-thickness);
+  background: linear-gradient(90deg, #ffffff, rgba(255,255,255,0.5));
+  border-radius: 999px;
+  transition: width .25s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
 }
-.setup-steps { 
+.setup-steps {
   list-style: none; 
   margin: 0; 
   padding: 0; 
   display: grid; 
   grid-template-columns: repeat(6, minmax(0, 1fr)); 
-  align-items: start; 
-  gap: clamp(2px, 0.4vw, 4px); 
+  align-items: start;
+  gap: clamp(4px, 0.6vw, 10px); /* consistent spacing across width */
 }
 
 .setup-step { 
@@ -944,16 +947,16 @@
 }
 
 .setup-step .setup-step-icon {
-  width: clamp(20px, 2.6vw, 24px); 
-  height: clamp(20px, 2.6vw, 24px);
+  width: var(--step-icon-size);
+  height: var(--step-icon-size);
   border-radius: 8px; 
   display: inline-flex; 
   align-items: center; 
   justify-content: center;
   font-family: Montserrat, Inter, sans-serif; 
   font-weight: 800; 
-  font-size: clamp(0.5625rem, 1.3vw, 0.6875rem); /* 9px-11px */
-  border: 2px solid rgba(255,255,255,0.32); 
+  font-size: clamp(0.625rem, 1.2vw, 0.75rem); /* 10px-12px */
+  border: 2px solid rgba(255,255,255,0.36);
   color: rgba(255,255,255,0.9); 
   background: rgba(255,255,255,0.06);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);

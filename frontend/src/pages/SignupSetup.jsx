@@ -262,7 +262,7 @@ export default function SignupSetup() {
                             <input
                               id="deviceId"
                               type="text"
-                              placeholder="SMRT00"
+                              placeholder="Input Device ID here"
                               value={deviceId}
                               onChange={e => {
                                 setDeviceId(e.target.value);
