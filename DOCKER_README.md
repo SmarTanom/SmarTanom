@@ -1,6 +1,6 @@
-# SmarTanom Docker Setup
+# 🐳 SmarTanom Docker Setup
 
-Docker containerization for the SmarTanom hydroponic monitoring system, providing easy development environment setup and production deployment.
+Complete Docker containerization for the SmarTanom hydroponic monitoring system, providing easy development environment setup and production deployment.
 
 ## 🚀 Quick Start
 
@@ -26,7 +26,7 @@ Docker containerization for the SmarTanom hydroponic monitoring system, providin
    ```bash
    # Run database migrations
    docker-compose exec backend python manage.py migrate
-   
+
    # Create superuser (optional)
    docker-compose exec backend python manage.py createsuperuser
    ```
