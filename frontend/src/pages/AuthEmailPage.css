@@ -83,7 +83,10 @@
   display: flex; 
   flex-direction: column; 
   gap: clamp(20px, 3vh, 32px); 
-  max-height: 85vh;
+  /* Fill available height so we can distribute space between children */
+  height: 100%;
+  /* Distribute between top bar and main content to reduce bottom whitespace */
+  justify-content: space-between;
   /* Allow internal scrolling to avoid overlap on small heights */
   overflow: auto;
   min-height: 0;
@@ -130,7 +133,16 @@
 }
 
 /* Content block */
-.auth-content { display: flex; flex-direction: column; gap: clamp(20px, 4vh, 28px); }
+.auth-content { 
+  display: flex; 
+  flex-direction: column; 
+  gap: clamp(20px, 4vh, 28px); 
+  /* Participate in vertical balancing within inner container */
+  flex: 1 1 auto;
+  /* Keep form+header centered within the available column for balance */
+  justify-content: center;
+  padding-block: clamp(8px, 4vh, 24px);
+}
 
 /* Header section with left-aligned content */
 .auth-header {
@@ -218,13 +230,20 @@
   }
   .auth-screen-inner { 
     gap: clamp(24px, 4vh, 40px); 
-    max-height: 90vh;
+    /* Maintain balanced distribution on taller desktops */
+    justify-content: space-between;
     overflow: auto;
     min-height: 0;
   }
   .auth-brand-wordmark { 
     font-size: clamp(16px, 1.8vw, 24px); 
   }
+}
+
+/* On very tall viewports, loosen distribution to avoid excessive gaps between sections */
+@media (min-height: 900px) {
+  .auth-screen-inner { justify-content: space-evenly; }
+  .auth-content { justify-content: center; }
 }
 
 @media (min-width: 1200px) {
