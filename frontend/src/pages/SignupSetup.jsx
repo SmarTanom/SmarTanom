@@ -75,6 +75,7 @@ export default function SignupSetup() {
   // Step 2 state (all optional)
   const [nickname, setNickname] = useState('');
   const [location, setLocation] = useState('');
+  // Plant Name removed per request
   const [plantPhotoChoice, setPlantPhotoChoice] = useState('none'); // 'camera' | 'upload' | 'default' | 'none'
   const [uploadPhotoName, setUploadPhotoName] = useState('');
   const [uploadPhotoUrl, setUploadPhotoUrl] = useState('');
@@ -301,13 +302,16 @@ export default function SignupSetup() {
                   </section>
                 )}
                 {step === 2 && (
-                  <section className="setup-section setup-step-2" aria-label="First Time Device Setup - Plant Information">
+                  <section className="setup-section setup-step-2" aria-label="First Time Device Setup - Hydroponic Info">
                     {/* Device Information Card */}
                     <div className="setup-card">
                       <h3 className="setup-section-title">Device Information</h3>
                       <div className="setup-form-grid">
                         <div className="setup-field">
-                          <label className="setup-field-label" htmlFor="nickname">Device Nickname</label>
+                          <div className="setup-field-label-row">
+                            <label className="setup-field-label" htmlFor="nickname">Device Nickname</label>
+                            <span className="setup-optional" aria-hidden="true">optional</span>
+                          </div>
                           <input
                             id="nickname"
                             type="text"
@@ -320,7 +324,10 @@ export default function SignupSetup() {
                         </div>
 
                         <div className="setup-field">
-                          <label className="setup-field-label" htmlFor="location">Location</label>
+                          <div className="setup-field-label-row">
+                            <label className="setup-field-label" htmlFor="location">Location</label>
+                            <span className="setup-optional" aria-hidden="true">optional</span>
+                          </div>
                           <input
                             id="location"
                             type="text"
@@ -334,22 +341,11 @@ export default function SignupSetup() {
                       </div>
                     </div>
 
-                    {/* Plant Information Card */}
+                    {/* Hydroponic Info Card */}
                     <div className="setup-card">
-                      <h3 className="setup-section-title">Plant Information</h3>
+                      <h3 className="setup-section-title">Hydroponic Info</h3>
                       <div className="setup-form-grid">
-                        <div className="setup-field span-2">
-                          <label className="setup-field-label" htmlFor="plantName">Plant Name</label>
-                          <input
-                            id="plantName"
-                            type="text"
-                            placeholder="Enter plant name"
-                            value={plantName}
-                            onChange={(e) => setPlantName(e.target.value)}
-                            aria-describedby="help-plantname"
-                          />
-                          <p id="help-plantname" className="setup-helper">Give your plant a name you’ll recognize later.</p>
-                        </div>
+                        {/* Plant Name removed per request */}
 
                         <div className="setup-field span-2">
                           <label className="setup-field-label">Plant Photo</label>
@@ -430,8 +426,11 @@ export default function SignupSetup() {
                           </div>
                         </div>
 
-                        <div className="setup-field">
-                          <label className="setup-field-label" htmlFor="durationDays">Estimated Growth Duration (optional)</label>
+                        <div className="setup-field inline-row duration-inline-row">
+                          <div className="setup-field-label-row">
+                            <label className="setup-field-label" htmlFor="durationDays">Days Since Planted</label>
+                            <span className="setup-optional" aria-hidden="true">optional</span>
+                          </div>
                           <div className="input-with-suffix">
                             <input
                               id="durationDays"
@@ -441,11 +440,9 @@ export default function SignupSetup() {
                               placeholder="e.g., 30"
                               value={durationDays}
                               onChange={(e) => setDurationDays(e.target.value)}
-                              aria-describedby="help-duration"
                             />
                             <span className="suffix-tag" aria-hidden="true">days</span>
                           </div>
-                          <p id="help-duration" className="setup-helper">Enter a number (e.g., 15). Unit is days.</p>
                         </div>
                       </div>
                     </div>
