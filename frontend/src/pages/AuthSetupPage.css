@@ -21,6 +21,9 @@
   overflow: hidden;
   min-height: 0;
   box-sizing: border-box;
+  /* Respect device safe areas (notches/nav bars) */
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0px);
 }
 
 .setup-shell {
@@ -124,6 +127,8 @@
   height: 100%;
   overflow: hidden;
   box-sizing: border-box;
+  /* Balance vertical space to reduce excess bottom whitespace */
+  justify-content: space-between;
 }
 
 .setup-top {
@@ -139,7 +144,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
+  overflow-y: hidden; /* prevent internal scroll to keep full view */
   scrollbar-width: none;
   -ms-overflow-style: none;
   box-sizing: border-box;
@@ -172,36 +177,13 @@
   width: 100%;
   min-width: 0;
 }
-
-/* Progress pill - ultra-compact mobile optimized */
-.setup-progress-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(1px, 0.4vh, 3px) clamp(4px, 1.2vw, 8px);
-  border-radius: clamp(8px, 2vw, 12px);
-  background: rgba(255,255,255,0.12);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.16);
-  font-family: Montserrat, Inter, sans-serif;
-  font-weight: 700;
-  font-size: clamp(0.5rem, 1.3vw, 0.75rem); /* 8px-12px */
-  color: #ffffff;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 30vw;
-}
-
-.setup-body {
+.setup-methods {
   display: flex;
   flex-direction: column;
-  gap: clamp(4px, 0.8vh, 8px);
-  width: 100%;
-  min-width: 0;
+  gap: clamp(6px, 1vh, 10px);
+  flex-wrap: nowrap;
+  overflow: visible;
+  min-height: 0;
 }
 
 /* Mobile-first heading system with aggressive scaling */
@@ -241,16 +223,6 @@
   width: 100%;
   min-width: 0;
   margin-bottom: clamp(3px, 0.8vh, 8px);
-}
-
-.setup-heading .auth-title {
-  font-size: clamp(0.875rem, 3.2vw, 1.5rem); /* 14px-24px */
-  letter-spacing: -0.005em;
-  line-height: 1.2;
-  margin: 0;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  hyphens: auto;
 }
 
 .setup-heading .auth-subtext {
@@ -548,8 +520,8 @@
 }
 
 .setup-method-icon svg {
-  width: 50%;
-  height: 50%;
+  width: 58%;
+  height: 58%;
 }
 
 .setup-method-text {
@@ -583,6 +555,12 @@
   word-wrap: break-word;
   overflow-wrap: break-word;
   hyphens: auto;
+  /* Clamp lines to avoid pushing content below the fold */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  line-clamp: 3;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 
 .setup-method-card-body {
@@ -731,15 +709,16 @@
 
   .setup-methods {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: clamp(10px, 1.6vw, 22px);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(12px, 1.8vw, 24px);
   }
 
   .setup-method-card {
     height: 100%;
   }
 
-  .setup-methods .setup-method-card:last-child { grid-column: auto; }
+  /* Make the last method (Manual Entry) span full width */
+  .setup-methods .setup-method-card:last-child { grid-column: 1 / -1; }
 }
 
 @media (max-height: 860px) {
@@ -764,7 +743,8 @@
   }
 
   .setup-actions {
-    margin-top: clamp(4px, 1vh, 12px);
+    margin-top: clamp(2px, 0.6vh, 8px);
+    border-top: none; /* save vertical space on tight heights */
   }
 }
 
@@ -799,6 +779,8 @@
 
   .setup-method-text p {
     font-size: clamp(8.5px, 1.1vw, 10px);
+    line-clamp: 2;
+    -webkit-line-clamp: 2; /* tighter clamp on smaller heights */
   }
 
   .setup-field input[type="text"] {
@@ -1059,6 +1041,13 @@
     gap: clamp(4px, 0.8vh, 7px);
     padding: clamp(8px, 1.4vh, 12px);
   }
+  /* Two-column options: Scan/Upload side-by-side, Manual Entry spans full width */
+  .setup-methods {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(10px, 1.4vw, 16px);
+  }
+  .setup-methods .setup-method-card:last-child { grid-column: 1 / -1; }
   
   .setup-heading .auth-title {
     font-size: clamp(1.25rem, 3vw, 2rem); /* 20px-32px */
@@ -1074,6 +1063,11 @@
 @media (min-width: 1024px) {
   .setup-shell {
     max-width: clamp(600px, 70vw, 800px);
+  }
+  .setup-verify-actions .setup-btn {
+    font-size: clamp(0.6rem, 1.8vw, 0.8rem);
+    padding: clamp(6px, 1.8vw, 9px) clamp(10px, 2.4vw, 14px);
+    min-height: 40px;
   }
   
   .auth-content-wrapper {
