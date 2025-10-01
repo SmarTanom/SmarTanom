@@ -1029,11 +1029,55 @@
 /* Inline label+control row helper */
 .inline-row { display: grid; grid-template-columns: max-content 1fr; gap: clamp(6px, 1.2vw, 10px); align-items: center; }
 
+/* Number input with fixed suffix (e.g., days) */
+.input-with-suffix {
+  display: grid;
+  grid-template-columns: 1fr max-content;
+  align-items: center;
+  gap: clamp(6px, 1.2vw, 10px);
+}
+.suffix-tag {
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+  font-weight: 800;
+  font-family: Montserrat, Inter, sans-serif;
+  letter-spacing: 0.04em;
+  padding: clamp(8px, 1.6vw, 10px) clamp(10px, 2vw, 12px);
+  border-radius: clamp(6px, 1vw, 10px);
+  border: 1px solid rgba(255,255,255,0.24);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Photo preview with replace action */
+.photo-preview {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  gap: clamp(8px, 1.6vw, 12px);
+}
+.photo-preview img {
+  width: clamp(48px, 9vw, 72px);
+  height: clamp(48px, 9vw, 72px);
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.25);
+  box-shadow: 0 2px 10px -6px rgba(0,0,0,0.3);
+}
+.photo-preview .photo-actions {
+  display: flex;
+  gap: clamp(6px, 1.6vw, 10px);
+  align-items: center;
+}
+
 /* Tight-height compaction for Step 2 cards to avoid cutoff */
 @media (max-height: 720px) {
   .setup-card { padding: clamp(8px, 1.2vh, 12px); gap: clamp(6px, 1vh, 10px); }
   .setup-helper { font-size: clamp(0.6875rem, 1.6vw, 0.8125rem); }
   .photo-choice-row { gap: clamp(4px, 1.2vw, 8px); }
+  .photo-preview img { width: clamp(44px, 8vw, 64px); height: clamp(44px, 8vw, 64px); }
+  .suffix-tag { padding: clamp(6px, 1.2vw, 8px) clamp(8px, 1.8vw, 10px); min-height: 40px; }
 }
 
 /* Section cards for clarity (lightweight) */
