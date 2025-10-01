@@ -636,7 +636,7 @@
 .setup-verify-panel {
   display: flex;
   flex-direction: row; /* keep actions on the right by default */
-  flex-wrap: wrap; /* allow wrapping on narrow widths without overlap */
+  flex-wrap: nowrap; /* keep button beside the text; prevent wrapping */
   align-items: flex-start; /* top-align to remove white space under subtext */
   justify-content: space-between;
   gap: clamp(8px, 1.2vh, 12px);
@@ -664,8 +664,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1 1 260px; /* take remaining space on the left */
-  min-width: 220px;
+  flex: 1 1 auto; /* take remaining space on the left, allow shrink */
+  min-width: 0; /* allow shrinking to keep actions on same row */
 }
 
 .setup-verify-actions {
@@ -693,7 +693,7 @@
 @media (min-width: 768px) {
   .setup-verify-panel {
     flex-direction: row;
-    align-items: center;
+    align-items: flex-start; /* keep top-aligned on larger screens too */
     justify-content: space-between;
     gap: clamp(8px, 1vw, 12px);
   }
