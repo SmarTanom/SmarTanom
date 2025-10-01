@@ -374,13 +374,14 @@ export default function SignupSetup() {
                             </div>
                             <p className="setup-helper">You can upload your own photo or choose a default image.</p>
                             {plantPhotoChoice === 'default' && (
-                              <div className="setup-field" style={{ marginTop: 6 }}>
+                              <div className="setup-field inline-row" style={{ marginTop: 6 }}>
                                 <label className="setup-field-label" htmlFor="defaultImage">Default image</label>
                                 <select
                                   id="defaultImage"
                                   value={selectedDefaultImage}
                                   onChange={(e) => setSelectedDefaultImage(e.target.value)}
                                   className="setup-select"
+                                  data-empty={selectedDefaultImage === ''}
                                 >
                                   <option value="">Select a default image…</option>
                                   {defaultImages.map((opt) => (
@@ -396,7 +397,7 @@ export default function SignupSetup() {
                               <span className="setup-hint">Camera will open on supported devices.</span>
                             )}
                             {plantPhotoChoice === 'none' && (
-                              <span className="setup-hint">No photo selected — will fallback to defaulthydroponic.png</span>
+                              <span className="setup-hint">No photo selected — will fallback to a default photo.</span>
                             )}
                           </div>
                         </div>
@@ -409,6 +410,7 @@ export default function SignupSetup() {
                             onChange={(e) => setPlantType(e.target.value)}
                             className="setup-select"
                             aria-describedby="help-planttype"
+                            data-empty={plantType === ''}
                           >
                             <option value="">Optional — choose type</option>
                             {plantTypes.map((opt) => (
@@ -438,8 +440,9 @@ export default function SignupSetup() {
                               className="setup-select"
                               style={{ maxWidth: 200 }}
                               aria-describedby="help-progress"
+                              data-empty={progressUnit === ''}
                             >
-                              <option value="">Unit (e.g., cm, %, weeks)</option>
+                              <option value="">Unit (e.g., cm, %, weeks, days)</option>
                               <option value="cm">Centimeters</option>
                               <option value="percent">Percent (%)</option>
                               <option value="weeks">Weeks since planting</option>
