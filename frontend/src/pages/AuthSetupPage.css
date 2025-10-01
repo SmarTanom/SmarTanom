@@ -635,7 +635,10 @@
 
 .setup-verify-panel {
   display: flex;
-  flex-direction: column;
+  flex-direction: row; /* keep actions on the right by default */
+  flex-wrap: wrap; /* allow wrapping on narrow widths without overlap */
+  align-items: center;
+  justify-content: space-between;
   gap: clamp(8px, 1.2vh, 12px);
   padding: clamp(8px, 1.4vh, 14px);
   border-radius: clamp(10px, 1.2vw, 14px);
@@ -661,6 +664,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 260px; /* take remaining space on the left */
+  min-width: 220px;
 }
 
 .setup-verify-actions {
@@ -668,10 +673,14 @@
   flex-wrap: wrap;
   gap: clamp(5px, 0.8vw, 8px);
   align-items: center;
+  justify-content: flex-end; /* right-align actions */
+  margin-left: auto; /* push to the right */
+  flex: 0 0 auto; /* size to content so the area doesn't look oversized */
+  min-width: 0;
 }
 .setup-verify-actions .setup-btn {
-  font-size: clamp(0.625rem, 1.8vw, 0.85rem);
-  padding: clamp(6px, 1.8vw, 10px) clamp(10px, 2.4vw, 16px);
+  font-size: clamp(0.6rem, 1.6vw, 0.8rem);
+  padding: clamp(6px, 1.6vw, 9px) clamp(10px, 2vw, 14px);
   min-height: 44px; /* maintain tap-friendly minimum */
 }
 
@@ -864,6 +873,33 @@
   .setup-verify-panel {
     padding: clamp(7px, 3.2vw, 12px);
   }
+}
+
+/* Ultra-narrow width phones (<=420px): compact cards so 3rd option is visible */
+@media (max-width: 420px) {
+  .auth-content-wrapper {
+    padding: clamp(6px, 2.4vh, 10px) clamp(10px, 3vw, 14px);
+  }
+  .setup-stepper {
+    --step-icon-size: clamp(18px, 4.2vw, 22px);
+    --track-thickness: 2px;
+  }
+  .setup-header .auth-title { font-size: clamp(18px, 5.2vw, 26px); }
+  .setup-header .auth-subtext { font-size: clamp(11px, 3.2vw, 14px); }
+  .setup-heading .auth-title { font-size: clamp(18px, 4.2vw, 24px); }
+  .setup-heading .auth-subtext { font-size: clamp(10px, 3.2vw, 13px); }
+
+  .setup-methods { gap: clamp(6px, 1.6vh, 10px); }
+  .setup-method-card { padding: clamp(6px, 1vh, 10px); }
+  .setup-method-text p { display: none; } /* hide descriptions to cut height */
+  .setup-hint { display: none; }
+  .setup-method-index { width: clamp(16px, 4.6vw, 20px); height: clamp(16px, 4.6vw, 20px); }
+  .setup-method-icon { width: clamp(24px, 6.4vw, 28px); height: clamp(24px, 6.4vw, 28px); }
+
+  .setup-verify-panel { padding: clamp(6px, 1vh, 10px); }
+  .setup-verify-actions { justify-content: flex-end; margin-left: auto; }
+  .setup-verify-actions .setup-btn { font-size: clamp(0.58rem, 3.4vw, 0.78rem); padding: 8px 12px; }
+  .setup-actions { margin-top: clamp(2px, 0.6vh, 6px); }
 }
 
 .setup-status { font-size: clamp(11px, 2vw, 12.5px); }
