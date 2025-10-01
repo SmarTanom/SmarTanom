@@ -218,22 +218,6 @@
   margin-bottom: clamp(3px, 0.8vh, 8px);
 }
 
-/* Inline heading variant for Step 2 */
-.setup-heading-inline {
-  display: flex;
-  flex-direction: row;
-  align-items: center; /* vertically center text with button */
-  justify-content: space-between;
-  gap: clamp(8px, 2vw, 12px);
-}
-.setup-heading-inline .setup-heading-text { flex: 1 1 auto; min-width: 0; }
-.setup-heading-inline .setup-heading-actions { flex: 0 0 auto; margin-left: auto; }
-.setup-heading-inline .setup-heading-actions .setup-btn { white-space: nowrap; }
-
-@media (max-width: 420px) {
-  .setup-heading-inline .setup-btn { font-size: clamp(0.6rem, 3.4vw, 0.8rem); padding: 6px 10px; min-height: 44px; }
-}
-
 .setup-heading .auth-subtext {
   font-size: clamp(0.5625rem, 1.8vw, 0.8125rem); /* 9px-13px */
   line-height: 1.3;
@@ -976,6 +960,59 @@
   margin-top: clamp(0px, 0.3vh, 2px);
   margin-bottom: clamp(2px, 0.6vh, 4px);
 }
+
+/* Stepper: labels-only variant (no circles/lines), highlight current step label */
+.setup-stepper.labels-only .setup-track,
+.setup-stepper.labels-only .setup-track-active,
+.setup-stepper.labels-only .setup-step-icon { display: none !important; }
+.setup-stepper.labels-only .setup-steps {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: clamp(6px, 1.2vw, 12px);
+}
+.setup-stepper.labels-only .setup-step-label {
+  text-align: center;
+  font-weight: 700;
+  color: rgba(255,255,255,0.7);
+}
+.setup-stepper.labels-only .setup-step.current .setup-step-label {
+  color: #ffffff;
+  background: rgba(255,255,255,0.14);
+  padding: clamp(4px, 0.8vh, 8px) clamp(6px, 1.2vw, 10px);
+  border-radius: 999px;
+}
+
+/* Step 2 form layout */
+.setup-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(8px, 1.2vh, 12px);
+  align-items: start;
+}
+@media (min-width: 640px) {
+  .setup-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.setup-form-grid .span-2 { grid-column: 1 / -1; }
+
+.photo-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(6px, 1.8vw, 10px);
+}
+
+.setup-select {
+  width: 100%;
+  padding: clamp(6px, 1.6vw, 10px) clamp(10px, 2.5vw, 14px);
+  border-radius: clamp(6px, 1vw, 8px);
+  border: 2px solid rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-size: clamp(0.75rem, 2vw, 0.9375rem);
+  font-weight: 600;
+  outline: none;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+.setup-select:focus { border-color: #ffffff; background: rgba(255,255,255,0.16); box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
 
 .setup-track {
   position: absolute;
