@@ -497,12 +497,3 @@ export default function SignupSetup() {
   );
 }
 
-  // Cleanup object URL when component unmounts or URL changes
-  useEffect(() => {
-    return () => {
-      if (uploadPhotoUrl) {
-        URL.revokeObjectURL(uploadPhotoUrl);
-      }
-    };
-  }, [uploadPhotoUrl]);
-                    <h4>Verify your device</h4>
