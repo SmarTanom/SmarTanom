@@ -584,7 +584,8 @@
   color: rgba(255,255,255,0.85);
 }
 .setup-field-label.setup-field-label--sm {
-  font-size: clamp(11px, 1.5vw, 14px);
+  /* Fix clamp order to allow proper downscaling on small screens */
+  font-size: clamp(10px, 1.5vw, 12px);
   font-weight: 700;
 }
 
@@ -788,6 +789,129 @@
   }
   /* Reduce verify panel padding to fit within viewport */
   .setup-verify-panel { padding: clamp(6px, 1vh, 10px); }
+}
+
+/* Prevent Step 2 cutoff on medium/tight heights without adding scroll */
+@media (max-height: 820px) {
+  /* Reduce heading spacing to free vertical space */
+  .setup-heading { margin-bottom: clamp(2px, 0.5vh, 6px); }
+  .setup-heading .auth-title { font-size: clamp(16px, 2.8vw, 26px); }
+  .setup-heading .auth-subtext { font-size: clamp(10px, 1.8vw, 13px); }
+
+  /* Compact Step 2 cards */
+  .setup-step-2 .setup-card { padding: clamp(8px, 1vh, 12px); gap: clamp(6px, 0.9vh, 10px); }
+  .setup-step-2 .setup-section-title { font-size: clamp(0.9rem, 1.9vw, 1.05rem); }
+  .setup-step-2 .setup-form-grid { gap: clamp(6px, 0.9vh, 10px); }
+
+  /* Inputs: reduce padding while preserving 44px min height */
+  .setup-step-2 .setup-field input[type="text"],
+  .setup-step-2 .setup-field input[type="number"] {
+    padding: clamp(6px, 1.4vw, 10px) clamp(8px, 2vw, 12px);
+  }
+
+  /* Plant Photo: tighter controls */
+  .setup-step-2 .photo-choice-row { gap: clamp(4px, 1.2vw, 8px); }
+  .setup-step-2 .setup-input-inline { gap: clamp(4px, 0.8vh, 8px); }
+  .setup-step-2 .photo-preview img { width: clamp(40px, 7.5vw, 60px); height: clamp(40px, 7.5vw, 60px); }
+  .setup-step-2 .suffix-tag { padding: clamp(6px, 1.2vw, 8px) clamp(8px, 1.8vw, 10px); min-height: 40px; }
+
+  /* Hide non-critical helper below Plant Photo to save lines */
+  .setup-step-2 .setup-card:nth-of-type(2) .setup-input-inline > .setup-helper { display: none; }
+}
+
+/* Extra-tight mode: small laptops/tablets or landscape phones */
+@media (max-height: 760px) {
+  /* Hide Plant Name helper copy to prevent overflow */
+  .setup-step-2 .setup-card:nth-of-type(2) #help-plantname { display: none; }
+  /* Slightly smaller labels in Step 2 */
+  .setup-step-2 .setup-field-label { font-size: clamp(11px, 1.6vw, 14px); }
+  /* Reduce gaps further */
+  .setup-step-2 .setup-form-grid { gap: clamp(4px, 0.8vh, 8px); }
+
+  /* Top bar: minimize brand wordmark to reclaim space */
+  .auth-top-bar .auth-brand-wordmark { display: none; }
+  .auth-top-bar { gap: clamp(4px, 0.6vw, 8px); }
+
+  /* Progress header: hide pill, compress stepper */
+  .setup-progress-header .setup-progress-pill { display: none; }
+  .setup-progress-header { gap: clamp(4px, 0.8vh, 8px); }
+  .setup-stepper {
+    margin: 0;
+    padding-top: 0;
+    --step-icon-size: clamp(14px, 1.8vw, 18px);
+    --track-thickness: 1px;
+  }
+  .setup-step .setup-step-label { display: none; }
+
+  /* Device Info: hide helpers when tight */
+  #help-nickname, #help-location { display: none; }
+
+  /* Action buttons: tighter min-width and font while preserving height */
+  .setup-actions { gap: clamp(6px, 1.2vw, 10px); }
+  .setup-actions .setup-btn { min-width: 84px; font-size: clamp(11px, 1.8vw, 13px); }
+}
+
+/* Aggressive compact mode to guarantee fit on tight heights */
+@media (max-height: 700px) {
+  /* Remove non-essential progress visuals and subtext */
+  .setup-progress-header .setup-stepper { display: none; }
+  .setup-progress-header .setup-progress-pill { display: none; }
+  .setup-step-meta { display: none; }
+  .setup-heading .auth-subtext { display: none; }
+
+  /* Top bar: hide back text and brand wordmark */
+  .auth-top-bar .auth-back-text { display: none; }
+  .auth-top-bar .auth-brand-wordmark { display: none; }
+
+  /* Step 2: hide all helpers to save lines */
+  .setup-step-2 .setup-helper { display: none; }
+
+  /* Step 2: tighter paddings, labels, inputs */
+  .setup-step-2 .setup-card { padding: clamp(6px, 0.9vh, 10px); gap: clamp(4px, 0.8vh, 8px); }
+  .setup-step-2 .setup-section-title { font-size: clamp(0.82rem, 1.6vw, 0.98rem); }
+  .setup-step-2 .setup-form-grid { gap: clamp(4px, 0.8vh, 8px); }
+  .setup-step-2 .setup-field-label { font-size: clamp(10px, 1.4vw, 12px); }
+  .setup-step-2 .setup-optional { font-size: clamp(9px, 1.4vw, 11px); padding: 1px 6px; }
+  .setup-step-2 .setup-field input[type="text"],
+  .setup-step-2 .setup-field input[type="number"] { padding: 6px 10px; min-height: 42px; }
+  .setup-step-2 .suffix-tag { min-height: 38px; padding: 6px 8px; }
+  .setup-step-2 .photo-choice-row { gap: 6px; }
+  .setup-step-2 .photo-preview img { width: 34px; height: 34px; }
+
+  /* Actions: compact width/spacing while keeping tap target */
+  .setup-actions { gap: 8px; margin-top: 6px; }
+  .setup-actions .setup-btn { min-width: 80px; font-size: clamp(10.5px, 1.6vw, 12.5px); }
+}
+
+/* Ultra-compact: remove header entirely if needed */
+@media (max-height: 600px) {
+  .setup-progress-header { display: none; }
+  .setup-heading { margin-bottom: 6px; }
+  .setup-heading .auth-title { font-size: clamp(15px, 2.4vw, 20px); }
+
+  /* Inputs/buttons: smallest acceptable height */
+  .setup-step-2 .setup-field input[type="text"],
+  .setup-step-2 .setup-field input[type="number"] { min-height: 40px; }
+  .setup-actions .setup-btn { min-height: 40px; padding: 8px 10px; }
+}
+
+/* Ultra-tight: remove progress visuals to guarantee fit */
+@media (max-height: 640px) {
+  .setup-progress-header .setup-stepper,
+  .setup-progress-header .setup-progress-pill { display: none; }
+  .setup-step-meta { display: none; }
+  .setup-heading { margin-bottom: clamp(2px, 0.6vh, 4px); }
+  .setup-heading .auth-title { font-size: clamp(16px, 2.6vw, 22px); }
+  .setup-heading .auth-subtext { font-size: clamp(10px, 1.8vw, 12px); }
+
+  /* Shrink Step 2 visuals a bit more */
+  .setup-step-2 .setup-card { padding: clamp(6px, 0.9vh, 10px); gap: clamp(4px, 0.8vh, 8px); }
+  .setup-step-2 .setup-section-title { font-size: clamp(0.85rem, 1.8vw, 1rem); }
+  .setup-step-2 .photo-preview img { width: 36px; height: 36px; }
+  .setup-step-2 .suffix-tag { min-height: 38px; padding: 6px 8px; }
+
+  /* Buttons: keep 44px height, trim font/padding */
+  .setup-actions .setup-btn { font-size: clamp(10.5px, 1.6vw, 12px); padding: 8px 12px; }
 }
 
 @media (max-height: 720px) {
@@ -1033,7 +1157,71 @@
 .setup-select option[value=""] { color: #6b7280; }
 
 /* Inline label+control row helper */
-.inline-row { display: grid; grid-template-columns: max-content 1fr; gap: clamp(6px, 1.2vw, 10px); align-items: center; }
+.inline-row { display: grid; grid-template-columns: minmax(140px, 42%) 1fr; gap: clamp(6px, 1.2vw, 10px); align-items: center; }
+
+/* Make inline label + input stay on a single row */
+.inline-row .setup-field-label-row {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.inline-row .setup-field-label-row .setup-field-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inline-row .input-with-suffix {
+  width: 100%;
+}
+.inline-row .input-with-suffix input {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Narrow widths: dedicate more width to the input, trim visuals */
+@media (max-width: 420px) {
+  .inline-row { grid-template-columns: minmax(120px, 36%) 1fr; }
+  .inline-row .setup-field-label-row .setup-optional { display: none; }
+  .inline-row .input-with-suffix .suffix-tag { padding: 6px 8px; }
+}
+@media (max-width: 360px) {
+  .inline-row { grid-template-columns: minmax(110px, 33%) 1fr; }
+  .inline-row .input-with-suffix .suffix-tag { padding: 5px 8px; }
+}
+
+/* Duration row: always show full label, no ellipsis */
+.duration-inline-row { grid-template-columns: max-content 1fr; }
+.duration-inline-row .setup-field-label-row { white-space: nowrap; overflow: visible; }
+.duration-inline-row .setup-field-label-row .setup-field-label { overflow: visible; text-overflow: unset; }
+.duration-inline-row .input-with-suffix { justify-self: end; max-width: min(320px, 64vw); }
+@media (max-width: 480px) {
+  .duration-inline-row .input-with-suffix { max-width: min(260px, 58vw); }
+}
+@media (max-width: 360px) {
+  .duration-inline-row .input-with-suffix { max-width: min(220px, 56vw); }
+}
+@media (max-width: 560px) {
+  .duration-inline-row .setup-field-label-row .setup-optional { display: none; }
+  .duration-inline-row .input-with-suffix .suffix-tag { padding: 6px 8px; }
+}
+
+/* Inline label row with optional badge */
+.setup-field-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.setup-optional {
+  color: rgba(255,255,255,0.8);
+  font-size: clamp(10px, 1.6vw, 12px);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.24);
+  padding: 2px 6px;
+  border-radius: 999px;
+}
 
 /* Number input with fixed suffix (e.g., days) */
 .input-with-suffix {
