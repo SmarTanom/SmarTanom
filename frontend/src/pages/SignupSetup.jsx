@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthSetupPage.css';
@@ -76,23 +77,13 @@ export default function SignupSetup() {
   const [location, setLocation] = useState('');
   const [plantPhotoChoice, setPlantPhotoChoice] = useState('none'); // 'camera' | 'upload' | 'default' | 'none'
   const [uploadPhotoName, setUploadPhotoName] = useState('');
+  const [uploadPhotoUrl, setUploadPhotoUrl] = useState('');
   const defaultImages = [
     'Lettuce - Salanova', 'Lettuce - Butterhead', 'Lettuce - Looseleaf', 'Lettuce - Batavia', 'Lettuce - Romaine',
     'Spinach', 'Arugula', 'Kale', 'Bok Choy', 'Basil', 'Mint', 'Oregano', 'Cilantro', 'Chives', 'Parsley', 'Thyme'
   ];
   const [selectedDefaultImage, setSelectedDefaultImage] = useState('');
-  const plantTypes = [
-    'Lettuce', 'Spinach', 'Arugula', 'Kale', 'Bok Choy', 'Basil', 'Mint', 'Oregano', 'Cilantro', 'Chives', 'Parsley', 'Thyme', 'Other'
-  ];
-  const [plantType, setPlantType] = useState('');
-  const [progressUnit, setProgressUnit] = useState(''); // '' | 'weeks' | 'days'
-  const [progressValue, setProgressValue] = useState(''); // numeric string, optional
-  const progressError = useMemo(() => {
-    if ((progressUnit && !progressValue) || (!progressUnit && progressValue)) {
-      return 'Please enter a number and select a unit.';
-    }
-    return '';
-  }, [progressUnit, progressValue]);
+  const [durationDays, setDurationDays] = useState(''); // numeric string, optional
 
   const progressFraction = useMemo(() => {
     if (total <= 1) return 0;
@@ -301,68 +292,57 @@ export default function SignupSetup() {
                   </section>
                 )}
                 {step === 2 && (
-                  <section className="setup-section setup-step-2" aria-label="First-Time Device Setup">
-                    {/* Device Information Card */}
-                    <div className="setup-card">
-                      <h3 className="setup-section-title">Device Information</h3>
-                      <div className="setup-form-grid">
-                        <div className="setup-field">
-                          <label className="setup-field-label" htmlFor="nickname">Device Nickname</label>
-                          <input
-                            id="nickname"
-                            type="text"
-                            placeholder="Optional — defaults to serial ID"
-                            value={nickname}
-                            onChange={(e) => setNickname(e.target.value)}
-                            aria-describedby="help-nickname"
-                          />
-                          <p id="help-nickname" className="setup-helper">If left empty, we will use the device’s serial ID.</p>
-                        </div>
-
-                        <div className="setup-field">
-                          <label className="setup-field-label" htmlFor="location">Location</label>
-                          <input
-                            id="location"
-                            type="text"
-                            placeholder="e.g., Balcony, Backyard"
-                            value={location}
-                            onChange={(e) => setLocation(e.target.value)}
-                            aria-describedby="help-location"
-                          />
-                          <p id="help-location" className="setup-helper">Where is your SmarTanom installed? (e.g., balcony, backyard)</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Plant Information Card */}
+                  <section className="setup-section setup-step-2" aria-label="Plant Information">
                     <div className="setup-card">
                       <h3 className="setup-section-title">Plant Information</h3>
                       <div className="setup-form-grid">
                         <div className="setup-field span-2">
+                          <label className="setup-field-label" htmlFor="plantName">Plant Name</label>
+                          <input
+                            id="plantName"
+                            type="text"
+                            placeholder="Enter plant name"
+                            value={plantName}
+                            onChange={(e) => setPlantName(e.target.value)}
+                            aria-describedby="help-plantname"
+                          />
+                          <p id="help-plantname" className="setup-helper">Give your plant a name you’ll recognize later.</p>
+                        </div>
+
+                        <div className="setup-field span-2">
                           <label className="setup-field-label">Plant Photo</label>
                           <div className="setup-input-inline">
                             <div className="photo-choice-row">
-                              <button
-                                type="button"
-                                className={`setup-btn sm ${plantPhotoChoice === 'camera' ? '' : 'outline'}`}
-                                onClick={() => setPlantPhotoChoice('camera')}
-                                aria-pressed={plantPhotoChoice === 'camera'}
-                              >
+                              <label htmlFor="cameraFile" className={`setup-btn sm ${plantPhotoChoice === 'camera' ? '' : 'outline'}`} aria-pressed={plantPhotoChoice === 'camera'}>
                                 Take Photo
-                              </button>
-                              <label className={`setup-btn sm ${plantPhotoChoice === 'upload' ? '' : 'outline'}`}>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  style={{ display: 'none' }}
-                                  onChange={(e) => {
-                                    const f = e.target.files?.[0];
-                                    setUploadPhotoName(f ? f.name : '');
-                                    setPlantPhotoChoice(f ? 'upload' : 'none');
-                                  }}
-                                />
+                              </label>
+                              <input id="cameraFile" type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) {
+                                    setUploadPhotoName(f.name);
+                                    const url = URL.createObjectURL(f);
+                                    setUploadPhotoUrl(url);
+                                    setPlantPhotoChoice('upload');
+                                  }
+                                }} />
+                              <label htmlFor="galleryFile" className={`setup-btn sm ${plantPhotoChoice === 'upload' ? '' : 'outline'}`}>
                                 Upload from Gallery
                               </label>
+                              <input id="galleryFile" type="file" accept="image/*" style={{ display: 'none' }}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) {
+                                    setUploadPhotoName(f.name);
+                                    const url = URL.createObjectURL(f);
+                                    setUploadPhotoUrl(url);
+                                    setPlantPhotoChoice('upload');
+                                  } else {
+                                    setUploadPhotoName('');
+                                    setUploadPhotoUrl('');
+                                    setPlantPhotoChoice('none');
+                                  }
+                                }} />
                               <button
                                 type="button"
                                 className={`setup-btn sm ${plantPhotoChoice === 'default' ? '' : 'outline'}`}
@@ -390,10 +370,16 @@ export default function SignupSetup() {
                                 </select>
                               </div>
                             )}
-                            {(plantPhotoChoice === 'upload' && uploadPhotoName) && (
-                              <span className="setup-file-name" aria-live="polite">{uploadPhotoName}</span>
+                            {(plantPhotoChoice === 'upload' && uploadPhotoUrl) && (
+                              <div className="photo-preview" aria-live="polite">
+                                <img src={uploadPhotoUrl} alt="Selected plant" />
+                                <div className="photo-actions">
+                                  <label htmlFor="galleryFile" className="setup-btn sm outline">Replace</label>
+                                  <span className="setup-file-name">{uploadPhotoName}</span>
+                                </div>
+                              </div>
                             )}
-                            {plantPhotoChoice === 'camera' && (
+                            {plantPhotoChoice === 'camera' && !uploadPhotoUrl && (
                               <span className="setup-hint">Camera will open on supported devices.</span>
                             )}
                             {plantPhotoChoice === 'none' && (
@@ -403,54 +389,21 @@ export default function SignupSetup() {
                         </div>
 
                         <div className="setup-field">
-                          <label className="setup-field-label" htmlFor="plantType">Plant Type</label>
-                          <select
-                            id="plantType"
-                            value={plantType}
-                            onChange={(e) => setPlantType(e.target.value)}
-                            className="setup-select"
-                            aria-describedby="help-planttype"
-                            data-empty={plantType === ''}
-                          >
-                            <option value="">Optional — choose type</option>
-                            {plantTypes.map((opt) => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
-                          <p id="help-planttype" className="setup-helper">Optional — helps us tailor recommendations.</p>
-                        </div>
-
-                        <div className="setup-field">
-                          <label className="setup-field-label" htmlFor="progressValue">Growth Progress</label>
-                          <div className="setup-input-inline growth-row">
+                          <label className="setup-field-label" htmlFor="durationDays">Estimated Growth Duration (optional)</label>
+                          <div className="input-with-suffix">
                             <input
-                              id="progressValue"
+                              id="durationDays"
                               type="number"
                               min="0"
                               inputMode="numeric"
-                              placeholder="Amount"
-                              value={progressValue}
-                              onChange={(e) => setProgressValue(e.target.value)}
-                              style={{ maxWidth: 160 }}
-                              aria-describedby="help-progress"
+                              placeholder="e.g., 30"
+                              value={durationDays}
+                              onChange={(e) => setDurationDays(e.target.value)}
+                              aria-describedby="help-duration"
                             />
-                            <select
-                              value={progressUnit}
-                              onChange={(e) => setProgressUnit(e.target.value)}
-                              className="setup-select"
-                              style={{ maxWidth: 200 }}
-                              aria-describedby="help-progress"
-                              data-empty={progressUnit === ''}
-                            >
-                              <option value="">Unit (e.g., cm, %, weeks, days)</option>
-                              <option value="cm">Centimeters</option>
-                              <option value="percent">Percent (%)</option>
-                              <option value="weeks">Weeks since planting</option>
-                              <option value="days">Days since planting</option>
-                            </select>
+                            <span className="suffix-tag" aria-hidden="true">days</span>
                           </div>
-                          <p id="help-progress" className="setup-helper">Enter a number (e.g., 15) and select a unit (cm, %, weeks).</p>
-                          {progressError && <p className="setup-error" role="alert">{progressError}</p>}
+                          <p id="help-duration" className="setup-helper">Enter a number (e.g., 15). Unit is days.</p>
                         </div>
                       </div>
                     </div>
@@ -501,3 +454,13 @@ export default function SignupSetup() {
     </div>
   );
 }
+
+  // Cleanup object URL when component unmounts or URL changes
+  useEffect(() => {
+    return () => {
+      if (uploadPhotoUrl) {
+        URL.revokeObjectURL(uploadPhotoUrl);
+      }
+    };
+  }, [uploadPhotoUrl]);
+                    <h4>Verify your device</h4>
