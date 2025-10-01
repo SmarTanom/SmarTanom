@@ -637,7 +637,7 @@
   display: flex;
   flex-direction: row; /* keep actions on the right by default */
   flex-wrap: wrap; /* allow wrapping on narrow widths without overlap */
-  align-items: center;
+  align-items: flex-start; /* top-align to remove white space under subtext */
   justify-content: space-between;
   gap: clamp(8px, 1.2vh, 12px);
   padding: clamp(8px, 1.4vh, 14px);
@@ -672,7 +672,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: clamp(5px, 0.8vw, 8px);
-  align-items: center;
+  align-items: flex-start; /* top-align with content */
   justify-content: flex-end; /* right-align actions */
   margin-left: auto; /* push to the right */
   flex: 0 0 auto; /* size to content so the area doesn't look oversized */
