@@ -185,10 +185,29 @@ export default function SignupSetup() {
             </div>
 
             <div className="setup-middle auth-fade-item" role="region" aria-live="polite" aria-label={headings[step - 1]}>
-              <div className="setup-heading">
-                <h1 className="auth-title">{headings[step - 1]}</h1>
-                <p className="auth-subtext">{subtexts[step - 1]}</p>
-              </div>
+              {step === 2 ? (
+                <div className="setup-heading setup-heading-inline" role="group" aria-label="First time device setup">
+                  <div className="setup-heading-text">
+                    <h1 className="auth-title">{headings[step - 1]}</h1>
+                    <p className="auth-subtext">{subtexts[step - 1]}</p>
+                  </div>
+                  <div className="setup-heading-actions">
+                    <button
+                      type="button"
+                      className="setup-btn sm"
+                      onClick={goNext}
+                      aria-label="Continue to next step"
+                    >
+                      Continue
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="setup-heading">
+                  <h1 className="auth-title">{headings[step - 1]}</h1>
+                  <p className="auth-subtext">{subtexts[step - 1]}</p>
+                </div>
+              )}
 
               <div className="setup-body">
                 {step === 1 && (
