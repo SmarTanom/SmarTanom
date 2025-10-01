@@ -296,13 +296,6 @@ export default function SignupSetup() {
                 )}
                 {step === 2 && (
                   <section className="setup-section setup-step-2" aria-label="First-Time Device Setup">
-                    <div className="setup-heading-inline">
-                      <div className="setup-heading">
-                        <h1 className="auth-title">First-Time Device Setup</h1>
-                        <p className="auth-subtext">Configure your first SmarTanom! (Can be changed later)</p>
-                      </div>
-                    </div>
-
                     <div className="setup-form-grid">
                       <div className="setup-field">
                         <label className="setup-field-label" htmlFor="nickname">Device Nickname</label>
