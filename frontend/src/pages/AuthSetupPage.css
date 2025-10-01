@@ -177,14 +177,7 @@
   width: 100%;
   min-width: 0;
 }
-.setup-methods {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(6px, 1vh, 10px);
-  flex-wrap: nowrap;
-  overflow: visible;
-  min-height: 0;
-}
+/* Remove legacy flex layout; grid layout defined below */
 
 /* Mobile-first heading system with aggressive scaling */
 .setup-header {
@@ -446,11 +439,13 @@
 
 .setup-methods {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: clamp(8px, 1.2vh, 14px);
+  grid-template-columns: repeat(2, minmax(0, 1fr)); /* side-by-side on all sizes */
+  gap: clamp(6px, 1vh, 12px);
   overflow: visible;
   min-height: 0;
 }
+/* Manual Entry spans full width below the two options */
+.setup-methods .setup-method-card:last-child { grid-column: 1 / -1; }
 
 .setup-method-card {
   display: flex;
@@ -674,6 +669,11 @@
   gap: clamp(5px, 0.8vw, 8px);
   align-items: center;
 }
+.setup-verify-actions .setup-btn {
+  font-size: clamp(0.625rem, 1.8vw, 0.85rem);
+  padding: clamp(6px, 1.8vw, 10px) clamp(10px, 2.4vw, 16px);
+  min-height: 44px; /* maintain tap-friendly minimum */
+}
 
 .setup-verify-actions .setup-status {
   font-weight: 600;
@@ -704,13 +704,12 @@
   }
 
   .setup-section {
-    align-items: stretch;
+    margin-top: clamp(2px, 0.8vh, 8px);
   }
 
   .setup-methods {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(12px, 1.8vw, 24px);
+    padding-top: clamp(2px, 0.6vh, 6px);
   }
 
   .setup-method-card {
@@ -1007,12 +1006,7 @@
     height: clamp(22px, 2.8vw, 28px);
   }
   
-  /* Allow side-by-side layout for method cards on wide tablets */
-  .setup-methods {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: clamp(6px, 1vh, 10px);
-  }
+  /* grid stays 2-column at base; no override needed */
 }
 
 /* Landscape tablets and small laptops (768px+) */
@@ -1041,13 +1035,8 @@
     gap: clamp(4px, 0.8vh, 7px);
     padding: clamp(8px, 1.4vh, 12px);
   }
-  /* Two-column options: Scan/Upload side-by-side, Manual Entry spans full width */
-  .setup-methods {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(10px, 1.4vw, 16px);
-  }
-  .setup-methods .setup-method-card:last-child { grid-column: 1 / -1; }
+  /* Slightly increase gaps on larger screens */
+  .setup-methods { gap: clamp(10px, 1.4vw, 16px); }
   
   .setup-heading .auth-title {
     font-size: clamp(1.25rem, 3vw, 2rem); /* 20px-32px */
@@ -1063,11 +1052,6 @@
 @media (min-width: 1024px) {
   .setup-shell {
     max-width: clamp(600px, 70vw, 800px);
-  }
-  .setup-verify-actions .setup-btn {
-    font-size: clamp(0.6rem, 1.8vw, 0.8rem);
-    padding: clamp(6px, 1.8vw, 9px) clamp(10px, 2.4vw, 14px);
-    min-height: 40px;
   }
   
   .auth-content-wrapper {
