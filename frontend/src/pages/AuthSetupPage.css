@@ -895,6 +895,8 @@
   .setup-hint { display: none; }
   .setup-method-index { width: clamp(16px, 4.6vw, 20px); height: clamp(16px, 4.6vw, 20px); }
   .setup-method-icon { width: clamp(24px, 6.4vw, 28px); height: clamp(24px, 6.4vw, 28px); }
+  /* Center method text vertically with icon/index on small phones */
+  .setup-method-copy { align-items: center; }
 
   .setup-verify-panel { padding: clamp(6px, 1vh, 10px); }
   .setup-verify-actions { justify-content: flex-end; margin-left: auto; }
@@ -914,6 +916,11 @@
   /* Action bar: avoid oversized full-width buttons on ultra-small screens */
   .setup-actions { flex-direction: row; align-items: center; justify-content: flex-end; gap: clamp(8px, 3vw, 12px); }
   .setup-actions .setup-btn { width: auto; min-width: 88px; padding: 8px 12px; }
+}
+
+/* Slightly wider small devices (<=480px): ensure Manual Entry centers inline */
+@media (max-width: 480px) {
+  .setup-methods .setup-method-card:last-child .setup-method-copy { align-items: center; }
 }
 
 /* Ultra-small phones (<=360px): extra compact, still tap-friendly */
