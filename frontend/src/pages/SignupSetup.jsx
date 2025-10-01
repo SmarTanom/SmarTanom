@@ -314,8 +314,9 @@ export default function SignupSetup() {
                             placeholder="Optional — defaults to serial ID"
                             value={nickname}
                             onChange={(e) => setNickname(e.target.value)}
+                            aria-describedby="help-nickname"
                           />
-                          <p className="setup-helper">If left empty, we will use the device’s serial ID.</p>
+                          <p id="help-nickname" className="setup-helper">If left empty, we will use the device’s serial ID.</p>
                         </div>
 
                         <div className="setup-field">
@@ -326,8 +327,9 @@ export default function SignupSetup() {
                             placeholder="e.g., Balcony, Backyard"
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
+                            aria-describedby="help-location"
                           />
-                          <p className="setup-helper">Where is your SmarTanom installed? (e.g., balcony, backyard)</p>
+                          <p id="help-location" className="setup-helper">Where is your SmarTanom installed? (e.g., balcony, backyard)</p>
                         </div>
                       </div>
                     </div>
@@ -406,13 +408,14 @@ export default function SignupSetup() {
                             value={plantType}
                             onChange={(e) => setPlantType(e.target.value)}
                             className="setup-select"
+                            aria-describedby="help-planttype"
                           >
                             <option value="">Optional — choose type</option>
                             {plantTypes.map((opt) => (
                               <option key={opt} value={opt}>{opt}</option>
                             ))}
                           </select>
-                          <p className="setup-helper">Optional — helps us tailor recommendations.</p>
+                          <p id="help-planttype" className="setup-helper">Optional — helps us tailor recommendations.</p>
                         </div>
 
                         <div className="setup-field">
@@ -427,19 +430,23 @@ export default function SignupSetup() {
                               value={progressValue}
                               onChange={(e) => setProgressValue(e.target.value)}
                               style={{ maxWidth: 160 }}
+                              aria-describedby="help-progress"
                             />
                             <select
                               value={progressUnit}
                               onChange={(e) => setProgressUnit(e.target.value)}
                               className="setup-select"
                               style={{ maxWidth: 200 }}
+                              aria-describedby="help-progress"
                             >
                               <option value="">Unit (e.g., cm, %, weeks)</option>
+                              <option value="cm">Centimeters</option>
+                              <option value="percent">Percent (%)</option>
                               <option value="weeks">Weeks since planting</option>
                               <option value="days">Days since planting</option>
                             </select>
                           </div>
-                          <p className="setup-helper">Enter a number (e.g., 15) and select a unit (cm, %, weeks).</p>
+                          <p id="help-progress" className="setup-helper">Enter a number (e.g., 15) and select a unit (cm, %, weeks).</p>
                           {progressError && <p className="setup-error" role="alert">{progressError}</p>}
                         </div>
                       </div>

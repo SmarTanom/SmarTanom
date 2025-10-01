@@ -577,21 +577,22 @@
 }
 
 .setup-field-label {
-  font-size: clamp(9.5px, 1.4vw, 10.2px);
-  font-weight: 600;
+  font-size: clamp(13px, 1.8vw, 16px);
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: rgba(255,255,255,0.85);
 }
 
-.setup-field input[type="text"] {
+.setup-field input[type="text"],
+.setup-field input[type="number"] {
   width: 100%;
-  padding: clamp(6px, 1.2vw, 10px) clamp(8px, 2vw, 12px);
-  border-radius: clamp(6px, 1vw, 8px);
-  border: 2px solid rgba(255,255,255,0.45);
-  background: rgba(255,255,255,0.04);
-  color: #fff;
-  font-size: clamp(0.75rem, 2vw, 0.9375rem); /* 12px-15px */
+  padding: clamp(8px, 1.6vw, 12px) clamp(10px, 2.2vw, 14px);
+  border-radius: clamp(6px, 1vw, 10px);
+  border: 2px solid rgba(1,107,34,0.45);
+  background: #ffffff;
+  color: #0b2d16;
+  font-size: clamp(0.875rem, 2.2vw, 1rem);
   font-weight: 600;
   letter-spacing: 0.01em;
   outline: none;
@@ -601,16 +602,21 @@
   font-family: Montserrat, Inter, sans-serif;
 }
 
-.setup-field input[type="text"]::placeholder {
-  color: #ffffff;
-  opacity: 0.92;
+.setup-field input[type="text"]::placeholder,
+.setup-field input[type="number"]::placeholder {
+  color: #6b7280; /* neutral gray for readability */
+  opacity: 1;
 }
 
-.setup-field input[type="text"]:focus {
-  border-color: #ffffff;
-  background: rgba(255,255,255,0.16);
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.2);
+.setup-field input[type="text"]:focus,
+.setup-field input[type="number"]:focus {
+  border-color: #016b22;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(1,107,34,0.22);
 }
+
+.setup-field input[type="text"]:hover,
+.setup-field input[type="number"]:hover { border-color: rgba(1,107,34,0.7); }
 
 .setup-btn.sm {
   font-size: clamp(0.6875rem, 1.6vw, 0.875rem); /* 11px-14px */
@@ -1001,18 +1007,19 @@
 
 .setup-select {
   width: 100%;
-  padding: clamp(6px, 1.6vw, 10px) clamp(10px, 2.5vw, 14px);
-  border-radius: clamp(6px, 1vw, 8px);
-  border: 2px solid rgba(255,255,255,0.45);
-  background: rgba(255,255,255,0.06);
-  color: #fff;
-  font-size: clamp(0.75rem, 2vw, 0.9375rem);
+  padding: clamp(8px, 1.6vw, 12px) clamp(10px, 2.5vw, 14px);
+  border-radius: clamp(6px, 1vw, 10px);
+  border: 2px solid rgba(1,107,34,0.45);
+  background: #ffffff;
+  color: #0b2d16;
+  font-size: clamp(0.875rem, 2.2vw, 1rem);
   font-weight: 600;
   outline: none;
   min-height: 44px;
   box-sizing: border-box;
 }
-.setup-select:focus { border-color: #ffffff; background: rgba(255,255,255,0.16); box-shadow: 0 0 0 3px rgba(255,255,255,0.2); }
+.setup-select:focus { border-color: #016b22; background: #ffffff; box-shadow: 0 0 0 3px rgba(1,107,34,0.22); }
+.setup-select:hover { border-color: rgba(1,107,34,0.7); }
 
 /* Section cards for clarity (lightweight) */
 .setup-card {
