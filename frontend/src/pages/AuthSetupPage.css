@@ -1017,9 +1017,24 @@
   outline: none;
   min-height: 44px;
   box-sizing: border-box;
+  font-family: Montserrat, Inter, sans-serif;
 }
 .setup-select:focus { border-color: #016b22; background: #ffffff; box-shadow: 0 0 0 3px rgba(1,107,34,0.22); }
 .setup-select:hover { border-color: rgba(1,107,34,0.7); }
+
+/* Softer placeholder/empty-state color for selects */
+.setup-select[data-empty="true"] { color: #6b7280; }
+.setup-select option[value=""] { color: #6b7280; }
+
+/* Inline label+control row helper */
+.inline-row { display: grid; grid-template-columns: max-content 1fr; gap: clamp(6px, 1.2vw, 10px); align-items: center; }
+
+/* Tight-height compaction for Step 2 cards to avoid cutoff */
+@media (max-height: 720px) {
+  .setup-card { padding: clamp(8px, 1.2vh, 12px); gap: clamp(6px, 1vh, 10px); }
+  .setup-helper { font-size: clamp(0.6875rem, 1.6vw, 0.8125rem); }
+  .photo-choice-row { gap: clamp(4px, 1.2vw, 8px); }
+}
 
 /* Section cards for clarity (lightweight) */
 .setup-card {
