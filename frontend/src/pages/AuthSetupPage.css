@@ -681,7 +681,7 @@
   font-size: clamp(11px, 1.2vw, 12.5px);
 }
 
-@media (min-width: 900px) {
+@media (min-width: 768px) {
   .setup-verify-panel {
     flex-direction: row;
     align-items: center;
@@ -689,9 +689,7 @@
     gap: clamp(8px, 1vw, 12px);
   }
 
-  .setup-verify-content {
-    max-width: 300px;
-  }
+  .setup-verify-content { max-width: 320px; }
 
   .setup-verify-actions {
     justify-content: flex-end;
@@ -732,19 +730,45 @@
   .setup-progress-header {
     gap: clamp(8px, 1.6vh, 16px);
   }
+  /* Hide extra meta row to save vertical space */
+  .setup-step-meta { display: none; }
+
+  /* Further reduce header typography to save vertical space */
+  .setup-header .auth-title { font-size: clamp(20px, 3.4vw, 32px); }
+  .setup-header .auth-subtext { font-size: clamp(11px, 2.2vw, 14px); }
 
   .setup-heading .auth-title {
-    font-size: clamp(19px, 3.6vw, 34px);
+    font-size: clamp(18px, 3.2vw, 30px);
   }
 
   .setup-heading .auth-subtext {
     font-size: clamp(11px, 2.2vw, 15px);
   }
 
+  /* Slightly smaller stepper icons and track at this height */
+  .setup-stepper {
+    --step-icon-size: clamp(18px, 2.2vw, 22px);
+    --track-thickness: clamp(2px, 0.3vh, 2px);
+  }
+
+  /* Compact cards and inputs to avoid cutoff */
+  .setup-method-card {
+    padding: clamp(6px, 1vh, 10px);
+    gap: clamp(3px, 0.6vh, 6px);
+  }
+  .setup-field input[type="text"] {
+    padding: clamp(6px, 1vw, 9px) clamp(8px, 1.6vw, 12px);
+  }
+
+  /* Clamp descriptions more aggressively */
+  .setup-method-text p { line-clamp: 2; -webkit-line-clamp: 2; }
+
   .setup-actions {
     margin-top: clamp(2px, 0.6vh, 8px);
     border-top: none; /* save vertical space on tight heights */
   }
+  /* Reduce verify panel padding to fit within viewport */
+  .setup-verify-panel { padding: clamp(6px, 1vh, 10px); }
 }
 
 @media (max-height: 720px) {
