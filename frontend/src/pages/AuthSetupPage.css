@@ -583,6 +583,10 @@
   letter-spacing: 0.6px;
   color: rgba(255,255,255,0.85);
 }
+.setup-field-label.setup-field-label--sm {
+  font-size: clamp(11px, 1.5vw, 14px);
+  font-weight: 700;
+}
 
 .setup-field input[type="text"],
 .setup-field input[type="number"] {
