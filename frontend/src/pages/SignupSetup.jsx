@@ -282,7 +282,7 @@ export default function SignupSetup() {
                         </header>
                         <div className="setup-method-card-body">
                           <div className="setup-field">
-                            <label className="setup-field-label" htmlFor="deviceId">Device ID</label>
+                            <label className="setup-field-label setup-field-label--sm" htmlFor="deviceId">Device ID</label>
                             <input
                               id="deviceId"
                               type="text"
