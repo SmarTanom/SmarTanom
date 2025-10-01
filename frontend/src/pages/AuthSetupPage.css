@@ -836,6 +836,8 @@
   .setup-actions .setup-btn {
     min-height: clamp(44px, 6vh, 48px);
   }
+  .setup-section-title { font-size: clamp(0.9rem, 2vw, 1.05rem); }
+  .setup-form-grid { gap: clamp(6px, 1vh, 10px); }
 }
 
 @media (max-height: 640px) {
@@ -1105,6 +1107,7 @@
   color: rgba(255,255,255,0.86);
   line-height: 1.35;
 }
+.setup-helper.setup-helper--sm { font-size: clamp(0.625rem, 1.4vw, 0.8125rem); color: rgba(255,255,255,0.8); }
 .setup-error {
   margin: 4px 0 0;
   color: #ffe2e2;

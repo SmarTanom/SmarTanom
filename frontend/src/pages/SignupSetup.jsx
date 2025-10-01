@@ -144,6 +144,15 @@ export default function SignupSetup() {
     }
   }
 
+  // Cleanup object URL when component unmounts or URL changes
+  useEffect(() => {
+    return () => {
+      if (uploadPhotoUrl) {
+        URL.revokeObjectURL(uploadPhotoUrl);
+      }
+    };
+  }, [uploadPhotoUrl]);
+
   return (
     <div className="auth-screen-root">
       <div className="auth-content-wrapper">
@@ -292,7 +301,40 @@ export default function SignupSetup() {
                   </section>
                 )}
                 {step === 2 && (
-                  <section className="setup-section setup-step-2" aria-label="Plant Information">
+                  <section className="setup-section setup-step-2" aria-label="First Time Device Setup - Plant Information">
+                    {/* Device Information Card */}
+                    <div className="setup-card">
+                      <h3 className="setup-section-title">Device Information</h3>
+                      <div className="setup-form-grid">
+                        <div className="setup-field">
+                          <label className="setup-field-label" htmlFor="nickname">Device Nickname</label>
+                          <input
+                            id="nickname"
+                            type="text"
+                            placeholder="Optional — defaults to serial ID"
+                            value={nickname}
+                            onChange={(e) => setNickname(e.target.value)}
+                            aria-describedby="help-nickname"
+                          />
+                          <p id="help-nickname" className="setup-helper setup-helper--sm">If left empty, we will use the device’s serial ID.</p>
+                        </div>
+
+                        <div className="setup-field">
+                          <label className="setup-field-label" htmlFor="location">Location</label>
+                          <input
+                            id="location"
+                            type="text"
+                            placeholder="e.g., Balcony, Backyard"
+                            value={location}
+                            onChange={(e) => setLocation(e.target.value)}
+                            aria-describedby="help-location"
+                          />
+                          <p id="help-location" className="setup-helper setup-helper--sm">Where is your SmarTanom installed? (e.g., balcony, backyard)</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Plant Information Card */}
                     <div className="setup-card">
                       <h3 className="setup-section-title">Plant Information</h3>
                       <div className="setup-form-grid">
