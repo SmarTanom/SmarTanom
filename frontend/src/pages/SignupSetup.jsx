@@ -173,7 +173,7 @@ export default function SignupSetup() {
                 <div className="setup-progress-pill" role="status" aria-live="polite">
                   <span>{progressPercent}% complete</span>
                 </div>
-                <nav className={`setup-stepper ${step === 2 ? 'labels-only' : ''}`} aria-label="Progress">
+                <nav className="setup-stepper" aria-label="Progress">
                   <div className="setup-track" aria-hidden="true" />
                   <div
                     className="setup-track-active"
