@@ -294,6 +294,8 @@ export default function SignupSetup() {
                                 if (verified) setVerified(false);
                               }}
                               aria-label="Manual device ID"
+                              autoComplete="off"
+                              inputMode="text"
                             />
                           </div>
                         </div>
@@ -319,6 +321,8 @@ export default function SignupSetup() {
                             value={nickname}
                             onChange={(e) => setNickname(e.target.value)}
                             aria-describedby="help-nickname"
+                            autoComplete="nickname"
+                            inputMode="text"
                           />
                           <p id="help-nickname" className="setup-helper setup-helper--sm">If left empty, we will use the device’s serial ID.</p>
                         </div>
@@ -335,6 +339,8 @@ export default function SignupSetup() {
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
                             aria-describedby="help-location"
+                            autoComplete="on"
+                            inputMode="text"
                           />
                           <p id="help-location" className="setup-helper setup-helper--sm">Where is your SmarTanom installed? (e.g., balcony, backyard)</p>
                         </div>
@@ -440,6 +446,8 @@ export default function SignupSetup() {
                               placeholder="e.g., 30"
                               value={durationDays}
                               onChange={(e) => setDurationDays(e.target.value)}
+                              autoComplete="off"
+                              enterKeyHint="done"
                             />
                             <span className="suffix-tag" aria-hidden="true">days</span>
                           </div>
