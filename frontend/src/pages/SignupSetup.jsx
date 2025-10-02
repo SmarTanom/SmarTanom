@@ -503,25 +503,24 @@ export default function SignupSetup() {
                     </div>
                     {/* Email bind card */}
                     <div className="setup-card">
-                      <h3 className="setup-section-title">Bind to Email</h3>
-                      <div className="setup-form-grid">
-                        <div className="setup-field span-2">
-                          <label className="setup-field-label" htmlFor="bindEmail">Email Address</label>
-                          <input
-                            id="bindEmail"
-                            type="email"
-                            inputMode="email"
-                            autoComplete="email"
-                            placeholder="user@example.com"
-                            value={bindEmail}
-                            onChange={(e) => setBindEmail(e.target.value)}
-                            aria-describedby="help-bindemail"
-                          />
-                          <p id="help-bindemail" className="setup-helper setup-helper--sm">Enter your email to bind this device to your account.</p>
-                          {emailError && <p className="setup-error" role="alert">{emailError}</p>}
-                        </div>
-                      </div>
-                    </div>
+                       <div className="setup-form-grid">
+                         <div className="setup-field span-2">
+                           <label className="setup-field-label" htmlFor="bindEmail">Email Address</label>
+                           <input
+                             id="bindEmail"
+                             type="email"
+                             inputMode="email"
+                             autoComplete="email"
+                             placeholder="user@example.com"
+                             value={bindEmail}
+                             onChange={(e) => setBindEmail(e.target.value)}
+                             aria-describedby="help-bindemail"
+                           />
+                           <p id="help-bindemail" className="setup-helper setup-helper--sm">Enter your email to bind this device to your account.</p>
+                           {emailError && <p className="setup-error" role="alert">{emailError}</p>}
+                         </div>
+                       </div>
+                     </div>
                   </section>
                 )}
               </div>
