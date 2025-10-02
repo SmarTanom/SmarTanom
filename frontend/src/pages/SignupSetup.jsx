@@ -450,7 +450,7 @@ export default function SignupSetup() {
                               type="number"
                               min="0"
                               inputMode="numeric"
-                              placeholder="e.g., 30"
+                              placeholder="0"
                               value={durationDays}
                               onChange={(e) => setDurationDays(e.target.value)}
                               autoComplete="off"
