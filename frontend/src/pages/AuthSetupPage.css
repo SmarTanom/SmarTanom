@@ -603,7 +603,8 @@
 }
 
 .setup-field input[type="text"],
-.setup-field input[type="number"] {
+.setup-field input[type="number"],
+.setup-field input[type="email"] {
   width: 100%;
   padding: clamp(8px, 1.6vw, 12px) clamp(10px, 2.2vw, 14px);
   border-radius: clamp(6px, 1vw, 10px);
@@ -621,20 +622,23 @@
 }
 
 .setup-field input[type="text"]::placeholder,
-.setup-field input[type="number"]::placeholder {
+.setup-field input[type="number"]::placeholder,
+.setup-field input[type="email"]::placeholder {
   color: #6b7280; /* neutral gray for readability */
   opacity: 1;
 }
 
 .setup-field input[type="text"]:focus,
-.setup-field input[type="number"]:focus {
+.setup-field input[type="number"]:focus,
+.setup-field input[type="email"]:focus {
   border-color: #016b22;
   background: #ffffff;
   box-shadow: 0 0 0 3px rgba(1,107,34,0.22);
 }
 
 .setup-field input[type="text"]:hover,
-.setup-field input[type="number"]:hover { border-color: rgba(1,107,34,0.7); }
+.setup-field input[type="number"]:hover,
+.setup-field input[type="email"]:hover { border-color: rgba(1,107,34,0.7); }
 
 .setup-btn.sm {
   font-size: clamp(0.6875rem, 1.6vw, 0.875rem); /* 11px-14px */
@@ -789,7 +793,8 @@
     padding: clamp(6px, 1vh, 10px);
     gap: clamp(3px, 0.6vh, 6px);
   }
-  .setup-field input[type="text"] {
+  .setup-field input[type="text"],
+  .setup-field input[type="email"] {
     padding: clamp(6px, 1vw, 9px) clamp(8px, 1.6vw, 12px);
   }
 
@@ -962,7 +967,8 @@
     -webkit-line-clamp: 2; /* tighter clamp on smaller heights */
   }
 
-  .setup-field input[type="text"] {
+  .setup-field input[type="text"],
+  .setup-field input[type="email"] {
     padding: clamp(5px, 1.2vw, 8px) clamp(8px, 1.8vw, 10px);
   }
 
@@ -1651,7 +1657,8 @@
     background: rgba(255,255,255,0.1);
   }
   
-  .setup-field input[type="text"] {
+  .setup-field input[type="text"],
+  .setup-field input[type="email"] {
     border-color: rgba(255,255,255,0.9);
     background: rgba(255,255,255,0.15);
   }
@@ -1666,7 +1673,8 @@
   .setup-method-card {
     border-width: 0.5px;
   }
-  .setup-field input[type="text"] {
+  .setup-field input[type="text"],
+  .setup-field input[type="email"] {
     border-width: 1px;
   }
 }
