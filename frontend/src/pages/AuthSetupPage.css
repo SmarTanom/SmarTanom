@@ -1192,12 +1192,18 @@
 .duration-inline-row { grid-template-columns: max-content 1fr; }
 .duration-inline-row .setup-field-label-row { white-space: nowrap; overflow: visible; }
 .duration-inline-row .setup-field-label-row .setup-field-label { overflow: visible; text-overflow: unset; }
-.duration-inline-row .input-with-suffix { justify-self: end; max-width: min(320px, 64vw); }
+.duration-inline-row .input-with-suffix { justify-self: end; max-width: min(380px, 70vw); }
+/* Ensure number input shows at least 3 digits comfortably */
+.duration-inline-row .input-with-suffix input[type="number"],
+.duration-inline-row .input-with-suffix input {
+  box-sizing: border-box;
+  min-width: 9ch; /* ~3 digits + padding/caret room */
+}
 @media (max-width: 480px) {
-  .duration-inline-row .input-with-suffix { max-width: min(260px, 58vw); }
+  .duration-inline-row .input-with-suffix { max-width: min(300px, 64vw); }
 }
 @media (max-width: 360px) {
-  .duration-inline-row .input-with-suffix { max-width: min(220px, 56vw); }
+  .duration-inline-row .input-with-suffix { max-width: min(240px, 60vw); }
 }
 @media (max-width: 560px) {
   .duration-inline-row .setup-field-label-row .setup-optional { display: none; }
