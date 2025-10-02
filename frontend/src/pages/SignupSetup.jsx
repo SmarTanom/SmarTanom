@@ -506,27 +506,25 @@ export default function SignupSetup() {
                     <div className="setup-card">
                        <div className="setup-form-grid">
                          <div className="setup-field span-2">
-                           <label className="setup-field-label" htmlFor="bindEmail">Email Address</label>
-                           <div className="setup-input-inline">
-                             <div className="photo-choice-row" style={{ gap: '8px' }}>
-                               <span aria-hidden="true" style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:6, background:'rgba(1,107,34,0.15)' }}>
-                                 <Mail size={16} color="#ffffff" />
-                               </span>
-                             <input
-                               id="bindEmail"
-                               type="email"
-                               inputMode="email"
-                               autoComplete="email"
-                               placeholder="user@example.com"
-                               value={bindEmail}
-                               onChange={(e) => setBindEmail(e.target.value)}
-                               aria-describedby="help-bindemail"
-                             />
-                             </div>
-                           </div>
+                           <div className="setup-field-label-row">
+                            <label className="setup-field-label" htmlFor="bindEmail">Email Address</label>
+                            <span className="label-right-icon" aria-hidden="true">
+                              <Mail size={14} color="#ffffff" />
+                            </span>
+                          </div>
+                           <input
+                            id="bindEmail"
+                            type="email"
+                            inputMode="email"
+                            autoComplete="email"
+                            placeholder="user@example.com"
+                            value={bindEmail}
+                            onChange={(e) => setBindEmail(e.target.value)}
+                            aria-describedby="help-bindemail"
+                          />
                            <p id="help-bindemail" className="setup-helper setup-helper--sm">Enter your email to bind this device to your account.</p>
                            {emailError && <p className="setup-error" role="alert">{emailError}</p>}
-                         </div>
+                        </div>
                        </div>
                      </div>
                   </section>
