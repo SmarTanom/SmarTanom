@@ -87,6 +87,31 @@ export default function SignupSetup() {
   const [selectedDefaultImage, setSelectedDefaultImage] = useState('');
   const [durationDays, setDurationDays] = useState(''); // numeric string, optional
 
+  // Step 3 state
+  const [bindEmail, setBindEmail] = useState('');
+  const [sendingCode, setSendingCode] = useState(false);
+  const [emailError, setEmailError] = useState('');
+
+  function isValidEmail(v) {
+    return /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v);
+  }
+
+  async function sendCode() {
+    setEmailError('');
+    if (!isValidEmail(bindEmail)) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+    try {
+      setSendingCode(true);
+      // TODO: Integrate API call to request OTP
+      await new Promise(r => setTimeout(r, 600));
+      setStep(4);
+    } finally {
+      setSendingCode(false);
+    }
+  }
+
   const progressFraction = useMemo(() => {
     if (total <= 1) return 0;
     return Math.min(1, Math.max(0, (step - 1) / (total - 1)));
@@ -361,7 +386,7 @@ export default function SignupSetup() {
                         {/* Plant Name removed per request */}
 
                         <div className="setup-field span-2">
-                          <label className="setup-field-label">Plant Photo</label>
+                          <label className="setup-field-label" htmlFor="plantPhoto">Plant Photo</label>
                           <div className="setup-input-inline">
                             <div className="photo-choice-row">
                               <label htmlFor="cameraFile" className={`setup-btn sm ${plantPhotoChoice === 'camera' ? '' : 'outline'}`} aria-pressed={plantPhotoChoice === 'camera'}>
@@ -463,6 +488,30 @@ export default function SignupSetup() {
                     </div>
                   </section>
                 )}
+                {step === 3 && (
+                  <section className="setup-section setup-step-3" aria-label="Bind Device to Email">
+                    <div className="setup-card">
+                      <h3 className="setup-section-title">Bind Device to Email</h3>
+                      <div className="setup-form-grid">
+                        <div className="setup-field span-2">
+                          <label className="setup-field-label" htmlFor="bindEmail">Email</label>
+                          <input
+                            id="bindEmail"
+                            type="email"
+                            inputMode="email"
+                            autoComplete="email"
+                            placeholder="you@example.com"
+                            value={bindEmail}
+                            onChange={(e) => setBindEmail(e.target.value)}
+                            aria-describedby="help-bindemail"
+                          />
+                          <p id="help-bindemail" className="setup-helper setup-helper--sm">Enter your email to bind your SmarTanom device to your account.</p>
+                          {emailError && <p className="setup-error" role="alert">{emailError}</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
               </div>
             </div>
 
@@ -483,10 +532,23 @@ export default function SignupSetup() {
                   </div>
                 </div>
               )}
+              {step === 3 && (
+                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Send code to email" data-section="send-code">
+                  <div className="setup-verify-content">
+                    <h4>Send verification code</h4>
+                    <p>We’ll send a 6-digit code to your email.</p>
+                  </div>
+                  <div className="setup-verify-actions">
+                    <button type="button" className="setup-btn" onClick={sendCode} disabled={sendingCode || !bindEmail || !isValidEmail(bindEmail)}>
+                      {sendingCode ? 'Sending…' : 'Send Code'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="setup-actions">
                 <button type="button" className="setup-btn outline" onClick={goPrev} aria-label="Previous step">Previous</button>
-                <button type="button" className="setup-btn" onClick={goNext} aria-label="Next step" disabled={step === 1 && !verified}>Next</button>
+                <button type="button" className="setup-btn" onClick={goNext} aria-label="Next step" disabled={step === 1 && !verified}>{step === 3 ? 'Next' : 'Next'}</button>
               </div>
             </div>
           </div>
