@@ -2,6 +2,7 @@
 @import './AuthUsernamePage.css';
 
 /* MOBILE-FIRST BASE (320px portrait) */
+:root { --vvh: 0px; --kb-offset: 0px; }
 /* Ultra-aggressive shrink-to-fit for smallest devices */
 .auth-screen-inner {
   overflow: visible;
@@ -18,6 +19,8 @@
   justify-content: flex-start;
   padding: clamp(4px, 1.2vh, 10px) clamp(8px, 2.5vw, 14px);
   height: 100vh;
+  /* Use visual viewport height when available to adapt to mobile keyboards */
+  height: var(--vvh, 100vh);
   overflow: hidden;
   min-height: 0;
   box-sizing: border-box;
@@ -39,8 +42,18 @@
 @supports (height: 100dvh) {
   .auth-content-wrapper {
     height: 100dvh;
+    height: var(--vvh, 100dvh);
   }
 }
+
+/* When mobile keyboard is open, allow content to scroll and pad bottom above keyboard */
+.kb-open .auth-content-wrapper {
+  overflow: auto;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--kb-offset, 0px));
+}
+.kb-open .setup-middle { overflow-y: auto; }
+.kb-open .setup-flow { overflow: auto; }
+.kb-open .setup-actions { position: sticky; bottom: calc(var(--kb-offset, 0px) + 8px); z-index: 10; }
 
 /* EXTREME SCALING for tiny screens */
 @media (max-height: 480px) {
