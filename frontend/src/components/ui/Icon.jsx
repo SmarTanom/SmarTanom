@@ -43,4 +43,25 @@ export const Wifi = (props) => (
   <Svg {...props}><path d="M5 12a7 7 0 0 1 14 0"/><path d="M8.5 14.5a4 4 0 0 1 7 0"/><path d="M12 18h0"/></Svg>
 );
 
-export default { ArrowLeft, Mail, Shield, Leaf, Wifi, ChevronLeftFilled };
+export const Check = (props) => (
+  <Svg {...props}><path d="M20 6L9 17l-5-5"/></Svg>
+);
+
+// Filled Check Circle (green circle with white check)
+export const CheckCircleFilled = ({ size = 20, color = '#016b22', checkColor = '#ffffff', ...props }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    focusable="false"
+    {...props}
+  >
+    <circle cx="12" cy="12" r="10" fill={color} />
+    <path d="M16.5 9l-5 5-2-2" stroke={checkColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export default { ArrowLeft, Mail, Shield, Leaf, Wifi, ChevronLeftFilled, Check, CheckCircleFilled };

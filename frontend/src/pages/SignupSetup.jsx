@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthSetupPage.css';
 import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
+import { CheckCircleFilled } from '../components/ui/Icon.jsx';
 
 const CameraIcon = ({ size = 28, color = '#ffffff' }) => (
   <svg
@@ -194,7 +195,13 @@ export default function SignupSetup() {
                       return (
                         <li key={idx} className={`setup-step ${state}`} aria-current={state === 'current' ? 'step' : undefined}>
                           <div className="setup-step-node">
-                            <span className="setup-step-icon" aria-hidden="true">{state === 'completed' ? '✓' : idx}</span>
+                            <span className="setup-step-icon" aria-hidden="true">
+                              {state === 'completed' ? (
+                                <CheckCircleFilled size={18} color="#ffffff" checkColor="#016b22" />
+                              ) : (
+                                idx
+                              )}
+                            </span>
                             <span className="setup-step-label">{stepLabels[i]}</span>
                           </div>
                         </li>
