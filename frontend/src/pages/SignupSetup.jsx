@@ -490,22 +490,34 @@ export default function SignupSetup() {
                 )}
                 {step === 3 && (
                   <section className="setup-section setup-step-3" aria-label="Bind Device to Email">
+                    {/* Device summary card */}
+                    <div className="setup-card device-summary-card">
+                      <div className="device-summary-icon" aria-hidden="true">
+                        {/* simple device glyph */}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6"/></svg>
+                      </div>
+                      <div className="device-summary-text">
+                        <p className="device-summary-title">Hydro Demo Device</p>
+                        <p className="device-summary-sub">ID: HYD396627 | HydroTech</p>
+                      </div>
+                    </div>
+                    {/* Email bind card */}
                     <div className="setup-card">
-                      <h3 className="setup-section-title">Bind Device to Email</h3>
+                      <h3 className="setup-section-title">Bind to Email</h3>
                       <div className="setup-form-grid">
                         <div className="setup-field span-2">
-                          <label className="setup-field-label" htmlFor="bindEmail">Email</label>
+                          <label className="setup-field-label" htmlFor="bindEmail">Email Address</label>
                           <input
                             id="bindEmail"
                             type="email"
                             inputMode="email"
                             autoComplete="email"
-                            placeholder="you@example.com"
+                            placeholder="user@example.com"
                             value={bindEmail}
                             onChange={(e) => setBindEmail(e.target.value)}
                             aria-describedby="help-bindemail"
                           />
-                          <p id="help-bindemail" className="setup-helper setup-helper--sm">Enter your email to bind your SmarTanom device to your account.</p>
+                          <p id="help-bindemail" className="setup-helper setup-helper--sm">Enter your email to bind this device to your account.</p>
                           {emailError && <p className="setup-error" role="alert">{emailError}</p>}
                         </div>
                       </div>
