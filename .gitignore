@@ -1,23 +1,60 @@
-# Ignore dependency modules / environments and common build caches
+###############################################
+# Global ignores for this monorepo
+###############################################
 
 # Python virtual environments
 .venv/
 venv/
 ENV/
 
+# Python caches and tooling
+__pycache__/
+*.py[cod]
+*.pyo
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.coverage
+coverage.xml
+htmlcov/
+
+# Django local artifacts
+*.sqlite3
+*.sqlite3.backup
+db.sqlite3
+db.sqlite3.backup
+logs/
+backend/logs/
+staticfiles/
+
+# Environment files (never commit secrets)
+.env
+.env.*
+backend/.env
+frontend/.env
+mobile/.env
+
 # Node modules
+node_modules/
 frontend/node_modules/
 mobile/node_modules/
-node_modules/
 
-# Expo / Metro / React Native caches
-.expo/
-.expo-shared/
-*.expo/
+# Vite/Parcel caches and build
 dist/
 .cache/
 .parcel-cache/
-.vercel/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+*.expo/
+android/
+ios/
+web-build/
+*.apk
+*.aab
+*.ipa
 
 # Logs
 npm-debug.log*
@@ -26,15 +63,6 @@ yarn-error.log*
 pnpm-debug.log*
 *.log
 
-# Build outputs
-android/
-ios/
-web-build/
-build/
-*.apk
-*.aab
-*.ipa
-
 # OS / Editor files
 .DS_Store
 Thumbs.db
@@ -42,4 +70,6 @@ Thumbs.db
 .idea/
 *.swp
 
-# (Keep everything else versioned intentionally)
+# Misc CI/build
+.vercel/
+.turbo/
