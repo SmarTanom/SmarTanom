@@ -7,14 +7,18 @@ Django==4.2.16
 djangorestframework==3.15.1
 django-filter==24.2
 python-dotenv==1.0.1
-psycopg2-binary==2.9.9
+# Postgres driver (skip on Windows local dev; SQLite is default)
+psycopg2-binary==2.9.9; platform_system != "Windows"
 gunicorn==22.0.0
 requests==2.32.3
 dnspython==2.6.1
 
+# Allow cross-origin requests from the Vite dev server during development
+django-cors-headers==4.4.0
+
 ############################################################
 # (Optional) Add-ons you might install later:
-# django-cors-headers==4.4.0      # Enable CORS for frontend integration
+# (moved to main requirements) django-cors-headers==4.4.0      # Enable CORS for frontend integration
 # djangorestframework-simplejwt==5.3.1  # JWT auth
 # drf-spectacular==0.27.2         # OpenAPI/Swagger schema generation
 ############################################################

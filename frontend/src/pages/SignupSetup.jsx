@@ -1,11 +1,17 @@
-import React, { useMemo, useState } from 'react';
-import { useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthSetupPage.css';
 import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
 import { CheckCircleFilled } from '../components/ui/Icon.jsx';
 import { Mail } from '../components/ui/Icon.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import { 
+  checkUsernameAvailability as apiCheckUsername, 
+  completeSetup as apiCompleteSetup,
+  requestCode as apiRequestCode,
+  verifyCode as apiVerifyCode,
+} from '../services/api/auth';
 
 const CameraIcon = ({ size = 28, color = '#ffffff' }) => (
   <svg
@@ -63,8 +69,28 @@ const KeyboardIcon = ({ size = 28, color = '#ffffff' }) => (
   </svg>
 );
 
+const WifiIcon = ({ size = 28, color = '#ffffff' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+    <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+    <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+    <line x1="12" y1="20" x2="12.01" y2="20" />
+  </svg>
+);
+
 export default function SignupSetup() {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [step, setStep] = useState(1); // 1..6
   const total = 6;
   // Step 1 state
@@ -93,6 +119,176 @@ export default function SignupSetup() {
   const [sendingCode, setSendingCode] = useState(false);
   const [emailError, setEmailError] = useState('');
 
+  // Step 4 state
+  const [otp, setOtp] = useState(Array(6).fill(''));
+  const otpRefs = useRef(Array.from({ length: 6 }, () => React.createRef()));
+
+  function handleOtpChange(idx, val) {
+    const next = [...otp];
+    const v = val.replace(/\D/g, '').slice(0, 1);
+    next[idx] = v;
+    setOtp(next);
+    if (v && idx < 5) {
+      otpRefs.current[idx + 1].current?.focus();
+    }
+  }
+
+  function handleOtpKeyDown(idx, e) {
+    if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
+      otpRefs.current[idx - 1].current?.focus();
+    }
+    if (e.key === 'ArrowLeft' && idx > 0) otpRefs.current[idx - 1].current?.focus();
+    if (e.key === 'ArrowRight' && idx < 5) otpRefs.current[idx + 1].current?.focus();
+    if (e.key === 'Enter' && isOtpComplete) verifyOtp();
+  }
+
+  function handleOtpPaste(e) {
+    const text = (e.clipboardData?.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+    if (text.length) {
+      e.preventDefault();
+      const next = Array(6).fill('');
+      for (let i = 0; i < text.length; i++) next[i] = text[i];
+      setOtp(next);
+      const target = otpRefs.current[Math.min(text.length, 5)].current;
+      target?.focus();
+    }
+  }
+
+  const isOtpComplete = otp.every((c) => c !== '');
+
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState('');
+
+  // Step 5 state (WiFi Setup)
+  const [wifiSSID, setWifiSSID] = useState('');
+  const [wifiPassword, setWifiPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [connectingWifi, setConnectingWifi] = useState(false);
+
+  // Step 6 state (Set Username)
+  const [username, setUsername] = useState('');
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState(null);
+  const [usernameError, setUsernameError] = useState('');
+  const [completingSetup, setCompletingSetup] = useState(false);
+  const checkUsernameTimeout = useRef(null);
+
+  async function verifyOtp() {
+    if (!isOtpComplete) return;
+    setOtpError('');
+    setVerifyingOtp(true);
+    try {
+      const code = otp.join('');
+      const result = await apiVerifyCode(bindEmail, code, 'signup');
+      // Sign the user in so subsequent requests (e.g., complete-setup) have auth
+      await signIn({
+        email: result?.user?.email || bindEmail,
+        username: result?.user?.username || '',
+        token: result?.token,
+        isNewUser: true,
+        role: result?.user?.role,
+      });
+      setStep(5);
+    } catch (err) {
+      setOtpError(err?.message || 'Code expired or invalid. Please try again or request a new code.');
+      // Clear OTP on error for retry
+      setOtp(Array(6).fill(''));
+      otpRefs.current[0]?.current?.focus();
+    } finally {
+      setVerifyingOtp(false);
+    }
+  }
+
+  function maskEmail(email) {
+    if (!email) return '';
+    const [name, domain] = email.split('@');
+    if (!domain) return email;
+    const visible = name.slice(0, 2);
+    return `${visible}${name.length > 2 ? '***' : ''}@${domain}`;
+  }
+
+  function validateUsername(value) {
+    // Username rules: 3-20 chars, alphanumeric + underscore, must start with letter
+    if (!value) return '';
+    if (value.length < 3) return 'Username must be at least 3 characters';
+    if (value.length > 20) return 'Username must be 20 characters or less';
+    if (!/^[a-zA-Z]/.test(value)) return 'Username must start with a letter';
+    if (!/^[a-zA-Z0-9_]+$/.test(value)) return 'Username can only contain letters, numbers, and underscores';
+    return '';
+  }
+
+  async function checkUsernameAvailability(value) {
+    if (!value || validateUsername(value)) {
+      setUsernameAvailable(null);
+      return;
+    }
+    setCheckingUsername(true);
+    try {
+      const available = await apiCheckUsername(value);
+      setUsernameAvailable(available);
+      setUsernameError(available ? '' : 'This username is already taken');
+    } catch (err) {
+      setUsernameError(err?.message || 'Unable to check username availability');
+      setUsernameAvailable(false);
+    } finally {
+      setCheckingUsername(false);
+    }
+  }
+
+  function handleUsernameChange(value) {
+    setUsername(value);
+    setUsernameAvailable(null);
+    setUsernameError('');
+    
+    const validationError = validateUsername(value);
+    if (validationError) {
+      setUsernameError(validationError);
+      return;
+    }
+
+    // Debounce availability check
+    if (checkUsernameTimeout.current) {
+      clearTimeout(checkUsernameTimeout.current);
+    }
+    checkUsernameTimeout.current = setTimeout(() => {
+      checkUsernameAvailability(value);
+    }, 500);
+  }
+
+  async function completeSetup() {
+    if (!username || usernameError || !usernameAvailable) return;
+    setCompletingSetup(true);
+    try {
+      const result = await apiCompleteSetup({ username });
+      const token = JSON.parse(localStorage.getItem('smartanom_user')||'{}')?.token;
+      const user = await signIn({
+        email: result.user?.email || bindEmail,
+        username: result.user?.username || username,
+        token,
+        isNewUser: true,
+        role: result.user?.role,
+      });
+      
+      // Navigate to appropriate dashboard based on role
+      if (user.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    } catch (err) {
+      setUsernameError(err?.message || 'Failed to complete setup. Please try again.');
+    } finally {
+      setCompletingSetup(false);
+    }
+  }
+
+  // Focus first OTP input when entering step 4
+  useEffect(() => {
+    if (step === 4) {
+      otpRefs.current[0]?.current?.focus();
+    }
+  }, [step]);
+
   function isValidEmail(v) {
     return /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v);
   }
@@ -105,9 +301,10 @@ export default function SignupSetup() {
     }
     try {
       setSendingCode(true);
-      // TODO: Integrate API call to request OTP
-      await new Promise(r => setTimeout(r, 600));
+      await apiRequestCode(bindEmail, 'signup');
       setStep(4);
+    } catch (err) {
+      setEmailError(err?.message || 'Failed to send code. Please try again.');
     } finally {
       setSendingCode(false);
     }
@@ -133,7 +330,7 @@ export default function SignupSetup() {
     'Choose how you want to identify your SmarTanom device',
     'Configure your first SmarTanom! (Can be changed later)',
     'Enter your email to bind your SmarTanom device to your account',
-    'Enter the 6-digit OTP code we sent to your email',
+    `Enter the 6-digit code we sent to ${maskEmail(bindEmail) || 'your email'}`,
     'Connect your SmarTanom device to your WiFi network',
     'Choose an account username',
   ];
@@ -529,6 +726,169 @@ export default function SignupSetup() {
                      </div>
                   </section>
                 )}
+                {step === 4 && (
+                  <section className="setup-section setup-step-4" aria-label="Verify Email">
+                    <div className="otp-wrapper">
+                      <div className="otp-container">
+                        <div className="otp-grid" onPaste={handleOtpPaste}>
+                          {otp.map((c, i) => (
+                            <input
+                              key={i}
+                              ref={otpRefs.current[i]}
+                              className={`otp-input ${otpError ? 'error' : ''}`}
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={1}
+                              value={c}
+                              onChange={(e) => handleOtpChange(i, e.target.value)}
+                              onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                              aria-label={`Digit ${i + 1}`}
+                              aria-invalid={!!otpError}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      {otpError && <div className="setup-error" role="alert">{otpError}</div>}
+                      <div className="otp-resend-wrapper">
+                        <span className="otp-resend-text">Didn't receive a code?</span>
+                        <button
+                          type="button"
+                          className="otp-resend-link"
+                          onClick={sendCode}
+                          disabled={sendingCode || !isValidEmail(bindEmail)}
+                        >
+                          {sendingCode ? 'Resending…' : 'Resend'}
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+                )}
+                {step === 5 && (
+                  <section className="setup-section setup-step-5" aria-label="WiFi Setup">
+                    <div className="setup-card wifi-card">
+                      <div className="wifi-icon-wrapper">
+                        <WifiIcon size={48} color="#ffffff" />
+                      </div>
+                      <div className="setup-form-grid">
+                        <div className="setup-field span-2">
+                          <label className="setup-field-label" htmlFor="wifiSSID">
+                            WiFi Network Name (SSID) <span className="required-mark">*</span>
+                          </label>
+                          <input
+                            id="wifiSSID"
+                            type="text"
+                            placeholder="Enter WiFi network name"
+                            value={wifiSSID}
+                            onChange={(e) => setWifiSSID(e.target.value)}
+                            autoComplete="off"
+                            inputMode="text"
+                            required
+                          />
+                        </div>
+                        <div className="setup-field span-2">
+                          <label className="setup-field-label" htmlFor="wifiPassword">
+                            WiFi Password <span className="required-mark">*</span>
+                          </label>
+                          <div className="input-with-toggle">
+                            <input
+                              id="wifiPassword"
+                              type={showPassword ? 'text' : 'password'}
+                              placeholder="Enter WiFi password"
+                              value={wifiPassword}
+                              onChange={(e) => setWifiPassword(e.target.value)}
+                              autoComplete="off"
+                              inputMode="text"
+                              required
+                            />
+                            <button
+                              type="button"
+                              className="password-toggle"
+                              onClick={() => setShowPassword(!showPassword)}
+                              aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showPassword ? (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                                  <line x1="1" y1="1" x2="23" y2="23" />
+                                </svg>
+                              ) : (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                  <circle cx="12" cy="12" r="3" />
+                                </svg>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+                {step === 6 && (
+                  <section className="setup-section setup-step-6" aria-label="Set Username">
+                    <div className="setup-card username-card">
+                      <div className="setup-form-grid">
+                        <div className="setup-field span-2">
+                          <label className="setup-field-label" htmlFor="username">
+                            Choose Your Username <span className="required-mark">*</span>
+                          </label>
+                          <div className="username-input-wrapper">
+                            <input
+                              id="username"
+                              type="text"
+                              placeholder="Enter your username"
+                              value={username}
+                              onChange={(e) => handleUsernameChange(e.target.value)}
+                              autoComplete="username"
+                              inputMode="text"
+                              maxLength={20}
+                              required
+                              className={usernameError ? 'error' : usernameAvailable ? 'success' : ''}
+                              aria-describedby="username-helper"
+                              aria-invalid={!!usernameError}
+                            />
+                            {checkingUsername && (
+                              <div className="username-status checking">
+                                <svg className="spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <line x1="12" y1="2" x2="12" y2="6"></line>
+                                  <line x1="12" y1="18" x2="12" y2="22"></line>
+                                  <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                                  <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+                                  <line x1="2" y1="12" x2="6" y2="12"></line>
+                                  <line x1="18" y1="12" x2="22" y2="12"></line>
+                                  <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                                  <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+                                </svg>
+                              </div>
+                            )}
+                            {!checkingUsername && usernameAvailable === true && (
+                              <div className="username-status available">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                              </div>
+                            )}
+                            {!checkingUsername && usernameAvailable === false && (
+                              <div className="username-status unavailable">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          <p id="username-helper" className="setup-helper setup-helper--sm">
+                            3-20 characters. Must start with a letter. Can contain letters, numbers, and underscores.
+                          </p>
+                          {usernameError && <p className="setup-error" role="alert">{usernameError}</p>}
+                          {usernameAvailable === true && !usernameError && (
+                            <p className="setup-success" role="status">Username is available!</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
               </div>
             </div>
 
@@ -562,10 +922,54 @@ export default function SignupSetup() {
                   </div>
                 </div>
               )}
+              {step === 4 && (
+                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify code" data-section="verify-code">
+                  <div className="setup-verify-content">
+                    <h4>Verify code</h4>
+                    <p>Enter the 6 digits above, then continue.</p>
+                  </div>
+                  <div className="setup-verify-actions">
+                    <button type="button" className="setup-btn" onClick={verifyOtp} disabled={!isOtpComplete || verifyingOtp}>
+                      {verifyingOtp ? 'Verifying…' : 'Verify'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {step === 5 && (
+                <div className="setup-verify-panel wifi-complete-panel" role="region" aria-live="polite" aria-label="Connect to WiFi" data-section="wifi-connect">
+                  <div className="setup-verify-content">
+                    <h4>Connect to WiFi</h4>
+                    <p>Your device will connect to the WiFi network.</p>
+                  </div>
+                  <div className="setup-verify-actions">
+                    <button type="button" className="setup-btn wifi-complete-btn" onClick={() => setStep(6)} disabled={!wifiSSID || !wifiPassword || connectingWifi}>
+                      {connectingWifi ? 'Connecting…' : 'Connect Device'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {step === 6 && (
+                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Complete setup" data-section="complete-setup">
+                  <div className="setup-verify-content">
+                    <h4>Complete Setup</h4>
+                    <p>Finish setting up your account and go to your dashboard.</p>
+                  </div>
+                  <div className="setup-verify-actions">
+                    <button 
+                      type="button" 
+                      className="setup-btn" 
+                      onClick={completeSetup} 
+                      disabled={!username || checkingUsername || usernameAvailable === false || !!usernameError || completingSetup}
+                    >
+                      {completingSetup ? 'Completing…' : 'Complete Setup'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="setup-actions">
                 <button type="button" className="setup-btn outline" onClick={goPrev} aria-label="Previous step">Previous</button>
-                <button type="button" className="setup-btn" onClick={goNext} aria-label="Next step" disabled={step === 1 && !verified}>{step === 3 ? 'Next' : 'Next'}</button>
+                <button type="button" className="setup-btn" onClick={goNext} aria-label="Next step" disabled={(step === 1 && !verified) || step === 4 || step === 5 || step === 6}>{step === 3 ? 'Next' : 'Next'}</button>
               </div>
             </div>
           </div>

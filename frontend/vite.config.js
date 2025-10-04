@@ -9,14 +9,14 @@ export default defineConfig({
     proxy: {
       // Forward API calls to Django dev server
       '/api': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         // No rewrite: backend already serves under /api
       },
       // Optional: health endpoints if referenced directly
       '/healthz': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
       },

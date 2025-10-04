@@ -1,0 +1,12 @@
+{{ brand_name }} - Your verification code
+
+Use this code to complete {{ purpose|default:'your authentication' }}:
+
+{{ code }}
+
+This code will expire in {{ expire_minutes }} minute{{ expire_minutes|pluralize }}.
+
+If you didn't request this code, you can ignore this email.
+
+For help, contact {{ support_email }}
+Visit us: {{ site_url }}

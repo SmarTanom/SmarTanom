@@ -50,6 +50,7 @@ INSTALLED_APPS = [
 	"django.contrib.messages",
 	"django.contrib.staticfiles",
 	# Third-party
+	"corsheaders",
 	"rest_framework",
 	"rest_framework.authtoken",
 	"django_filters",
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
 	"django.middleware.security.SecurityMiddleware",
+	"corsheaders.middleware.CorsMiddleware",
 	"django.contrib.sessions.middleware.SessionMiddleware",
 	"django.middleware.common.CommonMiddleware",
 	"django.middleware.csrf.CsrfViewMiddleware",
@@ -222,7 +224,8 @@ EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+_raw_email_pwd = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_PASSWORD = _raw_email_pwd.replace(' ', '').strip()
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@smartanom.com')
 
 # OTP Configuration
@@ -275,4 +278,21 @@ LOGGING = {
         },
     },
 }
+
+# CORS settings (development-friendly defaults)
+if DEBUG:
+	CORS_ALLOW_ALL_ORIGINS = False
+	CORS_ALLOWED_ORIGINS = [
+		"http://localhost:5173",
+		"http://127.0.0.1:5173",
+		"http://localhost:5174",
+		"http://127.0.0.1:5174",
+	]
+	CORS_ALLOW_CREDENTIALS = True
+else:
+	# In production, prefer explicit origins via env var
+	_cors = os.getenv("CORS_ALLOWED_ORIGINS", "")
+	if _cors:
+		CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors.split(",") if o.strip()]
+	CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "false").lower() == "true"
 

@@ -1,3 +1,50 @@
+.code-page .auth-content { 
+  align-items: center; 
+  text-align: center; 
+  gap: clamp(24px, 4vh, 36px); 
+}
+
+.code-page .auth-code-header { 
+  gap: clamp(12px, 2.2vh, 20px); 
+  margin-bottom: clamp(4px, 1vh, 12px);
+}
+
+/* Replace grid with flex centering to avoid uneven distribution */
+.code-page .auth-otp-grid { 
+  display: flex; 
+  gap: clamp(8px, 1.2vw, 14px); 
+  justify-content: center; 
+  align-items: center; 
+  max-width: 420px; 
+  margin: 0 auto; 
+  padding: clamp(4px, 0.8vh, 10px) 0; 
+}
+
+.code-page .auth-otp-input { 
+  flex: 0 0 clamp(46px, 6vw, 60px); 
+  height: clamp(46px, 6vw, 60px); 
+}
+
+@media (max-width: 480px) {
+  .code-page .auth-otp-grid { gap: 6px; }
+  .code-page .auth-otp-input { flex-basis: 42px; height: 42px; }
+}
+
+.code-page .otp-container { 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: clamp(12px, 2vh, 18px); 
+  width: 100%;
+}
+
+.code-page .auth-submit { 
+  margin-top: clamp(8px, 1.5vh, 18px); 
+}
+
+.code-page .auth-helper { 
+  margin-top: clamp(10px, 1.4vh, 18px); 
+}
 /* Auth Code Pages (signin / signup verification)
    Design aligned with landing page and email pages - two-column layout with hydroponic image
    Typography matching landing page sizing:
@@ -126,6 +173,24 @@
   text-align: center !important;
 }
 
+/* Smaller title specifically for the verification code page */
+.auth-code-header .auth-title {
+  font-size: clamp(24px, 6vw, 48px);
+  line-height: 1.12;
+}
+
+@media (min-width: 769px) {
+  .auth-code-header .auth-title {
+    font-size: clamp(34px, 4.5vw, 56px);
+  }
+}
+
+@media (min-width: 1200px) {
+  .auth-code-header .auth-title {
+    font-size: clamp(38px, 4vw, 60px);
+  }
+}
+
 /* Typography matching landing page scale */
 .auth-title { 
   font-family: 'Abril Fatface', serif; 
@@ -144,6 +209,13 @@
   max-width: 520px; 
   color: rgba(255, 255, 255, 0.92); 
   text-align: center !important;
+}
+
+/* Ensure subtext in code header stays centered explicitly */
+.auth-code-header .auth-subtext {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
 }
 
 /* Enhanced typography for larger screens */
@@ -172,9 +244,15 @@
   gap: clamp(6px, 1.8vw, 12px); 
   width: 100%;
   max-width: min(340px, 85vw);
-  margin: 0 auto;
+  margin: 0 auto; /* already centers horizontally */
   justify-items: center;
   align-items: center;
+}
+
+/* Extra centering wrapper safety for otp-container */
+.otp-container, .auth-otp-grid {
+  place-items: center;
+  justify-content: center;
 }
 
 .auth-otp-input { 

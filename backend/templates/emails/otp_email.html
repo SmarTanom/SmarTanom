@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ brand_name }} Verification Code</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f7fb;font-family: Arial, Helvetica, sans-serif;">
+  <!-- Preheader (hidden preview text) -->
+  <div style="display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0;color:transparent;">
+    Your {{ brand_name }} verification code is {{ code }}
+  </div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f5f7fb;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+          <!-- Header / Brand Bar -->
+          <tr>
+            <td style="background:#0a7a35;padding:22px 24px;">
+              <div style="color:#ffffff;font-size:18px;letter-spacing:0.12em;font-weight:700;text-transform:uppercase;">SMARTANOM</div>
+            </td>
+          </tr>
+          <!-- Title & Copy -->
+          <tr>
+            <td style="padding:28px 24px 0 24px;">
+              <h2 style="margin:0 0 8px 0;font-size:22px;line-height:28px;color:#0b1220;">Your verification code</h2>
+              <p style="margin:0 0 16px 0;font-size:14px;line-height:20px;color:#3b4555;">
+                Use the code below to complete {{ purpose|default:'your authentication' }} with {{ brand_name }}.
+              </p>
+            </td>
+          </tr>
+          <!-- 6-Box Code Display -->
+          <tr>
+            <td align="center" style="padding:6px 24px 0 24px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;">
+                <tr>
+                  {% for ch in code %}
+                  <td style="width:48px;height:56px;border:1px solid #e2e8f0;border-radius:10px;background:#f7fafc;text-align:center;vertical-align:middle;font-weight:700;font-size:22px;color:#0a7a35;">
+                    {{ ch }}
+                  </td>
+                  {% if not forloop.last %}
+                  <td style="width:10px;"></td>
+                  {% endif %}
+                  {% endfor %}
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Expiry & Hint -->
+          <tr>
+            <td style="padding:18px 24px 0 24px;">
+              <p style="margin:0 0 6px 0;font-size:14px;line-height:20px;color:#3b4555;">
+                This code expires in <strong>{{ expire_minutes }}</strong> minute{{ expire_minutes|pluralize }}.
+              </p>
+              <p style="margin:0 0 20px 0;font-size:12px;line-height:18px;color:#6b7280;">
+                If you didn't request this, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+          <!-- Support Card -->
+          <tr>
+            <td style="padding:0 24px 24px 24px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f9fafb;border:1px solid #eef2f7;border-radius:10px;">
+                <tr>
+                  <td style="padding:16px 16px;">
+                    <p style="margin:0;font-size:12px;line-height:18px;color:#6b7280;">
+                      Need help? Contact us at
+                      <a href="mailto:{{ support_email }}" style="color:#0a7a35;text-decoration:none;">{{ support_email }}</a>.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:16px 24px 24px 24px;">
+              <p style="margin:0;font-size:11px;line-height:16px;color:#9aa4b2;">
+                © {{ brand_name }} · <a href="{{ site_url }}" style="color:#9aa4b2;text-decoration:none;">{{ site_url }}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

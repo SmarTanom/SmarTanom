@@ -1,12 +1,16 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthFlowProvider } from './features/auth/AuthFlowContext.jsx';
+import { AuthProvider } from './context/AuthContext.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
 import LandingPage from './pages/LandingPage.jsx';
 import EmailPage from './pages/EmailPage.jsx';
 import CodePage from './pages/CodePage.jsx';
 import UsernamePage from './pages/UsernamePage.jsx';
 import SplashPage from './pages/SplashPage.jsx';
 import SignupSetup from './pages/SignupSetup.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import AdminDashboard from './pages/AdminDashboard.jsx';
 
 function useKeyboardViewport() {
   useEffect(() => {
@@ -74,18 +78,39 @@ function useKeyboardViewport() {
 export default function App() {
   useKeyboardViewport();
   return (
-    <AuthFlowProvider>
-      <Routes>
-        <Route path="/splash" element={<SplashPage />} />
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/signin/email" element={<EmailPage mode="signin" />} />
-        <Route path="/signup/email" element={<EmailPage mode="signup" />} />
-        <Route path="/signin/code" element={<CodePage mode="signin" />} />
-        <Route path="/signup/code" element={<CodePage mode="signup" />} />
-        <Route path="/signup/setup" element={<SignupSetup />} />
-        <Route path="/signup/username" element={<UsernamePage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AuthFlowProvider>
+    <AuthProvider>
+      <AuthFlowProvider>
+        <Routes>
+          <Route path="/splash" element={<SplashPage />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/signin/email" element={<EmailPage mode="signin" />} />
+          <Route path="/signup/email" element={<EmailPage mode="signup" />} />
+          <Route path="/signin/code" element={<CodePage mode="signin" />} />
+          <Route path="/signup/code" element={<CodePage mode="signup" />} />
+          <Route path="/signup/setup" element={<SignupSetup />} />
+          <Route path="/signup/username" element={<UsernamePage />} />
+          
+          {/* Protected Routes */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute requiredRole="user">
+                <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthFlowProvider>
+    </AuthProvider>
   );
 }

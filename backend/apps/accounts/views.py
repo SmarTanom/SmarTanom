@@ -56,32 +56,45 @@ def send_otp_email(email, code, purpose='login'):
 
     expire_minutes = getattr(settings, 'OTP_EXPIRE_MINUTES', 5)
 
-    html_message = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-            <h2 style="color: #333; text-align: center;">SmarTanom</h2>
-            <h3 style="color: #666;">Your verification code</h3>
-            <div style="background-color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                <h1 style="color: #007bff; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
+    # Prepare email content via templates (HTML + plain text)
+    context = {
+        'brand_name': 'SmarTanom',
+        'support_email': os.getenv('SUPPORT_EMAIL', 'support@smartanom.com'),
+        'site_url': os.getenv('SITE_URL', 'https://smartanom.com'),
+        'code': code,
+        'purpose': purpose,
+        'expire_minutes': expire_minutes,
+    }
+    try:
+        html_message = render_to_string('emails/otp_email.html', context)
+        plain_message = render_to_string('emails/otp_email.txt', context)
+        # Fallback to stripped version if txt template missing
+        if not plain_message or not plain_message.strip():
+            plain_message = strip_tags(html_message)
+    except Exception as _te:
+        # Template not found or render error; fallback to minimal inline content
+        logger.warning(f"OTP email template render failed; using fallback: {_te}")
+        html_message = f"""
+        <html>
+        <body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">
+            <div style=\"background-color: #f8f9fa; padding: 20px; border-radius: 8px;\">
+                <h2 style=\"color: #333; text-align: center;\">SmarTanom</h2>
+                <h3 style=\"color: #666;\">Your verification code</h3>
+                <div style=\"background-color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;\">
+                    <h1 style=\"color: #0a7a35; font-size: 36px; letter-spacing: 8px; margin: 0;\">{code}</h1>
+                </div>
+                <p style=\"color: #666;\">This code will expire in {expire_minutes} minute(s).</p>
+                <p style=\"color: #666;\">If you didn't request this code, please ignore this email.</p>
             </div>
-            <p style="color: #666;">This code will expire in {expire_minutes} minute(s).</p>
-            <p style="color: #666;">If you didn't request this code, please ignore this email.</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-            <p style="color: #999; font-size: 12px; text-align: center;">
-                This is an automated message from SmarTanom. Please do not reply.
-            </p>
-        </div>
-    </body>
-    </html>
-    """
-
-    plain_message = (
-        "SmarTanom - Your verification code\n\n"
-        f"Your verification code is: {code}\n\n"
-        f"This code will expire in {expire_minutes} minute(s).\n\n"
-        "If you didn't request this code, please ignore this email."
-    )
+        </body>
+        </html>
+        """
+        plain_message = (
+            "SmarTanom - Your verification code\n\n"
+            f"Your verification code is: {code}\n\n"
+            f"This code will expire in {expire_minutes} minute(s).\n\n"
+            "If you didn't request this code, please ignore this email."
+        )
 
     try:
         send_mail(
@@ -282,43 +295,60 @@ def verify_otp(request):
     try:
         # Verify OTP
         if OTPCode.verify_otp(email, code, purpose):
-            # Get user, do not auto-create for login flow per requirement
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                return Response(
-                    {'error': 'User not found. Please contact your administrator.'},
-                    status=status.HTTP_404_NOT_FOUND
+            # For registration, create the user if it doesn't exist yet
+            user = None
+            if purpose == 'register':
+                user, _created = User.objects.get_or_create(
+                    email=email,
+                    defaults={
+                        'first_name': '',
+                        'last_name': '',
+                        'role': User.USER,
+                        'is_active': True,
+                        'is_verified': True,
+                    },
                 )
-            
-            # Mark user as verified
-            if not user.is_verified:
-                user.is_verified = True
-                user.save(update_fields=['is_verified'])
-            
+                # If user pre-existed (rare path), ensure verified
+                if not user.is_verified:
+                    user.is_verified = True
+                    user.save(update_fields=['is_verified'])
+            else:
+                # Login: require that user already exists
+                try:
+                    user = User.objects.get(email=email)
+                except User.DoesNotExist:
+                    return Response(
+                        {'error': 'User not found. Please contact your administrator.'},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                # Mark verified if not yet
+                if not user.is_verified:
+                    user.is_verified = True
+                    user.save(update_fields=['is_verified'])
+
             # Update last login
             user.last_login = timezone.now()
             user.save(update_fields=['last_login'])
-            
+
             # Create or get auth token
-            token, created = Token.objects.get_or_create(user=user)
-            
-            # Record successful login
+            token, _ = Token.objects.get_or_create(user=user)
+
+            # Record successful attempt
             LoginAttempt.record_attempt(email, ip_address, successful=True)
-            
+
             # Prepare response
             user_data = UserSerializer(user).data
-            
+
             return Response({
                 'message': 'Authentication successful',
                 'token': token.key,
                 'user': user_data
             }, status=status.HTTP_200_OK)
-        
+
         else:
             # Record failed attempt
             LoginAttempt.record_attempt(email, ip_address, successful=False)
-            
+
             return Response(
                 {'error': 'Invalid or expired OTP code.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -476,6 +506,40 @@ def auth_status(request):
             'authenticated': False,
             'user': None
         })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def check_username(request):
+    """Check if a username is available (3-20 chars, start with letter, letters/numbers/underscore)."""
+    username = (request.query_params.get('username') or '').strip()
+    if not username:
+        return Response({'available': False, 'error': 'Username is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    import re
+    if not re.match(r'^[A-Za-z][A-Za-z0-9_]{2,19}$', username):
+        return Response({'available': False, 'error': 'Invalid username format.'}, status=status.HTTP_400_BAD_REQUEST)
+    exists = User.objects.filter(username__iexact=username).exists()
+    return Response({'available': not exists})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def complete_setup(request):
+    """Finalize user setup: set username and mark verified. Optionally accept profile fields."""
+    username = (request.data.get('username') or '').strip()
+    import re
+    if not re.match(r'^[A-Za-z][A-Za-z0-9_]{3,20}$', username):
+        return Response({'error': 'Invalid username.'}, status=status.HTTP_400_BAD_REQUEST)
+    if User.objects.filter(username__iexact=username).exclude(pk=request.user.pk).exists():
+        return Response({'error': 'Username already taken.'}, status=status.HTTP_400_BAD_REQUEST)
+    # Update user
+    user = request.user
+    user.username = username
+    if not user.is_verified:
+        user.is_verified = True
+    user.save(update_fields=['username', 'is_verified'])
+    data = UserSerializer(user).data
+    return Response({'message': 'Setup complete', 'user': data})
 
 
 # Cleanup task views

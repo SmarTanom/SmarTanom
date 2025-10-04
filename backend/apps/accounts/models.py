@@ -52,6 +52,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     ]
     
     email = models.EmailField(unique=True)
+    # Optional username for display/handle; must be unique when set
+    username = models.CharField(max_length=20, unique=True, null=True, blank=True, db_index=True)
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=USER)
@@ -74,7 +76,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         db_table = 'auth_user'
     
     def __str__(self):
-        return self.email
+        return self.username or self.email
     
     @property
     def full_name(self):

@@ -1,85 +1,102 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import { verifyCode, requestCode } from '../services/api/auth';
 import BrandMark from '../components/brand/BrandMark.jsx';
-import '../pages/AuthCodePage.css';
 import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
-import { verifyCode } from '../services/api/auth.js';
+import './AuthCodePage.css';
 
 export default function CodePage({ mode = 'signin' }) {
   const navigate = useNavigate();
-  const { email, setMode } = useAuthFlow();
-  const [digits, setDigits] = useState(['', '', '', '', '', '']);
+  const { email } = useAuthFlow();
+  const { signIn } = useAuth();
+  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const inputRefs = useRef([]);
 
-  React.useEffect(() => setMode(mode), [mode, setMode]);
+  useEffect(() => {
+    inputRefs.current[0]?.focus();
+  }, []);
 
-  function handleChange(i, v) {
-    if (/^\d?$/.test(v)) {
-      const copy = [...digits];
-      copy[i] = v;
-      setDigits(copy);
-      
-      // Auto-focus next input
-      if (v && i < 5) {
-        inputRefs.current[i + 1]?.focus();
-      }
-    }
-  }
-
-  function handleKeyDown(i, e) {
-    // Handle backspace to go to previous input
-    if (e.key === 'Backspace' && !digits[i] && i > 0) {
-      inputRefs.current[i - 1]?.focus();
-    }
-  }
-
-  async function handleResendCode() {
+  const handleChange = (index, value) => {
+    if (!/^\d?$/.test(value)) return;
+    
+    const newCode = [...code];
+    newCode[index] = value;
+    setCode(newCode);
     setError('');
-    try {
-      // TODO: Implement resend code API call
-      await new Promise(r => setTimeout(r, 500));
-    } catch (err) {
-      setError('Could not resend code. Please try again.');
-    }
-  }
 
-  async function handleConfirm(e) {
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !code[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e) => {
     e.preventDefault();
-    setError('');
-    const code = digits.join('');
-    if (code.length !== 6) {
-      setError('Please enter the complete 6-digit code');
-      inputRefs.current[0]?.focus();
+    const pastedData = e.clipboardData.getData('text').slice(0, 6);
+    if (!/^\d+$/.test(pastedData)) return;
+
+    const newCode = [...code];
+    pastedData.split('').forEach((char, i) => {
+      if (i < 6) newCode[i] = char;
+    });
+    setCode(newCode);
+    
+    const nextEmptyIndex = newCode.findIndex(c => !c);
+    if (nextEmptyIndex !== -1) {
+      inputRefs.current[nextEmptyIndex]?.focus();
+    } else {
+      inputRefs.current[5]?.focus();
+    }
+  };
+
+  const handleVerify = async () => {
+    const codeString = code.join('');
+    if (codeString.length !== 6) {
+      setError('Please enter all 6 digits');
       return;
     }
-    setLoading(true);
+
+    setVerifying(true);
+    setError('');
+
     try {
-      const resp = await verifyCode({ email, code, mode });
-      if (mode === 'signup') {
-        navigate('/signup/username');
+      const result = await verifyCode(email, codeString, mode);
+      if (mode === 'signin') {
+        // Use backend user and token
+        const user = await signIn({
+          email: result.user?.email,
+          username: result.user?.username || result.user?.email?.split('@')[0],
+          token: result.token,
+          isNewUser: false,
+          role: result.user?.role,
+        });
+        if (user.role === 'admin') navigate('/admin', { replace: true });
+        else navigate('/dashboard', { replace: true });
       } else {
-        // Store token in memory/localStorage if desired by app; backend also supports DRF Token
-        // Example minimal handling:
-        if (resp?.token) {
-          try { localStorage.setItem('auth_token', resp.token); } catch {}
-        }
-        navigate('/');
+        navigate('/signup/setup', { replace: true });
       }
     } catch (err) {
-      setError(err?.message || 'Code expired or invalid. Please try again or request a new code.');
+      setError(err.message || 'Verification failed');
+      setCode(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
     } finally {
-      setLoading(false);
+      setVerifying(false);
     }
-  }
+  };
 
-  const heading = 'Verify Your Identity';
-  const subtext = `Enter the 6-digit code sent to ${email?.replace(/(.{3}).*(@.*)/, '$1***$2') || 'your email'}`;
+  const isComplete = code.every(c => c !== '');
 
   return (
-    <div className="auth-screen-root">
+    <div className="auth-screen-root code-page">
       <div className="auth-content-wrapper">
         <div className="auth-screen-inner">
           <div className="auth-top-bar auth-fade-item">
@@ -98,43 +115,50 @@ export default function CodePage({ mode = 'signin' }) {
             </div>
           </div>
           <div className="auth-content auth-fade-item">
-            <header className="auth-code-header" style={{ gap: 'clamp(12px, 2vh, 18px)', textAlign: 'center', alignItems: 'center' }}>
-              <h1 className="auth-title" style={{ textAlign: 'center' }}>{heading}</h1>
-              <p className="auth-subtext" style={{ textAlign: 'center' }}>{subtext}</p>
+            <header className="auth-code-header" style={{ gap: 'clamp(12px, 2vh, 18px)' }}>
+              <h1 className="auth-title">Enter Verification Code</h1>
+              <p className="auth-subtext">We sent a 6-digit code to <strong>{email}</strong></p>
             </header>
-            <form className="auth-form" onSubmit={handleConfirm} noValidate>
-              <div className="auth-otp-grid">
-                {digits.map((d, i) => (
+            <div className="otp-container">
+              <div className="auth-otp-grid" onPaste={handlePaste}>
+                {code.map((digit, index) => (
                   <input
-                    key={i}
-                    ref={el => inputRefs.current[i] = el}
+                    key={index}
+                    ref={el => inputRefs.current[index] = el}
+                    type="text"
                     inputMode="numeric"
-                    aria-label={`Digit ${i + 1}`}
-                    className={`auth-otp-input ${error ? 'error' : ''}`}
-                    value={d}
-                    onChange={e => handleChange(i, e.target.value)}
-                    onKeyDown={e => handleKeyDown(i, e)}
                     maxLength={1}
+                    value={digit}
+                    onChange={e => handleChange(index, e.target.value)}
+                    onKeyDown={e => handleKeyDown(index, e)}
+                    className="auth-otp-input"
+                    aria-label={`Digit ${index + 1}`}
                     aria-invalid={!!error}
                   />
                 ))}
               </div>
-              {error && <div className="auth-error" role="alert">{error}</div>}
-              <button type="submit" className="auth-submit" disabled={loading}>
-                {loading && <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />}
-                <span>{loading ? 'Verifying...' : 'Verify Code'}</span>
-              </button>
-              <button 
-                type="button" 
-                className="auth-link" 
-                onClick={handleResendCode}
-                style={{ alignSelf: 'center' }}
+              {error && <p className="auth-error" role="alert">{error}</p>}
+            </div>
+            <div>
+              <button
+                type="button"
+                className="auth-submit"
+                onClick={handleVerify}
+                disabled={!isComplete || verifying}
               >
-                Didn't receive a code? Resend
+                {verifying ? 'Verifying...' : 'Verify'}
               </button>
-              <div className="auth-helper auth-fade-item">Check your email inbox and spam folder for the verification code.</div>
-              <span role="status" aria-live="polite">{loading ? 'Verification in progress' : ''}</span>
-            </form>
+              <div className="auth-helper" style={{ marginTop: 14 }}>
+                <span>Didn't receive a code? </span>
+                <button
+                  type="button"
+                  className="auth-link"
+                  onClick={async () => { try { await requestCode(email, mode); } catch (e) { /* ignore */ } }}
+                >
+                  Resend
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

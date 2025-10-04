@@ -4,7 +4,7 @@ import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthEmailPage.css';
 import { Mail as MailIcon, ChevronLeftFilled } from '../components/ui/Icon.jsx';
-import { requestCode } from '../services/api/auth.js';
+import { requestCode } from '../services/api/auth';
 
 // Inline validation helpers
 function isValidEmail(email) { return /[^@\s]+@[^@\s]+\.[^@\s]+/.test(email); }
@@ -34,7 +34,7 @@ export default function EmailPage({ mode = 'signin' }) {
     }
     setLoading(true);
     try {
-      await requestCode({ email: trimmed, mode });
+  await requestCode(trimmed, mode);
       setCodeSent(true);
       navigate(`/${mode}/code`);
     } catch (err) {
