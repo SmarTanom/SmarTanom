@@ -628,19 +628,20 @@
 .setup-field input[type="number"],
 .setup-field input[type="email"] {
   width: 100%;
-  padding: clamp(8px, 1.6vw, 12px) clamp(10px, 2.2vw, 14px);
-  border-radius: clamp(6px, 1vw, 10px);
-  border: 2px solid rgba(1,107,34,0.45);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #016b22;
   background: #ffffff;
   color: #0b2d16;
-  font-size: clamp(0.875rem, 2.2vw, 1rem);
-  font-weight: 600;
+  font-size: clamp(0.8125rem, 2vw, 0.95rem);
+  font-weight: 500;
   letter-spacing: 0.01em;
   outline: none;
-  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
-  min-height: 44px;
+  transition: border-color .15s ease;
+  min-height: 38px;
   box-sizing: border-box;
   font-family: Montserrat, Inter, sans-serif;
+  box-shadow: none;
 }
 
 .setup-field input[type="text"]::placeholder,
@@ -653,10 +654,16 @@
 .setup-field input[type="text"]:focus,
 .setup-field input[type="number"]:focus,
 .setup-field input[type="email"]:focus {
-  border-color: #016b22;
+  border-color: #014b19;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(1,107,34,0.22);
+  box-shadow: none;
 }
+.setup-field input[type="text"]:hover,
+.setup-field input[type="number"]:hover,
+.setup-field input[type="email"]:hover { background:#ffffff; border-color:#014b19; }
+.setup-field input[type="text"]:active,
+.setup-field input[type="number"]:active,
+.setup-field input[type="email"]:active { background:#ffffff; border-color:#014b19; }
 
 .setup-field input[type="text"]:hover,
 .setup-field input[type="number"]:hover,
@@ -1196,7 +1203,10 @@
   box-sizing: border-box;
   font-family: Montserrat, Inter, sans-serif;
 }
-.setup-select:focus { border-color: #016b22; background: #ffffff; box-shadow: 0 0 0 3px rgba(1,107,34,0.22); }
+/* Minimal focus treatment */
+.setup-select:focus { border-color: #014b19; background: #ffffff; box-shadow: none; }
+.setup-select:hover { background:#ffffff; border-color:#014b19; }
+.setup-select:active { background:#ffffff; border-color:#014b19; }
 .setup-select:hover { border-color: rgba(1,107,34,0.7); }
 
 /* Softer placeholder/empty-state color for selects */
@@ -1678,11 +1688,8 @@
   outline-offset: 2px;
 }
 
-.setup-field input[type="text"]:focus {
-  border-color: rgba(255,255,255,0.8);
-  background: rgba(255,255,255,0.1);
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.2);
-}
+/* Override legacy focus effect: keep minimal style (handled earlier) */
+.setup-field input[type="text"]:focus { border-color:#014b19; background:#ffffff; box-shadow:none; }
 
 .setup-method-card:focus-within {
   border-color: rgba(255,255,255,0.28);
@@ -1746,8 +1753,10 @@
 /* Steps 4-6 Enhancements */
 /* OTP Input Styles */
 .otp-input-row { display:flex; gap:10px; margin-top:14px; }
-.otp-box { width:48px; height:56px; text-align:center; font-size:24px; border:2px solid #1f7a3e; background:#093; color:#fff; border-radius:10px; font-weight:600; outline:none; transition:border-color .2s, background .2s; }
-.otp-box:focus { border-color:#4cd472; background:#118f43; }
+.otp-box { width:44px; height:48px; text-align:center; font-size:20px; border:1px solid #333; background:#ffffff; color:#111; border-radius:6px; font-weight:600; outline:none; transition:border-color .18s; box-shadow:none; }
+.otp-box:focus { border-color:#016b22; background:#ffffff; box-shadow:none; }
+.otp-box:hover { background:#ffffff; border-color:#016b22; }
+.otp-box:active { background:#ffffff; border-color:#016b22; }
 .otp-input-row { justify-content:center; }
 .otp-box { font-family: 'Montserrat', Inter, sans-serif; }
 @media (max-width:420px){

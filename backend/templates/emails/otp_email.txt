@@ -1,0 +1,10 @@
+Your SmarTanom verification code: {{ code }}
+
+Use this one-time code to continue signing in. It expires in {{ expiry_minutes|default:10 }} minutes.
+
+If you did not request this code, you can ignore this email.
+
+Requested IP: {{ request_ip|default:"unknown" }}
+Time: {{ timestamp|default:request_timestamp }}
+
+SmarTanom

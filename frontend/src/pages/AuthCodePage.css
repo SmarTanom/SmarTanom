@@ -179,23 +179,24 @@
 
 .auth-otp-input { 
   aspect-ratio: 1;
-  border: 2px solid rgba(255,255,255,0.6); 
-  background: rgba(255,255,255,0.08); 
-  color: #fff; 
-  font-size: clamp(14px, 3.5vw, 20px); 
-  font-weight: 700; 
+  border: 1px solid #222; 
+  background: #ffffff; 
+  color: #222; 
+  font-size: clamp(13px, 3.2vw, 18px); 
+  font-weight: 600; 
   font-family: Montserrat, Inter, sans-serif; 
   text-align: center; 
-  border-radius: 6px; 
+  border-radius: 5px; 
   outline: none; 
-  transition: border-color .25s ease, background .25s ease, box-shadow .25s ease;
+  transition: border-color .18s ease;
   padding: 0;
   width: 100%;
   height: auto;
-  min-width: 38px;
-  max-width: 65px;
+  min-width: 34px;
+  max-width: 56px;
   justify-self: center;
   align-self: center;
+  box-shadow: none;
 }
 
 /* Responsive adjustments for different screen sizes */
@@ -231,11 +232,10 @@
   }
 }
 
-.auth-otp-input:focus { 
-  border-color: #ffffff; 
-  background: rgba(255,255,255,0.16); 
-  box-shadow: 0 0 0 3px rgba(255,255,255,0.25); 
-}
+/* Minimal focus: retain white background */
+.auth-otp-input:focus { border-color: #016b22; background: #ffffff; box-shadow: none; }
+.auth-otp-input:hover { background:#ffffff; border-color:#016b22; }
+.auth-otp-input:active { background:#ffffff; border-color:#016b22; }
 
 .auth-otp-input[aria-invalid="true"] { 
   border-color: #ffb3b3; 

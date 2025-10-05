@@ -7,7 +7,14 @@ Django==4.2.16
 djangorestframework==3.15.1
 django-filter==24.2
 python-dotenv==1.0.1
-psycopg2-binary==2.9.9
+
+# PostgreSQL driver:
+# The previously pinned psycopg2-binary==2.9.9 does not ship wheels for Python 3.13 yet,
+# causing a build failure on Windows (linker error for _PyInterpreterState_Get).
+# Switch to psycopg (v3) binary distribution which is supported by Django 4.2+
+# If you specifically need psycopg2, lower your Python version (<=3.12) or upgrade
+# to a psycopg2-binary release that includes cp313 wheels when available.
+psycopg[binary]==3.2.10
 gunicorn==22.0.0
 requests==2.32.3
 dnspython==2.6.1
