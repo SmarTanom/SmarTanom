@@ -1344,6 +1344,33 @@
   display: inline-flex;
   align-items: center;
 }
+/* Subtle inline unit (replaces pill for 'days') */
+.setup-unit { 
+  font-size: clamp(11px, 1.4vw, 13px); 
+  font-weight: 600; 
+  color: rgba(255,255,255,0.85); 
+  padding: 0 4px 0 2px; 
+  line-height: 1.2; 
+  display: inline-flex; 
+  align-items:center; 
+  position: relative; 
+}
+.setup-unit::before { 
+  content: ''; 
+  position: absolute; 
+  left: -6px; 
+  top: 50%; 
+  transform: translateY(-50%); 
+  width: 1px; 
+  height: 60%; 
+  background: rgba(255,255,255,0.25); 
+}
+.input-with-suffix.natural-unit { 
+  grid-template-columns: max-content 1fr max-content; 
+  gap: 8px; 
+}
+.input-with-suffix.natural-unit input { order: 2; }
+.input-with-suffix.natural-unit .setup-unit { order: 3; }
 
 /* Generic right-side icon inside inline inputs */
 .suffix-icon {

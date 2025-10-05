@@ -632,7 +632,7 @@ export default function SignupSetup() {
                             <label className="setup-field-label setup-field-label--xs" htmlFor="durationDays">Days Since Planted</label>
                             <span className="setup-optional" aria-hidden="true">optional</span>
                           </div>
-                          <div className="input-with-suffix">
+                          <div className="input-with-suffix natural-unit">
                             <input
                               id="durationDays"
                               type="number"
@@ -644,7 +644,7 @@ export default function SignupSetup() {
                               autoComplete="off"
                               enterKeyHint="done"
                             />
-                            <span className="suffix-tag" aria-hidden="true">days</span>
+                            <span className="setup-unit" aria-hidden="true">days</span>
                           </div>
                         </div>
                       </div>
