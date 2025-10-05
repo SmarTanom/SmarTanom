@@ -633,7 +633,8 @@
 .setup-field input[type="number"],
 .setup-field input[type="email"] {
   width: 100%;
-  padding: 8px 12px;
+  /* Reduced padding (was 8px 12px) */
+  padding: 6px 10px;
   border-radius: 6px;
   border: 1px solid #016b22;
   background: #ffffff;

@@ -214,7 +214,7 @@
 /* New SVG mail icon */
 .auth-mail-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); stroke: #ffffff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
 
-.auth-input { width: 100%; padding: 13px 14px 13px 44px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.55); background: #ffffff; color: #1a1a1a; font-size: 14px; font-weight: 500; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.25px; outline: none; transition: border-color .18s ease, background .18s ease; box-shadow: none; min-height: 46px; }
+.auth-input { width: 100%; padding: 10px 12px 10px 42px; /* reduced from 13px 14px 13px 44px */ border-radius: 6px; border: 1px solid rgba(255,255,255,0.55); background: #ffffff; color: #1a1a1a; font-size: 14px; font-weight: 500; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.25px; outline: none; transition: border-color .18s ease, background .18s ease; box-shadow: none; min-height: 44px; }
 .auth-input::placeholder { color: #808080; font-weight: 500; }
 /* Keep background white & minimal visual change on focus */
 .auth-input:focus { border-color: #1a1a1a; background: #ffffff; box-shadow: none; }
@@ -243,8 +243,9 @@
 .auth-input--welcome { 
   width:100%;
   font-size: var(--welcome-fs); 
-  padding: var(--welcome-pad-y) var(--welcome-pad-x) var(--welcome-pad-y) var(--welcome-icon-gap); 
-  min-height: var(--welcome-min-h); 
+  /* Slightly reduced vertical + horizontal padding while keeping icon gap */
+  padding: calc(var(--welcome-pad-y) - 3px) calc(var(--welcome-pad-x) - 2px) calc(var(--welcome-pad-y) - 3px) var(--welcome-icon-gap); 
+  min-height: calc(var(--welcome-min-h) - 2px); 
   border:1px solid var(--welcome-green); 
   border-radius:6px; 
   background:#ffffff; 
@@ -360,11 +361,12 @@
   .auth-input--welcome{ min-height:46px; }
 }
 /* Distinct smaller welcome variant adjustment */
+/* Final override: ensure tightened padding persists */
 .auth-input--welcome { 
-  min-height:44px !important; 
-  padding-top:11px !important; 
-  padding-bottom:11px !important; 
-  padding-left:42px !important; 
+  min-height:42px !important; 
+  padding-top:10px !important; 
+  padding-bottom:10px !important; 
+  padding-left:40px !important; 
   font-size:14px; 
 }
 
