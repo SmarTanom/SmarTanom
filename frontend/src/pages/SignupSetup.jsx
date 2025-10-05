@@ -86,6 +86,7 @@ export default function SignupSetup() {
     'Spinach', 'Arugula', 'Kale', 'Bok Choy', 'Basil', 'Mint', 'Oregano', 'Cilantro', 'Chives', 'Parsley', 'Thyme'
   ];
   const [selectedDefaultImage, setSelectedDefaultImage] = useState('');
+  const [showDefaultImageModal, setShowDefaultImageModal] = useState(false); // new modal state
   const [durationDays, setDurationDays] = useState(''); // numeric string, optional
 
   // Step 3 state
@@ -585,7 +586,10 @@ export default function SignupSetup() {
                               <button
                                 type="button"
                                 className={`setup-btn sm ${plantPhotoChoice === 'default' ? '' : 'outline'}`}
-                                onClick={() => setPlantPhotoChoice('default')}
+                                onClick={() => {
+                                  setPlantPhotoChoice('default');
+                                  setShowDefaultImageModal(true); // open modal instead of dropdown
+                                }}
                                 aria-pressed={plantPhotoChoice === 'default'}
                               >
                                 Choose Default Image
@@ -593,20 +597,12 @@ export default function SignupSetup() {
                             </div>
                             <p className="setup-helper">You can upload your own photo or choose a default image.</p>
                             {plantPhotoChoice === 'default' && (
-                              <div className="setup-field inline-row" style={{ marginTop: 6 }}>
-                                <label className="setup-field-label" htmlFor="defaultImage">Default image</label>
-                                <select
-                                  id="defaultImage"
-                                  value={selectedDefaultImage}
-                                  onChange={(e) => setSelectedDefaultImage(e.target.value)}
-                                  className="setup-select"
-                                  data-empty={selectedDefaultImage === ''}
-                                >
-                                  <option value="">Select a default image…</option>
-                                  {defaultImages.map((opt) => (
-                                    <option key={opt} value={opt}>{opt}</option>
-                                  ))}
-                                </select>
+                              <div className="default-image-inline-status" style={{ marginTop: 6 }}>
+                                {selectedDefaultImage ? (
+                                  <p className="setup-helper" aria-live="polite">Selected: <strong>{selectedDefaultImage}</strong></p>
+                                ) : (
+                                  <p className="setup-helper" aria-live="polite">No image selected yet. Click the button to choose.</p>
+                                )}
                               </div>
                             )}
                             {(plantPhotoChoice === 'upload' && uploadPhotoUrl) && (
@@ -864,6 +860,51 @@ export default function SignupSetup() {
       <div className="auth-image-column" aria-hidden="true" />
     </div>
     
+    {showDefaultImageModal && (
+        <div
+          className="setup-modal default-image-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="defaultImageModalTitle"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowDefaultImageModal(false); }}
+        >
+          <div className="setup-modal-content default-image-modal-content" role="document">
+            <div className="modal-head-row">
+              <h4 id="defaultImageModalTitle" style={{ margin: 0 }}>Choose a Default Image</h4>
+              <button
+                type="button"
+                className="setup-btn outline sm"
+                onClick={() => setShowDefaultImageModal(false)}
+                aria-label="Close image selection"
+              >Close</button>
+            </div>
+            <p className="setup-helper" style={{ marginTop: 0 }}>Select one option below. Press Enter or Space to confirm.</p>
+            <ul className="default-image-grid" role="listbox" aria-label="Default plant image options">
+              {defaultImages.map(name => {
+                const selected = name === selectedDefaultImage;
+                return (
+                  <li key={name} className="default-image-item" role="option" aria-selected={selected}>
+                    <button
+                      type="button"
+                      className={`default-image-btn${selected ? ' selected' : ''}`}
+                      onClick={() => {
+                        setSelectedDefaultImage(name);
+                        setShowDefaultImageModal(false);
+                      }}
+                      onKeyDown={(e)=>{
+                        if(e.key==='Escape'){ setShowDefaultImageModal(false); }
+                      }}
+                    >
+                      <span className="default-image-label">{name}</span>
+                      {selected && <span className="visually-hidden"> (selected)</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
     </>
   );
 }
