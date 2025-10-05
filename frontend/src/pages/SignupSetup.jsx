@@ -1,5 +1,4 @@
-import React, { useMemo, useState } from 'react';
-import { useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthSetupPage.css';
@@ -71,6 +70,7 @@ export default function SignupSetup() {
   const [deviceId, setDeviceId] = useState('');
   const [fileName, setFileName] = useState('');
   const [verified, setVerified] = useState(false);
+  const [justVerified, setJustVerified] = useState(false); // transient inline confirmation
   const [checking, setChecking] = useState(false);
   const [modal, setModal] = useState({ open: false, message: '' });
 
@@ -92,6 +92,27 @@ export default function SignupSetup() {
   const [bindEmail, setBindEmail] = useState('');
   const [sendingCode, setSendingCode] = useState(false);
   const [emailError, setEmailError] = useState('');
+
+  // Step 4 state
+  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
+  const [otpError, setOtpError] = useState('');
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otpResent, setOtpResent] = useState(false);
+
+  // Step 5 state
+  const [wifiNetworks, setWifiNetworks] = useState([]);
+  const [wifiScanning, setWifiScanning] = useState(false);
+  const [wifiSelected, setWifiSelected] = useState('');
+  const [wifiPassword, setWifiPassword] = useState('');
+  const [wifiError, setWifiError] = useState('');
+  const [showWifiPw, setShowWifiPw] = useState(false);
+
+  // Step 6 state
+  const [username, setUsername] = useState('');
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalError, setFinalError] = useState('');
+  const [accountCreated, setAccountCreated] = useState(false);
+  // (Snackbar removed per request)
 
   function isValidEmail(v) {
     return /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v);
@@ -144,14 +165,22 @@ export default function SignupSetup() {
   function goNext() { if (step < total) setStep(step + 1); }
 
   async function verifyDevice() {
+    if (checking) { // guard against rapid double clicks / strict mode double invoke patterns
+      // eslint-disable-next-line no-console
+      console.log('[verifyDevice] Ignored duplicate invocation while checking');
+      return;
+    }
     setChecking(true);
     setVerified(false);
     try {
-      // Mock verification: require either a 6+ char ID starting with SMRT or a file name present
       await new Promise(r => setTimeout(r, 500));
-      const ok = (/^smrt\w{2,}$/i.test(deviceId)) || !!fileName;
-      if (!ok) throw new Error('Invalid device QR/ID. Please try again.');
-      setVerified(true);
+      // Relaxed: allow smrt + at least 1 char OR file upload OR length >= 6
+      const ok = (/^smrt\w+/i.test(deviceId.trim())) || !!fileName || deviceId.trim().length >= 6;
+      if (!ok) throw new Error('Enter a valid Device ID (ex: smrt123 or upload QR).');
+  setVerified(true);
+  setJustVerified(true);
+  // Brief pause to let user see inline confirmation, then advance
+  setTimeout(()=>{ setStep(2); setJustVerified(false); }, 600);
     } catch (e) {
       setModal({ open: true, message: e.message || 'Invalid device QR/ID. Please try again.' });
     } finally {
@@ -172,6 +201,118 @@ export default function SignupSetup() {
     }
   }
 
+  function handleOtpChange(idx, val) {
+    if (/^\d?$/.test(val)) {
+      const next = [...otpCode];
+      next[idx] = val;
+      setOtpCode(next);
+      setOtpError('');
+      if (val && idx < otpCode.length - 1) {
+        const el = document.getElementById(`otp-${idx + 1}`);
+        if (el) el.focus();
+      }
+    }
+  }
+
+  function handleOtpPaste(e){
+    const text = e.clipboardData.getData('text').replace(/\D/g,'').slice(0,6);
+    if(!text) return;
+    const next = [...otpCode];
+    for(let i=0;i<text.length;i++){ next[i]=text[i]; }
+    setOtpCode(next);
+    e.preventDefault();
+  }
+
+  function resendOtp() {
+    setOtpResent(false);
+    setOtpError('');
+    // mock resend
+    setTimeout(() => setOtpResent(true), 600);
+  }
+
+  async function verifyOtp() {
+    setVerifyingOtp(true);
+    setOtpError('');
+    try {
+      await new Promise(r => setTimeout(r, 800));
+      const code = otpCode.join('');
+      if (code !== '123456') { // mock correct code
+        throw new Error('Invalid or expired code');
+      }
+      setStep(5);
+    } catch (e) {
+      setOtpError(e.message || 'Invalid code');
+    } finally {
+      setVerifyingOtp(false);
+    }
+  }
+
+  async function scanWifi() {
+    setWifiScanning(true);
+    setWifiNetworks([]);
+    setWifiError('');
+    try {
+      await new Promise(r => setTimeout(r, 900));
+      setWifiNetworks(['HydroNet_2G', 'HydroNet_5G', 'GardenMesh', 'HomeLab']);
+    } catch (e) {
+      setWifiError('Scan failed. Try again.');
+    } finally {
+      setWifiScanning(false);
+    }
+  }
+
+  function canConnectWifi() {
+    return wifiSelected && (wifiSelected.includes('Open') || wifiPassword.length >= 8);
+  }
+
+  async function connectWifi() {
+    if (!canConnectWifi()) return;
+    setWifiError('');
+    setWifiScanning(true);
+    try {
+      await new Promise(r => setTimeout(r, 1000));
+      // mock success
+      setStep(6);
+    } catch (e) {
+      setWifiError('Connection failed. Check password.');
+    } finally {
+      setWifiScanning(false);
+    }
+  }
+
+  async function finalizeAccount() {
+    if (!username.trim()) {
+      setFinalError('Username is required');
+      return;
+    }
+    setFinalError('');
+    setFinalizing(true);
+    try {
+      await new Promise(r => setTimeout(r, 1000));
+      setAccountCreated(true);
+      setTimeout(()=>{
+        const btn = document.getElementById('go-dashboard-btn');
+        if(btn) btn.focus();
+      }, 50);
+    } catch (e) {
+      setFinalError('Unable to create account');
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
+  function primaryCtaLabel(){
+    switch(step){
+      case 1: return 'Next';
+      case 2: return 'Next';
+      case 3: return 'Send Code';
+      case 4: return 'Verify Code';
+      case 5: return wifiScanning? 'Connecting…':'Connect';
+      case 6: return accountCreated? 'Go to Dashboard':'Finish Setup';
+      default: return 'Next';
+    }
+  }
+
   // Cleanup object URL when component unmounts or URL changes
   useEffect(() => {
     return () => {
@@ -181,65 +322,67 @@ export default function SignupSetup() {
     };
   }, [uploadPhotoUrl]);
 
-  return (
-    <div className="auth-screen-root">
-      <div className="auth-content-wrapper">
-        <div className="auth-screen-inner setup-shell">
-          <div className="auth-content setup-flow">
-            <div className="setup-top">
-              <div className="auth-top-bar auth-fade-item">
-                <button
-                  type="button"
-                  className="auth-back-btn"
-                  onClick={goPrev}
-                  aria-label="Go back"
-                >
-                  <ChevronLeftFilled className="auth-back-icon" size={22} color="#ffffff" aria-hidden="true" />
-                  <span className="auth-back-text">BACK</span>
-                </button>
-                <div className="auth-brand">
-                  <BrandMark variant="white" className="brand-logo-img" />
-                  <span className="auth-brand-wordmark">SMARTANOM</span>
-                </div>
-              </div>
 
-              <header className="auth-header setup-progress-header auth-fade-item" aria-label="Setup progress overview">
-                <div className="setup-progress-pill" role="status" aria-live="polite">
-                  <span>{progressPercent}% complete</span>
+  // (Toast removed) no external snackbar timer cleanup needed.
+
+  return (
+    <>
+  <div className="auth-screen-root">
+        <div className="auth-content-wrapper">
+          <div className="auth-screen-inner setup-shell">
+            <div className="auth-content setup-flow">
+              <div className="setup-top">
+                <div className="auth-top-bar auth-fade-item">
+                  <button
+                    type="button"
+                    className="auth-back-btn"
+                    onClick={goPrev}
+                    aria-label="Go back"
+                  >
+                    <ChevronLeftFilled className="auth-back-icon" size={22} color="#ffffff" aria-hidden="true" />
+                    <span className="auth-back-text">BACK</span>
+                  </button>
+                  <div className="auth-brand">
+                    <BrandMark variant="white" className="brand-logo-img" />
+                    <span className="auth-brand-wordmark">SMARTANOM</span>
+                  </div>
                 </div>
-                <nav className="setup-stepper" aria-label="Progress">
-                  <div className="setup-track" aria-hidden="true" />
-                  <div
-                    className="setup-track-active"
-                    aria-hidden="true"
-                    style={{ width: `${progressFraction * 100}%` }}
-                  />
-                  <ol className="setup-steps" role="list">
-                    {Array.from({ length: total }).map((_, i) => {
-                      const idx = i + 1;
-                      const state = idx < step ? 'completed' : (idx === step ? 'current' : 'upcoming');
-                      return (
-                        <li key={idx} className={`setup-step ${state}`} aria-current={state === 'current' ? 'step' : undefined}>
-                          <div className="setup-step-node">
-                            <span className="setup-step-icon" aria-hidden="true">
-                              {state === 'completed' ? (
-                                <CheckCircleFilled size={18} color="#ffffff" checkColor="#016b22" />
-                              ) : (
-                                idx
-                              )}
-                            </span>
-                            <span className="setup-step-label">{stepLabels[i]}</span>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </nav>
-                <div className="setup-step-meta" aria-live="polite">
-                  <span className="setup-step-count">Step {step} of {total}</span>
-                  <span className="setup-step-tag">{headings[step - 1]}</span>
-                </div>
-              </header>
+
+                <header className="auth-header setup-progress-header auth-fade-item" aria-label="Setup progress overview">
+                  <div className="setup-progress-pill" role="status" aria-live="polite">
+                    <span>{progressPercent}% complete</span>
+                  </div>
+                  <nav className="setup-stepper" aria-label="Progress">
+                    <div className="setup-track" aria-hidden="true" />
+                    <div
+                      className="setup-track-active"
+                      aria-hidden="true"
+                      style={{ width: `${progressFraction * 100}%` }}
+                    />
+                    <ol className="setup-steps" role="list">
+                      {Array.from({ length: total }).map((_, i) => {
+                        const idx = i + 1;
+                        const state = idx < step ? 'completed' : (idx === step ? 'current' : 'upcoming');
+                        return (
+                          <li key={idx} className={`setup-step ${state}`} aria-current={state === 'current' ? 'step' : undefined}>
+                            <div className="setup-step-node">
+                              <span className="setup-step-icon" aria-hidden="true">
+                                {state === 'completed' ? '✓' : idx}
+                              </span>
+                              <span className="setup-step-label">{stepLabels[idx - 1]}</span>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </nav>
+                  <div className="setup-step-meta" aria-live="polite">
+                    <span className="setup-step-combined">
+                      <span className="step-number">Step {step} of {total}</span>
+                      <span className="step-title">{headings[step - 1]}</span>
+                    </span>
+                  </div>
+                </header>
             </div>
 
             <div className="setup-middle auth-fade-item" role="region" aria-live="polite" aria-label={headings[step - 1]}>
@@ -354,7 +497,7 @@ export default function SignupSetup() {
                             value={nickname}
                             onChange={(e) => setNickname(e.target.value)}
                             aria-describedby="help-nickname"
-                            autoComplete="nickname"
+                            autoComplete="off"
                             inputMode="text"
                           />
                           <p id="help-nickname" className="setup-helper setup-helper--sm">If left empty, we will use the device’s serial ID.</p>
@@ -372,7 +515,7 @@ export default function SignupSetup() {
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
                             aria-describedby="help-location"
-                            autoComplete="on"
+                            autoComplete="off"
                             inputMode="text"
                           />
                           <p id="help-location" className="setup-helper setup-helper--sm">Where is your SmarTanom installed? (e.g., balcony, backyard)</p>
@@ -387,7 +530,7 @@ export default function SignupSetup() {
                         {/* Plant Name removed per request */}
 
                         <div className="setup-field span-2">
-                          <label className="setup-field-label" htmlFor="plantPhoto">Plant Photo</label>
+                          <div className="setup-field-label">Plant Photo</div>
                           <div className="setup-input-inline">
                             <div className="photo-choice-row">
                               <label htmlFor="cameraFile" className={`setup-btn sm ${plantPhotoChoice === 'camera' ? '' : 'outline'}`} aria-pressed={plantPhotoChoice === 'camera'}>
@@ -527,6 +670,105 @@ export default function SignupSetup() {
                         </div>
                        </div>
                      </div>
+
+                     <div className="inline-progress-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end'}}>
+                      <button type="button" className="setup-btn" onClick={sendCode} disabled={sendingCode || !isValidEmail(bindEmail)}>{sendingCode? 'Sending…':'Send Code'}</button>
+                    </div>
+                  </section>
+                )}
+                {step === 4 && (
+                  <section className="setup-section setup-step-4" aria-label="Verify Email OTP Code">
+                    <div className="setup-card">
+                      <h3 className="setup-section-title">Enter Verification Code</h3>
+                      <p className="setup-helper" style={{marginTop:4}}>We sent a 6-digit code to <strong>{bindEmail || 'your email'}</strong>. Enter it below.</p>
+                      <div className="otp-input-row" role="group" aria-label="One time password inputs" onPaste={handleOtpPaste}>
+                        {otpCode.map((d, i) => (
+                          <input
+                            key={i}
+                            id={`otp-${i}`}
+                            className="otp-box"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={1}
+                            value={d}
+                            aria-label={`Digit ${i+1}`}
+                            onChange={e => handleOtpChange(i, e.target.value.replace(/\D/g,''))}
+                            onKeyDown={e => {
+                              if (e.key === 'Backspace' && !otpCode[i] && i>0) {
+                                const prev = document.getElementById(`otp-${i-1}`); if (prev) prev.focus();
+                              }
+                            }}
+                          />
+                        ))}
+                      </div>
+                      {otpError && <p className="setup-error" role="alert" style={{marginTop:8}}>{otpError}</p>}
+                      {otpResent && <p className="setup-status success" role="status" style={{marginTop:8}}>Code resent!</p>}
+                    </div>
+
+                    <div className="otp-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end', gap:12}}>
+                      <button type="button" className="setup-btn outline sm" disabled={verifyingOtp} onClick={resendOtp}>Resend</button>
+                      <button type="button" className="setup-btn sm" disabled={verifyingOtp || otpCode.some(c=>!c)} onClick={verifyOtp}>{verifyingOtp? 'Verifying…':'Verify Code'}</button>
+                    </div>
+                  </section>
+                )}
+                {step === 5 && (
+                  <section className="setup-section setup-step-5" aria-label="WiFi Setup">
+                    <div className="setup-card" role="group" aria-labelledby="wifi-setup-head">
+                      <h3 id="wifi-setup-head" className="setup-section-title">Scan Networks</h3>
+                      <p className="setup-helper">Let’s connect your device to the internet.</p>
+                      <div className="wifi-scan-row">
+                        <button type="button" className="setup-btn sm" onClick={scanWifi} disabled={wifiScanning}>{wifiScanning? 'Scanning…':'Scan Networks'}</button>
+                      </div>
+                      {wifiError && <p className="setup-error" role="alert">{wifiError}</p>}
+                      <ul className="wifi-list" role="radiogroup" aria-label="Available WiFi Networks">
+                        {wifiNetworks.map(net => (
+                          <li key={net} className={`wifi-item ${wifiSelected===net? 'selected':''}`} role="radio" aria-checked={wifiSelected===net}>
+                            <button type="button" className="wifi-select-btn" onClick={()=> setWifiSelected(net)} aria-pressed={wifiSelected===net}>{net}{wifiSelected===net && ' • selected'}</button>
+                          </li>
+                        ))}
+                      </ul>
+                      {wifiSelected && (
+                        <div className="setup-field" style={{marginTop:12}}>
+                          <label className="setup-field-label" htmlFor="wifiPassword">Password</label>
+                          <div className="input-with-toggle">
+                            <input id="wifiPassword" type={showWifiPw? 'text':'password'} placeholder="Enter WiFi password" value={wifiPassword} onChange={e=> setWifiPassword(e.target.value)} autoComplete="off" />
+                            <button type="button" className="pw-toggle" aria-label={showWifiPw? 'Hide password':'Show password'} onClick={()=> setShowWifiPw(p=>!p)}>{showWifiPw? 'Hide':'Show'}</button>
+                          </div>
+                          <p className="setup-helper setup-helper--sm">Minimum 8 characters (mock rule)</p>
+                        </div>
+                      )}
+                      {wifiSelected && (
+                        <div style={{marginTop:12}}>
+                          <button type="button" className="setup-btn sm" disabled={!canConnectWifi() || wifiScanning} onClick={connectWifi}>{wifiScanning? 'Connecting…':'Connect'}</button>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+                {step === 6 && (
+                  <section className="setup-section setup-step-6" aria-label="Set Username">
+                    <div className="setup-card">
+                      <h3 className="setup-section-title">Create Account Username</h3>
+                      {!accountCreated && (<>
+                        <div className="setup-field">
+                          <label htmlFor="username" className="setup-field-label">Username</label>
+                          <input id="username" type="text" placeholder="Pick a unique username" value={username} onChange={e=> setUsername(e.target.value)} autoComplete="username" />
+                          <p className="setup-helper setup-helper--sm">This will be visible in your dashboard.</p>
+                          {finalError && <p className="setup-error" role="alert">{finalError}</p>}
+                        </div>
+                        <div style={{marginTop:12, display:'flex', gap:12}}>
+                          <button type="button" className="setup-btn" disabled={finalizing} onClick={finalizeAccount}>{finalizing? 'Creating…':'Finish Setup'}</button>
+                        </div>
+                      </>)}
+                      {accountCreated && (
+                        <div className="account-success" role="status" aria-live="polite" style={{textAlign:'center'}}>
+                          <h4 style={{marginTop:0}}>🎉 All Set!</h4>
+                          <p>Your device and account are fully configured.</p>
+                          <button id="go-dashboard-btn" type="button" className="setup-btn" onClick={()=> navigate('/dashboard')}>Go to Dashboard</button>
+                        </div>
+                      )}
+                    </div>
                   </section>
                 )}
               </div>
@@ -537,36 +779,50 @@ export default function SignupSetup() {
                 <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify your device" data-section="verify">
                   <div className="setup-verify-content">
                     <h4>Verify your device</h4>
-                    <p>We’ll confirm your SmarTanom before moving on.</p>
+                    {!verified && <p>We’ll confirm your SmarTanom before moving on. (Auto-advances)</p>}
+                    {verified && justVerified && (
+                      <p className="setup-status success" style={{margin:0}} role="status">Device verified! Continuing…</p>
+                    )}
                   </div>
                   <div className="setup-verify-actions">
                     <button type="button" className="setup-btn" onClick={verifyDevice} disabled={checking}>
                       {checking ? 'Verifying…' : 'Verify Device'}
                     </button>
-                    {verified && (
-                      <span className="setup-status success" role="status">✓ Device verified</span>
-                    )}
                   </div>
                 </div>
               )}
-              {step === 3 && (
-                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Send code to email" data-section="send-code">
+              {step === 2 && (
+                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Continue setup" data-section="continue-step2">
                   <div className="setup-verify-content">
-                    <h4>Send verification code</h4>
-                    <p>We’ll send a 6-digit code to your email.</p>
+                    <h4>Continue setup</h4>
+                    <p>Proceed to bind your device to an email.</p>
                   </div>
                   <div className="setup-verify-actions">
-                    <button type="button" className="setup-btn" onClick={sendCode} disabled={sendingCode || !bindEmail || !isValidEmail(bindEmail)}>
-                      {sendingCode ? 'Sending…' : 'Send Code'}
-                    </button>
+                    <button type="button" className="setup-btn" onClick={()=> setStep(3)}>Continue</button>
                   </div>
                 </div>
               )}
-
-              <div className="setup-actions">
-                <button type="button" className="setup-btn outline" onClick={goPrev} aria-label="Previous step">Previous</button>
-                <button type="button" className="setup-btn" onClick={goNext} aria-label="Next step" disabled={step === 1 && !verified}>{step === 3 ? 'Next' : 'Next'}</button>
-              </div>
+              {step === 4 && (
+                <div className="otp-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end', gap:12}}>
+                  <button type="button" className="setup-btn outline sm" disabled={verifyingOtp} onClick={resendOtp}>Resend</button>
+                  <button type="button" className="setup-btn sm" disabled={verifyingOtp || otpCode.some(c=>!c)} onClick={verifyOtp}>{verifyingOtp? 'Verifying…':'Verify Code'}</button>
+                </div>
+              )}
+              {step === 5 && wifiSelected && !accountCreated && (
+                <div className="wifi-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end'}}>
+                  <button type="button" className="setup-btn" disabled={!canConnectWifi() || wifiScanning} onClick={connectWifi}>{wifiScanning? 'Connecting…':'Connect & Continue'}</button>
+                </div>
+              )}
+              {step === 6 && !accountCreated && (
+                <div className="username-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end'}}>
+                  <button type="button" className="setup-btn" disabled={!username.trim() || finalizing} onClick={finalizeAccount}>{finalizing? 'Finishing…':'Finish Setup'}</button>
+                </div>
+              )}
+              {step === 6 && accountCreated && (
+                <div className="username-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'center'}}>
+                  <button id="go-dashboard-btn" type="button" className="setup-btn" onClick={()=> navigate('/dashboard')}>Go to Dashboard</button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -585,6 +841,8 @@ export default function SignupSetup() {
       </div>
       <div className="auth-image-column" aria-hidden="true" />
     </div>
+    
+    </>
   );
 }
 
