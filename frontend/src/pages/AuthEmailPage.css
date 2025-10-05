@@ -214,12 +214,49 @@
 /* New SVG mail icon */
 .auth-mail-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); stroke: #ffffff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
 
-.auth-input { width: 100%; padding: 10px 14px 10px 44px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.55); background: #ffffff; color: #1a1a1a; font-size: 14px; font-weight: 500; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.25px; outline: none; transition: border-color .18s ease, background .18s ease; box-shadow: none; min-height: 38px; }
+.auth-input { width: 100%; padding: 13px 14px 13px 44px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.55); background: #ffffff; color: #1a1a1a; font-size: 14px; font-weight: 500; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.25px; outline: none; transition: border-color .18s ease, background .18s ease; box-shadow: none; min-height: 46px; }
 .auth-input::placeholder { color: #808080; font-weight: 500; }
 /* Keep background white & minimal visual change on focus */
 .auth-input:focus { border-color: #1a1a1a; background: #ffffff; box-shadow: none; }
 .auth-input:hover { background:#ffffff; border-color:#1a1a1a; }
 .auth-input:active { background:#ffffff; border-color:#1a1a1a; }
+
+/* Welcome Back (signin) email field variant - proportional sizing */
+/* Uses clamp to scale smoothly between mobile and desktop, keeping consistent visual rhythm */
+.auth-field--welcome-variant { 
+  --welcome-green:#016b22; 
+  --welcome-green-hover:#014b19; 
+  --welcome-fs: clamp(14px, 1.05vw, 18px);
+  --welcome-pad-y: clamp(13px, 1.05vw, 18px); /* 1px less than base button target */
+  --welcome-pad-x: clamp(14px, 1vw, 22px);
+  --welcome-icon-gap: clamp(48px, 3.3vw, 60px); /* space left for icon */
+  --welcome-min-h: clamp(46px, 4.8vw, 68px); /* slightly below previous, aligns w/ button */
+}
+.auth-input-wrapper--welcome { position:relative; }
+.auth-mail-icon--welcome { 
+  stroke: var(--welcome-green); 
+  filter:none; 
+  width: clamp(18px, 1.4vw, 24px); 
+  height: clamp(18px, 1.4vw, 24px); 
+  left: clamp(14px, 1vw, 20px); 
+}
+.auth-input--welcome { 
+  width:100%;
+  font-size: var(--welcome-fs); 
+  padding: var(--welcome-pad-y) var(--welcome-pad-x) var(--welcome-pad-y) var(--welcome-icon-gap); 
+  min-height: var(--welcome-min-h); 
+  border:1px solid var(--welcome-green); 
+  border-radius:6px; 
+  background:#ffffff; 
+  color:#1a1a1a; 
+  font-weight:500; 
+  letter-spacing:0.25px; 
+  transition:border-color .18s ease, background .18s ease; 
+}
+.auth-input--welcome:focus, 
+.auth-input--welcome:hover, 
+.auth-input--welcome:active { border-color: var(--welcome-green-hover); background:#ffffff; outline:none; }
+.auth-input--welcome::placeholder { color:#6b7370; font-weight:500; }
 .auth-input[aria-invalid="true"] { border-color: #ffb3b3; background: rgba(255,0,0,0.10); }
 
 /* Error message */
@@ -312,6 +349,23 @@
   }
   .auth-content { gap: clamp(32px, 6vh, 56px); }
   .auth-form { gap: clamp(24px, 3.5vh, 32px); }
+}
+
+/* Final authoritative sizing overrides (ensure height change applies) */
+.auth-input { line-height:1.2; display:flex; align-items:center; }
+.auth-input:not(.auth-input--welcome) { min-height:46px; }
+.auth-input--welcome { min-height:46px; /* keep variant aligned slightly under button */ }
+@media (min-width:769px){
+  .auth-input:not(.auth-input--welcome){ min-height:46px; }
+  .auth-input--welcome{ min-height:46px; }
+}
+/* Distinct smaller welcome variant adjustment */
+.auth-input--welcome { 
+  min-height:44px !important; 
+  padding-top:11px !important; 
+  padding-bottom:11px !important; 
+  padding-left:42px !important; 
+  font-size:14px; 
 }
 
 /* Landscape and short-height optimization to prevent crowding/cut-offs */
