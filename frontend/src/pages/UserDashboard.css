@@ -1,0 +1,592 @@
+/* UserDashboard.css - Mobile-first SmarTanom Dashboard */
+
+/* Color Palette & Design Tokens */
+:root {
+  --dashboard-bg: #f5f7f9;
+  --card-bg: #ffffff;
+  --card-border: #e3eee6;
+  --primary-green: #2E8B57;
+  --light-green: #16a34a;
+  --mint-bg: #e9f8ed;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666;
+  --text-muted: #888;
+  --alert-red: #dc2626;
+  --alert-bg: #fee;
+  --status-online: #16a34a;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.08);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+/* Main Container */
+.user-dashboard {
+  min-height: 100vh;
+  background: var(--dashboard-bg);
+  padding: 16px;
+  padding-bottom: 80px; /* space for fixed bottom nav */
+  font-family: 'Montserrat', -apple-system, system-ui, sans-serif;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Header */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.greeting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.greeting h1 {
+  font-family: 'Abril Fatface', serif;
+  font-size: clamp(20px, 5vw, 28px);
+  font-weight: 400;
+  color: #1C4A1D;
+  margin: 0;
+}
+
+.settings-btn {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+
+.settings-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Device Carousel */
+.device-carousel {
+  margin: 8px 0;
+}
+
+.device-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.device-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.device-image {
+  width: 100%;
+  height: 180px;
+  background: linear-gradient(135deg, #2E8B57 0%, #3cb371 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.device-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.device-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.3;
+}
+
+.device-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
+  color: white;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.device-info h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.device-id {
+  font-size: 12px;
+  opacity: 0.8;
+  margin: 0;
+}
+
+/* Alert Summary */
+.alert-summary {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  border-left: 4px solid var(--alert-red);
+}
+
+.alert-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.alert-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.alert-item {
+  background: var(--alert-bg);
+  color: var(--alert-red);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.alert-expand {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  margin-top: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+
+/* Status Row */
+.status-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.status-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.status-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.status-value.online {
+  color: var(--status-online);
+}
+
+/* Nutrient Card */
+.nutrient-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.nutrient-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.nutrient-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.nutrient-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.status-low {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+/* pH Section */
+.ph-section {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.ph-header {
+  margin-bottom: 16px;
+}
+
+.ph-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: var(--text-primary);
+}
+
+.ph-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* pH Chart */
+.ph-chart-container {
+  margin: 16px 0;
+  padding: 16px 0;
+}
+
+.ph-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 200px;
+  gap: 4px;
+  padding: 0 4px;
+}
+
+.ph-bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+
+.ph-bar {
+  width: 100%;
+  max-width: 32px;
+  background: linear-gradient(to top, #2E8B57, #3cb371);
+  border-radius: 8px 8px 0 0;
+  transition: height 0.3s ease;
+  position: relative;
+  transform-origin: bottom;
+  animation: growBar 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+}
+
+@keyframes growBar {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+.ph-bar:hover {
+  filter: brightness(1.1);
+}
+
+.ph-time-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.current-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--card-border);
+}
+
+.ph-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.ph-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--light-green);
+}
+
+/* Sensor Grid */
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.sensor-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sensor-card.large-ph {
+  grid-column: 1;
+  grid-row: 1;
+  background: linear-gradient(135deg, #e9f8ed 0%, #d1f2d9 100%);
+  align-items: center;
+  justify-content: center;
+}
+
+.sensor-card.large-ph .sensor-value {
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--light-green);
+  line-height: 1;
+}
+
+.sensor-card.large-ph .sensor-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--light-green);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sensor-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.sensor-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Environment Section */
+.environment-section {
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.environment-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+}
+
+.environment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.env-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.env-item svg {
+  margin-bottom: 4px;
+}
+
+.env-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.env-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card-bg);
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  justify-content: space-around;
+  padding: 12px 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+}
+
+.nav-btn {
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  min-width: 60px;
+}
+
+.nav-btn:hover {
+  opacity: 0.7;
+}
+
+.nav-btn span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.nav-btn.active span {
+  color: var(--primary-green);
+  font-weight: 600;
+}
+
+/* Responsive adjustments */
+@media (min-width: 480px) {
+  .user-dashboard {
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .ph-chart {
+    height: 220px;
+  }
+
+  .sensor-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .sensor-card.large-ph {
+    grid-column: span 1;
+  }
+}
+
+@media (min-width: 768px) {
+  .user-dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+    gap: 24px;
+  }
+
+  .device-image {
+    height: 240px;
+  }
+
+  .sensor-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .sensor-card.large-ph {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  .environment-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .bottom-nav {
+    max-width: 1200px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .greeting h1 {
+    font-size: 32px;
+  }
+
+  .status-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .ph-chart {
+    height: 240px;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .ph-bar {
+    animation: none;
+    opacity: 1;
+  }
+
+  .device-card,
+  .settings-btn,
+  .nav-btn {
+    transition: none;
+  }
+}
+
+/* Dark mode support (optional) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --dashboard-bg: #1a1a1a;
+    --card-bg: #2a2a2a;
+    --card-border: #3a3a3a;
+    --text-primary: #f0f0f0;
+    --text-secondary: #b0b0b0;
+    --text-muted: #808080;
+  }
+}
