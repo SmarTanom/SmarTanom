@@ -869,16 +869,16 @@ export default function SignupSetup() {
           onClick={(e) => { if (e.target === e.currentTarget) setShowDefaultImageModal(false); }}
         >
           <div className="setup-modal-content default-image-modal-content" role="document">
-            <button
-              type="button"
-              className="modal-close-btn"
-              aria-label="Close image selection"
-              onClick={() => setShowDefaultImageModal(false)}
-            >
-              <span aria-hidden="true">×</span>
-            </button>
             <div className="modal-head-row">
               <h4 id="defaultImageModalTitle" style={{ margin: 0 }}>Choose a Default Image</h4>
+              <button
+                type="button"
+                className="modal-close-btn inline"
+                aria-label="Close image selection"
+                onClick={() => setShowDefaultImageModal(false)}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
             </div>
             <p className="setup-helper" style={{ marginTop: 0 }}>Select one option below.</p>
             <ul className="default-image-grid" role="listbox" aria-label="Default plant image options">
@@ -893,9 +893,7 @@ export default function SignupSetup() {
                         setSelectedDefaultImage(name);
                         setShowDefaultImageModal(false);
                       }}
-                      onKeyDown={(e)=>{
-                        if(e.key==='Escape'){ setShowDefaultImageModal(false); }
-                      }}
+                      onKeyDown={(e)=>{ if(e.key==='Escape'){ setShowDefaultImageModal(false); } }}
                     >
                       <span className="default-image-label">{name}</span>
                       {selected && <span className="visually-hidden"> (selected)</span>}
