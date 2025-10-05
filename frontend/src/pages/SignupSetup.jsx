@@ -869,14 +869,16 @@ export default function SignupSetup() {
           onClick={(e) => { if (e.target === e.currentTarget) setShowDefaultImageModal(false); }}
         >
           <div className="setup-modal-content default-image-modal-content" role="document">
+            <button
+              type="button"
+              className="modal-close-btn"
+              aria-label="Close image selection"
+              onClick={() => setShowDefaultImageModal(false)}
+            >
+              <span aria-hidden="true">×</span>
+            </button>
             <div className="modal-head-row">
               <h4 id="defaultImageModalTitle" style={{ margin: 0 }}>Choose a Default Image</h4>
-              <button
-                type="button"
-                className="setup-btn outline sm"
-                onClick={() => setShowDefaultImageModal(false)}
-                aria-label="Close image selection"
-              >Close</button>
             </div>
             <p className="setup-helper" style={{ marginTop: 0 }}>Select one option below. Press Enter or Space to confirm.</p>
             <ul className="default-image-grid" role="listbox" aria-label="Default plant image options">
