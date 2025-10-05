@@ -633,8 +633,7 @@
 .setup-field input[type="number"],
 .setup-field input[type="email"] {
   width: 100%;
-  /* Reduced padding (was 8px 12px) */
-  padding: 6px 10px;
+  padding: 6px 10px; /* reduced from 8px 12px */
   border-radius: 6px;
   border: 1px solid #016b22;
   background: #ffffff;
@@ -644,7 +643,7 @@
   letter-spacing: 0.01em;
   outline: none;
   transition: border-color .15s ease;
-  min-height: 38px;
+  min-height: 36px; /* slightly reduced to match new padding */
   box-sizing: border-box;
   font-family: Montserrat, Inter, sans-serif;
   box-shadow: none;
