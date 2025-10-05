@@ -506,7 +506,7 @@ export default function SignupSetup() {
                       <div className="setup-form-grid">
                         <div className="setup-field">
                           <div className="setup-field-label-row">
-                            <label className="setup-field-label" htmlFor="nickname">Device Nickname</label>
+                            <label className="setup-field-label setup-field-label--xs" htmlFor="nickname">Device Nickname</label>
                             <span className="setup-optional" aria-hidden="true">optional</span>
                           </div>
                           <input
@@ -524,7 +524,7 @@ export default function SignupSetup() {
 
                         <div className="setup-field">
                           <div className="setup-field-label-row">
-                            <label className="setup-field-label" htmlFor="location">Location</label>
+                            <label className="setup-field-label setup-field-label--xs" htmlFor="location">Location</label>
                             <span className="setup-optional" aria-hidden="true">optional</span>
                           </div>
                           <input
@@ -549,7 +549,7 @@ export default function SignupSetup() {
                         {/* Plant Name removed per request */}
 
                         <div className="setup-field span-2">
-                          <div className="setup-field-label">Plant Photo</div>
+                          <div className="setup-field-label setup-field-label--xs">Plant Photo</div>
                           <div className="setup-input-inline">
                             <div className="photo-choice-row">
                               <label htmlFor="cameraFile" className={`setup-btn sm ${plantPhotoChoice === 'camera' ? '' : 'outline'}`} aria-pressed={plantPhotoChoice === 'camera'}>
@@ -629,7 +629,7 @@ export default function SignupSetup() {
 
                         <div className="setup-field inline-row duration-inline-row">
                           <div className="setup-field-label-row">
-                            <label className="setup-field-label" htmlFor="durationDays">Days Since Planted</label>
+                            <label className="setup-field-label setup-field-label--xs" htmlFor="durationDays">Days Since Planted</label>
                             <span className="setup-optional" aria-hidden="true">optional</span>
                           </div>
                           <div className="input-with-suffix">
@@ -800,7 +800,7 @@ export default function SignupSetup() {
                 <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify your device" data-section="verify">
                   <div className="setup-verify-content">
                     <h4>Verify your device</h4>
-                    {!verified && <p>We’ll confirm your SmarTanom before moving on. (Auto-advances)</p>}
+                    {!verified && <p>We’ll confirm your SmarTanom before moving on.</p>}
                     {verified && justVerified && (
                       <p className="setup-status success" style={{margin:0}} role="status">Device verified! Continuing…</p>
                     )}

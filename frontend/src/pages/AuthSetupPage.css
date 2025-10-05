@@ -623,6 +623,11 @@
   font-size: clamp(10px, 1.5vw, 12px);
   font-weight: 700;
 }
+.setup-field-label.setup-field-label--xs {
+  font-size: clamp(9px, 1.3vw, 11px);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
 
 .setup-field input[type="text"],
 .setup-field input[type="number"],
