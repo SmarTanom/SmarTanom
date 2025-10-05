@@ -880,7 +880,7 @@ export default function SignupSetup() {
             <div className="modal-head-row">
               <h4 id="defaultImageModalTitle" style={{ margin: 0 }}>Choose a Default Image</h4>
             </div>
-            <p className="setup-helper" style={{ marginTop: 0 }}>Select one option below. Press Enter or Space to confirm.</p>
+            <p className="setup-helper" style={{ marginTop: 0 }}>Select one option below.</p>
             <ul className="default-image-grid" role="listbox" aria-label="Default plant image options">
               {defaultImages.map(name => {
                 const selected = name === selectedDefaultImage;
