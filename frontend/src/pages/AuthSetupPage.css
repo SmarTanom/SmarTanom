@@ -7,6 +7,7 @@
 .auth-screen-inner {
   overflow: visible;
 }
+/* Snackbar styles removed (component deprecated) */
 
 /* Container: Mobile-first 320px base with dynamic scaling */
 .setup-shell {
@@ -67,10 +68,7 @@
     gap: clamp(1px, 0.4vh, 3px);
   }
   
-  /* Hide step labels on extremely small heights */
-  .setup-step .setup-step-label {
-    display: none;
-  }
+  /* Labels always visible for clarity */
   
   /* Ultra-compact progress pill */
   .setup-progress-pill {
@@ -371,6 +369,30 @@
   letter-spacing: 1.2px;
   color: rgba(255,255,255,0.78);
 }
+.setup-step-combined {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(10px, 2vw, 14px);
+  font-family: 'Montserrat', Inter, sans-serif;
+}
+.setup-step-combined .step-number {
+  font-weight: 700;
+  font-size: clamp(10px, 1.6vw, 12px);
+  padding: clamp(4px, 0.9vh, 6px) clamp(10px, 2.2vw, 14px);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.2);
+  color: #ffffff;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.setup-step-combined .step-title {
+  text-transform: uppercase;
+  font-weight: 300;
+  font-size: clamp(9px, 1.6vw, 12px);
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.95);
+  font-family: 'Montserrat', Inter, sans-serif;
+}
 
 .setup-progress-pill {
   display: inline-flex;
@@ -668,7 +690,12 @@
   align-items: center; /* vertically center text inline with the button */
   justify-content: space-between;
   gap: clamp(8px, 1.2vh, 12px);
-  padding: clamp(8px, 1.4vh, 14px);
+  /* Horizontal padding enlarged again (+6px min, +10px max). Expose via custom props for quick tuning. */
+  --panel-pad-y: clamp(10px, 1.6vh, 18px);
+  /* Reduced horizontal padding (was clamp(20px, 3vw, 40px)) */
+  /* Further reduced (was clamp(16px, 2.4vw, 34px)) */
+  --panel-pad-x: clamp(14px, 2vw, 30px);
+  padding: var(--panel-pad-y) var(--panel-pad-x);
   border-radius: clamp(10px, 1.2vw, 14px);
   border: 1px solid rgba(255,255,255,0.22);
   background: linear-gradient(160deg, rgba(1,107,34,0.58), rgba(1,107,34,0.32));
@@ -724,6 +751,11 @@
     align-items: center; /* center on larger screens as well */
     justify-content: space-between;
     gap: clamp(8px, 1vw, 12px);
+    --panel-pad-y: clamp(12px, 1.4vh, 20px);
+  /* Reduced horizontal padding for medium+ screens (was clamp(28px, 2.4vw, 56px)) */
+  /* Further reduced (was clamp(22px, 2vw, 48px)) */
+  --panel-pad-x: clamp(18px, 1.8vw, 40px);
+    padding: var(--panel-pad-y) var(--panel-pad-x);
   }
 
   .setup-verify-content { max-width: 320px; }
@@ -767,8 +799,7 @@
   .setup-progress-header {
     gap: clamp(8px, 1.6vh, 16px);
   }
-  /* Hide extra meta row to save vertical space */
-  .setup-step-meta { display: none; }
+  /* Keep step meta visible for clarity */
 
   /* Further reduce header typography to save vertical space */
   .setup-header .auth-title { font-size: clamp(20px, 3.4vw, 32px); }
@@ -806,7 +837,8 @@
     border-top: none; /* save vertical space on tight heights */
   }
   /* Reduce verify panel padding to fit within viewport */
-  .setup-verify-panel { padding: clamp(6px, 1vh, 10px); }
+  /* Compact height: reduce vertical padding, keep horizontal via vars */
+  .setup-verify-panel { --panel-pad-y: clamp(6px, 1vh, 10px); }
 }
 
 /* Prevent Step 2 cutoff on medium/tight heights without adding scroll */
@@ -859,7 +891,7 @@
     --step-icon-size: clamp(14px, 1.8vw, 18px);
     --track-thickness: 1px;
   }
-  .setup-step .setup-step-label { display: none; }
+  /* Keep step labels visible */
 
   /* Device Info: hide helpers when tight */
   #help-nickname, #help-location { display: none; }
@@ -871,10 +903,7 @@
 
 /* Aggressive compact mode to guarantee fit on tight heights */
 @media (max-height: 700px) {
-  /* Remove non-essential progress visuals and subtext */
-  .setup-progress-header .setup-stepper { display: none; }
-  .setup-progress-header .setup-progress-pill { display: none; }
-  .setup-step-meta { display: none; }
+  /* Keep progress header components visible */
   .setup-heading .auth-subtext { display: none; }
 
   /* Top bar: hide back text and brand wordmark */
@@ -915,9 +944,7 @@
 
 /* Ultra-tight: remove progress visuals to guarantee fit */
 @media (max-height: 640px) {
-  .setup-progress-header .setup-stepper,
-  .setup-progress-header .setup-progress-pill { display: none; }
-  .setup-step-meta { display: none; }
+  /* Keep progress components visible */
   .setup-heading { margin-bottom: clamp(2px, 0.6vh, 4px); }
   .setup-heading .auth-title { font-size: clamp(16px, 2.6vw, 22px); }
   .setup-heading .auth-subtext { font-size: clamp(10px, 1.8vw, 12px); }
@@ -1053,7 +1080,8 @@
   /* Center method text vertically with icon/index on small phones */
   .setup-method-copy { align-items: center; }
 
-  .setup-verify-panel { padding: clamp(6px, 1vh, 10px); }
+  /* Ultra compact: further trim vertical padding only */
+  .setup-verify-panel { --panel-pad-y: clamp(6px, 1vh, 10px); }
   .setup-verify-actions { justify-content: flex-end; margin-left: auto; }
   /* Make verify button more compact on small phones, keep ≥44px height */
   .setup-verify-actions .setup-btn { font-size: clamp(0.56rem, 3.2vw, 0.72rem); padding: 6px 10px; min-height: 44px; }
@@ -1471,6 +1499,7 @@
   white-space: nowrap; 
   overflow: hidden; 
   text-overflow: ellipsis;
+  margin-top: clamp(4px, 0.8vh, 6px); /* Increased spacing from step number circle above */
 }
 
 /* States */
@@ -1614,7 +1643,8 @@
 /* Large desktops (1440px+) */
 @media (min-width: 1440px) {
   .setup-shell {
-    max-width: clamp(640px, 65vw, 900px);
+    max-width: 960px;
+    margin: 0 auto;
   }
   
   .auth-content-wrapper {
@@ -1712,3 +1742,38 @@
     display: none; 
   }
 }
+
+/* Steps 4-6 Enhancements */
+/* OTP Input Styles */
+.otp-input-row { display:flex; gap:10px; margin-top:14px; }
+.otp-box { width:48px; height:56px; text-align:center; font-size:24px; border:2px solid #1f7a3e; background:#093; color:#fff; border-radius:10px; font-weight:600; outline:none; transition:border-color .2s, background .2s; }
+.otp-box:focus { border-color:#4cd472; background:#118f43; }
+.otp-input-row { justify-content:center; }
+.otp-box { font-family: 'Montserrat', Inter, sans-serif; }
+@media (max-width:420px){
+  .otp-box { width:40px; height:52px; font-size:20px; }
+}
+@media (max-width:350px){
+  .otp-box { width:36px; height:48px; font-size:18px; }
+}
+.wifi-list { margin-top:12px; }
+.wifi-item.selected .wifi-select-btn { background:linear-gradient(145deg,#0c8a3a,#0a6a2d); }
+.wifi-select-btn:focus-visible { outline:2px solid #4cd472; outline-offset:2px; }
+.input-with-toggle { position:relative; display:flex; align-items:center; }
+.input-with-toggle input { flex:1; padding-right:70px; }
+.pw-toggle { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.15); color:#fff; border:1px solid rgba(255,255,255,0.25); border-radius:6px; font-size:11px; padding:4px 8px; cursor:pointer; }
+.pw-toggle:hover { background:rgba(255,255,255,0.28); }
+.pw-toggle:focus-visible { outline:2px solid #4cd472; outline-offset:2px; }
+.account-success { animation:fadeIn .4s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:translateY(0);} }
+/* Orientation tweaks */
+@media (orientation:landscape) and (max-height:500px){
+  .otp-input-row { gap:8px; }
+  .wifi-list { max-height:140px; }
+}
+/* High contrast focus adjustments */
+.otp-box:focus-visible { outline:2px solid #4cd472; outline-offset:2px; }
+/* Radiogroup semantics styling */
+.wifi-list[role='radiogroup'] li[role='radio'] { list-style:none; }
+
+
