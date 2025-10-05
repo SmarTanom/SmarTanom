@@ -816,6 +816,8 @@
   justify-content: center;
 }
 .setup-btn.sm { min-height: 40px !important; padding: 8px 14px !important; }
+/* Equal width for verify / continue action buttons */
+.setup-verify-actions .setup-btn { min-width: 150px !important; width:150px !important; }
   .setup-flow {
     gap: clamp(10px, 1.8vh, 24px);
   }
