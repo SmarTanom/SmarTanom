@@ -385,7 +385,7 @@ export default function SignupSetup() {
                             <div className="setup-step-node">
                               <span className="setup-step-icon" aria-hidden="true">
                                 {state === 'completed' ? (
-                                  <CheckCircleFilled size={16} color="#ffffff" aria-label="Completed" />
+                                  <CheckCircleFilled size={16} color="#0d8a3a" aria-label="Completed" />
                                 ) : idx}
                               </span>
                               <span className="setup-step-label">{stepLabels[idx - 1]}</span>
