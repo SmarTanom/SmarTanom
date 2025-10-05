@@ -1369,13 +1369,20 @@
   grid-template-columns: max-content 1fr max-content; 
   gap: 8px; 
 }
+.duration-inline-row .input-with-suffix.natural-unit { 
+  grid-template-columns: max-content max-content max-content; /* label row not here; ensure input intrinsic */
+}
+.duration-inline-row .input-with-suffix.natural-unit input.duration-days-input { 
+  width: clamp(42px, 7vw, 70px); 
+  flex: 0 0 auto; 
+}
 .input-with-suffix.natural-unit input { order: 2; }
 .input-with-suffix.natural-unit .setup-unit { order: 3; }
 /* Narrow numeric duration input */
 .duration-days-input { 
-  width: clamp(60px, 12vw, 110px); 
+  width: clamp(48px, 9vw, 82px); 
   text-align: left; 
-  padding-right: 10px; 
+  padding-right: 8px; 
 }
 
 /* Generic right-side icon inside inline inputs */
