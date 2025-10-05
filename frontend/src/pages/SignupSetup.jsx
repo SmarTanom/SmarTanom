@@ -141,6 +141,23 @@ export default function SignupSetup() {
 
   const progressPercent = useMemo(() => Math.round(progressFraction * 100), [progressFraction]);
 
+  // Derived device summary values for Step 3 (Bind Device to Email)
+  const deviceSummaryName = useMemo(() => {
+    const n = nickname.trim();
+    const id = deviceId.trim();
+    if (n) return n; // user provided nickname
+    if (id) return id; // fallback to device id
+    return 'Device'; // ultimate fallback
+  }, [nickname, deviceId]);
+
+  const deviceSummarySub = useMemo(() => {
+    const id = deviceId.trim();
+    const loc = location.trim();
+    if (!id && !loc) return '';
+    if (!id) return loc; // unlikely, but handle gracefully
+    return `ID: ${id}${loc ? ` | ${loc}` : ''}`;
+  }, [deviceId, location]);
+
   const headings = [
     'Identify your device',
     'First time device setup',
@@ -641,8 +658,10 @@ export default function SignupSetup() {
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6"/></svg>
                       </div>
                       <div className="device-summary-text">
-                        <p className="device-summary-title">Hydro Demo Device</p>
-                        <p className="device-summary-sub">ID: HYD396627 | HydroTech</p>
+                        <p className="device-summary-title" aria-live="polite">{deviceSummaryName}</p>
+                        {deviceSummarySub && (
+                          <p className="device-summary-sub" aria-live="polite">{deviceSummarySub}</p>
+                        )}
                       </div>
                     </div>
                     {/* Email bind card */}
