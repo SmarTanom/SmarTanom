@@ -801,6 +801,21 @@
     padding-block: clamp(14px, 5vh, 34px);
   }
 
+
+/* Final unified button sizing overrides */
+.setup-btn, .setup-verify-actions .setup-btn, .setup-actions .setup-btn {
+  --setup-btn-min-h: 46px;
+  min-height: var(--setup-btn-min-h) !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  padding-left: 18px !important;
+  padding-right: 18px !important;
+  line-height: 1.2 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.setup-btn.sm { min-height: 40px !important; padding: 8px 14px !important; }
   .setup-flow {
     gap: clamp(10px, 1.8vh, 24px);
   }
