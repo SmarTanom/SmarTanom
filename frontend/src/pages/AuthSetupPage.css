@@ -1503,7 +1503,7 @@
 }
 
 /* States */
-.setup-step.completed .setup-step-icon { background: #ffffff; color: #016b22; border-color: rgba(255,255,255,0.95); box-shadow: 0 8px 18px -8px rgba(0,0,0,0.45); }
+.setup-step.completed .setup-step-icon { background: #ffffff; color: #016b22; border-color: #0d8a3a; box-shadow: 0 0 0 2px rgba(13,138,58,0.35), 0 6px 14px -6px rgba(0,0,0,0.45); }
 .setup-step.completed .setup-step-label { color: #ffffff; }
 .setup-step.current .setup-step-icon { background: #016b22; color: #ffffff; border-color: #ffffff; box-shadow: 0 0 0 3px rgba(255,255,255,0.24), 0 12px 24px -10px rgba(0,0,0,0.45); }
 .setup-step.current .setup-step-label { color: #ffffff; }

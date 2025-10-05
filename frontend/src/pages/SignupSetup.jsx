@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthSetupPage.css';
 import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
-import { CheckCircleFilled } from '../components/ui/Icon.jsx';
+import { Check } from '../components/ui/Icon.jsx';
 import { Mail } from '../components/ui/Icon.jsx';
 
 const CameraIcon = ({ size = 28, color = '#ffffff' }) => (
@@ -385,7 +385,7 @@ export default function SignupSetup() {
                             <div className="setup-step-node">
                               <span className="setup-step-icon" aria-hidden="true">
                                 {state === 'completed' ? (
-                                  <CheckCircleFilled size={16} color="#0d8a3a" aria-label="Completed" />
+                                  <Check size={16} color="currentColor" stroke={3} aria-label="Completed" />
                                 ) : idx}
                               </span>
                               <span className="setup-step-label">{stepLabels[idx - 1]}</span>
