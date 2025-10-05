@@ -634,6 +634,7 @@ export default function SignupSetup() {
                           </div>
                           <div className="input-with-suffix natural-unit">
                             <input
+                              className="duration-days-input"
                               id="durationDays"
                               type="number"
                               min="0"

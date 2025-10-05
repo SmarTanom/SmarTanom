@@ -1371,6 +1371,12 @@
 }
 .input-with-suffix.natural-unit input { order: 2; }
 .input-with-suffix.natural-unit .setup-unit { order: 3; }
+/* Narrow numeric duration input */
+.duration-days-input { 
+  width: clamp(60px, 12vw, 110px); 
+  text-align: left; 
+  padding-right: 10px; 
+}
 
 /* Generic right-side icon inside inline inputs */
 .suffix-icon {
