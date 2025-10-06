@@ -718,11 +718,6 @@ export default function SignupSetup() {
                       {otpError && <p className="setup-error" role="alert" style={{marginTop:8}}>{otpError}</p>}
                       {otpResent && <p className="setup-status success" role="status" style={{marginTop:8}}>Code resent!</p>}
                     </div>
-
-                    <div className="otp-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end', gap:12}}>
-                      <button type="button" className="setup-btn outline sm" disabled={verifyingOtp} onClick={resendOtp}>Resend</button>
-                      <button type="button" className="setup-btn sm" disabled={verifyingOtp || otpCode.some(c=>!c)} onClick={verifyOtp}>{verifyingOtp? 'Verifying…':'Verify Code'}</button>
-                    </div>
                   </section>
                 )}
                 {step === 5 && (
@@ -827,9 +822,15 @@ export default function SignupSetup() {
                 </div>
               )}
               {step === 4 && (
-                <div className="otp-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end', gap:12}}>
-                  <button type="button" className="setup-btn outline sm" disabled={verifyingOtp} onClick={resendOtp}>Resend</button>
-                  <button type="button" className="setup-btn sm" disabled={verifyingOtp || otpCode.some(c=>!c)} onClick={verifyOtp}>{verifyingOtp? 'Verifying…':'Verify Code'}</button>
+                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify email code" data-section="verify-step4">
+                  <div className="setup-verify-content">
+                    <h4>Verify email</h4>
+                    <p>Enter the code and continue.</p>
+                  </div>
+                  <div className="setup-verify-actions" style={{display:'flex', gap:12}}>
+                    <button type="button" className="setup-btn outline sm" disabled={verifyingOtp} onClick={resendOtp}>Resend</button>
+                    <button type="button" className="setup-btn sm" disabled={verifyingOtp || otpCode.some(c=>!c)} onClick={verifyOtp}>{verifyingOtp? 'Verifying…':'Verify Code'}</button>
+                  </div>
                 </div>
               )}
               {step === 5 && wifiSelected && !accountCreated && (
