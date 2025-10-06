@@ -1827,18 +1827,14 @@
 /* Steps 4-6 Enhancements */
 /* OTP Input Styles */
 .otp-input-row { display:flex; gap:10px; margin-top:14px; }
-.otp-box { width:44px; height:48px; text-align:center; font-size:20px; border:1px solid #333; background:#ffffff; color:#111; border-radius:6px; font-weight:600; outline:none; transition:border-color .18s; box-shadow:none; }
-.otp-box:focus { border-color:#016b22; background:#ffffff; box-shadow:none; }
-.otp-box:hover { background:#ffffff; border-color:#016b22; }
-.otp-box:active { background:#ffffff; border-color:#016b22; }
-.otp-input-row { justify-content:center; }
-.otp-box { font-family: 'Montserrat', Inter, sans-serif; }
-@media (max-width:420px){
-  .otp-box { width:40px; height:52px; font-size:20px; }
-}
-@media (max-width:350px){
-  .otp-box { width:36px; height:48px; font-size:18px; }
-}
+.otp-box { width:44px; height:48px; text-align:center; font-size:20px; border:2px solid rgba(0,0,0,0.55); background:#ffffff; color:#0b2d16; border-radius:8px; font-weight:600; outline:none; transition:border-color .18s, box-shadow .18s, background-color .18s, transform .12s; box-shadow:0 0 0 0 rgba(1,107,34,0.4); }
+.otp-box:hover { border-color:#016b22; }
+.otp-box:focus { border-color:#018c2c; box-shadow:0 0 0 3px rgba(1,140,44,0.18); }
+.otp-box:active { transform:scale(.96); border-color:#018c2c; }
+.otp-box[data-filled="true"] { border-color:#016b22; background:#f5fff8; }
+.otp-box[data-filled="true"]:focus { box-shadow:0 0 0 3px rgba(1,140,44,0.25); }
+@media (max-width:640px){ .otp-box { width:40px; height:52px; font-size:20px; } }
+@media (max-width:420px){ .otp-box { width:36px; height:48px; font-size:18px; } }
 .wifi-list { margin-top:12px; }
 .wifi-item.selected .wifi-select-btn { background:linear-gradient(145deg,#0c8a3a,#0a6a2d); }
 .wifi-select-btn:focus-visible { outline:2px solid #4cd472; outline-offset:2px; }

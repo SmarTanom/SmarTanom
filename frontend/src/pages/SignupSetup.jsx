@@ -705,6 +705,7 @@ export default function SignupSetup() {
                             pattern="[0-9]*"
                             maxLength={1}
                             value={d}
+                            data-filled={d ? 'true' : 'false'}
                             aria-label={`Digit ${i+1}`}
                             onChange={e => handleOtpChange(i, e.target.value.replace(/\D/g,''))}
                             onKeyDown={e => {
