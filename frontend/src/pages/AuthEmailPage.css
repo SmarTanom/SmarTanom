@@ -214,7 +214,7 @@
 /* New SVG mail icon */
 .auth-mail-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); stroke: #ffffff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25)); }
 
-.auth-input { width: 100%; padding: 10px 12px 10px 42px; /* reduced from 13px 14px 13px 44px */ border-radius: 6px; border: 1px solid rgba(255,255,255,0.55); background: #ffffff; color: #1a1a1a; font-size: 14px; font-weight: 500; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.25px; outline: none; transition: border-color .18s ease, background .18s ease; box-shadow: none; min-height: 44px; }
+.auth-input { width: 100%; padding: 13px 14px 13px 44px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.55); background: #ffffff; color: #1a1a1a; font-size: 14px; font-weight: 500; font-family: Montserrat, Inter, sans-serif; letter-spacing: 0.25px; outline: none; transition: border-color .18s ease, background .18s ease; box-shadow: none; min-height: 46px; }
 .auth-input::placeholder { color: #808080; font-weight: 500; }
 /* Keep background white & minimal visual change on focus */
 .auth-input:focus { border-color: #1a1a1a; background: #ffffff; box-shadow: none; }
@@ -243,9 +243,8 @@
 .auth-input--welcome { 
   width:100%;
   font-size: var(--welcome-fs); 
-  /* Slightly reduced vertical + horizontal padding while keeping icon gap */
-  padding: calc(var(--welcome-pad-y) - 3px) calc(var(--welcome-pad-x) - 2px) calc(var(--welcome-pad-y) - 3px) var(--welcome-icon-gap); 
-  min-height: calc(var(--welcome-min-h) - 2px); 
+  padding: var(--welcome-pad-y) var(--welcome-pad-x) var(--welcome-pad-y) var(--welcome-icon-gap); 
+  min-height: var(--welcome-min-h); 
   border:1px solid var(--welcome-green); 
   border-radius:6px; 
   background:#ffffff; 
@@ -361,12 +360,11 @@
   .auth-input--welcome{ min-height:46px; }
 }
 /* Distinct smaller welcome variant adjustment */
-/* Final override: ensure tightened padding persists */
 .auth-input--welcome { 
-  min-height:42px !important; 
-  padding-top:10px !important; 
-  padding-bottom:10px !important; 
-  padding-left:40px !important; 
+  min-height:44px !important; 
+  padding-top:11px !important; 
+  padding-bottom:11px !important; 
+  padding-left:42px !important; 
   font-size:14px; 
 }
 
@@ -391,6 +389,291 @@
   .auth-screen-inner { padding-inline: 0; }
 }
 
+/* Comprehensive mobile responsive support (270px - 480px) */
+@media (max-width: 480px) {
+  .auth-title { 
+    font-size: clamp(24px, 7vw, 38px); 
+    line-height: 1.15; 
+    letter-spacing: -0.3px;
+  }
+  .auth-subtext { 
+    font-size: clamp(13px, 3.2vw, 16px); 
+    line-height: 1.45; 
+  }
+  .auth-content { 
+    gap: clamp(16px, 3vh, 24px); 
+    padding-block: clamp(6px, 2vh, 16px);
+  }
+  .auth-form { gap: clamp(14px, 2vh, 20px); }
+  .auth-field-label { font-size: 12px; }
+  .auth-input { 
+    font-size: 14px; 
+    padding: 12px 14px 12px 42px; 
+    min-height: 44px;
+  }
+  .auth-input-wrapper i { font-size: 16px; left: 12px; }
+  .auth-mail-icon { width: 18px; height: 18px; left: 12px; }
+  .auth-submit { 
+    font-size: 14px; 
+    padding: 13px 18px; 
+    min-height: 44px;
+  }
+  .brand-logo-img { width: clamp(28px, 8vw, 36px); }
+  .auth-brand-wordmark { font-size: clamp(13px, 4vw, 16px); }
+  .auth-back-btn { 
+    font-size: 13px; 
+    padding: 11px 14px; 
+    min-height: 42px;
+  }
+  .auth-back-icon { width: 20px; height: 20px; }
+}
+
+/* Small phones (320px - 400px) */
+@media (max-width: 400px) {
+  .auth-title { 
+    font-size: clamp(22px, 6.5vw, 32px); 
+  }
+  .auth-subtext { 
+    font-size: clamp(12.5px, 3vw, 15px); 
+  }
+  .auth-content { gap: clamp(14px, 2.6vh, 20px); }
+  .auth-form { gap: clamp(12px, 1.8vh, 18px); }
+  .auth-header { gap: clamp(6px, 1.4vh, 12px); }
+  .auth-field-label { font-size: 11.5px; }
+  .auth-input { 
+    padding: 11px 12px 11px 40px; 
+  }
+  .auth-input-wrapper i { left: 11px; }
+  .auth-mail-icon { left: 11px; }
+  .brand-logo-img { width: clamp(26px, 7vw, 32px); }
+  .auth-brand-wordmark { font-size: clamp(12px, 3.6vw, 15px); }
+}
+
+/* Extreme narrow (270px - 320px) - critical minimum */
+@media (max-width: 320px) {
+  .auth-content-wrapper { 
+    padding: clamp(12px, 2.5vw, 16px) clamp(12px, 3.5vw, 20px);
+    padding-top: max(clamp(12px, 2.5vw, 16px), env(safe-area-inset-top));
+    padding-bottom: max(clamp(12px, 2.5vw, 16px), env(safe-area-inset-bottom));
+  }
+  .auth-title { 
+    font-size: clamp(20px, 6vw, 28px); 
+    line-height: 1.18;
+    letter-spacing: -0.2px;
+  }
+  .auth-subtext { 
+    font-size: clamp(12px, 3.8vw, 14px); 
+    line-height: 1.4;
+  }
+  .auth-content { 
+    gap: clamp(12px, 2.2vh, 18px); 
+    padding-block: clamp(4px, 1.6vh, 12px);
+  }
+  .auth-form { gap: clamp(10px, 1.6vh, 14px); }
+  .auth-header { gap: clamp(5px, 1.2vh, 10px); }
+  .auth-field { gap: 5px; }
+  .auth-field-label { 
+    font-size: 10.5px; 
+    letter-spacing: 0.4px;
+  }
+  .auth-input { 
+    font-size: 13px; 
+    padding: 10px 10px 10px 38px; 
+    min-height: 42px;
+    border-radius: 5px;
+  }
+  .auth-input-wrapper i { 
+    font-size: 15px; 
+    left: 10px; 
+  }
+  .auth-mail-icon { 
+    width: 16px; 
+    height: 16px; 
+    left: 10px; 
+  }
+  .auth-submit { 
+    font-size: 13px; 
+    padding: 11px 16px; 
+    min-height: 42px;
+    border-radius: 7px;
+  }
+  .brand-logo-img { width: clamp(24px, 6.5vw, 30px); }
+  .auth-brand-wordmark { 
+    font-size: clamp(11px, 3.4vw, 14px); 
+    letter-spacing: 0.06em;
+  }
+  .auth-back-btn { 
+    font-size: 12px; 
+    padding: 10px 12px; 
+    min-height: 40px;
+    border-radius: 24px;
+  }
+  .auth-back-icon { width: 18px; height: 18px; }
+  .auth-top-bar { 
+    min-height: 48px; 
+    margin-bottom: clamp(6px, 1.6vh, 12px); 
+  }
+  .auth-screen-inner { gap: clamp(16px, 2.6vh, 24px); }
+}
+
+/* Critical minimum (270px) - absolute smallest */
+@media (max-width: 290px) {
+  .auth-content-wrapper { 
+    padding: 10px 12px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+  .auth-title { 
+    font-size: clamp(18px, 6.5vw, 24px); 
+    line-height: 1.2;
+  }
+  .auth-subtext { 
+    font-size: clamp(11px, 4vw, 13px); 
+  }
+  .auth-content { 
+    gap: 10px; 
+    padding-block: 4px;
+  }
+  .auth-form { gap: 8px; }
+  .auth-header { gap: 4px; }
+  .auth-field { gap: 4px; }
+  .auth-field-label { 
+    font-size: 10px; 
+    letter-spacing: 0.3px;
+  }
+  .auth-input { 
+    font-size: 12px; 
+    padding: 9px 8px 9px 36px; 
+    min-height: 40px;
+  }
+  .auth-input-wrapper i { 
+    font-size: 14px; 
+    left: 9px; 
+  }
+  .auth-mail-icon { 
+    width: 15px; 
+    height: 15px; 
+    left: 9px; 
+  }
+  .auth-submit { 
+    font-size: 12px; 
+    padding: 10px 14px; 
+    min-height: 40px;
+  }
+  .brand-logo-img { width: 24px; }
+  .auth-brand-wordmark { 
+    font-size: 11px; 
+  }
+  .auth-back-btn { 
+    font-size: 11px; 
+    padding: 9px 11px; 
+    min-height: 38px;
+  }
+  .auth-back-icon { width: 16px; height: 16px; }
+  .auth-top-bar { 
+    min-height: 44px; 
+    margin-bottom: 5px; 
+  }
+  .auth-screen-inner { gap: 14px; }
+}
+
+/* Welcome Back variant responsive adjustments */
+@media (max-width: 480px) {
+  .auth-field--welcome-variant {
+    --welcome-fs: clamp(13px, 3vw, 14px);
+    --welcome-pad-y: clamp(11px, 2.4vw, 13px);
+    --welcome-pad-x: clamp(12px, 2.6vw, 14px);
+    --welcome-icon-gap: clamp(40px, 10vw, 46px);
+    --welcome-min-h: clamp(42px, 11vw, 46px);
+  }
+  .auth-mail-icon--welcome { 
+    width: clamp(16px, 4vw, 18px); 
+    height: clamp(16px, 4vw, 18px); 
+    left: clamp(11px, 2.6vw, 13px); 
+  }
+}
+
+@media (max-width: 320px) {
+  .auth-field--welcome-variant {
+    --welcome-fs: 12.5px;
+    --welcome-pad-y: 10px;
+    --welcome-pad-x: 10px;
+    --welcome-icon-gap: 38px;
+    --welcome-min-h: 40px;
+  }
+  .auth-mail-icon--welcome { 
+    width: 15px; 
+    height: 15px; 
+    left: 10px; 
+  }
+}
+
+@media (max-width: 290px) {
+  .auth-field--welcome-variant {
+    --welcome-fs: 12px;
+    --welcome-pad-y: 9px;
+    --welcome-pad-x: 9px;
+    --welcome-icon-gap: 36px;
+    --welcome-min-h: 38px;
+  }
+  .auth-mail-icon--welcome { 
+    width: 14px; 
+    height: 14px; 
+    left: 9px; 
+  }
+}
+
+/* Portrait orientation specific adjustments for tall narrow screens */
+@media (orientation: portrait) and (max-width: 400px) and (min-height: 600px) {
+  .auth-content { 
+    justify-content: flex-start; 
+    padding-block: clamp(12px, 3vh, 20px);
+  }
+  .auth-screen-inner { 
+    justify-content: flex-start; 
+    gap: clamp(20px, 3.5vh, 28px);
+  }
+}
+
+/* Landscape on mobile - ultra compact */
+@media (orientation: landscape) and (max-width: 767px) and (max-height: 420px) {
+  .auth-content-wrapper { 
+    padding: 8px 16px;
+  }
+  .auth-screen-inner { 
+    gap: 10px; 
+  }
+  .auth-top-bar { 
+    min-height: 40px; 
+    margin-bottom: 6px; 
+  }
+  .auth-content { 
+    gap: 10px; 
+    padding-block: 4px;
+  }
+  .auth-header { gap: 4px; }
+  .auth-title { 
+    font-size: clamp(18px, 4.5vw, 24px); 
+    line-height: 1.1;
+  }
+  .auth-subtext { 
+    font-size: clamp(11px, 2.6vw, 13px); 
+    line-height: 1.3;
+  }
+  .auth-form { gap: 8px; }
+  .auth-field { gap: 4px; }
+  .auth-input { 
+    min-height: 38px; 
+    padding: 8px 10px 8px 36px; 
+  }
+  .auth-submit { 
+    min-height: 38px; 
+    padding: 9px 14px; 
+  }
+  .brand-logo-img { width: 24px; }
+  .auth-brand-wordmark { font-size: 11px; }
+}
+
 /* Remove outdated large screen grid - replaced with two-column layout */
 
 /* Motion & entrance */
@@ -403,3 +686,66 @@
 
 /* Accessibility utility */
 [role="status"][aria-live] { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* --- Mobile refinement pass (consistency & rhythm) --- */
+@media (max-width: 480px) {
+  /* Subtle reduction of large gap spikes */
+  .auth-content { gap: clamp(14px, 2.6vh, 22px); }
+  .auth-form { gap: clamp(12px, 2vh, 18px); }
+  /* Ensure helper text doesn’t crowd bottom */
+  .auth-helper { font-size: 11.5px; }
+}
+
+@media (max-width: 320px) {
+  /* Prevent over-tightening at extreme narrow */
+  .auth-content { gap: clamp(12px, 2vh, 18px); }
+  .auth-form { gap: clamp(10px, 1.6vh, 14px); }
+}
+
+/* --- Tablet / large phone portrait (600px - 900px) --- */
+@media (min-width:600px) and (max-width:900px) and (orientation:portrait) {
+  .auth-title { font-size: clamp(38px, 6.2vw, 56px); }
+  .auth-subtext { font-size: clamp(15px, 2.2vw, 18px); line-height: 1.5; }
+  .auth-content-wrapper { padding: clamp(28px, 6vw, 56px); }
+  .auth-content { gap: clamp(22px, 4vh, 34px); }
+  .auth-form { gap: clamp(16px, 2.4vh, 24px); }
+  .auth-submit { font-size: 15px; }
+}
+
+/* --- Small-height widescreen (>=900px wide but compressed vertically) --- */
+@media (min-width:900px) and (max-height:620px) {
+  .auth-title { font-size: clamp(34px, 5vw, 52px); line-height:1.08; }
+  .auth-subtext { font-size: clamp(14px, 1.6vw, 18px); line-height:1.4; }
+  .auth-content { gap: clamp(16px, 2.4vh, 26px); }
+  .auth-form { gap: clamp(12px, 2vh, 20px); }
+  .auth-screen-inner { gap: clamp(18px, 3vh, 28px); }
+}
+
+/* --- Ultra-wide but short (cinema displays, keep proportion) --- */
+@media (min-width:1400px) and (max-height:760px) {
+  .auth-title { font-size: clamp(40px, 4.2vw, 60px); }
+  .auth-content { gap: clamp(20px, 3vh, 32px); }
+}
+
+/* --- Reduced motion consideration (keep existing fade minimal) --- */
+@media (prefers-reduced-motion: reduce) {
+  .auth-fade-item { animation-duration: 0.4s; }
+}
+
+/* --- A11y Focus Ring Enhancements --- */
+.auth-back-btn:focus-visible, .auth-submit:focus-visible, .auth-input--welcome:focus-visible, .auth-input:focus-visible {
+  outline: 3px solid rgba(255,255,255,0.75);
+  outline-offset: 3px;
+}
+@media (max-width:360px){
+  .auth-back-btn:focus-visible, .auth-submit:focus-visible, .auth-input--welcome:focus-visible, .auth-input:focus-visible {
+    outline-width:2px;
+    outline-offset:2px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: more) {
+  .auth-back-btn, .auth-submit { box-shadow: 0 0 0 2px rgba(0,0,0,0.35); }
+  .auth-input, .auth-input--welcome { border-color:#014b19; }
+}
