@@ -5,6 +5,7 @@ import '../pages/AuthSetupPage.css';
 import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
 import { Check } from '../components/ui/Icon.jsx';
 import { Mail } from '../components/ui/Icon.jsx';
+import { Wifi, Refresh, Lock, SignalBars } from '../components/ui/Icon.jsx';
 
 const CameraIcon = ({ size = 28, color = '#ffffff' }) => (
   <svg
@@ -100,15 +101,38 @@ export default function SignupSetup() {
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpResent, setOtpResent] = useState(false);
 
-  // Step 5 state
-  const [wifiNetworks, setWifiNetworks] = useState([]);
-  const [wifiScanning, setWifiScanning] = useState(false);
-  const [wifiSelected, setWifiSelected] = useState('');
+  // Step 5 state (advanced WiFi setup)
+  // wifiPhase: idle | scanning | results | empty | error | connecting
+  const [wifiPhase, setWifiPhase] = useState('idle');
+  const [wifiNetworks, setWifiNetworks] = useState([]); // [{ssid,rssi,secure}]
+  const [wifiSelected, setWifiSelected] = useState(null); // object ref
   const [wifiPassword, setWifiPassword] = useState('');
   const [wifiError, setWifiError] = useState('');
   const [showWifiPw, setShowWifiPw] = useState(false);
-  const [wifiStatus, setWifiStatus] = useState('idle'); // idle|scanning|connecting|success|error
-  const [wifiDetailsOpen, setWifiDetailsOpen] = useState(true);
+  const [hiddenSsidEnabled, setHiddenSsidEnabled] = useState(false);
+  const [hiddenSsid, setHiddenSsid] = useState('');
+  const [scanAttempts, setScanAttempts] = useState(0);
+  const [limitationDismissed, setLimitationDismissed] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(''); // success | fail message
+  const wifiAbortRef = React.useRef(null);
+  const [wifiInstructionsOpen, setWifiInstructionsOpen] = useState(false);
+  const [wifiModalOpen, setWifiModalOpen] = useState(false);
+  const [userGuideOpen, setUserGuideOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  
+  // Auto-collapse instructions on medium heights to save vertical space
+  useEffect(()=>{
+    if (step === 5 && typeof window !== 'undefined') {
+      const h = window.innerHeight;
+      if (h <= 840 && h >= 600) {
+        setWifiInstructionsOpen(false);
+      }
+    }
+  }, [step]);
+
+  // Scroll anchor ref map
+  const networkRefs = React.useRef({});
 
   // Step 6 state
   const [username, setUsername] = useState('');
@@ -267,65 +291,144 @@ export default function SignupSetup() {
     }
   }
 
-  function generateMockNetworks(){
-    const samples = [
-      { ssid:'HomeMesh', rssi:-42, secure:true },
-      { ssid:'Garden_AP', rssi:-58, secure:true },
-      { ssid:'Guest_WiFi', rssi:-70, secure:false },
-      { ssid:'HydroLab', rssi:-63, secure:true },
-      { ssid:'IoT_Devices', rssi:-49, secure:true },
-      { ssid:'Open_Cafe', rssi:-80, secure:false }
-    ];
-    return samples
-      .map(n=> ({ ...n, quality: Math.max(0, 100 - (Math.abs(n.rssi) - 30) * 2) }))
-      .sort((a,b)=> b.quality - a.quality);
-  }
+  const wifiScanEndpoints = useMemo(() => [
+    'http://192.168.4.1/networks',
+    'http://192.168.4.1/api/wifi/scan',
+    '/device/wifi/scan'
+  ], []);
 
-  const bars = [20,40,60,80];
-  function qualityBars(q){
-    return bars.map(t => q >= t);
-  }
-
-  async function scanWifi() {
-    setWifiScanning(true);
-    setWifiStatus('scanning');
-    setWifiNetworks([]);
-    setWifiError('');
-    try {
-      await new Promise(r => setTimeout(r, 900));
-      setWifiNetworks(generateMockNetworks());
-      setWifiStatus('idle');
-    } catch (e) {
-      setWifiError('Scan failed. Try again.');
-      setWifiStatus('error');
-    } finally {
-      setWifiScanning(false);
+  function abortOngoingWifiScan(){
+    if (wifiAbortRef.current) {
+      try { wifiAbortRef.current.abort(); } catch(e){/*noop*/}
     }
+    wifiAbortRef.current = null;
+  }
+
+  function mockNetworks(){
+    // Provide a deterministic mock for dev; vary RSSI for bars variety
+    return [
+      { ssid: 'HydroNet_2G', rssi: -52, secure: true },
+      { ssid: 'HydroNet_5G', rssi: -60, secure: true },
+      { ssid: 'GardenMesh', rssi: -70, secure: false },
+      { ssid: 'HomeLab', rssi: -82, secure: true },
+    ];
+  }
+
+  function rssiToBars(rssi){
+    if (typeof rssi !== 'number') return 0;
+    if (rssi >= -55) return 4;
+    if (rssi >= -65) return 3;
+    if (rssi >= -75) return 2;
+    if (rssi >= -85) return 1;
+    return 0;
+  }
+
+  // Smooth scroll to selected network when it changes
+  useEffect(()=>{
+    if (!wifiSelected) return;
+    const key = wifiSelected.ssid;
+    const el = networkRefs.current[key];
+    if (el && el.scrollIntoView) {
+      try { el.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'nearest' }); } catch(_) { el.scrollIntoView(); }
+    }
+  }, [wifiSelected]);
+
+  async function scanWifi({auto=false}={}) {
+    abortOngoingWifiScan();
+    setWifiError('');
+    setConnectionStatus('');
+    setWifiSelected(null);
+    setWifiNetworks([]);
+    setWifiPhase('scanning');
+    const attempt = scanAttempts + 1;
+    setScanAttempts(attempt);
+    const controller = new AbortController();
+    wifiAbortRef.current = controller;
+    const timeoutMs = 6000; // per-endpoint timeout
+
+    for (let i=0;i<wifiScanEndpoints.length;i++){
+      const endpoint = wifiScanEndpoints[i];
+      try {
+        const t = setTimeout(()=>controller.abort(), timeoutMs);
+        const res = await fetch(endpoint, { signal: controller.signal, headers:{ 'Accept':'application/json' }});
+        clearTimeout(t);
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const data = await res.json();
+        // Expect array of {ssid,rssi,secure}
+        if(Array.isArray(data) && data.length){
+          setWifiNetworks(data);
+          setWifiPhase('results');
+          wifiAbortRef.current = null;
+          return;
+        }
+        // empty array -> continue to next endpoint
+      } catch(e){
+        // continue to next endpoint unless last
+      }
+    }
+
+    // Fallback to mock (dev) after failing endpoints (only if not auto or first attempts <2)
+    if (process.env.NODE_ENV === 'development') {
+      const mocks = mockNetworks();
+      setWifiNetworks(mocks);
+      setWifiPhase(mocks.length? 'results':'empty');
+      wifiAbortRef.current = null;
+      return;
+    }
+
+    // No networks
+    setWifiPhase('empty');
+    setWifiNetworks([]);
+    wifiAbortRef.current = null;
   }
 
   function canConnectWifi() {
-    if(!wifiSelected) return false;
-    if(!wifiSelected.secure) return true;
-    return wifiPassword.length >= 8;
+    if (hiddenSsidEnabled) {
+      return hiddenSsid.trim().length >= 1 && wifiPassword.length >= 8;
+    }
+    if (!wifiSelected) return false;
+    return (!wifiSelected.secure) || wifiPassword.length >= 8;
   }
 
   async function connectWifi() {
-    if (!canConnectWifi()) return;
+    if (!canConnectWifi() || connecting) return;
     setWifiError('');
-    setWifiScanning(true);
-    setWifiStatus('connecting');
+    setConnectionStatus('');
+    setConnecting(true);
+    setWifiPhase('connecting');
     try {
-      await new Promise(r => setTimeout(r, 1200));
-      setWifiStatus('success');
-      // proceed after short success pause
+      // Simulate POST to device hotspot endpoint
+      const body = {
+        ssid: hiddenSsidEnabled ? hiddenSsid.trim() : wifiSelected?.ssid,
+        password: wifiPassword,
+      };
+      await new Promise(r => setTimeout(r, 1100));
+      // TODO integrate real fetch: fetch('http://192.168.4.1/wifi/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      // Mock success probability
+      if (body.password && body.password.toLowerCase().includes('fail')) {
+        throw new Error('Mock failure');
+      }
+      setConnectionStatus('success');
       setTimeout(()=> setStep(6), 600);
-    } catch (e) {
-      setWifiError('Connection failed. Check password.');
-      setWifiStatus('error');
+    } catch(e){
+      setConnectionStatus(e.message || 'fail');
+      setWifiPhase('results'); // return to results
     } finally {
-      setWifiScanning(false);
+      setConnecting(false);
     }
   }
+
+  // Auto-trigger scan when entering step 5 first time or after going back if previously idle
+  useEffect(()=>{
+    if (step === 5 && wifiPhase === 'idle') {
+      scanWifi({auto:true});
+    }
+    // abort when leaving step
+    if (step !== 5) {
+      abortOngoingWifiScan();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   async function finalizeAccount() {
     if (!username.trim()) {
@@ -354,7 +457,7 @@ export default function SignupSetup() {
       case 2: return 'Next';
       case 3: return 'Send Code';
       case 4: return 'Verify Code';
-      case 5: return wifiScanning? 'Connecting…':'Connect';
+      case 5: return connecting? 'Connecting…':'Connect';
       case 6: return accountCreated? 'Go to Dashboard':'Finish Setup';
       default: return 'Next';
     }
@@ -376,7 +479,7 @@ export default function SignupSetup() {
     <>
   <div className="auth-screen-root">
         <div className="auth-content-wrapper">
-          <div className="auth-screen-inner setup-shell">
+          <div className={`auth-screen-inner setup-shell step-${step}-active`}>
             <div className="auth-content setup-flow">
               <div className="setup-top">
                 <div className="auth-top-bar auth-fade-item">
@@ -752,87 +855,43 @@ export default function SignupSetup() {
                 )}
                 {step === 5 && (
                   <section className="setup-section setup-step-5" aria-label="WiFi Setup">
-                    <div className="setup-card" role="group" aria-labelledby="wifi-setup-head">
-                      <div className="wifi-head">
-                        <div className="wifi-head-icon" aria-hidden="true">📶</div>
-                        <div>
-                          <h3 id="wifi-setup-head" className="setup-section-title" style={{marginBottom:4}}>WiFi Setup</h3>
-                          <p className="setup-helper" style={{marginTop:0}}>Connect your device to your home network.</p>
-                        </div>
-                      </div>
-                      <details className="wifi-details" open={wifiDetailsOpen} onToggle={e=> setWifiDetailsOpen(e.target.open)}>
-                        <summary className="wifi-details-summary">How it works</summary>
-                        <div className="wifi-steps">
-                          <ol className="wifi-steps-list">
-                            <li><strong>Power On:</strong> Device starts a hotspot (e.g. <code>SmarTanom_XXXX</code>).</li>
-                            <li><strong>Connect:</strong> Join that hotspot from your phone or laptop.</li>
-                            <li><strong>Configure:</strong> Select your home WiFi below & enter its password.</li>
-                            <li><strong>Switch:</strong> Device connects to WiFi, hotspot turns off, goes online.</li>
-                            <li><strong>Retry:</strong> If it fails, hotspot reappears so you can try again.</li>
-                          </ol>
-                        </div>
-                      </details>
-                      <div className="wifi-action-row" style={{display:'flex', gap:12, alignItems:'center', marginTop:12}}>
-                        <button type="button" className="setup-btn sm" onClick={scanWifi} disabled={wifiScanning}>{wifiScanning? 'Scanning…':'Scan Networks'}</button>
-                        <div className="wifi-status" role="status" aria-live="polite">
-                          {wifiStatus==='scanning' && <span>Scanning nearby networks…</span>}
-                          {wifiStatus==='connecting' && <span>Connecting to {wifiSelected?.ssid}…</span>}
-                          {wifiStatus==='success' && <span className="setup-status success">Connected! Finalizing…</span>}
-                          {wifiStatus==='error' && wifiError && <span className="setup-status error">{wifiError}</span>}
-                        </div>
-                      </div>
-                      <ul className="wifi-list" role="radiogroup" aria-label="Available WiFi Networks" style={{marginTop:14}}>
-                        {wifiNetworks.map(net => {
-                          const selected = wifiSelected && wifiSelected.ssid === net.ssid;
-                          const bars = qualityBars(net.quality);
-                          return (
-                            <li key={net.ssid} className={`wifi-item ${selected? 'selected':''}`} role="radio" aria-checked={selected}>
-                              <button
-                                type="button"
-                                className="wifi-select-btn"
-                                onClick={()=> setWifiSelected(net)}
-                                aria-pressed={selected}
-                              >
-                                <span className="wifi-select-main">
-                                  <span className="wifi-ssid">{net.ssid}</span>
-                                  {net.secure && <span className="wifi-badge" aria-label="Secured network">🔒</span>}
-                                </span>
-                                <span className="wifi-metrics" aria-hidden="true">
-                                  <span className="wifi-bars" data-quality={net.quality}>
-                                    {bars.map((on,i)=>(<span key={i} className={`bar ${on? 'on':''}`}></span>))}
-                                  </span>
-                                  <span className="wifi-quality-label">{net.quality >= 75? 'Excellent': net.quality >=55? 'Good': net.quality >=35? 'Fair':'Weak'}</span>
-                                </span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                        {!wifiNetworks.length && wifiStatus!== 'scanning' && (
-                          <li className="wifi-empty" aria-live="polite">{wifiStatus==='idle'? 'No networks yet. Tap Scan.':' '}</li>
-                        )}
-                      </ul>
-                      {wifiSelected && (
-                        <div className="setup-field" style={{marginTop:16}}>
-                          <label className="setup-field-label" htmlFor="wifiSsid">Selected Network</label>
-                          <input id="wifiSsid" type="text" value={wifiSelected.ssid} readOnly style={{background:'#f5f7f6'}} />
+                    <div className="setup-card wifi-card-compact" role="group" aria-labelledby="wifi-setup-head">
+                      <h3 id="wifi-setup-head" className="setup-section-title">Connect to WiFi</h3>
+                      <p className="setup-helper" style={{marginTop:4}}>Connect your SmarTanom device to your home WiFi network.</p>
+                      
+                      {connectionStatus === 'success' && (
+                        <div className="wifi-status-banner success" role="status" aria-live="polite" style={{marginTop:12}}>
+                          Connected! Finalizing…
                         </div>
                       )}
-                      {wifiSelected?.secure && (
-                        <div className="setup-field" style={{marginTop:12}}>
-                          <label className="setup-field-label" htmlFor="wifiPassword">Password</label>
-                          <div className="input-with-toggle">
-                            <input id="wifiPassword" type={showWifiPw? 'text':'password'} placeholder="Enter WiFi password" value={wifiPassword} onChange={e=> setWifiPassword(e.target.value)} autoComplete="off" />
-                            <button type="button" className="pw-toggle" aria-label={showWifiPw? 'Hide password':'Show password'} onClick={()=> setShowWifiPw(p=>!p)}>{showWifiPw? 'Hide':'Show'}</button>
+                      
+                      {wifiSelected && connectionStatus !== 'success' && (
+                        <div className="wifi-connected-summary" style={{marginTop:12}}>
+                          <div className="wifi-summary-row">
+                            <SignalBars level={rssiToBars(wifiSelected.rssi)} size={18} />
+                            <span className="wifi-summary-ssid">{wifiSelected.ssid}</span>
+                            {wifiSelected.secure && <Lock size={12} color="#ffffff" className="wifi-lock" />}
                           </div>
-                          <p className="setup-helper setup-helper--sm">{wifiPassword.length<8? 'Minimum 8 characters':'Looks good'}</p>
+                          <p className="setup-helper" style={{marginTop:4,fontSize:'12px'}}>Ready to connect with entered credentials.</p>
                         </div>
                       )}
-                      {wifiError && <p className="setup-error" role="alert" style={{marginTop:12}}>{wifiError}</p>}
-                      {wifiSelected && (
-                        <div style={{marginTop:18, display:'flex', justifyContent:'flex-end'}}>
-                          <button type="button" className="setup-btn sm" disabled={!canConnectWifi() || wifiScanning} onClick={connectWifi}>{wifiStatus==='connecting'? 'Connecting…':'Connect'}</button>
+                      
+                      {hiddenSsidEnabled && connectionStatus !== 'success' && (
+                        <div className="wifi-connected-summary" style={{marginTop:12}}>
+                          <p className="setup-helper" style={{fontSize:'12px'}}>Hidden SSID: <strong>{hiddenSsid || '(not set)'}</strong></p>
                         </div>
                       )}
+                      
+                      <button
+                        type="button"
+                        className="setup-btn" 
+                        style={{marginTop:16,width:'100%'}}
+                        onClick={()=> setWifiModalOpen(true)}
+                        disabled={connecting || connectionStatus==='success'}
+                      >
+                        {wifiSelected || hiddenSsidEnabled ? 'Change Network' : 'Select Network'}
+                      </button>
+
                     </div>
                   </section>
                 )}
@@ -915,11 +974,6 @@ export default function SignupSetup() {
                   </div>
                 </div>
               )}
-              {step === 5 && wifiSelected && !accountCreated && (
-                <div className="wifi-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end'}}>
-                  <button type="button" className="setup-btn" disabled={!canConnectWifi() || wifiScanning} onClick={connectWifi}>{wifiScanning? 'Connecting…':'Connect & Continue'}</button>
-                </div>
-              )}
               {step === 6 && !accountCreated && (
                 <div className="username-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end'}}>
                   <button type="button" className="setup-btn" disabled={!username.trim() || finalizing} onClick={finalizeAccount}>{finalizing? 'Finishing…':'Finish Setup'}</button>
@@ -991,6 +1045,204 @@ export default function SignupSetup() {
                 );
               })}
             </ul>
+          </div>
+        </div>
+      )}
+      
+      {/* WiFi Setup Modal - Full Screen Overlay */}
+      {wifiModalOpen && (
+        <div className="wifi-modal-overlay" onClick={()=> setWifiModalOpen(false)} role="dialog" aria-modal="true" aria-labelledby="wifi-modal-title">
+          <div className="wifi-modal-content" onClick={e=> e.stopPropagation()}>
+            <div className="wifi-modal-header">
+              <h1 id="wifi-modal-title" className="wifi-modal-title">Wi-Fi Setup</h1>
+              <button type="button" className="modal-close-btn" onClick={()=> setWifiModalOpen(false)} aria-label="Close modal">
+                ×
+              </button>
+            </div>
+            
+            <div className="wifi-modal-body">
+              <p className="wifi-setup-description">Enter your Wi-Fi network credentials to connect your SmarTanom device to the internet.</p>
+              
+              {connectionStatus && connectionStatus!=='success' && (
+                <div className="wifi-status-banner error" role="alert">Connection failed: {connectionStatus}. Please try again.</div>
+              )}
+              
+              {/* Wi-Fi Name (SSID) Field */}
+              <div className="wifi-input-field">
+                <label className="wifi-input-label" htmlFor="wifiSsidInput">Wi-Fi Name (SSID)</label>
+                <input
+                  id="wifiSsidInput"
+                  type="text"
+                  className="wifi-input"
+                  placeholder="Enter your Wi-Fi network name"
+                  value={hiddenSsid}
+                  onChange={e=> setHiddenSsid(e.target.value)}
+                  autoComplete="off"
+                  disabled={connecting}
+                />
+              </div>
+              
+              {/* Wi-Fi Password Field */}
+              <div className="wifi-input-field">
+                <label className="wifi-input-label" htmlFor="wifiPasswordInput">Wi-Fi Password</label>
+                <div className="wifi-password-wrapper">
+                  <input
+                    id="wifiPasswordInput"
+                    type={showWifiPw? 'text':'password'}
+                    className="wifi-input"
+                    placeholder="Enter your Wi-Fi password"
+                    value={wifiPassword}
+                    onChange={e=> setWifiPassword(e.target.value)}
+                    autoComplete="off"
+                    disabled={connecting}
+                  />
+                  <button 
+                    type="button" 
+                    className="wifi-password-toggle" 
+                    onClick={()=> setShowWifiPw(p=>!p)}
+                    aria-label={showWifiPw? 'Hide password':'Show password'}
+                  >
+                    {showWifiPw? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="wifi-modal-footer">
+              <button
+                type="button"
+                className="wifi-user-guide-btn"
+                onClick={()=> setUserGuideOpen(true)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                User Guide
+              </button>
+              <button
+                type="button"
+                className="wifi-connect-btn"
+                disabled={!hiddenSsid.trim() || wifiPassword.length < 8 || connecting}
+                onClick={()=> {
+                  setConnecting(true);
+                  setTimeout(()=> {
+                    setConnecting(false);
+                    setWifiModalOpen(false);
+                    setSuccessModalOpen(true);
+                  }, 1500);
+                }}
+              >
+                {connecting? 'Connecting…':'Connect Device'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Success Confirmation Modal - Full Screen Overlay */}
+      {successModalOpen && (
+        <div className="wifi-modal-overlay" onClick={()=> setSuccessModalOpen(false)} role="dialog" aria-modal="true" aria-labelledby="success-modal-title">
+          <div className="success-modal-content" onClick={e=> e.stopPropagation()}>
+            <button type="button" className="modal-close-btn" onClick={()=> setSuccessModalOpen(false)} aria-label="Close modal">
+              ×
+            </button>
+            <div className="success-icon">
+              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            </div>
+            <h2 id="success-modal-title" className="success-title">Device Successfully Connected to Wi-Fi!</h2>
+            <p className="success-message">Your SmarTanom device is now connected to your Wi-Fi network and ready to use.</p>
+            <button
+              type="button"
+              className="success-continue-btn"
+              onClick={()=> { setSuccessModalOpen(false); setStep(6); }}
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* User Guide Modal - Full Screen Overlay */}
+      {userGuideOpen && (
+        <div className="wifi-modal-overlay" onClick={()=> setUserGuideOpen(false)} role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
+          <div className="guide-modal-content" onClick={e=> e.stopPropagation()}>
+            <div className="guide-modal-header">
+              <h2 id="guide-modal-title" className="guide-modal-title">Wi-Fi Setup Guide</h2>
+              <button type="button" className="modal-close-btn" onClick={()=> setUserGuideOpen(false)} aria-label="Close modal">
+                ×
+              </button>
+            </div>
+            <div className="guide-modal-body">
+              <ol className="guide-steps">
+                <li>
+                  <div className="guide-step-number">1</div>
+                  <div className="guide-step-content">
+                    <h3>Connect to SmarTanom Hotspot</h3>
+                    <p>Power on your SmarTanom device. It will automatically activate its Wi-Fi hotspot (usually named "SmarTanom-XXXX"). Connect your phone or computer to this hotspot.</p>
+                  </div>
+                </li>
+                <li>
+                  <div className="guide-step-number">2</div>
+                  <div className="guide-step-content">
+                    <h3>Return to This Page</h3>
+                    <p>Once connected to the SmarTanom hotspot, return to this web app. The app will detect the connection automatically.</p>
+                  </div>
+                </li>
+                <li>
+                  <div className="guide-step-number">3</div>
+                  <div className="guide-step-content">
+                    <h3>Enter Your Wi-Fi Details</h3>
+                    <p>Enter your home Wi-Fi network name (SSID) and password in the setup form. Make sure the credentials are correct.</p>
+                  </div>
+                </li>
+                <li>
+                  <div className="guide-step-number">4</div>
+                  <div className="guide-step-content">
+                    <h3>Click "Connect Device"</h3>
+                    <p>Press the "Connect Device" button. The SmarTanom will attempt to connect to your Wi-Fi network.</p>
+                  </div>
+                </li>
+                <li>
+                  <div className="guide-step-number">5</div>
+                  <div className="guide-step-content">
+                    <h3>Wait for Confirmation</h3>
+                    <p>Once successfully connected, you'll see a confirmation message. You can then continue with the setup process.</p>
+                  </div>
+                </li>
+              </ol>
+              <div className="guide-tip">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <p><strong>Tip:</strong> If the connection fails, ensure your Wi-Fi password is correct and your router is within range of the device.</p>
+              </div>
+            </div>
+            <div className="guide-modal-footer">
+              <button
+                type="button"
+                className="guide-close-btn"
+                onClick={()=> setUserGuideOpen(false)}
+              >
+                Got It
+              </button>
+            </div>
           </div>
         </div>
       )}
