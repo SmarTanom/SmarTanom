@@ -702,11 +702,8 @@
   align-items: center; /* vertically center text inline with the button */
   justify-content: space-between;
   gap: clamp(8px, 1.2vh, 12px);
-  /* Horizontal padding enlarged again (+6px min, +10px max). Expose via custom props for quick tuning. */
-  --panel-pad-y: clamp(10px, 1.6vh, 18px);
-  /* Reduced horizontal padding (was clamp(20px, 3vw, 40px)) */
-  /* Further reduced (was clamp(16px, 2.4vw, 34px)) */
-  /* Further reduced horizontal padding */
+  /* Reduced vertical padding to match step 3 height */
+  --panel-pad-y: clamp(8px, 1.2vh, 14px);
   --panel-pad-x: clamp(10px, 1.6vw, 22px);
   padding: var(--panel-pad-y) var(--panel-pad-x);
   border-radius: clamp(10px, 1.2vw, 14px);
