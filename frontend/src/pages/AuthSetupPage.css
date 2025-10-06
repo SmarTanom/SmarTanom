@@ -701,9 +701,9 @@
   flex-wrap: nowrap; /* keep button beside the text; prevent wrapping */
   align-items: center; /* vertically center text inline with the button */
   justify-content: space-between;
-  gap: clamp(8px, 1.2vh, 12px);
-  /* Reduced vertical padding to match step 3 height */
-  --panel-pad-y: clamp(8px, 1.2vh, 14px);
+  gap: clamp(14px, 2vh, 18px);
+  /* Increased vertical padding for better height */
+  --panel-pad-y: clamp(26px, 3.6vh, 34px);
   --panel-pad-x: clamp(10px, 1.6vw, 22px);
   padding: var(--panel-pad-y) var(--panel-pad-x);
   border-radius: clamp(10px, 1.2vw, 14px);
@@ -760,8 +760,8 @@
     flex-direction: row;
     align-items: center; /* center on larger screens as well */
     justify-content: space-between;
-    gap: clamp(8px, 1vw, 12px);
-    --panel-pad-y: clamp(12px, 1.4vh, 20px);
+    gap: clamp(14px, 2vh, 18px);
+    --panel-pad-y: clamp(26px, 3.6vh, 34px);
   /* Reduced horizontal padding for medium+ screens (was clamp(28px, 2.4vw, 56px)) */
   /* Further reduced (was clamp(22px, 2vw, 48px)) */
   /* Further reduced horizontal padding for medium+ screens */
@@ -866,7 +866,7 @@
   }
   /* Reduce verify panel padding to fit within viewport */
   /* Compact height: reduce vertical padding, keep horizontal via vars */
-  .setup-verify-panel { --panel-pad-y: clamp(6px, 1vh, 10px); }
+  .setup-verify-panel { --panel-pad-y: clamp(16px, 2vh, 20px); }
 }
 
 /* Prevent Step 2 cutoff on medium/tight heights without adding scroll */
@@ -1109,7 +1109,7 @@
   .setup-method-copy { align-items: center; }
 
   /* Ultra compact: further trim vertical padding only */
-  .setup-verify-panel { --panel-pad-y: clamp(6px, 1vh, 10px); }
+  .setup-verify-panel { --panel-pad-y: clamp(16px, 2vh, 20px); }
   .setup-verify-actions { justify-content: flex-end; margin-left: auto; }
   /* Make verify button more compact on small phones, keep ≥44px height */
   .setup-verify-actions .setup-btn { font-size: clamp(0.56rem, 3.2vw, 0.72rem); padding: 6px 10px; min-height: 44px; }
@@ -2019,5 +2019,17 @@
 
 /* Center alignment for error modal content */
 .setup-modal-content.setup-modal-error { align-items: center; text-align: center; }
+
+/* OTP theme token */
+:root { --otp-text-color: #00862F; }
+
+/* Override for dark backgrounds if needed */
+@media (prefers-contrast: more) { :root { --otp-text-color: #00a23b; } }
+
+/* Update base OTP styles */
+.otp-box { color: var(--otp-text-color); }
+.otp-box[data-filled="true"] { color: var(--otp-text-color); }
+.otp-box:focus { color: var(--otp-text-color); }
+.otp-box:active { color: var(--otp-text-color); }
 
 
