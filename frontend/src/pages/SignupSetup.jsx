@@ -107,6 +107,8 @@ export default function SignupSetup() {
   const [wifiPassword, setWifiPassword] = useState('');
   const [wifiError, setWifiError] = useState('');
   const [showWifiPw, setShowWifiPw] = useState(false);
+  const [wifiStatus, setWifiStatus] = useState('idle'); // idle|scanning|connecting|success|error
+  const [wifiDetailsOpen, setWifiDetailsOpen] = useState(true);
 
   // Step 6 state
   const [username, setUsername] = useState('');
@@ -265,34 +267,61 @@ export default function SignupSetup() {
     }
   }
 
+  function generateMockNetworks(){
+    const samples = [
+      { ssid:'HomeMesh', rssi:-42, secure:true },
+      { ssid:'Garden_AP', rssi:-58, secure:true },
+      { ssid:'Guest_WiFi', rssi:-70, secure:false },
+      { ssid:'HydroLab', rssi:-63, secure:true },
+      { ssid:'IoT_Devices', rssi:-49, secure:true },
+      { ssid:'Open_Cafe', rssi:-80, secure:false }
+    ];
+    return samples
+      .map(n=> ({ ...n, quality: Math.max(0, 100 - (Math.abs(n.rssi) - 30) * 2) }))
+      .sort((a,b)=> b.quality - a.quality);
+  }
+
+  const bars = [20,40,60,80];
+  function qualityBars(q){
+    return bars.map(t => q >= t);
+  }
+
   async function scanWifi() {
     setWifiScanning(true);
+    setWifiStatus('scanning');
     setWifiNetworks([]);
     setWifiError('');
     try {
       await new Promise(r => setTimeout(r, 900));
-      setWifiNetworks(['HydroNet_2G', 'HydroNet_5G', 'GardenMesh', 'HomeLab']);
+      setWifiNetworks(generateMockNetworks());
+      setWifiStatus('idle');
     } catch (e) {
       setWifiError('Scan failed. Try again.');
+      setWifiStatus('error');
     } finally {
       setWifiScanning(false);
     }
   }
 
   function canConnectWifi() {
-    return wifiSelected && (wifiSelected.includes('Open') || wifiPassword.length >= 8);
+    if(!wifiSelected) return false;
+    if(!wifiSelected.secure) return true;
+    return wifiPassword.length >= 8;
   }
 
   async function connectWifi() {
     if (!canConnectWifi()) return;
     setWifiError('');
     setWifiScanning(true);
+    setWifiStatus('connecting');
     try {
-      await new Promise(r => setTimeout(r, 1000));
-      // mock success
-      setStep(6);
+      await new Promise(r => setTimeout(r, 1200));
+      setWifiStatus('success');
+      // proceed after short success pause
+      setTimeout(()=> setStep(6), 600);
     } catch (e) {
       setWifiError('Connection failed. Check password.');
+      setWifiStatus('error');
     } finally {
       setWifiScanning(false);
     }
@@ -724,32 +753,84 @@ export default function SignupSetup() {
                 {step === 5 && (
                   <section className="setup-section setup-step-5" aria-label="WiFi Setup">
                     <div className="setup-card" role="group" aria-labelledby="wifi-setup-head">
-                      <h3 id="wifi-setup-head" className="setup-section-title">Scan Networks</h3>
-                      <p className="setup-helper">Let’s connect your device to the internet.</p>
-                      <div className="wifi-scan-row">
-                        <button type="button" className="setup-btn sm" onClick={scanWifi} disabled={wifiScanning}>{wifiScanning? 'Scanning…':'Scan Networks'}</button>
+                      <div className="wifi-head">
+                        <div className="wifi-head-icon" aria-hidden="true">📶</div>
+                        <div>
+                          <h3 id="wifi-setup-head" className="setup-section-title" style={{marginBottom:4}}>WiFi Setup</h3>
+                          <p className="setup-helper" style={{marginTop:0}}>Connect your device to your home network.</p>
+                        </div>
                       </div>
-                      {wifiError && <p className="setup-error" role="alert">{wifiError}</p>}
-                      <ul className="wifi-list" role="radiogroup" aria-label="Available WiFi Networks">
-                        {wifiNetworks.map(net => (
-                          <li key={net} className={`wifi-item ${wifiSelected===net? 'selected':''}`} role="radio" aria-checked={wifiSelected===net}>
-                            <button type="button" className="wifi-select-btn" onClick={()=> setWifiSelected(net)} aria-pressed={wifiSelected===net}>{net}{wifiSelected===net && ' • selected'}</button>
-                          </li>
-                        ))}
+                      <details className="wifi-details" open={wifiDetailsOpen} onToggle={e=> setWifiDetailsOpen(e.target.open)}>
+                        <summary className="wifi-details-summary">How it works</summary>
+                        <div className="wifi-steps">
+                          <ol className="wifi-steps-list">
+                            <li><strong>Power On:</strong> Device starts a hotspot (e.g. <code>SmarTanom_XXXX</code>).</li>
+                            <li><strong>Connect:</strong> Join that hotspot from your phone or laptop.</li>
+                            <li><strong>Configure:</strong> Select your home WiFi below & enter its password.</li>
+                            <li><strong>Switch:</strong> Device connects to WiFi, hotspot turns off, goes online.</li>
+                            <li><strong>Retry:</strong> If it fails, hotspot reappears so you can try again.</li>
+                          </ol>
+                        </div>
+                      </details>
+                      <div className="wifi-action-row" style={{display:'flex', gap:12, alignItems:'center', marginTop:12}}>
+                        <button type="button" className="setup-btn sm" onClick={scanWifi} disabled={wifiScanning}>{wifiScanning? 'Scanning…':'Scan Networks'}</button>
+                        <div className="wifi-status" role="status" aria-live="polite">
+                          {wifiStatus==='scanning' && <span>Scanning nearby networks…</span>}
+                          {wifiStatus==='connecting' && <span>Connecting to {wifiSelected?.ssid}…</span>}
+                          {wifiStatus==='success' && <span className="setup-status success">Connected! Finalizing…</span>}
+                          {wifiStatus==='error' && wifiError && <span className="setup-status error">{wifiError}</span>}
+                        </div>
+                      </div>
+                      <ul className="wifi-list" role="radiogroup" aria-label="Available WiFi Networks" style={{marginTop:14}}>
+                        {wifiNetworks.map(net => {
+                          const selected = wifiSelected && wifiSelected.ssid === net.ssid;
+                          const bars = qualityBars(net.quality);
+                          return (
+                            <li key={net.ssid} className={`wifi-item ${selected? 'selected':''}`} role="radio" aria-checked={selected}>
+                              <button
+                                type="button"
+                                className="wifi-select-btn"
+                                onClick={()=> setWifiSelected(net)}
+                                aria-pressed={selected}
+                              >
+                                <span className="wifi-select-main">
+                                  <span className="wifi-ssid">{net.ssid}</span>
+                                  {net.secure && <span className="wifi-badge" aria-label="Secured network">🔒</span>}
+                                </span>
+                                <span className="wifi-metrics" aria-hidden="true">
+                                  <span className="wifi-bars" data-quality={net.quality}>
+                                    {bars.map((on,i)=>(<span key={i} className={`bar ${on? 'on':''}`}></span>))}
+                                  </span>
+                                  <span className="wifi-quality-label">{net.quality >= 75? 'Excellent': net.quality >=55? 'Good': net.quality >=35? 'Fair':'Weak'}</span>
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                        {!wifiNetworks.length && wifiStatus!== 'scanning' && (
+                          <li className="wifi-empty" aria-live="polite">{wifiStatus==='idle'? 'No networks yet. Tap Scan.':' '}</li>
+                        )}
                       </ul>
                       {wifiSelected && (
+                        <div className="setup-field" style={{marginTop:16}}>
+                          <label className="setup-field-label" htmlFor="wifiSsid">Selected Network</label>
+                          <input id="wifiSsid" type="text" value={wifiSelected.ssid} readOnly style={{background:'#f5f7f6'}} />
+                        </div>
+                      )}
+                      {wifiSelected?.secure && (
                         <div className="setup-field" style={{marginTop:12}}>
                           <label className="setup-field-label" htmlFor="wifiPassword">Password</label>
                           <div className="input-with-toggle">
                             <input id="wifiPassword" type={showWifiPw? 'text':'password'} placeholder="Enter WiFi password" value={wifiPassword} onChange={e=> setWifiPassword(e.target.value)} autoComplete="off" />
                             <button type="button" className="pw-toggle" aria-label={showWifiPw? 'Hide password':'Show password'} onClick={()=> setShowWifiPw(p=>!p)}>{showWifiPw? 'Hide':'Show'}</button>
                           </div>
-                          <p className="setup-helper setup-helper--sm">Minimum 8 characters (mock rule)</p>
+                          <p className="setup-helper setup-helper--sm">{wifiPassword.length<8? 'Minimum 8 characters':'Looks good'}</p>
                         </div>
                       )}
+                      {wifiError && <p className="setup-error" role="alert" style={{marginTop:12}}>{wifiError}</p>}
                       {wifiSelected && (
-                        <div style={{marginTop:12}}>
-                          <button type="button" className="setup-btn sm" disabled={!canConnectWifi() || wifiScanning} onClick={connectWifi}>{wifiScanning? 'Connecting…':'Connect'}</button>
+                        <div style={{marginTop:18, display:'flex', justifyContent:'flex-end'}}>
+                          <button type="button" className="setup-btn sm" disabled={!canConnectWifi() || wifiScanning} onClick={connectWifi}>{wifiStatus==='connecting'? 'Connecting…':'Connect'}</button>
                         </div>
                       )}
                     </div>
