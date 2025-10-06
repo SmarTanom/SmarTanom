@@ -653,7 +653,6 @@ export default function SignupSetup() {
                     {/* Device summary card */}
                     <div className="setup-card device-summary-card">
                       <div className="device-summary-icon" aria-hidden="true">
-                        {/* simple device glyph */}
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6"/></svg>
                       </div>
                       <div className="device-summary-text">
@@ -688,10 +687,6 @@ export default function SignupSetup() {
                         </div>
                        </div>
                      </div>
-
-                     <div className="inline-progress-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end'}}>
-                      <button type="button" className="setup-btn" onClick={sendCode} disabled={sendingCode || !isValidEmail(bindEmail)}>{sendingCode? 'Sending…':'Send Code'}</button>
-                    </div>
                   </section>
                 )}
                 {step === 4 && (
@@ -817,6 +812,17 @@ export default function SignupSetup() {
                   </div>
                   <div className="setup-verify-actions">
                     <button type="button" className="setup-btn" onClick={()=> setStep(3)}>Continue</button>
+                  </div>
+                </div>
+              )}
+              {step === 3 && (
+                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Send verification code" data-section="send-code">
+                  <div className="setup-verify-content">
+                    <h4>Send verification code</h4>
+                    <p>We will email you a one‑time code.</p>
+                  </div>
+                  <div className="setup-verify-actions">
+                    <button type="button" className="setup-btn" onClick={sendCode} disabled={sendingCode || !isValidEmail(bindEmail)}>{sendingCode? 'Sending…':'Send Code'}</button>
                   </div>
                 </div>
               )}
