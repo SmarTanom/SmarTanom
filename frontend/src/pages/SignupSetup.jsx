@@ -194,7 +194,7 @@ export default function SignupSetup() {
       await new Promise(r => setTimeout(r, 500));
       // Relaxed: allow smrt + at least 1 char OR file upload OR length >= 6
       const ok = (/^smrt\w+/i.test(deviceId.trim())) || !!fileName || deviceId.trim().length >= 6;
-      if (!ok) throw new Error('Enter a valid Device ID (ex: smrt123 or upload QR).');
+      if (!ok) throw new Error('Please enter a valid Device ID or upload a clear QR photo.');
   setVerified(true);
   setJustVerified(true);
   // Brief pause to let user see inline confirmation, then advance
@@ -846,10 +846,10 @@ export default function SignupSetup() {
 
           {modal.open && (
             <div className="setup-modal" role="dialog" aria-modal="true" aria-label="Verification error">
-              <div className="setup-modal-content">
-                <h4 style={{ margin: 0 }}>Verification Error</h4>
-                <p style={{ margin: 0 }}>{modal.message}</p>
-                <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+              <div className="setup-modal-content setup-modal-error" >
+                <h4 style={{ margin: 0, textAlign:'center' }}>Verification Error</h4>
+                <p style={{ margin: 0, textAlign:'center' }}>{modal.message}</p>
+                <div style={{ display: 'flex', gap: 10, marginTop: 10, justifyContent:'center' }}>
                   <button type="button" className="setup-btn" onClick={closeModal}>OK</button>
                 </div>
               </div>

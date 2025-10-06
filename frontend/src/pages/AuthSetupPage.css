@@ -1854,9 +1854,6 @@
   .otp-input-row { gap:8px; }
   .wifi-list { max-height:140px; }
 }
-/* High contrast focus adjustments */
-.otp-box:focus-visible { outline:2px solid #4cd472; outline-offset:2px; }
-/* Radiogroup semantics styling */
 .wifi-list[role='radiogroup'] li[role='radio'] { list-style:none; }
 
 .default-image-modal-content { gap: 16px; position: relative; padding-top: 20px; }
@@ -1867,5 +1864,8 @@
 .default-image-btn.selected::after { content: none; }
 .default-image-label { display: block; }
 .visually-hidden { position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+
+/* Center alignment for error modal content */
+.setup-modal-content.setup-modal-error { align-items: center; text-align: center; }
 
 
