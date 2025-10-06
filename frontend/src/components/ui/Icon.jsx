@@ -64,4 +64,25 @@ export const CheckCircleFilled = ({ size = 20, color = '#016b22', checkColor = '
   </svg>
 );
 
-export default { ArrowLeft, Mail, Shield, Leaf, Wifi, ChevronLeftFilled, Check, CheckCircleFilled };
+export const Lock = (props) => (
+  <Svg {...props}><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></Svg>
+);
+
+export const Refresh = ({ size=20, color="#ffffff", stroke=2, ...props }) => (
+  <Svg size={size} color={color} stroke={stroke} {...props}><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></Svg>
+);
+
+export const SignalBars = ({ level=0, size=20, color="#ffffff", ...props }) => {
+  const bars = [1,2,3,4];
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="none" {...props} aria-hidden="true">
+      {bars.map((b,i)=>{
+        const active = b <= level;
+        const h = 4 + b*4; // incremental height
+        return <rect key={b} x={3 + i*5} y={22 - h} width={4} height={h} rx={1} fill={active? color : 'rgba(255,255,255,0.25)'} />;
+      })}
+    </svg>
+  );
+};
+
+export default { ArrowLeft, Mail, Shield, Leaf, Wifi, ChevronLeftFilled, Check, CheckCircleFilled, Lock, Refresh, SignalBars };

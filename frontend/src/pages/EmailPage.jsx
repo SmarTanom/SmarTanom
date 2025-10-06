@@ -74,16 +74,16 @@ export default function EmailPage({ mode = 'signin' }) {
               <p className="auth-subtext">{subtext}</p>
             </header>
             <form className="auth-form" onSubmit={handleSendCode} noValidate>
-              <div className="auth-field">
+              <div className="auth-field auth-field--welcome-variant">
                 <label htmlFor="email" className="auth-field-label">Email</label>
-                <div className="auth-input-wrapper">
-                  <MailIcon className="auth-mail-icon" size={20} color="#ffffff" stroke={2} aria-hidden="true" />
+                <div className="auth-input-wrapper auth-input-wrapper--welcome">
+                  <MailIcon className="auth-mail-icon auth-mail-icon--welcome" size={20} color="currentColor" stroke={2} aria-hidden="true" />
                   <input
                     ref={inputRef}
                     id="email"
                     name="email"
                     type="email"
-                    className="auth-input"
+                    className="auth-input auth-input--welcome"
                     placeholder="Enter your email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}

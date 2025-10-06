@@ -472,6 +472,34 @@
   min-height: 0;
 }
 
+/* Reduce gap between cards in step 2 */
+.setup-step-2 {
+  gap: clamp(6px, 1vh, 10px);
+}
+
+.setup-step-2 .setup-card {
+  margin-bottom: 0;
+}
+
+/* Add subtle divider between sections within same card */
+.setup-step-2 .setup-card:first-child {
+  margin-bottom: 0;
+}
+
+.setup-step-2 .setup-card + .setup-card {
+  position: relative;
+}
+
+.setup-step-2 .setup-card + .setup-card::before {
+  content: '';
+  position: absolute;
+  top: clamp(-5px, -0.7vh, -8px);
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2) 50%, transparent);
+}
+
 /* Step 5 WiFi section should stretch and allow internal scroll */
 .setup-step-5 { flex: 1 1 auto; min-height:0; }
 .setup-step-5 .wifi-card { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
@@ -1435,6 +1463,74 @@
   background: rgba(255,255,255,0.25);
 }
 
+/* Plant Photo Modal - Button Styling */
+.wifi-modal-body .setup-btn {
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #4A9B4D 0%, #3d8240 100%);
+  border: none;
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'Montserrat', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(74, 155, 77, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 50px;
+}
+
+.wifi-modal-body .setup-btn:hover {
+  background: linear-gradient(135deg, #3d8240 0%, #2f6930 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(74, 155, 77, 0.4);
+}
+
+.wifi-modal-body .setup-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(74, 155, 77, 0.3);
+}
+
+.wifi-modal-body .setup-btn.outline {
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+}
+
+.wifi-modal-body .setup-btn.outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.wifi-modal-body .setup-helper {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Photo Preview in Modal */
+.wifi-modal-body .photo-preview {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  margin-top: 8px;
+}
+
+.wifi-modal-body .photo-preview img {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.wifi-modal-body .setup-file-name {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 500;
+}
+
 /* Responsive modal */
 @media (max-width: 600px) {
   .wifi-modal-content {
@@ -1638,10 +1734,242 @@
   gap: 6px;
 }
 
+.setup-step-2 .setup-input-inline {
+  gap: clamp(3px, 0.6vh, 5px);
+}
+
+.setup-step-2 .setup-field input[type="text"]:hover,
+.setup-step-2 .setup-field input[type="number"]:hover {
+  border-color: rgba(74, 155, 77, 0.55);
+  background: #ffffff;
+}
+
+.setup-step-2 .setup-field input::placeholder {
+  color: rgba(107, 114, 128, 0.75);
+  font-weight: 400;
+}
+
+.setup-step-2 .photo-choice-row {
+  gap: clamp(4px, 1vw, 7px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.setup-step-2 .photo-choice-row label,
+.setup-step-2 .photo-choice-row button {
+  flex: 1 1 auto;
+  min-width: min-content;
+}
+
+@media (max-width: 600px) {
+  .setup-step-2 .photo-choice-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: clamp(3px, 0.8vw, 5px);
+  }
+  
+  .setup-step-2 .photo-choice-row label,
+  .setup-step-2 .photo-choice-row button {
+    width: 100%;
+  }
+}
+
+.setup-step-2 .input-with-suffix {
+  gap: clamp(3px, 0.7vw, 5px);
+}
+
+.setup-step-2 .photo-preview {
+  margin-top: clamp(6px, 1vh, 10px);
+  padding: clamp(6px, 1vh, 10px);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+}
+
+.setup-step-2 .photo-preview img {
+  width: clamp(50px, 10vw, 70px);
+  height: clamp(50px, 10vw, 70px);
+  border-radius: 6px;
+  border: 1.5px solid rgba(74, 155, 77, 0.4);
+}
+
+.setup-step-2 .photo-actions {
+  gap: clamp(6px, 1.2vw, 10px);
+}
+
+.setup-step-2 .setup-file-name {
+  font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+  color: rgba(255, 255, 255, 0.85);
+}
+
 .setup-field {
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+/* Compact spacing for step 2 */
+.setup-step-2 .setup-card {
+  padding: clamp(8px, 1vh, 12px);
+  gap: clamp(5px, 0.8vh, 8px);
+  background: linear-gradient(145deg, rgba(1, 107, 34, 0.1), rgba(1, 107, 34, 0.06));
+  border: 1px solid rgba(74, 155, 77, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.setup-step-2 .setup-section-title {
+  margin-bottom: clamp(4px, 0.5vh, 6px);
+  font-size: clamp(0.8125rem, 1.7vw, 0.95rem);
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  padding-bottom: clamp(3px, 0.4vh, 4px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.setup-step-2 .setup-field {
+  gap: 1px;
+}
+
+.setup-step-2 .setup-field input[type="text"],
+.setup-step-2 .setup-field input[type="number"] {
+  padding: clamp(4px, 0.8vh, 6px) clamp(7px, 1.2vw, 9px);
+  min-height: 32px;
+  font-size: clamp(0.75rem, 1.7vw, 0.875rem);
+  border: 1px solid rgba(74, 155, 77, 0.35);
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.setup-step-2 .setup-field input[type="text"]:focus,
+.setup-step-2 .setup-field input[type="number"]:focus {
+  border-color: #4A9B4D;
+  box-shadow: 0 0 0 2px rgba(74, 155, 77, 0.12);
+  background: #ffffff;
+  outline: none;
+}
+
+.setup-step-2 .setup-helper {
+  display: none;
+}
+
+/* Style the duration input wrapper */
+.setup-step-2 .duration-inline-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.2vw, 10px);
+}
+
+.setup-step-2 .input-with-suffix.natural-unit {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+  padding: 0 clamp(6px, 1.2vw, 10px);
+  flex: 0 0 auto;
+}
+
+.setup-step-2 .duration-days-input {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: clamp(4px, 0.8vh, 6px) 0 !important;
+  min-height: 32px !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-weight: 600;
+  text-align: center;
+  width: 50px;
+  font-size: clamp(0.75rem, 1.7vw, 0.875rem) !important;
+}
+
+.setup-step-2 .setup-unit {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: clamp(0.7rem, 1.5vw, 0.8125rem);
+  font-weight: 600;
+  padding-left: 3px;
+}
+
+
+
+.setup-step-2 .photo-preview img {
+  width: clamp(50px, 10vw, 70px);
+  height: clamp(50px, 10vw, 70px);
+  border-radius: 6px;
+  border: 1.5px solid rgba(74, 155, 77, 0.4);
+}
+
+.setup-step-2 .photo-actions {
+  gap: clamp(6px, 1.2vw, 10px);
+}
+
+.setup-step-2 .setup-file-name {
+  font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.setup-step-2 .default-image-inline-status {
+  margin-top: clamp(3px, 0.5vh, 5px);
+  padding: clamp(3px, 0.6vh, 5px) clamp(6px, 1.2vw, 8px);
+  background: rgba(74, 155, 77, 0.12);
+  border: 1px solid rgba(74, 155, 77, 0.25);
+  border-radius: 5px;
+}
+
+.setup-step-2 .default-image-inline-status strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 700;
+}
+
+.setup-step-2 .default-image-inline-status .setup-helper {
+  display: block !important;
+  font-size: clamp(0.65rem, 1.4vw, 0.75rem);
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0;
+}
+
+.setup-step-2 .setup-form-grid {
+  gap: clamp(4px, 0.8vh, 7px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.setup-step-2 .setup-field.span-2 {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .setup-step-2 .setup-form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .setup-step-2 .setup-card {
+    padding: clamp(7px, 1vh, 10px);
+  }
+  
+  .setup-step-2 .setup-section-title {
+    font-size: clamp(0.8rem, 1.7vw, 0.9rem);
+  }
+  
+  .setup-step-2 {
+    gap: clamp(5px, 1vh, 8px);
+  }
+}
+
+.setup-step-2 .setup-field-label-row {
+  gap: 4px;
+  margin-bottom: 1px;
+}
+
+.setup-step-2 .setup-field-label {
+  font-size: clamp(8.5px, 1.3vw, 10px);
+  letter-spacing: 0.4px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .setup-field-label {
@@ -1712,6 +2040,36 @@
   padding: clamp(6px, 1.6vw, 10px) clamp(10px, 2.5vw, 14px);
   min-height: 38px;
   min-width: 38px;
+}
+
+.setup-step-2 .setup-btn.sm {
+  padding: clamp(4px, 1vw, 6px) clamp(7px, 1.6vw, 10px);
+  min-height: 32px;
+  font-size: clamp(0.65rem, 1.4vw, 0.75rem);
+  font-weight: 700;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.setup-step-2 .setup-btn.sm:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.45);
+  transform: translateY(-0.5px);
+}
+
+.setup-step-2 .setup-btn.sm:not(.outline) {
+  background: linear-gradient(135deg, #4A9B4D, #3d8240);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(74, 155, 77, 0.25);
+}
+
+.setup-step-2 .setup-btn.sm:not(.outline):hover {
+  background: linear-gradient(135deg, #3d8240, #2f6632);
+  box-shadow: 0 2px 6px rgba(74, 155, 77, 0.35);
 }
 
 .setup-file-name {
@@ -1909,9 +2267,7 @@
   .setup-heading .auth-title { font-size: clamp(16px, 2.8vw, 26px); }
   .setup-heading .auth-subtext { font-size: clamp(10px, 1.8vw, 13px); }
 
-  /* Compact Step 2 cards */
-  .setup-step-2 .setup-card { padding: clamp(8px, 1vh, 12px); gap: clamp(6px, 0.9vh, 10px); }
-  .setup-step-2 .setup-section-title { font-size: clamp(0.9rem, 1.9vw, 1.05rem); }
+  /* Compact Step 2 cards - already handled by base .setup-step-2 rules */
   .setup-step-2 .setup-form-grid { gap: clamp(6px, 0.9vh, 10px); }
 
   /* Inputs: reduce padding while preserving 44px min height */
@@ -2288,9 +2644,40 @@
 .modal-close-btn { position: absolute; top: 12px; right: 12px; z-index: 2; background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.4); color:#fff; width: 34px; height: 34px; border-radius: 8px; display:flex; align-items:center; justify-content:center; font-size: 22px; line-height: 1; cursor: pointer; padding:0; }
 .modal-close-btn:hover, .modal-close-btn:focus { background: rgba(255,255,255,0.26); outline: 2px solid rgba(255,255,255,0.5); outline-offset:2px; }
 .modal-close-btn span { transform: translateY(-1px); }
-.default-image-modal-content { position: relative; padding-top: 0; }
-.modal-head-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.modal-close-btn.inline { position: static; width: 36px; height: 36px; }
+
+/* Default Image Modal Close Button - Matching WiFi Modal Style */
+.default-image-modal-content .modal-close-btn.inline {
+  position: static;
+  width: 40px;
+  height: 40px;
+  background: rgba(74, 155, 77, 0.1);
+  border: 2px solid rgba(74, 155, 77, 0.3);
+  color: #4A9B4D;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.default-image-modal-content .modal-close-btn.inline:hover {
+  background: #4A9B4D;
+  border-color: #4A9B4D;
+  color: white;
+  transform: rotate(90deg) scale(1.08);
+  box-shadow: 0 4px 12px rgba(74, 155, 77, 0.35);
+}
+
+.default-image-modal-content .modal-close-btn.inline:active {
+  transform: rotate(90deg) scale(0.98);
+}
+
 /* Keep absolute style only for non-inline usage */
 .modal-close-btn:not(.inline) { position: absolute; }
 /* Ultra-compact mobile-first stepper (refined for alignment and visibility) */
@@ -2441,6 +2828,15 @@
   border: 1px solid rgba(255,255,255,0.24);
   padding: 2px 6px;
   border-radius: 999px;
+}
+
+.setup-step-2 .setup-optional {
+  font-size: clamp(7px, 1.2vw, 8.5px);
+  padding: 1px 4px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  opacity: 0.88;
 }
 
 /* Small right-aligned icon next to label (e.g., mail icon) */
@@ -3307,13 +3703,212 @@
 }
 .wifi-list[role='radiogroup'] li[role='radio'] { list-style:none; }
 
-.default-image-modal-content { gap: 16px; position: relative; padding-top: 20px; }
-.default-image-grid { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; max-height: min(420px, 60vh); overflow: auto; }
-.default-image-btn { width: 100%; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 10px 8px; text-align: left; color: #fff; font-size: clamp(0.7rem, 1.8vw, 0.8rem); font-weight: 600; line-height: 1.2; cursor: pointer; display: flex; align-items: flex-start; justify-content: flex-start; position: relative; }
-.default-image-btn:hover, .default-image-btn:focus { background: rgba(255,255,255,0.18); outline: 2px solid rgba(255,255,255,0.5); outline-offset: 2px; }
-.default-image-btn.selected { background: #ffffff; color: #0b2d16; border-color: #ffffff; }
-.default-image-btn.selected::after { content: none; }
-.default-image-label { display: block; }
+/* Default Image Selection Modal - Modern Design matching WiFi Modal */
+.default-image-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.default-image-modal-content { 
+  background: linear-gradient(145deg, #ffffff 0%, #f0f9f0 100%);
+  border: 3px solid #4A9B4D;
+  border-radius: 20px;
+  max-width: 650px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 70px rgba(74, 155, 77, 0.25), 0 10px 30px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.3s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.default-image-modal-content .modal-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 32px 20px;
+  border-bottom: 2px solid rgba(74, 155, 77, 0.15);
+  background: linear-gradient(135deg, rgba(74, 155, 77, 0.05) 0%, transparent 100%);
+  flex-shrink: 0;
+}
+
+.default-image-modal-content h4 {
+  margin: 0;
+  font-family: 'Abril Fatface', cursive;
+  font-size: clamp(22px, 4vw, 28px);
+  font-weight: 400;
+  color: #4A9B4D;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(74, 155, 77, 0.15);
+}
+
+.default-image-modal-content .setup-helper {
+  padding: 16px 32px 0;
+  margin: 0;
+  font-size: 15px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.default-image-grid { 
+  list-style: none; 
+  margin: 0; 
+  padding: 24px 32px 32px; 
+  display: grid; 
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
+  gap: 12px; 
+  max-height: min(500px, 60vh); 
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.default-image-item {
+  list-style: none;
+}
+
+.default-image-btn { 
+  width: 100%; 
+  background: white;
+  border: 2px solid rgba(74, 155, 77, 0.25);
+  border-radius: 12px; 
+  padding: 16px 14px; 
+  text-align: center;
+  color: #333;
+  font-size: clamp(13px, 2vw, 15px);
+  font-weight: 600; 
+  font-family: 'Montserrat', sans-serif;
+  line-height: 1.3; 
+  cursor: pointer; 
+  display: flex; 
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.default-image-btn:hover { 
+  background: rgba(74, 155, 77, 0.05);
+  border-color: #4A9B4D;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(74, 155, 77, 0.2);
+}
+
+.default-image-btn:focus {
+  outline: none;
+  border-color: #4A9B4D;
+  box-shadow: 
+    0 0 0 4px rgba(154, 205, 50, 0.2),
+    0 4px 12px rgba(74, 155, 77, 0.25);
+}
+
+.default-image-btn.selected { 
+  background: linear-gradient(135deg, #4A9B4D 0%, #3d8240 100%);
+  color: #ffffff;
+  border-color: #4A9B4D;
+  box-shadow: 
+    0 4px 16px rgba(74, 155, 77, 0.35),
+    inset 0 1px 2px rgba(255, 255, 255, 0.2);
+  transform: scale(1.02);
+}
+
+.default-image-btn.selected:hover {
+  background: linear-gradient(135deg, #3d8240 0%, #2f6930 100%);
+  transform: scale(1.02) translateY(-2px);
+}
+
+.default-image-label { 
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+
+/* Scrollbar styling for grid */
+.default-image-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.default-image-grid::-webkit-scrollbar-track {
+  background: rgba(74, 155, 77, 0.05);
+  border-radius: 4px;
+}
+
+.default-image-grid::-webkit-scrollbar-thumb {
+  background: rgba(74, 155, 77, 0.3);
+  border-radius: 4px;
+}
+
+.default-image-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(74, 155, 77, 0.5);
+}
+
+/* Responsive adjustments for Default Image Modal */
+@media (max-width: 600px) {
+  .default-image-modal-content {
+    max-width: 95%;
+    border-radius: 16px;
+  }
+  
+  .default-image-modal-content .modal-head-row {
+    padding: 20px 24px 16px;
+  }
+  
+  .default-image-modal-content h4 {
+    font-size: clamp(20px, 5vw, 24px);
+  }
+  
+  .default-image-grid {
+    padding: 20px 24px 24px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+  
+  .default-image-btn {
+    padding: 14px 12px;
+    font-size: clamp(12px, 2.5vw, 14px);
+  }
+  
+  .default-image-modal-content .modal-close-btn.inline {
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 420px) {
+  .default-image-modal-content .modal-head-row {
+    padding: 16px 20px 12px;
+  }
+  
+  .default-image-grid {
+    padding: 16px 20px 20px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .default-image-btn {
+    padding: 12px 10px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+}
+
+@media (max-height: 600px) {
+  .default-image-grid {
+    max-height: min(350px, 55vh);
+  }
+}
 .visually-hidden { position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
 
 /* Center alignment for error modal content */

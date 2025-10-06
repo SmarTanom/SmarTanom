@@ -63,6 +63,41 @@ const KeyboardIcon = ({ size = 28, color = '#ffffff' }) => (
   </svg>
 );
 
+const ImageIcon = ({ size = 20, color = '#ffffff' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+    <path d="M21 15l-5-5L5 21" />
+  </svg>
+);
+
+const LeafIcon = ({ size = 20, color = '#ffffff' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+    <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+  </svg>
+);
+
 export default function SignupSetup() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1..6
@@ -83,11 +118,12 @@ export default function SignupSetup() {
   const [uploadPhotoName, setUploadPhotoName] = useState('');
   const [uploadPhotoUrl, setUploadPhotoUrl] = useState('');
   const defaultImages = [
-    'Lettuce - Salanova', 'Lettuce - Butterhead', 'Lettuce - Looseleaf', 'Lettuce - Batavia', 'Lettuce - Romaine',
+    'Salanova', 'Butterhead', 'Looseleaf', 'Batavia', 'Romaine',
     'Spinach', 'Arugula', 'Kale', 'Bok Choy', 'Basil', 'Mint', 'Oregano', 'Cilantro', 'Chives', 'Parsley', 'Thyme'
   ];
   const [selectedDefaultImage, setSelectedDefaultImage] = useState('');
   const [showDefaultImageModal, setShowDefaultImageModal] = useState(false); // new modal state
+  const [showPlantPhotoModal, setShowPlantPhotoModal] = useState(false); // plant photo modal
   const [durationDays, setDurationDays] = useState(''); // numeric string, optional
 
   // Step 3 state
@@ -679,102 +715,32 @@ export default function SignupSetup() {
                     <div className="setup-card">
                       <h3 className="setup-section-title">Hydroponic Info</h3>
                       <div className="setup-form-grid">
-                        {/* Plant Name removed per request */}
-
                         <div className="setup-field span-2">
-                          <div className="setup-field-label setup-field-label--xs">Plant Photo</div>
-                          <div className="setup-input-inline">
-                            <div className="photo-choice-row">
-                              <label htmlFor="cameraFile" className={`setup-btn sm ${plantPhotoChoice === 'camera' ? '' : 'outline'}`} aria-pressed={plantPhotoChoice === 'camera'}>
-                                Take Photo
-                              </label>
-                              <input id="cameraFile" type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0];
-                                  if (f) {
-                                    setUploadPhotoName(f.name);
-                                    const url = URL.createObjectURL(f);
-                                    setUploadPhotoUrl(url);
-                                    setPlantPhotoChoice('upload');
-                                  }
-                                }} />
-                              <label htmlFor="galleryFile" className={`setup-btn sm ${plantPhotoChoice === 'upload' ? '' : 'outline'}`}>
-                                Upload from Gallery
-                              </label>
-                              <input id="galleryFile" type="file" accept="image/*" style={{ display: 'none' }}
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0];
-                                  if (f) {
-                                    setUploadPhotoName(f.name);
-                                    const url = URL.createObjectURL(f);
-                                    setUploadPhotoUrl(url);
-                                    setPlantPhotoChoice('upload');
-                                  } else {
-                                    setUploadPhotoName('');
-                                    setUploadPhotoUrl('');
-                                    setPlantPhotoChoice('none');
-                                  }
-                                }} />
-                              <button
-                                type="button"
-                                className={`setup-btn sm ${plantPhotoChoice === 'default' ? '' : 'outline'}`}
-                                onClick={() => {
-                                  setPlantPhotoChoice('default');
-                                  setShowDefaultImageModal(true); // open modal instead of dropdown
-                                }}
-                                aria-pressed={plantPhotoChoice === 'default'}
-                              >
-                                Choose Default Image
-                              </button>
-                            </div>
-                            <p className="setup-helper">You can upload your own photo or choose a default image.</p>
-                            {plantPhotoChoice === 'default' && (
-                              <div className="default-image-inline-status" style={{ marginTop: 6 }}>
-                                {selectedDefaultImage ? (
-                                  <p className="setup-helper" aria-live="polite">Selected: <strong>{selectedDefaultImage}</strong></p>
-                                ) : (
-                                  <p className="setup-helper" aria-live="polite">No image selected yet. Click the button to choose.</p>
-                                )}
-                              </div>
-                            )}
-                            {(plantPhotoChoice === 'upload' && uploadPhotoUrl) && (
-                              <div className="photo-preview" aria-live="polite">
-                                <img src={uploadPhotoUrl} alt="Selected plant" />
-                                <div className="photo-actions">
-                                  <label htmlFor="galleryFile" className="setup-btn sm outline">Replace</label>
-                                  <span className="setup-file-name">{uploadPhotoName}</span>
-                                </div>
-                              </div>
-                            )}
-                            {plantPhotoChoice === 'camera' && !uploadPhotoUrl && (
-                              <span className="setup-hint">Camera will open on supported devices.</span>
-                            )}
-                            {plantPhotoChoice === 'none' && (
-                              <span className="setup-hint">No photo selected — will fallback to a default photo.</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="setup-field inline-row duration-inline-row">
                           <div className="setup-field-label-row">
-                            <label className="setup-field-label setup-field-label--xs" htmlFor="durationDays">Days Since Planted</label>
+                            <label className="setup-field-label setup-field-label--xs">Plant Photo</label>
                             <span className="setup-optional" aria-hidden="true">optional</span>
                           </div>
-                          <div className="input-with-suffix natural-unit">
-                            <input
-                              className="duration-days-input"
-                              id="durationDays"
-                              type="number"
-                              min="0"
-                              inputMode="numeric"
-                              placeholder="0"
-                              value={durationDays}
-                              onChange={(e) => setDurationDays(e.target.value)}
-                              autoComplete="off"
-                              enterKeyHint="done"
-                            />
-                            <span className="setup-unit" aria-hidden="true">days</span>
-                          </div>
+                          <button
+                            type="button"
+                            className="setup-btn"
+                            onClick={() => setShowPlantPhotoModal(true)}
+                            style={{ marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                          >
+                            <ImageIcon size={18} color="#ffffff" />
+                            <span>Choose Plant Photo</span>
+                          </button>
+                          {plantPhotoChoice === 'upload' && uploadPhotoUrl && (
+                            <p className="setup-helper" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <CameraIcon size={16} color="rgba(255,255,255,0.9)" />
+                              <span><strong>Photo Uploaded:</strong> {uploadPhotoName}</span>
+                            </p>
+                          )}
+                          {plantPhotoChoice === 'default' && selectedDefaultImage && (
+                            <p className="setup-helper" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <LeafIcon size={16} color="rgba(255,255,255,0.9)" />
+                              <span><strong>Selected:</strong> {selectedDefaultImage}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1045,6 +1011,102 @@ export default function SignupSetup() {
                 );
               })}
             </ul>
+          </div>
+        </div>
+      )}
+      
+      {/* Plant Photo Modal */}
+      {showPlantPhotoModal && (
+        <div
+          className="wifi-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="plant-photo-modal-title"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowPlantPhotoModal(false); }}
+        >
+          <div className="wifi-modal-content">
+            <div className="wifi-modal-header">
+              <h4 id="plant-photo-modal-title" className="wifi-modal-title">Choose Plant Photo</h4>
+              <button
+                type="button"
+                className="modal-close-btn"
+                aria-label="Close modal"
+                onClick={() => setShowPlantPhotoModal(false)}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div className="wifi-modal-body" style={{ gap: '16px' }}>
+              <p className="setup-helper" style={{ textAlign: 'center', margin: 0 }}>
+                Upload your own photo or choose from default images
+              </p>
+              
+              {/* Photo Options */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <label htmlFor="cameraFileModal" className="setup-btn" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <CameraIcon size={18} color="#ffffff" />
+                  <span>Take Photo</span>
+                </label>
+                <input id="cameraFileModal" type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setUploadPhotoName(f.name);
+                      const url = URL.createObjectURL(f);
+                      setUploadPhotoUrl(url);
+                      setPlantPhotoChoice('upload');
+                      setShowPlantPhotoModal(false);
+                    }
+                  }} />
+                
+                <label htmlFor="galleryFileModal" className="setup-btn" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <UploadIcon size={18} color="#ffffff" />
+                  <span>Upload from Gallery</span>
+                </label>
+                <input id="galleryFileModal" type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setUploadPhotoName(f.name);
+                      const url = URL.createObjectURL(f);
+                      setUploadPhotoUrl(url);
+                      setPlantPhotoChoice('upload');
+                      setShowPlantPhotoModal(false);
+                    }
+                  }} />
+                
+                <button
+                  type="button"
+                  className="setup-btn"
+                  onClick={() => {
+                    setShowPlantPhotoModal(false);
+                    setShowDefaultImageModal(true);
+                  }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  <LeafIcon size={18} color="#ffffff" />
+                  <span>Choose Default Image</span>
+                </button>
+                
+                {(plantPhotoChoice === 'upload' && uploadPhotoUrl) && (
+                  <div className="photo-preview" aria-live="polite" style={{ marginTop: '8px', textAlign: 'center' }}>
+                    <img src={uploadPhotoUrl} alt="Selected plant" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', margin: '0 auto 12px', display: 'block', border: '2px solid #4A9B4D' }} />
+                    <span className="setup-file-name" style={{ fontSize: '0.875rem', display: 'block', marginBottom: '8px', color: 'rgba(255,255,255,0.9)' }}>{uploadPhotoName}</span>
+                    <button
+                      type="button"
+                      className="setup-btn outline"
+                      onClick={() => {
+                        setUploadPhotoName('');
+                        setUploadPhotoUrl('');
+                        setPlantPhotoChoice('none');
+                      }}
+                    >
+                      Remove Photo
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
