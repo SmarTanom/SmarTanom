@@ -872,9 +872,6 @@ export default function SignupSetup() {
                           <p className="setup-helper setup-helper--sm">This will be visible in your dashboard.</p>
                           {finalError && <p className="setup-error" role="alert">{finalError}</p>}
                         </div>
-                        <div style={{marginTop:12, display:'flex', gap:12}}>
-                          <button type="button" className="setup-btn" disabled={finalizing} onClick={finalizeAccount}>{finalizing? 'Creating…':'Finish Setup'}</button>
-                        </div>
                       </>)}
                       {accountCreated && (
                         <div className="account-success" role="status" aria-live="polite" style={{textAlign:'center'}}>
@@ -941,13 +938,25 @@ export default function SignupSetup() {
                 </div>
               )}
               {step === 6 && !accountCreated && (
-                <div className="username-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'flex-end'}}>
-                  <button type="button" className="setup-btn" disabled={!username.trim() || finalizing} onClick={finalizeAccount}>{finalizing? 'Finishing…':'Finish Setup'}</button>
+                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Finish account setup">
+                  <div className="setup-verify-content">
+                    <h4>Finish account setup</h4>
+                    <p>Complete your profile to access the dashboard.</p>
+                  </div>
+                  <div className="setup-verify-actions">
+                    <button type="button" className="setup-btn" disabled={!username.trim() || finalizing} onClick={finalizeAccount}>{finalizing? 'Finishing…':'Finish Setup'}</button>
+                  </div>
                 </div>
               )}
               {step === 6 && accountCreated && (
-                <div className="username-inline-actions" style={{marginTop:16, display:'flex', justifyContent:'center'}}>
-                  <button id="go-dashboard-btn" type="button" className="setup-btn" onClick={()=> navigate('/dashboard')}>Go to Dashboard</button>
+                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Account created">
+                  <div className="setup-verify-content">
+                    <h4>🎉 Account Ready!</h4>
+                    <p>Your device and account are fully configured.</p>
+                  </div>
+                  <div className="setup-verify-actions">
+                    <button id="go-dashboard-btn" type="button" className="setup-btn" onClick={()=> navigate('/dashboard')}>Go to Dashboard</button>
+                  </div>
                 </div>
               )}
             </div>
