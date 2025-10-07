@@ -132,18 +132,52 @@ OTP_MAX_ATTEMPTS=3
 | `/api/auth/users/` | GET | List users (admin) | Yes |
 | `/api/auth/users/promote/` | POST | Promote to admin | Yes |
 | `/api/auth/status/` | GET | Check auth status | No |
+| `/api/auth/check-username/` | GET | Check username availability (?username=) | No |
+| `/api/auth/finalize-account/` | POST | Set username after OTP verify | Yes |
 
 ## 🎨 Frontend Integration
 
 Use these endpoints in your React/Vue/Angular frontend:
 
 ```javascript
+// Registration Flow (new account)
+// 1. Request OTP with purpose 'register'
+await fetch('/api/auth/request-otp/', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({ email, purpose: 'register' })
+});
+
+// 2. Verify OTP (returns token)
+const verifyRes = await fetch('/api/auth/verify-otp/', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({ email, code: otp, purpose: 'register' })
+});
+const { token } = await verifyRes.json();
+localStorage.setItem('auth_token', token);
+
+// 3. (Optional) Real-time username availability check
+const uRes = await fetch(`/api/auth/check-username/?username=${encodeURIComponent(desiredUsername)}`);
+const uData = await uRes.json(); // {available: bool, message: string}
+
+// 4. Finalize account (set username)
+await fetch('/api/auth/finalize-account/', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+  body: JSON.stringify({ username: desiredUsername })
+});
+
+// Login Flow (existing user)
+// 1. request-otp with purpose 'login' (email must exist)
+// 2. verify-otp with purpose 'login' -> returns token (no finalize needed)
+
 // Request OTP
 const requestOTP = async (email) => {
   const response = await fetch('/api/auth/request-otp/', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({email, purpose: 'login'})
+    body: JSON.stringify({email, purpose: 'login'}) // or 'register'
   });
   return response.json();
 };
@@ -153,7 +187,7 @@ const verifyOTP = async (email, code) => {
   const response = await fetch('/api/auth/verify-otp/', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({email, code, purpose: 'login'})
+    body: JSON.stringify({email, code, purpose: 'login'}) // or 'register'
   });
   return response.json();
 };

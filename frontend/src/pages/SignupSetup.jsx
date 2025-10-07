@@ -538,14 +538,30 @@ export default function SignupSetup() {
     setFinalError('');
     setFinalizing(true);
     try {
-      await new Promise(r => setTimeout(r, 1000));
+      // Retrieve token from localStorage (assumed stored after OTP verify) or context
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Missing auth session (token). Please re-authenticate.');
+      }
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/finalize-account/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify({ username: username.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || data.message || 'Unable to finalize account');
+      }
       setAccountCreated(true);
       setTimeout(()=>{
         const btn = document.getElementById('go-dashboard-btn');
         if(btn) btn.focus();
       }, 50);
     } catch (e) {
-      setFinalError('Unable to create account');
+      setFinalError(e.message || 'Unable to create account');
     } finally {
       setFinalizing(false);
     }

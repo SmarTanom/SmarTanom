@@ -70,6 +70,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'email',
+            'username',
             'first_name',
             'last_name',
             'full_name',
@@ -103,6 +104,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'email',
+            'username',
             'first_name',
             'last_name',
             'full_name',
@@ -148,6 +150,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'email',
+            'username',
             'first_name',
             'last_name',
             'full_name',

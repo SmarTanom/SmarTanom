@@ -52,6 +52,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     ]
     
     email = models.EmailField(unique=True)
+    # Added username for frontend display / handle (optional until set). Unique & case-insensitive uniqueness enforced via cleaning lower-cased value.
+    username = models.CharField(max_length=30, unique=True, null=True, blank=True, help_text="Public handle; unique. Letters, numbers, underscore, hyphen.")
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=USER)
@@ -72,6 +74,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name = 'User'
         verbose_name_plural = 'Users'
         db_table = 'auth_user'
+        indexes = [
+            models.Index(fields=['username']),
+            models.Index(fields=['email']),
+        ]
     
     def __str__(self):
         return self.email
@@ -88,6 +94,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         # Auto-assign staff privileges to admin users
         if self.role == self.ADMIN:
             self.is_staff = True
+        # Normalize username to preserve case for display but ensure uniqueness not broken by accidental spaces
+        if self.username:
+            self.username = self.username.strip()
         super().save(*args, **kwargs)
 
 

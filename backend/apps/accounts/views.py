@@ -280,56 +280,68 @@ def verify_otp(request):
         )
     
     try:
-        # Verify OTP
-        if OTPCode.verify_otp(email, code, purpose):
-            # Get user, do not auto-create for login flow per requirement
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                return Response(
-                    {'error': 'User not found. Please contact your administrator.'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            
-            # Mark user as verified
-            if not user.is_verified:
-                user.is_verified = True
-                user.save(update_fields=['is_verified'])
-            
-            # Update last login
-            user.last_login = timezone.now()
-            user.save(update_fields=['last_login'])
-            
-            # Create or get auth token
-            token, created = Token.objects.get_or_create(user=user)
-            
-            # Record successful login
-            LoginAttempt.record_attempt(email, ip_address, successful=True)
-            
-            # Prepare response
-            user_data = UserSerializer(user).data
-            
-            return Response({
-                'message': 'Authentication successful',
-                'token': token.key,
-                'user': user_data
-            }, status=status.HTTP_200_OK)
-        
-        else:
-            # Record failed attempt
+        # Verify OTP validity
+        if not OTPCode.verify_otp(email, code, purpose):
             LoginAttempt.record_attempt(email, ip_address, successful=False)
-            
-            return Response(
-                {'error': 'Invalid or expired OTP code.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
+            return Response({'error': 'Invalid or expired OTP code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Retrieve or create user depending on purpose
+        user = None
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            if purpose == OTPCode.PURPOSE_REGISTER:
+                user = User.objects.create_user(email=email)
+            else:
+                return Response({'error': 'User not found. Please contact your administrator.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Mark verified if needed
+        if not user.is_verified:
+            user.is_verified = True
+            user.save(update_fields=['is_verified'])
+
+        # Update last login
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+
+        token, _ = Token.objects.get_or_create(user=user)
+        LoginAttempt.record_attempt(email, ip_address, successful=True)
+        user_data = UserSerializer(user).data
+        return Response({'message': 'Authentication successful', 'token': token.key, 'user': user_data}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"Error in verify_otp: {str(e)}")
-        return Response(
-            {'error': 'Internal server error'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def finalize_account(request):
+    """Finalize account by setting username (and optional names)."""
+    user = request.user
+    data = request.data or {}
+    username = (data.get('username') or '').strip()
+    first_name = (data.get('first_name') or '').strip()
+    last_name = (data.get('last_name') or '').strip()
+
+    if not username:
+        return Response({'error': 'Username is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    import re
+    if not re.match(r'^[A-Za-z0-9_-]{3,30}$', username):
+        return Response({'error': 'Username must be 3-30 chars: letters, numbers, underscore, hyphen'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Ensure uniqueness case-insensitive
+    if User.objects.filter(username__iexact=username).exclude(id=user.id).exists():
+        return Response({'error': 'Username already taken'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.username = username
+    if first_name:
+        user.first_name = first_name
+    if last_name:
+        user.last_name = last_name
+    user.save()
+
+    return Response({'message': 'Account finalized', 'user': UserSerializer(user).data}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

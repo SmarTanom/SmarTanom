@@ -12,6 +12,7 @@ urlpatterns = [
     path('verify-code/', views.verify_otp, name='verify_code'),
     path('logout/', views.logout, name='logout'),
     path('status/', views.auth_status, name='auth_status'),
+    path('finalize-account/', views.finalize_account, name='finalize_account'),
     path('check-username/', views.check_username_availability, name='check_username'),
     
     # User profile endpoints
