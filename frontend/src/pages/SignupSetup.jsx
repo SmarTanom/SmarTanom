@@ -253,9 +253,37 @@ export default function SignupSetup() {
     }
     try {
       setSendingCode(true);
-      // TODO: Integrate API call to request OTP
-      await new Promise(r => setTimeout(r, 600));
-      setStep(4);
+      // Decide purpose: if user previously attempted login or we can detect existing user later we could adapt.
+      // For now expose a simple heuristic: always try register first; backend will reject if exists and we fallback to login.
+      const attemptPurposeOrder = ['register','login'];
+      let lastError = null;
+      for (const purpose of attemptPurposeOrder) {
+        try {
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/request-otp/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: bindEmail.trim(), purpose })
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            // If registering but user exists, retry as login automatically
+            if (purpose === 'register' && (data.error || '').toLowerCase().includes('already exists')) {
+              continue; // try login next
+            }
+            lastError = data.error || 'Failed to send code';
+          } else {
+            if (data.debug_code) {
+              console.info('DEBUG OTP code:', data.debug_code);
+              // Optionally auto-fill for local dev
+            }
+            setStep(4);
+            return;
+          }
+        } catch (inner) {
+          lastError = inner.message || 'Network error';
+        }
+      }
+      setEmailError(lastError || 'Unable to send verification code.');
     } finally {
       setSendingCode(false);
     }
@@ -378,14 +406,40 @@ export default function SignupSetup() {
     setVerifyingOtp(true);
     setOtpError('');
     try {
-      await new Promise(r => setTimeout(r, 800));
       const code = otpCode.join('');
-      if (code !== '123456') { // mock correct code
-        throw new Error('Invalid or expired code');
+      if (code.length !== 6) {
+        setOtpError('Enter the 6‑digit code');
+        return;
       }
-      setStep(5);
-    } catch (e) {
-      setOtpError(e.message || 'Invalid code');
+      // We don't know if it was register or login (sendCode auto-chose). Try register then login.
+      const attemptPurposeOrder = ['register','login'];
+      let lastError = null;
+      for (const purpose of attemptPurposeOrder) {
+        try {
+          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/verify-otp/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: bindEmail.trim(), code, purpose })
+          });
+          const data = await res.json();
+            if (!res.ok) {
+              // If register fails because user not found? Actually register path should create; login path errors if not found.
+              lastError = data.error || 'Verification failed';
+              // If we tried register and got not found (unlikely) fall through to login attempt.
+              continue;
+            } else {
+              // Store token for subsequent finalize account step
+              if (data.token) {
+                localStorage.setItem('auth_token', data.token);
+              }
+              setStep(5);
+              return;
+            }
+        } catch (inner) {
+          lastError = inner.message || 'Network error';
+        }
+      }
+      setOtpError(lastError || 'Invalid or expired code');
     } finally {
       setVerifyingOtp(false);
     }
