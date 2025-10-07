@@ -175,11 +175,75 @@ export default function SignupSetup() {
   const [finalizing, setFinalizing] = useState(false);
   const [finalError, setFinalError] = useState('');
   const [accountCreated, setAccountCreated] = useState(false);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState(null); // null | true | false
+  const [usernameMessage, setUsernameMessage] = useState('');
+  const usernameCheckTimeoutRef = React.useRef(null);
   // (Snackbar removed per request)
 
   function isValidEmail(v) {
     return /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v);
   }
+
+  // Username validation check
+  async function checkUsernameAvailability(usernameToCheck) {
+    if (!usernameToCheck || usernameToCheck.trim().length < 3) {
+      setUsernameAvailable(null);
+      setUsernameMessage('');
+      return;
+    }
+
+    setCheckingUsername(true);
+    setUsernameMessage('');
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/auth/check-username/?username=${encodeURIComponent(usernameToCheck)}`,
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setUsernameAvailable(data.available);
+        setUsernameMessage(data.message);
+      } else {
+        setUsernameAvailable(false);
+        setUsernameMessage(data.error || data.message || 'Error checking username');
+      }
+    } catch (err) {
+      console.error('Username check error:', err);
+      setUsernameAvailable(null);
+      setUsernameMessage('Unable to check username availability');
+    } finally {
+      setCheckingUsername(false);
+    }
+  }
+
+  // Debounced username check
+  useEffect(() => {
+    if (usernameCheckTimeoutRef.current) {
+      clearTimeout(usernameCheckTimeoutRef.current);
+    }
+
+    if (username.trim().length >= 3) {
+      usernameCheckTimeoutRef.current = setTimeout(() => {
+        checkUsernameAvailability(username.trim());
+      }, 500); // 500ms debounce
+    } else {
+      setUsernameAvailable(null);
+      setUsernameMessage('');
+    }
+
+    return () => {
+      if (usernameCheckTimeoutRef.current) {
+        clearTimeout(usernameCheckTimeoutRef.current);
+      }
+    };
+  }, [username]);
 
   async function sendCode() {
     setEmailError('');
@@ -868,7 +932,41 @@ export default function SignupSetup() {
                       {!accountCreated && (<>
                         <div className="setup-field">
                           <label htmlFor="username" className="setup-field-label">Username</label>
-                          <input id="username" type="text" placeholder="Pick a unique username" value={username} onChange={e=> setUsername(e.target.value)} autoComplete="username" />
+                          <div style={{position: 'relative'}}>
+                            <input 
+                              id="username" 
+                              type="text" 
+                              placeholder="Pick a unique username" 
+                              value={username} 
+                              onChange={e=> setUsername(e.target.value)} 
+                              autoComplete="username"
+                              style={{
+                                paddingRight: checkingUsername ? '40px' : '12px',
+                                borderColor: usernameAvailable === true ? '#4A9B4D' : usernameAvailable === false ? '#dc3545' : undefined
+                              }}
+                            />
+                            {checkingUsername && (
+                              <span style={{
+                                position: 'absolute',
+                                right: '12px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                fontSize: '12px',
+                                color: 'rgba(255,255,255,0.6)'
+                              }}>
+                                Checking...
+                              </span>
+                            )}
+                          </div>
+                          {usernameMessage && (
+                            <p 
+                              className={usernameAvailable ? 'setup-status success' : 'setup-error'} 
+                              role={usernameAvailable ? 'status' : 'alert'}
+                              style={{marginTop: 4, fontSize: '11px'}}
+                            >
+                              {usernameAvailable ? '✓ ' : '✗ '}{usernameMessage}
+                            </p>
+                          )}
                           <p className="setup-helper setup-helper--sm">This will be visible in your dashboard.</p>
                           {finalError && <p className="setup-error" role="alert">{finalError}</p>}
                         </div>
@@ -944,7 +1042,14 @@ export default function SignupSetup() {
                     <p>Complete your profile to access the dashboard.</p>
                   </div>
                   <div className="setup-verify-actions">
-                    <button type="button" className="setup-btn" disabled={!username.trim() || finalizing} onClick={finalizeAccount}>{finalizing? 'Finishing…':'Finish Setup'}</button>
+                    <button 
+                      type="button" 
+                      className="setup-btn" 
+                      disabled={!username.trim() || checkingUsername || usernameAvailable === false || finalizing} 
+                      onClick={finalizeAccount}
+                    >
+                      {finalizing ? 'Finishing…' : 'Finish Setup'}
+                    </button>
                   </div>
                 </div>
               )}

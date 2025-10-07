@@ -478,6 +478,55 @@ def auth_status(request):
         })
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def check_username_availability(request):
+    """Check if a username is available."""
+    username = request.query_params.get('username', '').strip()
+    
+    if not username:
+        return Response(
+            {'error': 'Username parameter is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Check minimum length
+    if len(username) < 3:
+        return Response({
+            'available': False,
+            'message': 'Username must be at least 3 characters'
+        })
+    
+    # Check maximum length
+    if len(username) > 30:
+        return Response({
+            'available': False,
+            'message': 'Username must be less than 30 characters'
+        })
+    
+    # Check if username contains only valid characters (alphanumeric, underscore, hyphen)
+    import re
+    if not re.match(r'^[a-zA-Z0-9_-]+$', username):
+        return Response({
+            'available': False,
+            'message': 'Username can only contain letters, numbers, underscores, and hyphens'
+        })
+    
+    # Check if username is taken
+    exists = User.objects.filter(username__iexact=username).exists()
+    
+    if exists:
+        return Response({
+            'available': False,
+            'message': 'Username is already taken'
+        })
+    else:
+        return Response({
+            'available': True,
+            'message': 'Username is available'
+        })
+
+
 # Cleanup task views
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
