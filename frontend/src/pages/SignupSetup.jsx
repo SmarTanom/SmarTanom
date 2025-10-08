@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthSetupPage.css';
@@ -6,6 +6,82 @@ import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
 import { Check } from '../components/ui/Icon.jsx';
 import { Mail } from '../components/ui/Icon.jsx';
 import { Wifi, Refresh, Lock, SignalBars } from '../components/ui/Icon.jsx';
+import { authApi } from '../services/apiClient.js';
+// Removed shared OtpInput component per request; using local inline inputs
+// (Removed duplicate React hook import; useRef/useEffect already available or use React.useRef if needed)
+
+function SignupStepFourOtp({ otpCode, setOtpCode, verifyingOtp, otpError, setStatusMsg }) {
+  const refs = useRef([]);
+  useEffect(()=>{
+    // autofocus first empty digit when component mounts
+    const firstEmpty = otpCode.split('').findIndex(c=>!c);
+    const idx = firstEmpty === -1 ? 0 : firstEmpty;
+    const el = refs.current[idx];
+    if (el && el.focus) { try { el.focus(); } catch {} }
+  }, []); // run once
+  return (
+    <div className={`inline-otp-group ${otpError ? 'error':''}`} role="group" aria-label="Verification code">
+      {Array.from({length:6}).map((_,i)=>(
+        <input
+          key={i}
+          ref={el => refs.current[i] = el}
+          id={`signup-otp-${i}`}
+          className="inline-otp-cell"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={1}
+          aria-label={`Digit ${i+1}`}
+          aria-invalid={otpError || undefined}
+          value={otpCode[i] || ''}
+          data-filled={otpCode[i] ? 'true':'false'}
+          disabled={verifyingOtp}
+          onChange={(e)=>{
+            const v = e.target.value.replace(/\D/g,'');
+            if (!v){
+              const next = otpCode.split('');
+              next[i] = '';
+              setOtpCode(next.join(''));
+              return;
+            }
+            const next = otpCode.padEnd(6,'').split('');
+            next[i] = v[0];
+            const joined = next.join('');
+            setOtpCode(joined);
+            if (i < 5) {
+              refs.current[i+1]?.focus();
+            } else if (!next.includes('')) {
+              setStatusMsg('Code entered. Ready to verify.');
+            }
+          }}
+          onKeyDown={(e)=>{
+            if (e.key==='Backspace' && !otpCode[i] && i>0){
+              refs.current[i-1]?.focus();
+            } else if (e.key==='ArrowLeft' && i>0){
+              e.preventDefault();
+              refs.current[i-1]?.focus();
+            } else if (e.key==='ArrowRight' && i<5){
+              e.preventDefault();
+              refs.current[i+1]?.focus();
+            }
+          }}
+          onPaste={(e)=>{
+            const text = e.clipboardData.getData('text');
+            if (!text) return;
+            const digits = text.replace(/\D/g,'').slice(0,6).split('');
+            if (!digits.length) return;
+            e.preventDefault();
+            const next = Array.from({length:6}, (_,idx)=> digits[idx] || otpCode[idx] || '');
+            setOtpCode(next.join(''));
+            if (!next.includes('')) {
+              setStatusMsg('Code entered. Ready to verify.');
+              refs.current[5]?.blur();
+            }
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 const CameraIcon = ({ size = 28, color = '#ffffff' }) => (
   <svg
@@ -100,6 +176,18 @@ const LeafIcon = ({ size = 20, color = '#ffffff' }) => (
 
 export default function SignupSetup() {
   const navigate = useNavigate();
+  // Resolve API base once with fallback to current origin if env not set
+  const API_BASE = useMemo(() => {
+    const raw = (import.meta.env.VITE_API_BASE_URL || '').trim();
+    if (!raw) return window.location.origin;
+    return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+  }, []);
+  // Log API base only once in development to avoid spam
+  if (import.meta.env.DEV && !window.__LOGGED_SIGNUP_API_BASE) {
+    // eslint-disable-next-line no-console
+    console.log('[SignupSetup] API_BASE =', API_BASE);
+    window.__LOGGED_SIGNUP_API_BASE = true;
+  }
   const [step, setStep] = useState(1); // 1..6
   const total = 6;
   // Step 1 state
@@ -132,10 +220,19 @@ export default function SignupSetup() {
   const [emailError, setEmailError] = useState('');
 
   // Step 4 state
-  const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
+  const [otpCode, setOtpCode] = useState(''); // string form now
   const [otpError, setOtpError] = useState('');
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpResent, setOtpResent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0); // seconds
+  const [statusMsg, setStatusMsg] = useState(''); // aria-live polite updates
+
+  // Cooldown interval management
+  useEffect(()=>{
+    if (resendCooldown <= 0) return;
+    const t = setInterval(()=> setResendCooldown(c=> c-1), 1000);
+    return ()=> clearInterval(t);
+  }, [resendCooldown]);
 
   // Step 5 state (advanced WiFi setup)
   // wifiPhase: idle | scanning | results | empty | error | connecting
@@ -197,27 +294,13 @@ export default function SignupSetup() {
     setUsernameMessage('');
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/auth/check-username/?username=${encodeURIComponent(usernameToCheck)}`,
-        {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setUsernameAvailable(data.available);
-        setUsernameMessage(data.message);
-      } else {
-        setUsernameAvailable(false);
-        setUsernameMessage(data.error || data.message || 'Error checking username');
-      }
+      const data = await authApi.checkUsername(usernameToCheck.trim());
+      setUsernameAvailable(data.available);
+      setUsernameMessage(data.message);
     } catch (err) {
       console.error('Username check error:', err);
       setUsernameAvailable(null);
-      setUsernameMessage('Unable to check username availability');
+      setUsernameMessage(err.message || 'Unable to check username availability');
     } finally {
       setCheckingUsername(false);
     }
@@ -253,37 +336,26 @@ export default function SignupSetup() {
     }
     try {
       setSendingCode(true);
-      // Decide purpose: if user previously attempted login or we can detect existing user later we could adapt.
-      // For now expose a simple heuristic: always try register first; backend will reject if exists and we fallback to login.
-      const attemptPurposeOrder = ['register','login'];
-      let lastError = null;
-      for (const purpose of attemptPurposeOrder) {
-        try {
-          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/request-otp/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: bindEmail.trim(), purpose })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            // If registering but user exists, retry as login automatically
-            if (purpose === 'register' && (data.error || '').toLowerCase().includes('already exists')) {
-              continue; // try login next
-            }
-            lastError = data.error || 'Failed to send code';
-          } else {
-            if (data.debug_code) {
-              console.info('DEBUG OTP code:', data.debug_code);
-              // Optionally auto-fill for local dev
-            }
-            setStep(4);
-            return;
-          }
-        } catch (inner) {
-          lastError = inner.message || 'Network error';
-        }
+      const emailToSend = bindEmail.trim();
+      console.debug('[sendCode] attempting OTP request', { email: emailToSend });
+      const data = await authApi.requestOtp(emailToSend, 'login');
+      if (data.debug_code) {
+        console.info('[sendCode] DEBUG OTP code:', data.debug_code);
+      } else {
+        console.debug('[sendCode] OTP request succeeded');
       }
-      setEmailError(lastError || 'Unable to send verification code.');
+      setStep(4);
+    } catch (e) {
+      console.warn('[sendCode] failed', e);
+      if (e.status === 429) {
+        setEmailError(e.message || 'Too many attempts. Please wait before retrying.');
+      } else if (e.status === 400) {
+        setEmailError(e.message || 'Invalid request. Please check the email and try again.');
+      } else if (e.status >= 500) {
+        setEmailError('Server error while sending code. Please retry shortly.');
+      } else {
+        setEmailError(e.message || 'Unable to send verification code.');
+      }
     } finally {
       setSendingCode(false);
     }
@@ -373,73 +445,68 @@ export default function SignupSetup() {
     }
   }
 
-  function handleOtpChange(idx, val) {
-    if (/^\d?$/.test(val)) {
-      const next = [...otpCode];
-      next[idx] = val;
-      setOtpCode(next);
-      setOtpError('');
-      if (val && idx < otpCode.length - 1) {
-        const el = document.getElementById(`otp-${idx + 1}`);
-        if (el) el.focus();
-      }
-    }
-  }
-
-  function handleOtpPaste(e){
-    const text = e.clipboardData.getData('text').replace(/\D/g,'').slice(0,6);
-    if(!text) return;
-    const next = [...otpCode];
-    for(let i=0;i<text.length;i++){ next[i]=text[i]; }
-    setOtpCode(next);
-    e.preventDefault();
-  }
-
   function resendOtp() {
+    if (resendCooldown > 0 || sendingCode) return;
     setOtpResent(false);
     setOtpError('');
-    // mock resend
-    setTimeout(() => setOtpResent(true), 600);
+    setStatusMsg('Resending code…');
+    const emailToSend = bindEmail.trim();
+    authApi.requestOtp(emailToSend, 'login')
+      .then(data => {
+        if (data.debug_code) {
+          // eslint-disable-next-line no-console
+          console.info('[resendOtp] DEBUG OTP code:', data.debug_code);
+        }
+        setOtpResent(true);
+        setStatusMsg('Code sent. Check your email.');
+        setResendCooldown(30); // 30s cooldown
+      })
+      .catch(e => {
+        setStatusMsg('Unable to resend right now.');
+        if (e.status === 429) {
+          setOtpError(e.message || 'Too many attempts. Please wait.');
+          setResendCooldown(45);
+        } else {
+          setOtpError(e.message || 'Failed to resend code');
+          setResendCooldown(10);
+        }
+      });
   }
 
   async function verifyOtp() {
     setVerifyingOtp(true);
     setOtpError('');
     try {
-      const code = otpCode.join('');
+      const code = otpCode;
       if (code.length !== 6) {
         setOtpError('Enter the 6‑digit code');
         return;
       }
-      // We don't know if it was register or login (sendCode auto-chose). Try register then login.
-      const attemptPurposeOrder = ['register','login'];
-      let lastError = null;
-      for (const purpose of attemptPurposeOrder) {
+      const email = bindEmail.trim();
+      // First attempt login, then register fallback
+      try {
+        const data = await authApi.verifyOtp(email, code, 'login');
+        if (data.token) localStorage.setItem('auth_token', data.token);
+        setStep(5);
+        return;
+      } catch (loginErr) {
+        if (loginErr.status && loginErr.status !== 400) {
+          // Non-typical status -> surface and stop
+            setOtpError(loginErr.message || 'Authentication failed');
+            return;
+        }
+        // Try register
         try {
-          const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/verify-otp/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: bindEmail.trim(), code, purpose })
-          });
-          const data = await res.json();
-            if (!res.ok) {
-              // If register fails because user not found? Actually register path should create; login path errors if not found.
-              lastError = data.error || 'Verification failed';
-              // If we tried register and got not found (unlikely) fall through to login attempt.
-              continue;
-            } else {
-              // Store token for subsequent finalize account step
-              if (data.token) {
-                localStorage.setItem('auth_token', data.token);
-              }
-              setStep(5);
-              return;
-            }
-        } catch (inner) {
-          lastError = inner.message || 'Network error';
+          const data = await authApi.verifyOtp(email, code, 'register');
+          if (data.token) localStorage.setItem('auth_token', data.token);
+          setStep(5);
+          return;
+        } catch (regErr) {
+          setOtpError(regErr.message || 'Invalid or expired code');
+          return;
         }
       }
-      setOtpError(lastError || 'Invalid or expired code');
+      setOtpError('Invalid or expired code');
     } finally {
       setVerifyingOtp(false);
     }
@@ -592,23 +659,9 @@ export default function SignupSetup() {
     setFinalError('');
     setFinalizing(true);
     try {
-      // Retrieve token from localStorage (assumed stored after OTP verify) or context
       const token = localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('Missing auth session (token). Please re-authenticate.');
-      }
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/finalize-account/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`
-        },
-        body: JSON.stringify({ username: username.trim() })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || data.message || 'Unable to finalize account');
-      }
+      if (!token) throw new Error('Missing auth session (token). Please re-authenticate.');
+      await authApi.finalizeAccount(username.trim(), token);
       setAccountCreated(true);
       setTimeout(()=>{
         const btn = document.getElementById('go-dashboard-btn');
@@ -923,33 +976,55 @@ export default function SignupSetup() {
                 )}
                 {step === 4 && (
                   <section className="setup-section setup-step-4" aria-label="Verify Email OTP Code">
-                    <div className="setup-card">
-                      <h3 className="setup-section-title">Enter Verification Code</h3>
-                      <p className="setup-helper" style={{marginTop:4}}>We sent a 6-digit code to <strong>{bindEmail || 'your email'}</strong>. Enter it below.</p>
-                      <div className="otp-input-row" role="group" aria-label="One time password inputs" onPaste={handleOtpPaste}>
-                        {otpCode.map((d, i) => (
-                          <input
-                            key={i}
-                            id={`otp-${i}`}
-                            className="otp-box"
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            maxLength={1}
-                            value={d}
-                            data-filled={d ? 'true' : 'false'}
-                            aria-label={`Digit ${i+1}`}
-                            onChange={e => handleOtpChange(i, e.target.value.replace(/\D/g,''))}
-                            onKeyDown={e => {
-                              if (e.key === 'Backspace' && !otpCode[i] && i>0) {
-                                const prev = document.getElementById(`otp-${i-1}`); if (prev) prev.focus();
-                              }
-                            }}
-                          />
-                        ))}
+                    <div className="setup-card otp-verification-card">
+                      <div className="otp-header">
+                        <h3 className="setup-section-title" style={{marginTop:0, marginBottom:6}}>Enter Verification Code</h3>
+                        <p className="setup-helper" style={{marginTop:0, fontSize:'14px', opacity:0.85}}>
+                          We sent a 6-digit code to<br />
+                          <strong style={{color:'rgba(255,255,255,0.95)', fontSize:'15px'}}>{bindEmail || 'your email'}</strong>
+                        </p>
                       </div>
-                      {otpError && <p className="setup-error" role="alert" style={{marginTop:8}}>{otpError}</p>}
-                      {otpResent && <p className="setup-status success" role="status" style={{marginTop:8}}>Code resent!</p>}
+                      
+                      <SignupStepFourOtp
+                        otpCode={otpCode}
+                        setOtpCode={setOtpCode}
+                        verifyingOtp={verifyingOtp}
+                        otpError={otpError}
+                        setStatusMsg={setStatusMsg}
+                      />
+                      
+                      <div className="visually-hidden" aria-live="polite">{statusMsg}</div>
+                      
+                      <div className="otp-feedback-zone">
+                        {otpError && (
+                          <div className="otp-error-message" role="alert">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                              <circle cx="12" cy="12" r="10"/>
+                              <line x1="12" y1="8" x2="12" y2="12"/>
+                              <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            <span>{otpError}</span>
+                          </div>
+                        )}
+                        {otpResent && !otpError && (
+                          <div className="otp-success-message" role="status">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                              <polyline points="22 4 12 14.01 9 11.01"/>
+                            </svg>
+                            <span>Code resent successfully!</span>
+                          </div>
+                        )}
+                        {resendCooldown > 0 && !otpError && !otpResent && (
+                          <p className="otp-cooldown-hint">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{opacity:0.7}}>
+                              <circle cx="12" cy="12" r="10"/>
+                              <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                            <span>Resend available in <strong>{resendCooldown}s</strong></span>
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </section>
                 )}
@@ -1100,8 +1175,24 @@ export default function SignupSetup() {
                     <p>Enter the code and continue.</p>
                   </div>
                   <div className="setup-verify-actions" style={{display:'flex', gap:12}}>
-                    <button type="button" className="setup-btn outline sm" disabled={verifyingOtp} onClick={resendOtp}>Resend</button>
-                    <button type="button" className="setup-btn sm" disabled={verifyingOtp || otpCode.some(c=>!c)} onClick={verifyOtp}>{verifyingOtp? 'Verifying…':'Verify Code'}</button>
+                    <button
+                      type="button"
+                      className="setup-btn outline sm"
+                      disabled={verifyingOtp || resendCooldown>0}
+                      onClick={resendOtp}
+                      aria-disabled={resendCooldown>0 || undefined}
+                      aria-label={resendCooldown>0 ? `Resend disabled ${resendCooldown} seconds remaining` : 'Resend code'}
+                    >
+                      {resendCooldown>0 ? `Resend (${resendCooldown})` : 'Resend'}
+                    </button>
+                    <button
+                      type="button"
+                      className="setup-btn sm"
+                      disabled={verifyingOtp || otpCode.length !== 6 || !!otpCode.split('').some(c=> !c)}
+                      onClick={verifyOtp}
+                    >
+                      {verifyingOtp? 'Verifying…':'Verify Code'}
+                    </button>
                   </div>
                 </div>
               )}
