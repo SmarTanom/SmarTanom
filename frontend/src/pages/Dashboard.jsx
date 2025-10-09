@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import '../assets/styles/UserDashboard.css';
 import {
   IconLeaf,
@@ -15,180 +15,230 @@ import {
   IconTemp,
   IconHumidity,
   IconLight,
-  IconArrowUp,
   IconCloud,
-  IconUsers,
   IconUser
 } from '../components/icons/index.jsx';
 
-// Mock data (to be replaced with API integration later)
-const phHistory = [6.2, 6.1, 6.3, 6.4, 6.5, 6.2, 6.3];
-const metrics = [
-  { label: 'NUTRIENTS (EC)', value: '1.8 mS/cm', icon: IconEC },
-  { label: 'TDS', value: '950 ppm', icon: IconTDS },
-  { label: 'WATER LVL', value: '72 %', icon: IconWaterLevel },
-  { label: 'RESERVOIR', value: '18.4 °C', icon: IconTemp },
-  { label: 'HUMIDITY', value: '62 %', icon: IconHumidity },
-  { label: 'LIGHT', value: '18.2 klux', icon: IconLight },
+// Demo data (replace with API data later)
+const devices = [
+  { name: 'Porch SmarTanom', id: '0000000001', image: '/favicon.png' },
+  { name: 'Greenhouse A', id: 'GH-A-01', image: '/favicon.png' },
+  { name: 'Indoor Rack', id: 'RACK-02', image: '/favicon.png' },
 ];
 
-const environment = [
-  { label: 'AIR TEMP', value: '24.5 °C', icon: IconTemp },
-  { label: 'HUMIDITY', value: '58 %', icon: IconHumidity },
-  { label: 'CO2 (est)', value: '640 ppm', icon: IconCloud },
-  { label: 'OCCUPANCY', value: '—', icon: IconUsers },
-];
+const phHistory = [6.0, 6.1, 6.2, 6.3, 6.6, 6.2, 6.1, 6.2, 6.3, 6.25, 6.15, 6.2];
 
-const Bar = ({ value, index, max = 7 }) => {
-  // Convert pH (approx 5.5 - 6.8 expected) into relative height – clamp inside sensible range
-  const clamped = Math.min(Math.max(value, 5.0), 7.0);
-  const heightPct = ((clamped - 5.0) / (7.0 - 5.0)) * 100; // 0% at 5.0, 100% at 7.0
+function PHBar({ v, i }) {
+  const min = 6.0;
+  const max = 6.6;
+  const clamped = Math.min(max, Math.max(min, v));
+  const pct = ((clamped - min) / (max - min)) * 100;
   return (
-    <div className="ph-bar-wrapper" aria-label={`pH ${value}`}>      
-      <div
-        className="ph-bar"
-        style={{ height: `${heightPct}%`, animationDelay: `${index * 80}ms` }}
-      />
-      <div className="ph-bar-label">{value.toFixed(1)}</div>
+    <div className="ph-bar-wrapper" aria-label={`pH ${v.toFixed(1)}`}>
+      <div className="ph-bar" style={{ height: `${pct}%`, animationDelay: `${i * 60}ms` }} />
+      <div className="ph-bar-label">{v.toFixed(1)}</div>
     </div>
   );
-};
+}
 
 export default function Dashboard() {
+  const carouselRef = useRef(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  // Roughly compute active card based on scroll position
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const w = el.clientWidth; // viewport width of carousel
+      const cardW = w * 0.85; // matches flex-basis 85vw
+      const gap = 16; // approximate gap from CSS
+      const idx = Math.round(el.scrollLeft / (cardW + gap));
+      setActiveIdx(Math.max(0, Math.min(devices.length - 1, idx)));
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const currentPH = useMemo(() => phHistory[phHistory.length - 1].toFixed(1), []);
+
   return (
-    <div className="user-dashboard-root">
+    <div className="dashboard-root">
       {/* Header */}
-      <header className="ud-header-new" role="banner">
-        <div className="ud-greeting">
-          <IconLeaf size={22} color="#0a7a35" aria-hidden="true" />
-          <h1>Hello, Grower</h1>
-        </div>
-        <button className="ud-settings-btn" aria-label="Settings">
-          <IconSettings size={22} />
+      <header className="dash-header" role="banner">
+        <h1 className="dash-header-title">
+          Hello, User <IconLeaf size={24} color="#32A86D" aria-hidden="true" />
+        </h1>
+        <button className="dash-header-settings" aria-label="Settings">
+          <IconSettings size={24} color="#32A86D" />
         </button>
       </header>
 
-      <main className="ud-main-new" role="main">
-        {/* Device Hero Card */}
-        <section className="ud-device-hero" aria-labelledby="device-hero-heading">
-          <div className="device-card">
-            <div className="device-image" aria-hidden="true">
-              <img src="/favicon.png" alt="Device" />
-            </div>
-            <div className="device-info">
-              <h2 id="device-hero-heading">Greenhouse A</h2>
-              <p className="device-id">Device ID: GH-A-01</p>
-            </div>
-            <button className="device-chevron" aria-label="View device details">
-              <IconChevronRight size={22} />
-            </button>
-          </div>
-        </section>
-
-        {/* Alert Summary */}
-        <section className="ud-alert-summary" aria-labelledby="alert-summary-heading">
-          <div className="alert-header">
-            <IconAlert size={18} color="#d32f2f" />
-            <span id="alert-summary-heading">Alerts</span>
-            <button className="alert-expand" aria-label="Expand alerts list">⋯</button>
-          </div>
-          <div className="alert-message alert-error" role="alert">
-            Nutrient EC slightly low – consider adjustment.
-          </div>
-        </section>
-
-        {/* Status Row */}
-        <section className="ud-status-row" aria-label="Status overview">
-          <div className="status-item">
-            <div className="status-icon connectivity"><IconWifi size={20} /></div>
-            <div className="status-content">
-              <div className="status-label">Connectivity</div>
-              <div className="status-value status-online">Online</div>
-            </div>
-          </div>
-          <div className="status-item">
-            <div className="status-icon sync"><IconSync size={20} /></div>
-            <div className="status-content">
-              <div className="status-label">Sync</div>
-              <div className="status-value">2 min ago</div>
-            </div>
-          </div>
-        </section>
-
-        {/* Nutrient Status */}
-        <section className="ud-nutrient-status" aria-labelledby="nutrient-status-heading">
-          <div className="nutrient-header">
-            <IconDroplet size={18} />
-            <span id="nutrient-status-heading">Nutrients</span>
-          </div>
-          <div className="nutrient-alert">
-            <span className="nutrient-level">EC 1.8</span>
-            <span className="nutrient-message">– within optimal range</span>
-          </div>
-        </section>
-
-        {/* pH Chart */}
-        <section className="ud-ph-section" aria-labelledby="ph-section-heading">
-          <div className="ph-chart-header">
-            <IconPH size={18} />
-            <span id="ph-section-heading">pH (7d)</span>
-            <button className="ph-days-btn" aria-label="Change pH range">7d ▾</button>
-          </div>
-          <div className="ph-bar-chart" role="img" aria-label="pH values over last 7 days">
-            <div className="ph-bar-container">
-              {phHistory.map((v, i) => <Bar key={i} value={v} index={i} />)}
-            </div>
-            <div className="ph-chart-title">Daily pH Readings</div>
-          </div>
-        </section>
-
-        {/* Metrics Grid */}
-        <section className="ud-metrics-grid" aria-label="Key metrics">
-          {metrics.map((m, i) => {
-            const Ico = m.icon;
-            return (
-              <div className="metric-card" key={i}>
-                <Ico size={22} />
-                <div className="metric-content">
-                  <div className="metric-label">{m.label}</div>
-                  <div className="metric-value">{m.value}</div>
+      {/* Device carousel */}
+      <section className="device-carousel-wrapper" aria-label="Your devices">
+        <div className="device-carousel" ref={carouselRef}>
+          {devices.map((d, i) => (
+            <article className="device-card tap" key={d.id} aria-label={`${d.name} ${d.id}`}>
+              <div className="device-card-media" aria-hidden="true">
+                <img src={d.image} alt="Device" />
+              </div>
+              <div className="device-card-info">
+                <div>
+                  <h3 className="device-name">{d.name}</h3>
+                  <p className="device-id">ID: {d.id}</p>
+                </div>
+                <div className="device-card-arrow">
+                  <IconChevronRight size={18} />
                 </div>
               </div>
-            );
-          })}
+            </article>
+          ))}
+        </div>
+        <div className="carousel-dots" role="tablist" aria-label="Device position">
+          {devices.map((_, i) => (
+            <span key={i} className={`carousel-dot ${i === activeIdx ? 'active' : ''}`} role="tab" aria-selected={i === activeIdx} />
+          ))}
+        </div>
+      </section>
+
+      <main className="dash-main" role="main">
+        {/* Alert Summary */}
+        <section className="card alert-card" aria-label="Alert summary">
+          <div className="alert-card-header">
+            <IconAlert size={20} color="#E1554A" />
+            <span className="alert-card-label">Alert Summary</span>
+            <button className="alert-card-expand" aria-label="Open alerts">▸</button>
+          </div>
+          <div className="alert-card-message">EC too low (Inadequate nutrients)</div>
+        </section>
+        {/* Connectivity & Sync */}
+        <section className="status-grid" aria-label="Status">
+          <div className="status-box">
+            <IconWifi size={20} color="#32A86D" />
+            <div className="status-box-content">
+              <span className="status-label">Connectivity</span>
+              <span className="status-value status-online">Online</span>
+            </div>
+          </div>
+          <div className="status-box">
+            <IconSync size={20} color="#32A86D" />
+            <div className="status-box-content">
+              <span className="status-label">Last Data Sync</span>
+              <span className="status-value">3 minutes ago</span>
+            </div>
+          </div>
         </section>
 
-        {/* Environment Conditions */}
-        <section className="ud-environment" aria-labelledby="environment-heading">
-          <h3 id="environment-heading" className="env-title">Environment</h3>
-          <div className="env-grid">
-            {environment.map((e, i) => {
-              const EI = e.icon;
-              return (
-                <div className="env-item" key={i}>
-                  <EI size={22} />
-                  <div className="env-content">
-                    <div className="env-label">{e.label}</div>
-                    <div className="env-value">{e.value}</div>
-                  </div>
-                </div>
-              );
-            })}
+        {/* Nutrient level */}
+        <section className="card nutrient-card" aria-label="Nutrient level">
+          <div className="nutrient-header">
+            <IconDroplet size={20} color="#32A86D" />
+            <span className="nutrient-label">Nutrient Level</span>
+          </div>
+          <div className="nutrient-status">
+            <IconLeaf size={20} color="#32A86D" />
+            <span className="nutrient-text">Low (Nutrient needs refilling)</span>
+          </div>
+        </section>
+
+        {/* pH levels over time */}
+        <section className="card ph-card" aria-label="pH levels over time">
+          <div className="ph-card-header">
+            <IconPH size={20} color="#32A86D" />
+            <span className="ph-card-title">pH Levels over time</span>
+            <button className="range-switch" aria-label="Change range">Days ▾</button>
+          </div>
+          <div className="ph-legend">
+            <span className="ph-legend-dot"></span>
+            <span className="ph-legend-label">Porch SmarTanom</span>
+          </div>
+          <div className="ph-bars" role="img" aria-label="pH chart">
+            {phHistory.map((v, i) => (
+              <PHBar key={i} v={v} i={i} />
+            ))}
+          </div>
+        </section>
+
+        {/* Current pH level */}
+        <section className="card current-ph" aria-label="Current pH">
+          <div className="current-ph-icon-label">
+            <IconPH size={20} color="#32A86D" />
+            <span className="current-ph-label">Current pH level</span>
+          </div>
+          <span className="current-ph-value">{currentPH} pH</span>
+        </section>
+
+        {/* Sensor grid */}
+        <section className="sensor-grid" aria-label="Sensor data">
+          <div className="sensor-cell">
+            <IconEC size={24} color="#32A86D" />
+            <div className="sensor-cell-content">
+              <span className="sensor-label">EC Levels</span>
+              <span className="sensor-value">2.4 mS/cm</span>
+            </div>
+          </div>
+          <div className="sensor-cell">
+            <IconTDS size={24} color="#32A86D" />
+            <div className="sensor-cell-content">
+              <span className="sensor-label">TDS</span>
+              <span className="sensor-value">950 ppm</span>
+            </div>
+          </div>
+          <div className="sensor-cell">
+            <IconWaterLevel size={24} color="#32A86D" />
+            <div className="sensor-cell-content">
+              <span className="sensor-label">Water Level</span>
+              <span className="sensor-value">85%</span>
+            </div>
+          </div>
+          <div className="sensor-cell">
+            <IconDroplet size={24} color="#32A86D" />
+            <div className="sensor-cell-content">
+              <span className="sensor-label">Turbidity</span>
+              <span className="sensor-value">3 NTU</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Environment */}
+        <section className="card environment-card" aria-label="Environment conditions">
+          <h3 className="environment-title">Environment Conditions</h3>
+          <div className="environment-list">
+            <div className="environment-row">
+              <IconTemp size={20} color="#32A86D" />
+              <span className="environment-label">Temperature</span>
+              <span className="environment-value">24.2°C</span>
+            </div>
+            <div className="environment-row">
+              <IconHumidity size={20} color="#32A86D" />
+              <span className="environment-label">Humidity</span>
+              <span className="environment-value">68%</span>
+            </div>
+            <div className="environment-row">
+              <IconLight size={20} color="#32A86D" />
+              <span className="environment-label">Light Intensity</span>
+              <span className="environment-value">9,000 Lux</span>
+            </div>
+            <div className="environment-row">
+              <IconCloud size={20} color="#32A86D" />
+              <span className="environment-label">CO₂ Level</span>
+              <span className="environment-value">415 ppm</span>
+            </div>
           </div>
         </section>
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="ud-bottom-nav-new" aria-label="Primary">
-        <button className="nav-btn active" aria-current="page">
+      {/* Bottom navigation */}
+      <nav className="bottom-nav" aria-label="Primary">
+        <button className="nav-item active" aria-current="page">
           <IconLeaf size={20} />
-          <span>Dashboard</span>
+          <span>Tanom</span>
         </button>
-        <button className="nav-btn">
-          <IconWifi size={20} />
-          <span>Devices</span>
+        <button className="nav-item">
+          <IconAlert size={20} />
+          <span>Alerts</span>
         </button>
-        <button className="nav-btn">
+        <button className="nav-item">
           <IconUser size={20} />
           <span>Profile</span>
         </button>
