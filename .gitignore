@@ -42,4 +42,28 @@ Thumbs.db
 .idea/
 *.swp
 
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database files (contains user data)
+*.sqlite3
+*.db
+
+# Environment variables (sensitive)
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+
+# Test/probe files (temporary)
+*_probe.py
+tmp_*.py
+
+# Frontend build artifacts
+frontend/dist/
+
 # (Keep everything else versioned intentionally)
