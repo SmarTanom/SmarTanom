@@ -105,7 +105,7 @@ export default function Dashboard() {
         {/* Alert Summary */}
         <section className="card alert-card" aria-label="Alert summary">
           <div className="alert-card-header">
-            <IconAlert size={20} color="#E1554A" />
+            <AlertCircle size={20} color="#E1554A" />
             <span className="alert-card-label">Alert Summary</span>
             <button className="alert-card-expand" aria-label="Open alerts">▸</button>
           </div>
