@@ -1,23 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import '../assets/styles/UserDashboard.css';
 import {
-  IconLeaf,
-  IconSettings,
-  IconChevronRight,
-  IconAlert,
-  IconWifi,
-  IconSync,
-  IconDroplet,
-  IconPH,
-  IconEC,
-  IconTDS,
-  IconWaterLevel,
-  IconTemp,
-  IconHumidity,
-  IconLight,
-  IconCloud,
-  IconUser
-} from '../components/icons/index.jsx';
+  Leaf,
+  Settings,
+  ChevronRight,
+  AlertCircle,
+  Wifi,
+  RefreshCw,
+  Droplets,
+  Activity,
+  Zap,
+  Waves,
+  Droplet,
+  Thermometer,
+  Wind,
+  Sun,
+  Cloud,
+  User
+} from 'lucide-react';
 
 // Demo data (replace with API data later)
 const devices = [
@@ -67,10 +67,10 @@ export default function Dashboard() {
       {/* Header */}
       <header className="dash-header" role="banner">
         <h1 className="dash-header-title">
-          Hello, User <IconLeaf size={24} color="#32A86D" aria-hidden="true" />
+          Hello, User <Leaf size={24} color="#32A86D" aria-hidden="true" />
         </h1>
         <button className="dash-header-settings" aria-label="Settings">
-          <IconSettings size={24} color="#32A86D" />
+          <Settings size={24} color="#32A86D" />
         </button>
       </header>
 
@@ -88,7 +88,7 @@ export default function Dashboard() {
                   <p className="device-id">ID: {d.id}</p>
                 </div>
                 <div className="device-card-arrow">
-                  <IconChevronRight size={18} />
+                  <ChevronRight size={18} />
                 </div>
               </div>
             </article>
@@ -114,14 +114,14 @@ export default function Dashboard() {
         {/* Connectivity & Sync */}
         <section className="status-grid" aria-label="Status">
           <div className="status-box">
-            <IconWifi size={20} color="#32A86D" />
+            <Wifi size={20} color="#32A86D" />
             <div className="status-box-content">
               <span className="status-label">Connectivity</span>
               <span className="status-value status-online">Online</span>
             </div>
           </div>
           <div className="status-box">
-            <IconSync size={20} color="#32A86D" />
+            <RefreshCw size={20} color="#32A86D" />
             <div className="status-box-content">
               <span className="status-label">Last Data Sync</span>
               <span className="status-value">3 minutes ago</span>
@@ -132,11 +132,11 @@ export default function Dashboard() {
         {/* Nutrient level */}
         <section className="card nutrient-card" aria-label="Nutrient level">
           <div className="nutrient-header">
-            <IconDroplet size={20} color="#32A86D" />
+            <Droplets size={20} color="#32A86D" />
             <span className="nutrient-label">Nutrient Level</span>
           </div>
           <div className="nutrient-status">
-            <IconLeaf size={20} color="#32A86D" />
+            <Leaf size={20} color="#32A86D" />
             <span className="nutrient-text">Low (Nutrient needs refilling)</span>
           </div>
         </section>
@@ -144,7 +144,7 @@ export default function Dashboard() {
         {/* pH levels over time */}
         <section className="card ph-card" aria-label="pH levels over time">
           <div className="ph-card-header">
-            <IconPH size={20} color="#32A86D" />
+            <Activity size={20} color="#32A86D" />
             <span className="ph-card-title">pH Levels over time</span>
             <button className="range-switch" aria-label="Change range">Days ▾</button>
           </div>
@@ -162,7 +162,7 @@ export default function Dashboard() {
         {/* Current pH level */}
         <section className="card current-ph" aria-label="Current pH">
           <div className="current-ph-icon-label">
-            <IconPH size={20} color="#32A86D" />
+            <Activity size={20} color="#32A86D" />
             <span className="current-ph-label">Current pH level</span>
           </div>
           <span className="current-ph-value">{currentPH} pH</span>
@@ -171,28 +171,28 @@ export default function Dashboard() {
         {/* Sensor grid */}
         <section className="sensor-grid" aria-label="Sensor data">
           <div className="sensor-cell">
-            <IconEC size={24} color="#32A86D" />
+            <Zap size={24} color="#32A86D" />
             <div className="sensor-cell-content">
               <span className="sensor-label">EC Levels</span>
               <span className="sensor-value">2.4 mS/cm</span>
             </div>
           </div>
           <div className="sensor-cell">
-            <IconTDS size={24} color="#32A86D" />
+            <Waves size={24} color="#32A86D" />
             <div className="sensor-cell-content">
               <span className="sensor-label">TDS</span>
               <span className="sensor-value">950 ppm</span>
             </div>
           </div>
           <div className="sensor-cell">
-            <IconWaterLevel size={24} color="#32A86D" />
+            <Droplet size={24} color="#32A86D" />
             <div className="sensor-cell-content">
               <span className="sensor-label">Water Level</span>
               <span className="sensor-value">85%</span>
             </div>
           </div>
           <div className="sensor-cell">
-            <IconDroplet size={24} color="#32A86D" />
+            <Droplets size={24} color="#32A86D" />
             <div className="sensor-cell-content">
               <span className="sensor-label">Turbidity</span>
               <span className="sensor-value">3 NTU</span>
@@ -205,22 +205,22 @@ export default function Dashboard() {
           <h3 className="environment-title">Environment Conditions</h3>
           <div className="environment-list">
             <div className="environment-row">
-              <IconTemp size={20} color="#32A86D" />
+              <Thermometer size={20} color="#32A86D" />
               <span className="environment-label">Temperature</span>
               <span className="environment-value">24.2°C</span>
             </div>
             <div className="environment-row">
-              <IconHumidity size={20} color="#32A86D" />
+              <Wind size={20} color="#32A86D" />
               <span className="environment-label">Humidity</span>
               <span className="environment-value">68%</span>
             </div>
             <div className="environment-row">
-              <IconLight size={20} color="#32A86D" />
+              <Sun size={20} color="#32A86D" />
               <span className="environment-label">Light Intensity</span>
               <span className="environment-value">9,000 Lux</span>
             </div>
             <div className="environment-row">
-              <IconCloud size={20} color="#32A86D" />
+              <Cloud size={20} color="#32A86D" />
               <span className="environment-label">CO₂ Level</span>
               <span className="environment-value">415 ppm</span>
             </div>
@@ -231,15 +231,15 @@ export default function Dashboard() {
       {/* Bottom navigation */}
       <nav className="bottom-nav" aria-label="Primary">
         <button className="nav-item active" aria-current="page">
-          <IconLeaf size={20} />
+          <Leaf size={20} />
           <span>Tanom</span>
         </button>
         <button className="nav-item">
-          <IconAlert size={20} />
+          <AlertCircle size={20} />
           <span>Alerts</span>
         </button>
         <button className="nav-item">
-          <IconUser size={20} />
+          <User size={20} />
           <span>Profile</span>
         </button>
       </nav>
