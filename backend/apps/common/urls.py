@@ -5,5 +5,5 @@ from .views import healthz
 app_name = 'common'
 
 urlpatterns = [
-    path('health/', healthz, name='health'),
+    path('', healthz, name='health'),  # Empty path since we already have api/health/ in main urls.py
 ]

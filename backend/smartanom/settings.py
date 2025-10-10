@@ -160,14 +160,38 @@ STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else 
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# CORS (development permissive; tighten in production)
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+# CORS Configuration
+if DEBUG:
+	# Development: permissive CORS
+	CORS_ALLOW_ALL_ORIGINS = True
+	CORS_ALLOW_CREDENTIALS = True
+else:
+	# Production: restrict CORS to specific origins
+	CORS_ALLOWED_ORIGINS = [
+		origin.strip()
+		for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+		if origin.strip()
+	]
+	CORS_ALLOW_CREDENTIALS = True
+
 CORS_ALLOW_HEADERS = [
-	'*'
+	'accept',
+	'accept-encoding',
+	'authorization',
+	'content-type',
+	'dnt',
+	'origin',
+	'user-agent',
+	'x-csrftoken',
+	'x-requested-with',
 ]
 CORS_ALLOW_METHODS = [
-	'GET','POST','PUT','PATCH','DELETE','OPTIONS'
+	'DELETE',
+	'GET',
+	'OPTIONS',
+	'PATCH',
+	'POST',
+	'PUT',
 ]
 
 
@@ -188,7 +212,7 @@ REST_FRAMEWORK = {
 	],
 	"DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
 	"PAGE_SIZE": 50,
-	# Throttling (basic default; can tune rates via env)
+	# Throttling configuration
 	"DEFAULT_THROTTLE_CLASSES": [
 		"rest_framework.throttling.UserRateThrottle",
 		"rest_framework.throttling.AnonRateThrottle",
@@ -196,6 +220,10 @@ REST_FRAMEWORK = {
 	"DEFAULT_THROTTLE_RATES": {
 		"user": os.getenv("DRF_USER_THROTTLE", "5000/day"),
 		"anon": os.getenv("DRF_ANON_THROTTLE", "1000/day"),
+		# OTP-specific throttling
+		"otp_request": os.getenv("OTP_REQUEST_THROTTLE", "10/hour"),
+		"otp_verify": os.getenv("OTP_VERIFY_THROTTLE", "20/hour"),
+		"login_attempt": os.getenv("LOGIN_ATTEMPT_THROTTLE", "30/hour"),
 	},
 }
 
@@ -203,10 +231,10 @@ REST_FRAMEWORK = {
 LOGIN_URL = "/admin/login/"
 LOGIN_REDIRECT_URL = "/admin/"
 
-# Basic security improvements toggled for production
+# Security settings (applied based on DEBUG mode)
 if not DEBUG:
-	# Core cookie & transport security
-	SESSION_COOKIE_SECURE = True  # noqa: N816
+	# Production security settings
+	SESSION_COOKIE_SECURE = True
 	CSRF_COOKIE_SECURE = True
 	SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
 	CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
@@ -215,14 +243,21 @@ if not DEBUG:
 	X_FRAME_OPTIONS = "DENY"
 	SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "true").lower() == "true"
 	SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
-	# HSTS
-	SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
+
+	# HSTS (HTTP Strict Transport Security)
+	SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))  # 1 year
 	SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 	SECURE_HSTS_PRELOAD = True
-	# CSRF trusted origins (comma separated, auto https:// prefix optional)
+
+	# CSRF trusted origins for production
 	_csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
 	if _csrf_origins:
-		CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]  # noqa: F401
+		CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
+else:
+	# Development: More permissive settings
+	SESSION_COOKIE_SECURE = False
+	CSRF_COOKIE_SECURE = False
+	SECURE_SSL_REDIRECT = False
 
 # Simple optional admin path obfuscation (override via env)
 ADMIN_URL = os.getenv("ADMIN_URL", "admin/")

@@ -46,26 +46,48 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 Visit:
-- API Root (monitoring): `http://127.0.0.1:8000/api/monitoring/`
+- API Endpoints:
+  - Devices: `http://127.0.0.1:8000/api/devices/`
+  - Sensors: `http://127.0.0.1:8000/api/sensors/`
+  - Reservoirs: `http://127.0.0.1:8000/api/reservoirs/`
 - Health Check: `http://127.0.0.1:8000/api/health/`
 - Admin: `http://127.0.0.1:8000/admin/`
 
-### 5. Sample API Usage (After Login via Browsable API / Session Auth)
-Create a device:
+### 5. Sample API Usage (After Authentication)
+
+First, get an authentication token via OTP:
 ```powershell
-curl -u username:password -H "Content-Type: application/json" ^
-	-d '{"user_id":1,"device_name":"Primary Unit"}' ^
-	http://127.0.0.1:8000/api/monitoring/devices/
+# Request OTP
+curl -H "Content-Type: application/json" ^
+	-d '{"email":"your-email@example.com"}' ^
+	http://127.0.0.1:8000/api/auth/request-otp/
+
+# Verify OTP (check your email for the code)
+curl -H "Content-Type: application/json" ^
+	-d '{"email":"your-email@example.com","otp_code":"123456"}' ^
+	http://127.0.0.1:8000/api/auth/verify-otp/
 ```
 
-List sensors:
+Use the returned token for API calls:
 ```powershell
-curl -u username:password http://127.0.0.1:8000/api/monitoring/sensors/
+# Create a device
+curl -H "Authorization: Token your-token-here" ^
+     -H "Content-Type: application/json" ^
+     -d '{"device_name":"Primary Greenhouse"}' ^
+     http://127.0.0.1:8000/api/devices/
+
+# List sensors
+curl -H "Authorization: Token your-token-here" ^
+     http://127.0.0.1:8000/api/sensors/
 ```
 
-### 6. Running Tests
+### 6. Generate Mock Data & Running Tests
 ```powershell
-python manage.py test apps.monitoring
+# Generate sample data for development
+python manage.py seed_mock_data --readings-per-sensor 24 --days 3
+
+# Run tests
+python manage.py test
 ```
 
 ## Data Model (Conceptual)
