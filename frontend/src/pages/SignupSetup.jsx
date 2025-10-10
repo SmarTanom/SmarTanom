@@ -7,6 +7,7 @@ import { Check } from '../components/ui/Icon.jsx';
 import { Mail } from '../components/ui/Icon.jsx';
 import { Wifi, Refresh, Lock, SignalBars } from '../components/ui/Icon.jsx';
 import { authApi } from '../services/apiClient.js';
+import { checkDevice, requestDeviceOTP, verifyDeviceOTP } from '../services/api/devices.js';
 // Removed shared OtpInput component per request; using local inline inputs
 // (Removed duplicate React hook import; useRef/useEffect already available or use React.useRef if needed)
 
@@ -253,7 +254,7 @@ export default function SignupSetup() {
   const [wifiModalOpen, setWifiModalOpen] = useState(false);
   const [userGuideOpen, setUserGuideOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
-  
+
   // Auto-collapse instructions on medium heights to save vertical space
   useEffect(()=>{
     if (step === 5 && typeof window !== 'undefined') {
@@ -337,12 +338,16 @@ export default function SignupSetup() {
     try {
       setSendingCode(true);
       const emailToSend = bindEmail.trim();
-      console.debug('[sendCode] attempting OTP request', { email: emailToSend });
-      const data = await authApi.requestOtp(emailToSend, 'login');
+      const deviceSerial = deviceId.trim().toUpperCase();
+      console.debug('[sendCode] attempting device OTP request', {
+        serial_number: deviceSerial,
+        email: emailToSend
+      });
+      const data = await requestDeviceOTP(deviceSerial, emailToSend);
       if (data.debug_code) {
         console.info('[sendCode] DEBUG OTP code:', data.debug_code);
       } else {
-        console.debug('[sendCode] OTP request succeeded');
+        console.debug('[sendCode] Device OTP request succeeded');
       }
       setStep(4);
     } catch (e) {
@@ -417,16 +422,48 @@ export default function SignupSetup() {
     setChecking(true);
     setVerified(false);
     try {
-      await new Promise(r => setTimeout(r, 500));
-      // Relaxed: allow smrt + at least 1 char OR file upload OR length >= 6
-      const ok = (/^smrt\w+/i.test(deviceId.trim())) || !!fileName || deviceId.trim().length >= 6;
-      if (!ok) throw new Error('Please enter a valid Device ID or upload a clear QR photo.');
-  setVerified(true);
-  setJustVerified(true);
-  // Brief pause to let user see inline confirmation, then advance
-  setTimeout(()=>{ setStep(2); setJustVerified(false); }, 600);
+      // Basic validation for device ID format
+      const deviceSerial = deviceId.trim().toUpperCase();
+      if (!deviceSerial) {
+        throw new Error('Please enter a device serial number.');
+      }
+
+      // Format validation - should be SMRT-XXX-XXX format
+      const serialPattern = /^SMRT-[A-Z0-9]{3}-[A-Z0-9]{3}$/;
+      if (!serialPattern.test(deviceSerial) && !fileName) {
+        throw new Error('Device ID should be in format SMRT-XXX-XXX or upload a QR code photo.');
+      }
+
+      // If we have a file upload, skip API check for now (QR code processing)
+      if (fileName) {
+        setVerified(true);
+        setJustVerified(true);
+        setTimeout(()=>{ setStep(2); setJustVerified(false); }, 600);
+        return;
+      }
+
+      // Check if device exists in database
+      console.log('Checking device:', deviceSerial);
+      const response = await checkDevice(deviceSerial);
+      console.log('Device check response:', response);
+
+      if (!response.exists) {
+        console.log('Device not found - blocking navigation');
+        throw new Error('Device not found. Please check the serial number and try again.');
+      }
+
+      if (response.is_bound) {
+        console.log('Device already bound - blocking navigation');
+        throw new Error('This device is already bound to an email address.');
+      }
+
+      console.log('Device validation passed - allowing navigation');      // Device exists and can be bound
+      setVerified(true);
+      setJustVerified(true);
+      // Brief pause to let user see inline confirmation, then advance
+      setTimeout(()=>{ setStep(2); setJustVerified(false); }, 600);
     } catch (e) {
-      setModal({ open: true, message: e.message || 'Invalid device QR/ID. Please try again.' });
+      setModal({ open: true, message: e.message || 'Unable to verify device. Please try again.' });
     } finally {
       setChecking(false);
     }
@@ -450,8 +487,12 @@ export default function SignupSetup() {
     setOtpResent(false);
     setOtpError('');
     setStatusMsg('Resending code…');
+
     const emailToSend = bindEmail.trim();
-    authApi.requestOtp(emailToSend, 'login')
+    const deviceSerial = deviceId.trim().toUpperCase();
+
+    // Use device OTP API instead of auth API
+    requestDeviceOTP(deviceSerial, emailToSend)
       .then(data => {
         if (data.debug_code) {
           // eslint-disable-next-line no-console
@@ -466,6 +507,9 @@ export default function SignupSetup() {
         if (e.status === 429) {
           setOtpError(e.message || 'Too many attempts. Please wait.');
           setResendCooldown(45);
+        } else if (e.message && e.message.includes('already bound')) {
+          setOtpError('Device is already bound to an email address.');
+          setResendCooldown(10);
         } else {
           setOtpError(e.message || 'Failed to resend code');
           setResendCooldown(10);
@@ -482,31 +526,43 @@ export default function SignupSetup() {
         setOtpError('Enter the 6‑digit code');
         return;
       }
+
       const email = bindEmail.trim();
-      // First attempt login, then register fallback
-      try {
-        const data = await authApi.verifyOtp(email, code, 'login');
-        if (data.token) localStorage.setItem('auth_token', data.token);
-        setStep(5);
+      const deviceSerial = deviceId.trim().toUpperCase();
+
+      console.log('Verifying device OTP:', { deviceSerial, email, code });
+
+      // Use device binding OTP verification
+      const data = await verifyDeviceOTP(deviceSerial, email, code);
+
+      if (data.success) {
+        console.log('Device bound successfully:', data);
+
+        // Store authentication token for later use
+        if (data.auth && data.auth.token) {
+          localStorage.setItem('auth_token', data.auth.token);
+          console.log('Authentication token stored');
+        }
+
+        setStatusMsg('Device bound successfully!');
+
+        // Show success message briefly then proceed to next step
+        setTimeout(() => {
+          setStep(5); // Move to WiFi setup or next step
+        }, 1000);
         return;
-      } catch (loginErr) {
-        if (loginErr.status && loginErr.status !== 400) {
-          // Non-typical status -> surface and stop
-            setOtpError(loginErr.message || 'Authentication failed');
-            return;
-        }
-        // Try register
-        try {
-          const data = await authApi.verifyOtp(email, code, 'register');
-          if (data.token) localStorage.setItem('auth_token', data.token);
-          setStep(5);
-          return;
-        } catch (regErr) {
-          setOtpError(regErr.message || 'Invalid or expired code');
-          return;
-        }
+      } else {
+        setOtpError('Verification failed. Please try again.');
       }
-      setOtpError('Invalid or expired code');
+    } catch (err) {
+      console.error('OTP verification error:', err);
+      if (err.message && err.message.includes('Invalid or expired')) {
+        setOtpError('Invalid or expired verification code.');
+      } else if (err.message && err.message.includes('already bound')) {
+        setOtpError('Device is already bound to an email address.');
+      } else {
+        setOtpError(err.message || 'Verification failed. Please try again.');
+      }
     } finally {
       setVerifyingOtp(false);
     }
@@ -994,7 +1050,7 @@ export default function SignupSetup() {
                           <strong style={{color:'rgba(255,255,255,0.95)', fontSize:'15px'}}>{bindEmail || 'your email'}</strong>
                         </p>
                       </div>
-                      
+
                       <SignupStepFourOtp
                         otpCode={otpCode}
                         setOtpCode={setOtpCode}
@@ -1002,9 +1058,9 @@ export default function SignupSetup() {
                         otpError={otpError}
                         setStatusMsg={setStatusMsg}
                       />
-                      
+
                       <div className="visually-hidden" aria-live="polite">{statusMsg}</div>
-                      
+
                       <div className="otp-feedback-zone">
                         {otpError && (
                           <div className="otp-error-message" role="alert">
@@ -1043,13 +1099,13 @@ export default function SignupSetup() {
                     <div className="setup-card wifi-card-compact" role="group" aria-labelledby="wifi-setup-head">
                       <h3 id="wifi-setup-head" className="setup-section-title">Connect to WiFi</h3>
                       <p className="setup-helper" style={{marginTop:4}}>Connect your SmarTanom device to your home WiFi network.</p>
-                      
+
                       {connectionStatus === 'success' && (
                         <div className="wifi-status-banner success" role="status" aria-live="polite" style={{marginTop:12}}>
                           Connected! Finalizing…
                         </div>
                       )}
-                      
+
                       {wifiSelected && connectionStatus !== 'success' && (
                         <div className="wifi-connected-summary" style={{marginTop:12}}>
                           <div className="wifi-summary-row">
@@ -1060,16 +1116,16 @@ export default function SignupSetup() {
                           <p className="setup-helper" style={{marginTop:4,fontSize:'12px'}}>Ready to connect with entered credentials.</p>
                         </div>
                       )}
-                      
+
                       {hiddenSsidEnabled && connectionStatus !== 'success' && (
                         <div className="wifi-connected-summary" style={{marginTop:12}}>
                           <p className="setup-helper" style={{fontSize:'12px'}}>Hidden SSID: <strong>{hiddenSsid || '(not set)'}</strong></p>
                         </div>
                       )}
-                      
+
                       <button
                         type="button"
-                        className="setup-btn" 
+                        className="setup-btn"
                         style={{marginTop:16,width:'100%'}}
                         onClick={()=> setWifiModalOpen(true)}
                         disabled={connecting || connectionStatus==='success'}
@@ -1088,12 +1144,12 @@ export default function SignupSetup() {
                         <div className="setup-field">
                           <label htmlFor="username" className="setup-field-label">Username</label>
                           <div style={{position: 'relative'}}>
-                            <input 
-                              id="username" 
-                              type="text" 
-                              placeholder="Pick a unique username" 
-                              value={username} 
-                              onChange={e=> setUsername(e.target.value)} 
+                            <input
+                              id="username"
+                              type="text"
+                              placeholder="Pick a unique username"
+                              value={username}
+                              onChange={e=> setUsername(e.target.value)}
                               autoComplete="username"
                               style={{
                                 paddingRight: checkingUsername ? '40px' : '12px',
@@ -1114,8 +1170,8 @@ export default function SignupSetup() {
                             )}
                           </div>
                           {usernameMessage && (
-                            <p 
-                              className={usernameAvailable ? 'setup-status success' : 'setup-error'} 
+                            <p
+                              className={usernameAvailable ? 'setup-status success' : 'setup-error'}
                               role={usernameAvailable ? 'status' : 'alert'}
                               style={{marginTop: 4, fontSize: '11px'}}
                             >
@@ -1213,10 +1269,10 @@ export default function SignupSetup() {
                     <p>Complete your profile to access the dashboard.</p>
                   </div>
                   <div className="setup-verify-actions">
-                    <button 
-                      type="button" 
-                      className="setup-btn" 
-                      disabled={!username.trim() || checkingUsername || usernameAvailable === false || finalizing} 
+                    <button
+                      type="button"
+                      className="setup-btn"
+                      disabled={!username.trim() || checkingUsername || usernameAvailable === false || finalizing}
                       onClick={finalizeAccount}
                     >
                       {finalizing ? 'Finishing…' : 'Finish Setup'}
@@ -1253,7 +1309,7 @@ export default function SignupSetup() {
       </div>
       <div className="auth-image-column" aria-hidden="true" />
     </div>
-    
+
     {showDefaultImageModal && (
         <div
           className="setup-modal default-image-modal"
@@ -1299,7 +1355,7 @@ export default function SignupSetup() {
           </div>
         </div>
       )}
-      
+
       {/* Plant Photo Modal */}
       {showPlantPhotoModal && (
         <div
@@ -1325,7 +1381,7 @@ export default function SignupSetup() {
               <p className="setup-helper" style={{ textAlign: 'center', margin: 0 }}>
                 Upload your own photo or choose from default images
               </p>
-              
+
               {/* Photo Options */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <label htmlFor="cameraFileModal" className="setup-btn" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -1343,7 +1399,7 @@ export default function SignupSetup() {
                       setShowPlantPhotoModal(false);
                     }
                   }} />
-                
+
                 <label htmlFor="galleryFileModal" className="setup-btn" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}>
                   <UploadIcon size={18} color="#ffffff" />
                   <span>Upload from Gallery</span>
@@ -1359,7 +1415,7 @@ export default function SignupSetup() {
                       setShowPlantPhotoModal(false);
                     }
                   }} />
-                
+
                 <button
                   type="button"
                   className="setup-btn"
@@ -1372,7 +1428,7 @@ export default function SignupSetup() {
                   <LeafIcon size={18} color="#ffffff" />
                   <span>Choose Default Image</span>
                 </button>
-                
+
                 {(plantPhotoChoice === 'upload' && uploadPhotoUrl) && (
                   <div className="photo-preview" aria-live="polite" style={{ marginTop: '8px', textAlign: 'center' }}>
                     <img src={uploadPhotoUrl} alt="Selected plant" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', margin: '0 auto 12px', display: 'block', border: '2px solid #4A9B4D' }} />
@@ -1395,7 +1451,7 @@ export default function SignupSetup() {
           </div>
         </div>
       )}
-      
+
       {/* WiFi Setup Modal - Full Screen Overlay */}
       {wifiModalOpen && (
         <div className="wifi-modal-overlay" onClick={()=> setWifiModalOpen(false)} role="dialog" aria-modal="true" aria-labelledby="wifi-modal-title">
@@ -1406,14 +1462,14 @@ export default function SignupSetup() {
                 ×
               </button>
             </div>
-            
+
             <div className="wifi-modal-body">
               <p className="wifi-setup-description">Enter your Wi-Fi network credentials to connect your SmarTanom device to the internet.</p>
-              
+
               {connectionStatus && connectionStatus!=='success' && (
                 <div className="wifi-status-banner error" role="alert">Connection failed: {connectionStatus}. Please try again.</div>
               )}
-              
+
               {/* Wi-Fi Name (SSID) Field */}
               <div className="wifi-input-field">
                 <label className="wifi-input-label" htmlFor="wifiSsidInput">Wi-Fi Name (SSID)</label>
@@ -1428,7 +1484,7 @@ export default function SignupSetup() {
                   disabled={connecting}
                 />
               </div>
-              
+
               {/* Wi-Fi Password Field */}
               <div className="wifi-input-field">
                 <label className="wifi-input-label" htmlFor="wifiPasswordInput">Wi-Fi Password</label>
@@ -1443,9 +1499,9 @@ export default function SignupSetup() {
                     autoComplete="off"
                     disabled={connecting}
                   />
-                  <button 
-                    type="button" 
-                    className="wifi-password-toggle" 
+                  <button
+                    type="button"
+                    className="wifi-password-toggle"
                     onClick={()=> setShowWifiPw(p=>!p)}
                     aria-label={showWifiPw? 'Hide password':'Show password'}
                   >
@@ -1464,7 +1520,7 @@ export default function SignupSetup() {
                 </div>
               </div>
             </div>
-            
+
             <div className="wifi-modal-footer">
               <button
                 type="button"
@@ -1497,7 +1553,7 @@ export default function SignupSetup() {
           </div>
         </div>
       )}
-      
+
       {/* Success Confirmation Modal - Full Screen Overlay */}
       {successModalOpen && (
         <div className="wifi-modal-overlay" onClick={()=> setSuccessModalOpen(false)} role="dialog" aria-modal="true" aria-labelledby="success-modal-title">
@@ -1523,7 +1579,7 @@ export default function SignupSetup() {
           </div>
         </div>
       )}
-      
+
       {/* User Guide Modal - Full Screen Overlay */}
       {userGuideOpen && (
         <div className="wifi-modal-overlay" onClick={()=> setUserGuideOpen(false)} role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
