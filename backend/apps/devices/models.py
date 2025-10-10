@@ -28,8 +28,6 @@ class Device(TimeStampedModel):
     device_serial = models.CharField(
         max_length=12,
         unique=True,
-        null=True,
-        blank=True,
         help_text="Unique device serial number (SMRT-XXX-XXX format)"
     )
     device_name = models.CharField(max_length=100)

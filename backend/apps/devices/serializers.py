@@ -24,9 +24,10 @@ class DeviceSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "user_id",
+            "device_serial",
             "device_name",
             "status",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "device_serial", "created_at", "updated_at"]
