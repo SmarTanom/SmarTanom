@@ -15,7 +15,6 @@ import {
   Thermometer,
   Wind,
   Sun,
-  Cloud,
   User
 } from 'lucide-react';
 
@@ -270,13 +269,6 @@ export default function Dashboard() {
               </div>
               <span className="environment-label">Light Intensity</span>
               <span className="environment-value">9,000 Lux</span>
-            </div>
-            <div className="environment-row">
-              <div className="icon-circle">
-                <Cloud size={20} color="#32A86D" strokeWidth={2.5} />
-              </div>
-              <span className="environment-label">CO₂ Level</span>
-              <span className="environment-value">415 ppm</span>
             </div>
           </div>
         </section>
