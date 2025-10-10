@@ -85,6 +85,44 @@ class UserAdmin(BaseUserAdmin):
             obj.set_unusable_password()
         super().save_model(request, obj, form, change)
 
+    def safe_delete_users(self, request, queryset):
+        """Safely delete users by cleaning up references first."""
+        from rest_framework.authtoken.models import Token
+        from django.contrib.admin.models import LogEntry
+        from .models import OTPCode, LoginAttempt
+
+        deleted_count = 0
+        errors = []
+
+        for user in queryset:
+            try:
+                # Clean up related data first
+                Token.objects.filter(user=user).delete()
+                LogEntry.objects.filter(user=user).delete()
+                OTPCode.objects.filter(email=user.email).delete()
+                LoginAttempt.objects.filter(email=user.email).delete()
+                user.groups.clear()
+                user.user_permissions.clear()
+
+                # Delete the user
+                user_email = user.email
+                user.delete()
+                deleted_count += 1
+                self.message_user(request, f"Successfully deleted {user_email}")
+
+            except Exception as e:
+                errors.append(f"Failed to delete {user.email}: {str(e)}")
+
+        if deleted_count:
+            self.message_user(request, f"Successfully deleted {deleted_count} users.")
+
+        for error in errors:
+            self.message_user(request, error, level='ERROR')
+
+    safe_delete_users.short_description = "🗑️ Safely delete selected users"
+
+    actions = ['safe_delete_users']
+
 
 @admin.register(OTPCode)
 class OTPCodeAdmin(admin.ModelAdmin):
