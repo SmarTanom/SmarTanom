@@ -14,7 +14,6 @@ class Sensor(TimeStampedModel):
     class SensorType(models.TextChoices):
         """Sensor types with proper units."""
         WATER_TEMPERATURE = "water_temperature", "Water Temperature (°C)"
-        AIR_TEMPERATURE = "air_temperature", "Air Temperature (°C)"
         HUMIDITY = "humidity", "Humidity (%)"
         PH = "ph", "pH"
         TDS = "tds", "Total Dissolved Solids (ppm)"
@@ -53,7 +52,6 @@ class Sensor(TimeStampedModel):
             # Set default units based on sensor type
             default_units = {
                 self.SensorType.WATER_TEMPERATURE: "°C",
-                self.SensorType.AIR_TEMPERATURE: "°C",
                 self.SensorType.HUMIDITY: "%",
                 self.SensorType.PH: "pH",
                 self.SensorType.TDS: "ppm",
