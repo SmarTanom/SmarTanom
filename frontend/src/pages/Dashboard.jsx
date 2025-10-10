@@ -26,7 +26,19 @@ const devices = [
   { name: 'Indoor Rack', id: 'RACK-02', image: '/favicon.png' },
 ];
 
-const phHistory = [6.0, 6.1, 6.2, 6.3, 6.6, 6.2, 6.1, 6.2, 6.3, 6.25, 6.15, 6.2];
+// Generate more realistic pH history data (50+ points for fuller chart)
+const generatePHHistory = () => {
+  const points = [];
+  const baseValues = [6.1, 6.15, 6.2, 6.25, 6.3, 6.35, 6.4, 6.5, 6.55, 6.6, 6.55, 6.5, 6.45, 6.4, 6.35, 6.3];
+  for (let i = 0; i < 60; i++) {
+    const baseIdx = i % baseValues.length;
+    const noise = (Math.random() - 0.5) * 0.08;
+    points.push(Math.min(6.6, Math.max(6.0, baseValues[baseIdx] + noise)));
+  }
+  return points;
+};
+
+const phHistory = generatePHHistory();
 
 function PHBar({ v, i }) {
   const min = 6.0;
@@ -35,8 +47,7 @@ function PHBar({ v, i }) {
   const pct = ((clamped - min) / (max - min)) * 100;
   return (
     <div className="ph-bar-wrapper" aria-label={`pH ${v.toFixed(1)}`}>
-      <div className="ph-bar" style={{ height: `${pct}%`, animationDelay: `${i * 60}ms` }} />
-      <div className="ph-bar-label">{v.toFixed(1)}</div>
+      <div className="ph-bar" style={{ height: `${pct}%`, animationDelay: `${Math.min(i * 20, 800)}ms` }} />
     </div>
   );
 }
@@ -149,7 +160,9 @@ export default function Dashboard() {
         {/* pH levels over time */}
         <section className="card ph-card" aria-label="pH levels over time">
           <div className="ph-card-header">
-            <Activity size={20} color="#32A86D" />
+            <div className="ph-icon-wrapper">
+              <Activity size={24} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <span className="ph-card-title">pH Levels over time</span>
             <button className="range-switch" aria-label="Change range">Days ▾</button>
           </div>
@@ -157,9 +170,25 @@ export default function Dashboard() {
             <span className="ph-legend-dot"></span>
             <span className="ph-legend-label">Porch SmarTanom</span>
           </div>
-          <div className="ph-bars" role="img" aria-label="pH chart">
-            {phHistory.map((v, i) => (
-              <PHBar key={i} v={v} i={i} />
+          <div className="ph-chart-container">
+            <div className="ph-y-axis">
+              <span className="ph-y-label">6.6 pH</span>
+              <span className="ph-y-label">6.5 pH</span>
+              <span className="ph-y-label">6.4 pH</span>
+              <span className="ph-y-label">6.3 pH</span>
+              <span className="ph-y-label">6.2 pH</span>
+              <span className="ph-y-label">6.1 pH</span>
+              <span className="ph-y-label">6.0 pH</span>
+            </div>
+            <div className="ph-bars" role="img" aria-label="pH chart">
+              {phHistory.map((v, i) => (
+                <PHBar key={i} v={v} i={i} />
+              ))}
+            </div>
+          </div>
+          <div className="ph-x-axis">
+            {[0, 0, 0, 0, 0, 0, 0].map((_, i) => (
+              <span key={i} className="ph-x-label">0</span>
             ))}
           </div>
         </section>

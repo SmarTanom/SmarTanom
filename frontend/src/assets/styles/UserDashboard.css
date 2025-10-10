@@ -117,16 +117,22 @@ body { background: var(--color-bg); }
 
 /* 6. pH Chart Section */
 .ph-card { display:flex; flex-direction:column; gap:var(--space-3); }
-.ph-card-header { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
-.ph-card-title { font-size:13px; font-weight:600; color:var(--color-secondary); flex:1; }
-.range-switch { font-size:11px; background:rgba(50,168,109,0.08); border:none; padding:4px 10px; border-radius:12px; color:var(--color-secondary); cursor:pointer; }
-.ph-legend { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--color-muted); margin-bottom:4px; }
-.ph-legend-dot { width:8px; height:8px; border-radius:50%; background:var(--color-primary); }
+.ph-card-header { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+.ph-icon-wrapper { width:40px; height:40px; border-radius:50%; background:rgba(50,168,109,0.1); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.ph-card-title { font-size:16px; font-weight:700; color:var(--color-primary); flex:1; }
+.range-switch { font-size:12px; background:rgba(139,167,151,0.1); border:none; padding:6px 14px; border-radius:8px; color:var(--color-secondary); cursor:pointer; font-weight:500; }
+.range-switch:hover { background:rgba(139,167,151,0.15); }
+.ph-legend { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--color-secondary); margin-bottom:12px; font-weight:500; }
+.ph-legend-dot { width:10px; height:10px; border-radius:50%; background:var(--color-primary); }
 .ph-legend-label { font-weight:500; }
-.ph-bars { display:flex; align-items:flex-end; justify-content:space-between; gap:3px; height:140px; }
-.ph-bar-wrapper { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; }
-.ph-bar { width:100%; background:var(--color-primary); border-radius:3px 3px 0 0; transform-origin:bottom; animation:growBar .6s ease forwards; opacity:.9; }
-.ph-bar-label { font-size:9px; color:var(--color-muted); font-weight:500; }
+.ph-chart-container { display:flex; gap:12px; align-items:stretch; }
+.ph-y-axis { display:flex; flex-direction:column; justify-content:space-between; padding:8px 0; min-width:50px; }
+.ph-y-label { font-size:11px; color:var(--color-muted); font-weight:500; line-height:1; }
+.ph-bars { display:flex; align-items:flex-end; gap:2px; height:220px; flex:1; padding:8px 0; }
+.ph-bar-wrapper { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; min-width:2px; }
+.ph-bar { width:100%; background:var(--color-primary); border-radius:2px 2px 0 0; transform-origin:bottom; animation:growBar .8s ease forwards; }
+.ph-x-axis { display:flex; justify-content:space-around; margin-left:62px; margin-top:8px; }
+.ph-x-label { font-size:11px; color:var(--color-muted); font-weight:500; }
 @keyframes growBar { from { transform:scaleY(0); opacity:0;} to {transform:scaleY(1); opacity:1;} }
 .current-ph { display:flex; align-items:center; justify-content:space-between; background:linear-gradient(90deg,#f0faf2,#fff); padding:14px 16px; border-radius:var(--radius-lg); }
 .current-ph-icon-label { display:flex; align-items:center; gap:8px; }
@@ -189,7 +195,7 @@ body { background: var(--color-bg); }
   .card { padding:var(--space-5); }
   
   /* pH chart slightly taller */
-  .ph-bars { height:160px; }
+  .ph-bars { height:240px; }
 }
 
 /* Landscape Mode (any height, wide aspect) */
@@ -201,7 +207,7 @@ body { background: var(--color-bg); }
   .device-card-media { aspect-ratio:21/9; }
   .dash-main { gap:var(--space-3); margin-top:var(--space-2); }
   .card { padding:var(--space-3); }
-  .ph-bars { height:120px; }
+  .ph-bars { height:180px; }
   .bottom-nav { height:56px; }
 }
 
@@ -234,7 +240,7 @@ body { background: var(--color-bg); }
   
   /* pH card - right column, spans 2 rows */
   .ph-card { grid-column:2 / 3; grid-row:span 2; }
-  .ph-bars { height:180px; }
+  .ph-bars { height:280px; }
   
   /* Current pH - left column */
   .current-ph { grid-column:1 / 2; }
