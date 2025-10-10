@@ -208,13 +208,14 @@ export default function DeviceDetails() {
               <div className="plant-card-image">
                 <img src={device.plant.image} alt={device.plant.name} />
               </div>
-              <div className="plant-card-info">
-                <h3 className="plant-card-name">{device.plant.name}</h3>
-                <p className="plant-card-variety">{device.plant.variety}</p>
-              </div>
-              <div className="plant-card-harvest">
-                <span className="harvest-label">Harvest in</span>
-                <span className="harvest-days">{device.plant.daysToHarvest} days</span>
+              <div className="plant-card-content">
+                <div className="plant-card-info">
+                  <h3 className="plant-card-name">{device.plant.name}</h3>
+                  <p className="plant-card-variety">{device.plant.variety}</p>
+                </div>
+                <div className="plant-card-harvest">
+                  <span className="harvest-label">Harvest in {device.plant.daysToHarvest} days</span>
+                </div>
               </div>
             </div>
 

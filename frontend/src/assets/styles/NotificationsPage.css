@@ -67,10 +67,10 @@
 }
 
 .notifications-header-title {
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--color-text);
+  font-family: 'Abril Fatface', serif;
+  font-size: 32px;
+  font-weight: 400;
+  color: rgba(17, 17, 17, 0.86);
   margin: 0;
 }
 
