@@ -19,26 +19,86 @@ import {
 } from 'lucide-react';
 import { MdScience } from 'react-icons/md';
 
-// Demo data (replace with API data later)
-const devices = [
-  { name: 'Porch SmarTanom', id: '0000000001', image: '/favicon.png' },
-  { name: 'Greenhouse A', id: 'GH-A-01', image: '/favicon.png' },
-  { name: 'Indoor Rack', id: 'RACK-02', image: '/favicon.png' },
-];
+// Simple hash function to seed PRNG from device ID
+const hashStringToSeed = (str) => {
+  let hash = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash);
+};
 
-// Generate more realistic pH history data (50+ points for fuller chart)
-const generatePHHistory = () => {
+// Seeded PRNG (mulberry32)
+const mulberry32 = (seed) => {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+// Generate pH history with seeded randomness
+const generatePHHistory = (rng) => {
   const points = [];
   const baseValues = [6.1, 6.15, 6.2, 6.25, 6.3, 6.35, 6.4, 6.5, 6.55, 6.6, 6.55, 6.5, 6.45, 6.4, 6.35, 6.3];
   for (let i = 0; i < 60; i++) {
     const baseIdx = i % baseValues.length;
-    const noise = (Math.random() - 0.5) * 0.08;
+    const noise = (rng() - 0.5) * 0.08;
     points.push(Math.min(6.6, Math.max(6.0, baseValues[baseIdx] + noise)));
   }
   return points;
 };
 
-const phHistory = generatePHHistory();
+// Generate per-device mock data
+const generateDeviceData = (deviceId) => {
+  const seed = hashStringToSeed(deviceId);
+  const rng = mulberry32(seed);
+  
+  const connectivity = rng() > 0.2 ? 'Online' : 'Offline';
+  const syncMinutes = Math.floor(rng() * 60) + 1;
+  const lastSyncLabel = syncMinutes === 1 ? '1 minute ago' : `${syncMinutes} minutes ago`;
+  
+  const alerts = [
+    'EC too low (Inadequate nutrients)',
+    'pH trending high - check solution',
+    'Water level below threshold',
+    'Temperature outside optimal range'
+  ];
+  const alertText = alerts[Math.floor(rng() * alerts.length)];
+  
+  const nutrients = ['Low (Nutrient needs refilling)', 'Optimal', 'High (Reduce concentration)'];
+  const nutrientText = nutrients[Math.floor(rng() * nutrients.length)];
+  
+  return {
+    alertText,
+    connectivity,
+    lastSyncLabel,
+    nutrientText,
+    phHistory: generatePHHistory(mulberry32(seed + 1000)),
+    sensors: {
+      ec: 0.8 + rng() * 2.0,
+      tds: 400 + rng() * 800,
+      waterLevel: 60 + rng() * 35,
+      turbidity: 1.5 + rng() * 3.0
+    },
+    environment: {
+      temperature: 20 + rng() * 8,
+      humidity: 50 + rng() * 30,
+      light: 5000 + rng() * 10000
+    }
+  };
+};
+
+// Initialize devices with per-device data
+const initDevices = () => [
+  { name: 'Porch SmarTanom', id: '0000000001', image: '/favicon.png', data: generateDeviceData('0000000001') },
+  { name: 'Greenhouse A', id: 'GH-A-01', image: '/favicon.png', data: generateDeviceData('GH-A-01') },
+  { name: 'Indoor Rack', id: 'RACK-02', image: '/favicon.png', data: generateDeviceData('RACK-02') },
+];
+
+const devices = initDevices();
 
 function PHBar({ v, i }) {
   const min = 6.0;
@@ -71,14 +131,16 @@ export default function Dashboard() {
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  const currentPH = useMemo(() => phHistory[phHistory.length - 1].toFixed(1), []);
+  const currentDevice = devices[activeIdx];
+  const data = currentDevice.data;
+  const currentPH = useMemo(() => data.phHistory[data.phHistory.length - 1].toFixed(1), [activeIdx]);
 
   return (
     <div className="dashboard-root">
       {/* Header */}
       <header className="dash-header" role="banner">
         <h1 className="dash-header-title">
-          Hello, User <Leaf size={24} color="#32A86D" aria-hidden="true" />
+          Hello, User <span className="dash-header-emoji">🌿</span>
         </h1>
         <button className="dash-header-settings" aria-label="Settings">
           <Settings size={24} color="#32A86D" />
@@ -124,7 +186,7 @@ export default function Dashboard() {
             </button>
           </div>
           <h3 className="alert-card-title">Alert Summary</h3>
-          <div className="alert-card-message">EC too low (Inadequate nutrients)</div>
+          <div className="alert-card-message">{data.alertText}</div>
         </section>
         {/* Connectivity & Sync */}
         <section className="status-grid" aria-label="Status">
@@ -134,7 +196,7 @@ export default function Dashboard() {
             </div>
             <div className="status-box-content">
               <span className="status-label">Connectivity</span>
-              <span className="status-value status-online">Online</span>
+              <span className={`status-value ${data.connectivity === 'Online' ? 'status-online' : 'status-offline'}`}>{data.connectivity}</span>
             </div>
           </div>
           <div className="status-box">
@@ -143,7 +205,7 @@ export default function Dashboard() {
             </div>
             <div className="status-box-content">
               <span className="status-label">Last Data Sync</span>
-              <span className="status-value">3 minutes ago</span>
+              <span className="status-value">{data.lastSyncLabel}</span>
             </div>
           </div>
         </section>
@@ -155,7 +217,7 @@ export default function Dashboard() {
             <div className="icon-circle">
               <Leaf size={20} color="#32A86D" strokeWidth={2.5} />
             </div>
-            <span className="nutrient-text">Low (Nutrient needs refilling)</span>
+            <span className="nutrient-text">{data.nutrientText}</span>
           </div>
         </section>
 
@@ -170,7 +232,7 @@ export default function Dashboard() {
           </div>
           <div className="ph-legend">
             <span className="ph-legend-dot"></span>
-            <span className="ph-legend-label">Porch SmarTanom</span>
+            <span className="ph-legend-label">{currentDevice.name}</span>
           </div>
           <div className="ph-chart-container">
             <div className="ph-y-axis">
@@ -183,7 +245,7 @@ export default function Dashboard() {
               <span className="ph-y-label">6.0 pH</span>
             </div>
             <div className="ph-bars" role="img" aria-label="pH chart">
-              {phHistory.map((v, i) => (
+              {data.phHistory.map((v, i) => (
                 <PHBar key={i} v={v} i={i} />
               ))}
             </div>
@@ -214,7 +276,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">EC Levels</span>
-              <span className="sensor-value">2.4 mS/cm</span>
+              <span className="sensor-value">{data.sensors.ec.toFixed(1)} mS/cm</span>
             </div>
           </div>
           <div className="sensor-cell">
@@ -223,7 +285,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">TDS</span>
-              <span className="sensor-value">950 ppm</span>
+              <span className="sensor-value">{Math.round(data.sensors.tds)} ppm</span>
             </div>
           </div>
           <div className="sensor-cell">
@@ -232,7 +294,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Water Level</span>
-              <span className="sensor-value">85%</span>
+              <span className="sensor-value">{Math.round(data.sensors.waterLevel)}%</span>
             </div>
           </div>
           <div className="sensor-cell">
@@ -241,7 +303,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Turbidity</span>
-              <span className="sensor-value">3 NTU</span>
+              <span className="sensor-value">{data.sensors.turbidity.toFixed(1)} NTU</span>
             </div>
           </div>
         </section>
@@ -255,21 +317,21 @@ export default function Dashboard() {
                 <Thermometer size={20} color="#32A86D" strokeWidth={2.5} />
               </div>
               <span className="environment-label">Temperature</span>
-              <span className="environment-value">24.2°C</span>
+              <span className="environment-value">{data.environment.temperature.toFixed(1)}°C</span>
             </div>
             <div className="environment-row">
               <div className="icon-circle">
                 <Wind size={20} color="#32A86D" strokeWidth={2.5} />
               </div>
               <span className="environment-label">Humidity</span>
-              <span className="environment-value">68%</span>
+              <span className="environment-value">{Math.round(data.environment.humidity)}%</span>
             </div>
             <div className="environment-row">
               <div className="icon-circle">
                 <Sun size={20} color="#32A86D" strokeWidth={2.5} />
               </div>
               <span className="environment-label">Light Intensity</span>
-              <span className="environment-value">9,000 Lux</span>
+              <span className="environment-value">{Math.round(data.environment.light).toLocaleString()} Lux</span>
             </div>
           </div>
         </section>
