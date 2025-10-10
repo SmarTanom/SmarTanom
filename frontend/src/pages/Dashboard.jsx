@@ -17,6 +17,7 @@ import {
   Sun,
   User
 } from 'lucide-react';
+import { MdScience } from 'react-icons/md';
 
 // Demo data (replace with API data later)
 const devices = [
