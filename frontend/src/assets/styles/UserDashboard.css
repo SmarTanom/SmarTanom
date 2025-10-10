@@ -52,7 +52,7 @@ body { background: var(--color-bg); }
 .dash-header { padding: var(--space-4) var(--space-4) var(--space-2); display:flex; justify-content:space-between; align-items:center; background:var(--color-bg); }
 .dash-header-title { font-family:var(--font-display); font-size:28px; font-weight:400; color:var(--color-secondary); display:flex; align-items:center; gap:8px; margin:0; }
 .dash-header-title svg { display:none; }
-.dash-header-emoji { font-size:1.2em; line-height:1; display:inline-block; transform:translateY(1px); }
+.dash-header-emoji { font-size:1.2em; line-height:1; display:inline-block; transform:translateY(1px); font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Twemoji Mozilla","EmojiOne Color",sans-serif !important; }
 .dash-header-settings { background:none; border:none; padding:8px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background var(--transition-fast); }
 .dash-header-settings:active { background:rgba(50,168,109,0.1); }
 
