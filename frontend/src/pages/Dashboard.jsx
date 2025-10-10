@@ -115,21 +115,78 @@ function PHBar({ v, i }) {
 export default function Dashboard() {
   const carouselRef = useRef(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const scrollTimeoutRef = useRef(null);
+  const isAdjustingRef = useRef(false);
 
-  // Roughly compute active card based on scroll position
+  // Create infinite carousel by duplicating devices at boundaries
+  const infiniteDevices = useMemo(() => {
+    // Add last device at start and first device at end for seamless loop
+    return [devices[devices.length - 1], ...devices, devices[0]];
+  }, []);
+
+  // Initialize scroll position to first real device (index 1 in infinite array)
   useEffect(() => {
     const el = carouselRef.current;
     if (!el) return;
-    const onScroll = () => {
-      const w = el.clientWidth; // viewport width of carousel
-      const cardW = w * 0.85; // matches flex-basis 85vw
-      const gap = 16; // approximate gap from CSS
-      const idx = Math.round(el.scrollLeft / (cardW + gap));
-      setActiveIdx(Math.max(0, Math.min(devices.length - 1, idx)));
-    };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
+    const w = el.clientWidth;
+    const cardW = w * 0.85;
+    const gap = 16;
+    // Scroll to index 1 (first real device) on mount
+    el.scrollLeft = (cardW + gap) * 1;
   }, []);
+
+  // Handle scroll position tracking and loop boundaries
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      if (isAdjustingRef.current) return;
+
+      const w = el.clientWidth;
+      const cardW = w * 0.85;
+      const gap = 16;
+      const scrollPos = el.scrollLeft;
+      const idx = Math.round(scrollPos / (cardW + gap));
+
+      // Clear any pending timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+
+      // Update active index (map to real device index)
+      if (idx === 0) {
+        setActiveIdx(devices.length - 1); // Showing clone of last device
+      } else if (idx === infiniteDevices.length - 1) {
+        setActiveIdx(0); // Showing clone of first device
+      } else {
+        setActiveIdx(idx - 1); // Real device index
+      }
+
+      // After scroll settles, check if we need to loop
+      scrollTimeoutRef.current = setTimeout(() => {
+        if (idx === 0) {
+          // At clone of last device - jump to real last device
+          isAdjustingRef.current = true;
+          el.scrollLeft = (cardW + gap) * devices.length;
+          setTimeout(() => { isAdjustingRef.current = false; }, 50);
+        } else if (idx === infiniteDevices.length - 1) {
+          // At clone of first device - jump to real first device
+          isAdjustingRef.current = true;
+          el.scrollLeft = (cardW + gap) * 1;
+          setTimeout(() => { isAdjustingRef.current = false; }, 50);
+        }
+      }, 150); // Wait for scroll to settle
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [infiniteDevices.length]);
 
   const currentDevice = devices[activeIdx];
   const data = currentDevice.data;
@@ -150,8 +207,8 @@ export default function Dashboard() {
       {/* Device carousel */}
       <section className="device-carousel-wrapper" aria-label="Your devices">
         <div className="device-carousel" ref={carouselRef}>
-          {devices.map((d, i) => (
-            <article className="device-card tap" key={d.id} aria-label={`${d.name} ${d.id}`}>
+          {infiniteDevices.map((d, i) => (
+            <article className="device-card tap" key={`${d.id}-${i}`} aria-label={`${d.name} ${d.id}`}>
               <div className="device-card-media" aria-hidden="true">
                 <img src={d.image} alt="Device" />
               </div>
