@@ -15,6 +15,9 @@ import {
   Bell
 } from 'lucide-react';
 
+// Brand color constant
+const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
+
 // Mock alerts data
 const mockAlerts = [
   {
@@ -140,8 +143,8 @@ export default function AlertsPage() {
       <header className="alerts-header">
         <div className="alerts-header-top">
           <h1 className="alerts-header-title">
-            <Bell size={28} color="#32A86D" strokeWidth={2.5} />
             Alerts
+            <Bell size={28} color="rgba(17, 17, 17, 0.86)" strokeWidth={2.5} />
           </h1>
           {unreadCount > 0 && (
             <span className="alerts-unread-badge">{unreadCount}</span>

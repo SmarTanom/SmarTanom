@@ -2650,7 +2650,7 @@
   display: flex; align-items: center; justify-content: center; z-index: 1000;
 }
 .setup-modal-content {
-  background: #339432; color: #fff; border: 2px solid rgba(255,255,255,0.6);
+  background: rgba(51, 148, 50, 0.9); color: #fff; border: 2px solid rgba(255,255,255,0.6);
   border-radius: 10px; padding: 20px; width: min(520px, 92vw);
   display: flex; flex-direction: column; gap: 12px;
 }
