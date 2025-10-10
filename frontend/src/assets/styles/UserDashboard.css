@@ -29,6 +29,19 @@
   --ph-bar-width: 10px;
 }
 
+/* Universal Icon Circle - consistent across all monitoring icons */
+.icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(50, 168, 109, 0.1);
+  border: 1px solid rgba(50, 168, 109, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 html { font-family: var(--font-body); }
 body { background: var(--color-bg); }
 
@@ -64,15 +77,6 @@ body { background: var(--color-bg); }
 /* 3. Alert Summary */
 .alert-card { position:relative; }
 .alert-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-3); }
-.alert-icon-wrapper { 
-  width:40px; 
-  height:40px; 
-  border-radius:50%; 
-  background:rgba(50,168,109,0.1); 
-  display:flex; 
-  align-items:center; 
-  justify-content:center; 
-}
 .alert-card-title { 
   font-size:15px; 
   font-weight:600; 
@@ -103,7 +107,6 @@ body { background: var(--color-bg); }
 .status-grid { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-3); }
 @media (max-width:360px){ .status-grid { grid-template-columns:1fr; } }
 .status-box { background:var(--color-surface); border-radius:var(--radius-lg); box-shadow:var(--shadow-elev); padding:var(--space-4); display:flex; flex-direction:column; gap:12px; position:relative; }
-.status-icon-wrapper { width:40px; height:40px; border-radius:50%; background:rgba(50,168,109,0.1); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .status-box-content { display:flex; flex-direction:column; gap:6px; }
 .status-label { font-size:14px; font-weight:400; color:var(--color-muted); line-height:1.4; }
 .status-value { font-size:18px; font-weight:700; color:var(--color-secondary); line-height:1.3; }
@@ -118,7 +121,6 @@ body { background: var(--color-bg); }
 /* 6. pH Chart Section */
 .ph-card { display:flex; flex-direction:column; gap:var(--space-3); }
 .ph-card-header { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
-.ph-icon-wrapper { width:40px; height:40px; border-radius:50%; background:rgba(50,168,109,0.1); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .ph-card-title { font-size:16px; font-weight:700; color:var(--color-primary); flex:1; }
 .range-switch { font-size:12px; background:rgba(139,167,151,0.1); border:none; padding:6px 14px; border-radius:8px; color:var(--color-secondary); cursor:pointer; font-weight:500; }
 .range-switch:hover { background:rgba(139,167,151,0.15); }

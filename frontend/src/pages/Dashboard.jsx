@@ -116,8 +116,8 @@ export default function Dashboard() {
         {/* Alert Summary */}
         <section className="card alert-card" aria-label="Alert summary">
           <div className="alert-card-top">
-            <div className="alert-icon-wrapper">
-              <AlertCircle size={24} color="#32A86D" strokeWidth={2.5} />
+            <div className="icon-circle">
+              <AlertCircle size={20} color="#32A86D" strokeWidth={2.5} />
             </div>
             <button className="alert-card-expand" aria-label="Open alerts">
               <ChevronRight size={20} color="#8BA797" />
@@ -129,8 +129,8 @@ export default function Dashboard() {
         {/* Connectivity & Sync */}
         <section className="status-grid" aria-label="Status">
           <div className="status-box">
-            <div className="status-icon-wrapper">
-              <Wifi size={24} color="#32A86D" strokeWidth={2.5} />
+            <div className="icon-circle">
+              <Wifi size={20} color="#32A86D" strokeWidth={2.5} />
             </div>
             <div className="status-box-content">
               <span className="status-label">Connectivity</span>
@@ -138,8 +138,8 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="status-box">
-            <div className="status-icon-wrapper">
-              <RefreshCw size={24} color="#32A86D" strokeWidth={2.5} />
+            <div className="icon-circle">
+              <RefreshCw size={20} color="#32A86D" strokeWidth={2.5} />
             </div>
             <div className="status-box-content">
               <span className="status-label">Last Data Sync</span>
@@ -152,7 +152,9 @@ export default function Dashboard() {
         <section className="card nutrient-card" aria-label="Nutrient level">
           <h3 className="nutrient-title">Nutrient Level</h3>
           <div className="nutrient-status">
-            <Leaf size={20} color="#32A86D" strokeWidth={2.5} />
+            <div className="icon-circle">
+              <Leaf size={20} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <span className="nutrient-text">Low (Nutrient needs refilling)</span>
           </div>
         </section>
@@ -160,8 +162,8 @@ export default function Dashboard() {
         {/* pH levels over time */}
         <section className="card ph-card" aria-label="pH levels over time">
           <div className="ph-card-header">
-            <div className="ph-icon-wrapper">
-              <Activity size={24} color="#32A86D" strokeWidth={2.5} />
+            <div className="icon-circle">
+              <Activity size={20} color="#32A86D" strokeWidth={2.5} />
             </div>
             <span className="ph-card-title">pH Levels over time</span>
             <button className="range-switch" aria-label="Change range">Days ▾</button>
@@ -195,7 +197,9 @@ export default function Dashboard() {
 
         {/* Current pH level */}
         <section className="card current-ph" aria-label="Current pH">
-          <Activity size={32} color="#32A86D" strokeWidth={2} />
+          <div className="icon-circle">
+            <Activity size={20} color="#32A86D" strokeWidth={2.5} />
+          </div>
           <div className="current-ph-content">
             <span className="current-ph-label">Current pH level</span>
             <span className="current-ph-value">{currentPH} pH</span>
@@ -205,28 +209,36 @@ export default function Dashboard() {
         {/* Sensor grid */}
         <section className="sensor-grid" aria-label="Sensor data">
           <div className="sensor-cell">
-            <Zap size={32} color="#32A86D" strokeWidth={2} />
+            <div className="icon-circle">
+              <Zap size={20} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">EC Levels</span>
               <span className="sensor-value">2.4 mS/cm</span>
             </div>
           </div>
           <div className="sensor-cell">
-            <Waves size={32} color="#32A86D" strokeWidth={2} />
+            <div className="icon-circle">
+              <Waves size={20} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">TDS</span>
               <span className="sensor-value">950 ppm</span>
             </div>
           </div>
           <div className="sensor-cell">
-            <Droplet size={32} color="#32A86D" strokeWidth={2} />
+            <div className="icon-circle">
+              <Droplet size={20} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Water Level</span>
               <span className="sensor-value">85%</span>
             </div>
           </div>
           <div className="sensor-cell">
-            <Droplets size={32} color="#32A86D" strokeWidth={2} />
+            <div className="icon-circle">
+              <Droplets size={20} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Turbidity</span>
               <span className="sensor-value">3 NTU</span>
@@ -239,22 +251,30 @@ export default function Dashboard() {
           <h3 className="environment-title">Environment Conditions</h3>
           <div className="environment-list">
             <div className="environment-row">
-              <Thermometer size={20} color="#32A86D" />
+              <div className="icon-circle">
+                <Thermometer size={20} color="#32A86D" strokeWidth={2.5} />
+              </div>
               <span className="environment-label">Temperature</span>
               <span className="environment-value">24.2°C</span>
             </div>
             <div className="environment-row">
-              <Wind size={20} color="#32A86D" />
+              <div className="icon-circle">
+                <Wind size={20} color="#32A86D" strokeWidth={2.5} />
+              </div>
               <span className="environment-label">Humidity</span>
               <span className="environment-value">68%</span>
             </div>
             <div className="environment-row">
-              <Sun size={20} color="#32A86D" />
+              <div className="icon-circle">
+                <Sun size={20} color="#32A86D" strokeWidth={2.5} />
+              </div>
               <span className="environment-label">Light Intensity</span>
               <span className="environment-value">9,000 Lux</span>
             </div>
             <div className="environment-row">
-              <Cloud size={20} color="#32A86D" />
+              <div className="icon-circle">
+                <Cloud size={20} color="#32A86D" strokeWidth={2.5} />
+              </div>
               <span className="environment-label">CO₂ Level</span>
               <span className="environment-value">415 ppm</span>
             </div>
