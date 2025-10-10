@@ -56,6 +56,10 @@ __pycache__/
 .env.development
 .env.production
 .env*.local
+backend/.env
+backend/.env.local
+backend/.env.development
+backend/.env.production
 
 # Test/probe files (temporary)
 *_probe.py
