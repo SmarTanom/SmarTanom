@@ -11,29 +11,29 @@ User = get_user_model()
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    """Admin configuration for custom User model."""
-    
+    """Legacy admin configuration for custom User model."""
+
     list_display = [
-        'email', 
-        'full_name', 
-        'role', 
-        'is_verified', 
-        'is_active', 
-        'is_staff', 
+        'email',
+        'full_name',
+        'role',
+        'is_verified',
+        'is_active',
+        'is_staff',
         'date_joined',
         'last_login_display'
     ]
     list_filter = [
-        'role', 
-        'is_verified', 
-        'is_active', 
-        'is_staff', 
-        'is_superuser', 
+        'role',
+        'is_verified',
+        'is_active',
+        'is_staff',
+        'is_superuser',
         'date_joined'
     ]
     search_fields = ['email', 'first_name', 'last_name']
     ordering = ['-date_joined']
-    
+
     fieldsets = (
         (None, {
             'fields': ('email', 'role')
@@ -43,11 +43,11 @@ class UserAdmin(BaseUserAdmin):
         }),
         ('Permissions', {
             'fields': (
-                'is_active', 
-                'is_staff', 
-                'is_superuser', 
+                'is_active',
+                'is_staff',
+                'is_superuser',
                 'is_verified',
-                'groups', 
+                'groups',
                 'user_permissions'
             ),
         }),
@@ -55,30 +55,30 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('last_login', 'date_joined')
         }),
     )
-    
+
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
             'fields': ('email', 'first_name', 'last_name', 'role'),
         }),
     )
-    
+
     readonly_fields = ['date_joined', 'last_login']
-    
+
     def full_name(self, obj):
         return obj.full_name
     full_name.short_description = 'Full Name'
-    
+
     def last_login_display(self, obj):
         if obj.last_login:
             return obj.last_login.strftime('%Y-%m-%d %H:%M')
         return 'Never'
     last_login_display.short_description = 'Last Login'
     last_login_display.admin_order_field = 'last_login'
-    
+
     def get_queryset(self, request):
         return super().get_queryset(request).select_related()
-    
+
     def save_model(self, request, obj, form, change):
         """Custom save logic."""
         if not change:  # Creating new user
@@ -89,7 +89,7 @@ class UserAdmin(BaseUserAdmin):
 @admin.register(OTPCode)
 class OTPCodeAdmin(admin.ModelAdmin):
     """Admin configuration for OTP Code model."""
-    
+
     list_display = [
         'email',
         'code',
@@ -116,7 +116,7 @@ class OTPCodeAdmin(admin.ModelAdmin):
         'is_valid',
         'attempts'
     ]
-    
+
     fieldsets = (
         (None, {
             'fields': ('email', 'purpose', 'code')
@@ -129,7 +129,7 @@ class OTPCodeAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
+
     def status_display(self, obj):
         """Display OTP status with color coding."""
         if obj.is_used:
@@ -149,15 +149,15 @@ class OTPCodeAdmin(admin.ModelAdmin):
                 '<span style="color: blue; font-weight: bold;">Valid</span>'
             )
     status_display.short_description = 'Status'
-    
+
     def has_add_permission(self, request):
         """Disable manual OTP creation in admin."""
         return False
-    
+
     def has_change_permission(self, request, obj=None):
         """Allow viewing but limited editing."""
         return True
-    
+
     def get_readonly_fields(self, request, obj=None):
         """Make most fields readonly."""
         if obj:  # Editing existing object
@@ -168,7 +168,7 @@ class OTPCodeAdmin(admin.ModelAdmin):
 @admin.register(LoginAttempt)
 class LoginAttemptAdmin(admin.ModelAdmin):
     """Admin configuration for Login Attempt model."""
-    
+
     list_display = [
         'email',
         'ip_address',
@@ -182,7 +182,7 @@ class LoginAttemptAdmin(admin.ModelAdmin):
     search_fields = ['email', 'ip_address']
     ordering = ['-created_at']
     readonly_fields = ['email', 'ip_address', 'created_at', 'successful']
-    
+
     def successful_display(self, obj):
         """Display success status with color coding."""
         if obj.successful:
@@ -195,15 +195,15 @@ class LoginAttemptAdmin(admin.ModelAdmin):
             )
     successful_display.short_description = 'Result'
     successful_display.admin_order_field = 'successful'
-    
+
     def has_add_permission(self, request):
         """Disable manual creation."""
         return False
-    
+
     def has_change_permission(self, request, obj=None):
         """Read-only access."""
         return True
-    
+
     def has_delete_permission(self, request, obj=None):
         """Allow bulk deletion for cleanup."""
         return True

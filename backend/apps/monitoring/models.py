@@ -105,7 +105,6 @@ class Sensor(TimeStampedModel):
 	class SensorType(models.TextChoices):
 		TEMPERATURE = "temperature", "Temperature"
 		WATER_TEMPERATURE = "water_temperature", "Water Temperature"
-		AIR_TEMPERATURE = "air_temperature", "Air Temperature"
 		HUMIDITY = "humidity", "Humidity"
 		PH = "ph", "pH"
 		TDS = "tds", "Total Dissolved Solids (PPM)"
