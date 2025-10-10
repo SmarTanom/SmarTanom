@@ -9,7 +9,7 @@
 - **Installation**: Tools → Manage Libraries → Search "DHT sensor library"
 - **Purpose**: DHT22 temperature and humidity readings
 
-### 2. OneWire Library  
+### 2. OneWire Library
 - **Name**: OneWire
 - **Author**: Jim Studt, Tom Pollard, Paul Stoffregen
 - **Version**: 2.3.7 or later
@@ -61,7 +61,7 @@ To verify libraries are installed correctly:
 2. Check that you can see:
    - **DHT sensor library → DHTtester**
    - **OneWire → DS18x20_Temperature**
-   - **DallasTemperature → Simple**  
+   - **DallasTemperature → Simple**
    - **BH1750 → BH1750test**
 
 ## Library Versions Tested
@@ -70,7 +70,7 @@ This firmware has been tested with:
 
 ```
 DHT sensor library: v1.4.4
-OneWire: v2.3.7  
+OneWire: v2.3.7
 DallasTemperature: v3.9.1
 BH1750: v1.3.0
 ESP32 Arduino Core: v2.0.11

@@ -25,5 +25,7 @@ class DeviceViewSet(BaseAuthViewSet):
         qs = super().get_queryset()
         user = self.request.user
         if user.is_staff:
+            # Staff users see all devices (owned and unowned)
             return qs
+        # Regular users see only their own devices (not unowned ones)
         return qs.filter(user=user)

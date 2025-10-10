@@ -55,6 +55,12 @@ class Command(BaseCommand):
             action='store_true',
             help='Clear existing data before generating new data'
         )
+        parser.add_argument(
+            '--unowned-devices',
+            type=int,
+            default=0,
+            help='Number of unowned devices to create (default: 0)'
+        )
 
     def handle(self, *args, **options):
         """Execute the command."""
@@ -62,16 +68,19 @@ class Command(BaseCommand):
             self.clear_existing_data()
 
         users = self.create_users(options['users'])
-        devices = self.create_devices(users, options['devices_per_user'])
-        reservoirs = self.create_reservoirs(devices, options['reservoirs_per_device'])
-        sensors = self.create_sensors(devices)
+        owned_devices = self.create_devices(users, options['devices_per_user'])
+        unowned_devices = self.create_unowned_devices(options['unowned_devices'])
+        all_devices = owned_devices + unowned_devices
+
+        reservoirs = self.create_reservoirs(all_devices, options['reservoirs_per_device'])
+        sensors = self.create_sensors(all_devices)
         self.create_sensor_data(sensors, options['readings_per_sensor'], options['days'])
 
         self.stdout.write(
             self.style.SUCCESS(
                 f'Successfully generated mock data:\n'
                 f'  - {len(users)} users\n'
-                f'  - {len(devices)} devices\n'
+                f'  - {len(all_devices)} devices ({len(owned_devices)} owned, {len(unowned_devices)} unowned)\n'
                 f'  - {len(reservoirs)} reservoirs\n'
                 f'  - {len(sensors)} sensors\n'
                 f'  - ~{len(sensors) * options["readings_per_sensor"]} sensor readings'
@@ -137,6 +146,34 @@ class Command(BaseCommand):
                 if created:
                     self.stdout.write(f'Created device: {device_name} for {user.email}')
                 devices.append(device)
+
+        return devices
+
+    def create_unowned_devices(self, count):
+        """Create unowned devices (without users)."""
+        devices = []
+        unowned_names = [
+            'Factory Floor Unit', 'Warehouse Setup', 'Demo Station', 'Test Rig',
+            'Prototype Alpha', 'Research Unit', 'Field Test Device', 'Evaluation Kit',
+            'Training System', 'Display Model'
+        ]
+
+        for i in range(count):
+            device_name = f"{unowned_names[i % len(unowned_names)]} {chr(65 + i)}"  # A, B, C, etc.
+            device, created = Device.objects.get_or_create(
+                user=None,  # No owner
+                device_name=device_name,
+                defaults={
+                    'status': random.choice([
+                        Device.Status.ACTIVE,
+                        Device.Status.MAINTENANCE,
+                        Device.Status.INACTIVE
+                    ])
+                }
+            )
+            if created:
+                self.stdout.write(f'Created unowned device: {device_name}')
+            devices.append(device)
 
         return devices
 

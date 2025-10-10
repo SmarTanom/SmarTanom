@@ -20,7 +20,8 @@ class Device(TimeStampedModel):
         DECOMMISSIONED = "decommissioned", "Decommissioned"
 
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="new_devices", db_index=True
+        User, on_delete=models.CASCADE, related_name="new_devices", db_index=True,
+        null=True, blank=True, help_text="Owner of the device. Null for unowned devices."
     )
     device_name = models.CharField(max_length=100)
     status = models.CharField(
