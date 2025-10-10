@@ -62,7 +62,7 @@ body { background: var(--color-bg); }
 .device-card-media { position:absolute; top:0; left:0; right:0; bottom:0; width:100%; height:100%; background:#dfe9e2; display:flex; align-items:center; justify-content:center; }
 .device-card-media img { width:100%; height:100%; object-fit:cover; }
 /* Floating overlay card to match mockup */
-.device-card-info { position:absolute; left:14px; right:14px; bottom:14px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; background:#fff; border-radius:14px; box-shadow:0 10px 28px rgba(0,0,0,0.10), 0 6px 18px rgba(50,168,109,0.10); border:1px solid rgba(0,0,0,0.04); }
+.device-card-info { position:absolute; left:14px; right:14px; bottom:6px; padding:16px 18px; min-height:64px; display:flex; align-items:center; justify-content:space-between; background:#fff; border-radius:14px; box-shadow:0 10px 28px rgba(0,0,0,0.10), 0 6px 18px rgba(50,168,109,0.10); border:1px solid rgba(0,0,0,0.04); }
 .device-card-info > div:first-child { margin-right:12px; }
 .device-name { font-size:15px; font-weight:600; color:#1a1a1a; margin:0 0 2px; line-height:1.3; }
 .device-id { font-size:11px; color:#c0c0c0; margin:0; line-height:1.3; }
