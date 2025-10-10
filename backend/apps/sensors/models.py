@@ -12,15 +12,20 @@ class Sensor(TimeStampedModel):
     """A sensor attached to a device."""
 
     class SensorType(models.TextChoices):
-        """Sensor types with proper units."""
-        WATER_TEMPERATURE = "water_temperature", "Water Temperature (°C)"
-        HUMIDITY = "humidity", "Humidity (%)"
-        PH = "ph", "pH"
-        TDS = "tds", "Total Dissolved Solids (ppm)"
-        LIGHT = "light", "Light (lux)"
-        WATER_LEVEL = "water_level", "Water Level"
-        TURBIDITY = "turbidity", "Turbidity (NTU)"
-        OTHER = "other", "Other"
+        """Sensor types matching actual hardware."""
+        # Water quality sensors
+        PH = "ph", "pH Sensor"
+        TDS = "tds", "TDS Sensor (ppm)"
+        WATER_TEMPERATURE = "water_temperature", "Water Temperature Sensor (°C)"
+        WATER_LEVEL = "water_level", "Water Level Sensor"
+        TURBIDITY = "turbidity", "Turbidity Sensor (NTU)"
+
+        # DHT22 sensor (dual function)
+        AIR_TEMPERATURE = "air_temperature", "Air Temperature - DHT22 (°C)"
+        HUMIDITY = "humidity", "Humidity - DHT22 (%)"
+
+        # BH1750 light sensor
+        LIGHT = "light", "Light Sensor - BH1750 (lux)"
 
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name="sensors", db_index=True

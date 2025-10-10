@@ -180,19 +180,24 @@ class Command(BaseCommand):
         """Create sensors for devices."""
         sensors = []
 
-        # Create a variety of sensors for each device
+        # Create all 8 sensor types matching actual hardware
         sensor_configs = [
-            (Sensor.SensorType.WATER_TEMPERATURE, '°C'),
+            # Water quality sensors
             (Sensor.SensorType.PH, 'pH'),
             (Sensor.SensorType.TDS, 'ppm'),
-            (Sensor.SensorType.HUMIDITY, '%'),
-            (Sensor.SensorType.LIGHT, 'lux'),
+            (Sensor.SensorType.WATER_TEMPERATURE, '°C'),
             (Sensor.SensorType.WATER_LEVEL, '%'),
+            (Sensor.SensorType.TURBIDITY, 'NTU'),
+            # DHT22 (dual sensor)
+            (Sensor.SensorType.AIR_TEMPERATURE, '°C'),
+            (Sensor.SensorType.HUMIDITY, '%'),
+            # BH1750
+            (Sensor.SensorType.LIGHT, 'lux'),
         ]
 
         for device in devices:
-            # Each device gets 3-5 random sensor types
-            selected_sensors = random.sample(sensor_configs, random.randint(3, 5))
+            # Each device gets all 7 sensor types (matching actual hardware)
+            selected_sensors = sensor_configs
 
             for sensor_type, unit in selected_sensors:
                 sensor, created = Sensor.objects.get_or_create(
@@ -251,8 +256,11 @@ class Command(BaseCommand):
         elif sensor_type == Sensor.SensorType.WATER_LEVEL:
             # 20-100% water level
             return round(random.uniform(20, 100), 1)
+        elif sensor_type == Sensor.SensorType.AIR_TEMPERATURE:
+            # Air temperature from DHT22 (20-35°C ambient)
+            return round(random.uniform(20.0, 35.0), 1)
         elif sensor_type == Sensor.SensorType.TURBIDITY:
-            # 0-10 NTU for clean water systems
+            # 0-10 NTU for clean water systems (lower is clearer)
             return round(random.uniform(0, 10), 2)
         else:
             # Generic value for other types

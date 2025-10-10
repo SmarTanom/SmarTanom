@@ -73,6 +73,10 @@ MIDDLEWARE = [
 	"django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+# Add development auto-login middleware in DEBUG mode
+if DEBUG:
+	MIDDLEWARE.append("apps.common.middleware.DevAutoLoginMiddleware")
+
 ROOT_URLCONF = "smartanom.urls"
 
 TEMPLATES = [

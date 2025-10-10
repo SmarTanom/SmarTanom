@@ -48,6 +48,29 @@ Complete Docker containerization for the SmarTanom hydroponic monitoring system,
 
 ### Production Deployment
 
+1. **Copy and configure environment file**:
+   ```bash
+   cp .env.production.template .env.production
+   # Edit .env.production with your production settings
+   ```
+
+2. **Deploy production stack**:
+   ```bash
+   docker-compose -f docker-compose.production.yml up -d --build
+   ```
+
+3. **Verify deployment**:
+   ```bash
+   docker-compose -f docker-compose.production.yml ps
+   docker-compose -f docker-compose.production.yml logs backend
+   ```
+
+4. **Health check**:
+   ```bash
+   curl -f http://localhost:8000/healthz
+   # Should return: {"status":"ok","db":true}
+   ```
+
 1. **Setup environment**:
    ```bash
    cp .env.prod.example .env.prod

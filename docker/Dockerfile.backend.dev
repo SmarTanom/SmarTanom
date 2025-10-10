@@ -26,15 +26,28 @@ COPY backend/requirements.txt ./
 RUN python -m pip install --upgrade pip setuptools wheel
 RUN pip install -r requirements.txt
 
-# Create a simple startup script for development
+# Create a comprehensive startup script for development
 RUN echo '#!/bin/sh' > /startup.sh && \
     echo 'set -e' >> /startup.sh && \
     echo '' >> /startup.sh && \
     echo 'cd /app' >> /startup.sh && \
-    echo 'echo "Starting Django development server..."' >> /startup.sh && \
+    echo 'echo "=== SmarTanom Backend Development ==="' >> /startup.sh && \
+    echo 'echo "Waiting for database..."' >> /startup.sh && \
+    echo 'until pg_isready -h postgres -p 5432 -U smartanom; do' >> /startup.sh && \
+    echo '  echo "Database is unavailable - sleeping"' >> /startup.sh && \
+    echo '  sleep 2' >> /startup.sh && \
+    echo 'done' >> /startup.sh && \
+    echo 'echo "Database is ready!"' >> /startup.sh && \
+    echo '' >> /startup.sh && \
     echo 'echo "Running migrations..."' >> /startup.sh && \
-    echo 'python manage.py migrate --noinput || true' >> /startup.sh && \
-    echo 'echo "Starting server on 0.0.0.0:8000"' >> /startup.sh && \
+    echo 'python manage.py migrate --noinput' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo 'echo "Collecting static files..."' >> /startup.sh && \
+    echo 'python manage.py collectstatic --noinput --clear || true' >> /startup.sh && \
+    echo '' >> /startup.sh && \
+    echo 'echo "Starting Django development server..."' >> /startup.sh && \
+    echo 'echo "Access the API at: http://localhost:8000/"' >> /startup.sh && \
+    echo 'echo "Admin panel at: http://localhost:8000/admin/"' >> /startup.sh && \
     echo 'exec python manage.py runserver 0.0.0.0:8000' >> /startup.sh && \
     chmod +x /startup.sh
 

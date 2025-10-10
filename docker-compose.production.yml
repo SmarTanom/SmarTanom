@@ -1,0 +1,157 @@
+version: "3.8"
+
+services:
+  # Production PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: smartanom-postgres-prod
+    environment:
+      POSTGRES_DB: smartanom_prod
+      POSTGRES_USER: smartanom
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme123}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - smartanom-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartanom -d smartanom_prod"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Production Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: smartanom-redis-prod
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redispassword123}
+    volumes:
+      - redis_data_prod:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - smartanom-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Production Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+      args:
+        PYTHON_VERSION: 3.12.5
+        ALPINE_VERSION: 3.20
+        INSTALL_DEV: false
+    container_name: smartanom-backend-prod
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgres://smartanom:${DB_PASSWORD:-changeme123}@postgres:5432/smartanom_prod
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: smartanom_prod
+      DB_USER: smartanom
+      DB_PASSWORD: ${DB_PASSWORD:-changeme123}
+
+      # Redis Configuration
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redispassword123}@redis:6379/0
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redispassword123}
+
+      # Django Configuration
+      DEBUG: "false"
+      SECRET_KEY: ${SECRET_KEY:-your-super-secret-production-key-change-this}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
+      DJANGO_SETTINGS_MODULE: smartanom.settings
+
+      # Security Settings
+      SECURE_SSL_REDIRECT: "true"
+      SECURE_HSTS_SECONDS: "31536000"
+      SECURE_HSTS_INCLUDE_SUBDOMAINS: "true"
+      SECURE_HSTS_PRELOAD: "true"
+      SECURE_CONTENT_TYPE_NOSNIFF: "true"
+      SECURE_BROWSER_XSS_FILTER: "true"
+      SESSION_COOKIE_SECURE: "true"
+      CSRF_COOKIE_SECURE: "true"
+
+      # CORS Configuration
+      CORS_ALLOW_ALL_ORIGINS: "false"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://yourdomain.com}
+
+      # OTP Configuration
+      OTP_EXPIRE_MINUTES: "10"
+      OTP_MAX_ATTEMPTS: "3"
+      OTP_RATE_LIMIT_WINDOW: "300"
+      OTP_RATE_LIMIT_MAX_ATTEMPTS: "5"
+
+      # Email Configuration
+      EMAIL_BACKEND: "django.core.mail.backends.smtp.EmailBackend"
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USE_TLS: "true"
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-your-email@example.com}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-your-app-password}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-SmarTanom <noreply@yourdomain.com>}
+
+      # Gunicorn Configuration
+      GUNICORN_WORKERS: "3"
+      GUNICORN_WORKER_CONNECTIONS: "1000"
+      GUNICORN_MAX_REQUESTS: "1000"
+      GUNICORN_MAX_REQUESTS_JITTER: "100"
+      GUNICORN_TIMEOUT: "30"
+      GUNICORN_KEEPALIVE: "2"
+      GUNICORN_LOG_LEVEL: "info"
+
+      # Logging
+      LOG_LEVEL: "INFO"
+
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - smartanom-network
+    restart: unless-stopped
+    volumes:
+      - backend_logs_prod:/app/logs
+      - backend_media_prod:/app/media
+      - backend_static_prod:/app/staticfiles
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data_prod:
+    driver: local
+  redis_data_prod:
+    driver: local
+  backend_logs_prod:
+    driver: local
+  backend_media_prod:
+    driver: local
+  backend_static_prod:
+    driver: local
+
+networks:
+  smartanom-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
