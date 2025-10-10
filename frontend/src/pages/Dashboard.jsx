@@ -118,14 +118,18 @@ export default function Dashboard() {
         {/* Connectivity & Sync */}
         <section className="status-grid" aria-label="Status">
           <div className="status-box">
-            <Wifi size={20} color="#32A86D" />
+            <div className="status-icon-wrapper">
+              <Wifi size={24} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <div className="status-box-content">
               <span className="status-label">Connectivity</span>
               <span className="status-value status-online">Online</span>
             </div>
           </div>
           <div className="status-box">
-            <RefreshCw size={20} color="#32A86D" />
+            <div className="status-icon-wrapper">
+              <RefreshCw size={24} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <div className="status-box-content">
               <span className="status-label">Last Data Sync</span>
               <span className="status-value">3 minutes ago</span>
@@ -135,12 +139,9 @@ export default function Dashboard() {
 
         {/* Nutrient level */}
         <section className="card nutrient-card" aria-label="Nutrient level">
-          <div className="nutrient-header">
-            <Droplets size={20} color="#32A86D" />
-            <span className="nutrient-label">Nutrient Level</span>
-          </div>
+          <h3 className="nutrient-title">Nutrient Level</h3>
           <div className="nutrient-status">
-            <Leaf size={20} color="#32A86D" />
+            <Leaf size={20} color="#32A86D" strokeWidth={2.5} />
             <span className="nutrient-text">Low (Nutrient needs refilling)</span>
           </div>
         </section>
