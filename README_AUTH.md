@@ -135,6 +135,23 @@ OTP_MAX_ATTEMPTS=3
 | `/api/auth/check-username/` | GET | Check username availability (?username=) | No |
 | `/api/auth/finalize-account/` | POST | Set username after OTP verify | Yes |
 
+### 🔒 Enumeration-Safe Behavior
+
+To prevent attackers from probing which emails are registered, the authentication endpoints now respond with generic messages:
+
+* `request-otp` always returns HTTP 200 with the message: `If the account exists, a code was sent.` (except when rate limited 429).
+* `verify-otp` returns a generic error `Invalid code or authentication failed.` for all authentication failures (unknown email, wrong/expired code, or invalid state).
+* In `DEBUG` mode, a `debug_code` field is still included to aid local testing—ensure this is disabled in production.
+
+Silent purpose remapping:
+* Login attempt for an email that does not yet exist is internally treated as a registration request (OTP issued; user will be created at verify step).
+* Registration attempt for an email that already exists is internally treated as a login request.
+The client still only sees the generic success response, preserving ambiguity.
+
+Frontend logic should not branch on existence-specific errors; it should always proceed to the code entry screen on success and show only generic error text on failure. This significantly reduces user enumeration risk.
+
+Rate limiting (email + IP) is still enforced and returns 429 to throttle bulk probing attempts.
+
 ## 🎨 Frontend Integration
 
 Use these endpoints in your React/Vue/Angular frontend:

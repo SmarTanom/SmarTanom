@@ -7,16 +7,26 @@ export default defineConfig({
     host: true,
     port: 5173,
     proxy: {
-      // Forward API calls to Django dev server
+      // Forward API calls to Django dev server (backend runs on 8000)
       '/api': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
-        // No rewrite: backend already serves under /api
       },
-      // Optional: health endpoints if referenced directly
+      // Health (if directly referenced outside /api)
       '/healthz': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // Optionally expose static/media if you later reference them directly from frontend dev
+      '/static': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/media': {
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
       },

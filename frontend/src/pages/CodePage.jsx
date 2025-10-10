@@ -1,63 +1,60 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthCodePage.css';
 import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
-import { verifyCode } from '../services/api/auth.js';
+import { verifyCode, requestCode } from '../services/api/auth.js';
+// Legacy page (deprecated). OTP now inlined directly on EmailPage / Signup step 4.
 
 export default function CodePage({ mode = 'signin' }) {
   const navigate = useNavigate();
   const { email, setMode } = useAuthFlow();
-  const [digits, setDigits] = useState(['', '', '', '', '', '']);
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const inputRefs = useRef([]);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   React.useEffect(() => setMode(mode), [mode, setMode]);
 
-  function handleChange(i, v) {
-    if (/^\d?$/.test(v)) {
-      const copy = [...digits];
-      copy[i] = v;
-      setDigits(copy);
-      
-      // Auto-focus next input
-      if (v && i < 5) {
-        inputRefs.current[i + 1]?.focus();
-      }
-    }
-  }
-
-  function handleKeyDown(i, e) {
-    // Handle backspace to go to previous input
-    if (e.key === 'Backspace' && !digits[i] && i > 0) {
-      inputRefs.current[i - 1]?.focus();
-    }
-  }
+  // Cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   async function handleResendCode() {
+    if (resendCooldown > 0) return;
     setError('');
+    setResendSuccess(false);
+    setStatusMsg('Resending code…');
     try {
-      // TODO: Implement resend code API call
-      await new Promise(r => setTimeout(r, 500));
+      await requestCode({ email, mode });
+      setResendSuccess(true);
+      setStatusMsg('Code sent! Check your email.');
+      setResendCooldown(30);
     } catch (err) {
-      setError('Could not resend code. Please try again.');
+      setStatusMsg('Failed to resend code.');
+      setError(err?.message || 'Could not resend code. Please try again.');
+      setResendCooldown(10);
     }
   }
 
   async function handleConfirm(e) {
     e.preventDefault();
     setError('');
-    const code = digits.join('');
     if (code.length !== 6) {
       setError('Please enter the complete 6-digit code');
-      inputRefs.current[0]?.focus();
       return;
     }
     setLoading(true);
+    setStatusMsg('Verifying…');
     try {
       const resp = await verifyCode({ email, code, mode });
+      setStatusMsg('Verification successful!');
       if (mode === 'signup') {
         navigate('/signup/username');
       } else {
@@ -69,6 +66,7 @@ export default function CodePage({ mode = 'signin' }) {
         navigate('/');
       }
     } catch (err) {
+      setStatusMsg('Verification failed.');
       setError(err?.message || 'Code expired or invalid. Please try again or request a new code.');
     } finally {
       setLoading(false);
@@ -103,24 +101,16 @@ export default function CodePage({ mode = 'signin' }) {
               <p className="auth-subtext" style={{ textAlign: 'center' }}>{subtext}</p>
             </header>
             <form className="auth-form" onSubmit={handleConfirm} noValidate>
-              <div className="auth-otp-grid">
-                {digits.map((d, i) => (
-                  <input
-                    key={i}
-                    ref={el => inputRefs.current[i] = el}
-                    inputMode="numeric"
-                    aria-label={`Digit ${i + 1}`}
-                    className={`auth-otp-input ${error ? 'error' : ''}`}
-                    value={d}
-                    onChange={e => handleChange(i, e.target.value)}
-                    onKeyDown={e => handleKeyDown(i, e)}
-                    maxLength={1}
-                    aria-invalid={!!error}
-                  />
-                ))}
-              </div>
+              <p style={{fontSize:'14px', opacity:.8}}>[Deprecated screen] Use the main email screen; this page will be removed.</p>
+              <div className="visually-hidden" aria-live="polite">{statusMsg}</div>
               {error && <div className="auth-error" role="alert">{error}</div>}
-              <button type="submit" className="auth-submit" disabled={loading}>
+              {resendSuccess && <div className="auth-success" role="status">✓ Code sent! Check your email.</div>}
+              {resendCooldown > 0 && (
+                <div className="auth-helper" style={{ fontSize: '12px', opacity: 0.75 }}>
+                  Resend available in {resendCooldown}s
+                </div>
+              )}
+              <button type="submit" className="auth-submit" disabled={loading || code.length !== 6}>
                 {loading && <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />}
                 <span>{loading ? 'Verifying...' : 'Verify Code'}</span>
               </button>
@@ -128,12 +118,13 @@ export default function CodePage({ mode = 'signin' }) {
                 type="button" 
                 className="auth-link" 
                 onClick={handleResendCode}
-                style={{ alignSelf: 'center' }}
+                disabled={resendCooldown > 0}
+                style={{ alignSelf: 'center', opacity: resendCooldown > 0 ? 0.5 : 1 }}
+                aria-label={resendCooldown > 0 ? `Resend disabled, ${resendCooldown} seconds remaining` : 'Resend verification code'}
               >
-                Didn't receive a code? Resend
+                {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : "Didn't receive a code? Resend"}
               </button>
               <div className="auth-helper auth-fade-item">Check your email inbox and spam folder for the verification code.</div>
-              <span role="status" aria-live="polite">{loading ? 'Verification in progress' : ''}</span>
             </form>
           </div>
         </div>

@@ -5,6 +5,7 @@ import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthEmailPage.css';
 import { Mail as MailIcon, ChevronLeftFilled } from '../components/ui/Icon.jsx';
 import { requestCode, verifyCode } from '../services/api/auth.js';
+import { authApi } from '../services/apiClient.js';
 // OtpInput removed per request; inlining digit inputs locally
 
 // Inline validation helpers
@@ -22,6 +23,15 @@ export default function EmailPage({ mode = 'signin' }) {
   const [resendCooldown, setResendCooldown] = useState(0);
   const inputRef = useRef(null);
   const otpRefs = useRef([]);
+  const switchModeBtnRef = useRef(null);
+  const [showSwitchToSignin, setShowSwitchToSignin] = useState(false);
+
+  // Auto-focus the switch-to-sign-in button when it appears for accessibility
+  useEffect(()=>{
+    if (showSwitchToSignin && switchModeBtnRef.current) {
+      try { switchModeBtnRef.current.focus(); } catch {}
+    }
+  }, [showSwitchToSignin]);
 
   // Ensure mode is synced when component mounts or prop changes
   useEffect(() => setMode(mode), [mode, setMode]);
@@ -42,9 +52,24 @@ export default function EmailPage({ mode = 'signin' }) {
     }
     setLoading(true);
     try {
-      await requestCode({ email: trimmed, mode });
-      setCodeSent(true);
-      setStatusMsg('Code sent! Check your email.');
+      const data = await requestCode({ email: trimmed, mode });
+      if (data.flow_hint === 'should_login' && mode === 'signup') {
+        // Existing account trying to sign up: do NOT show OTP; instruct to sign in.
+        setStatusMsg('Account already exists. Please sign in instead.');
+        setCodeSent(false);
+        setShowSwitchToSignin(true);
+        // keep current input so user can just submit in signin mode
+        setMode('signin');
+        return;
+      } else if (data.flow_hint === 'should_signup' && mode === 'signin') {
+        // Block moving to OTP in login flow; instruct user to switch to signup
+        setStatusMsg('No account found. Please choose Sign Up to create one.');
+        setCodeSent(false);
+        return; // exit early
+      } else {
+        setCodeSent(true);
+        setStatusMsg('Code sent! Check your email.');
+      }
       setResendCooldown(30);
     } catch (err) {
       setError(err?.message || 'Could not send code. Please retry.');
@@ -83,14 +108,29 @@ export default function EmailPage({ mode = 'signin' }) {
     try {
       const resp = await verifyCode({ email, code, mode });
       setStatusMsg('Verification successful!');
-      if (mode === 'signup') {
-        navigate('/signup/username');
-      } else {
-        if (resp?.token) {
-          try { localStorage.setItem('auth_token', resp.token); } catch {}
-        }
-        navigate('/');
+      // Persist token if provided (login or register)
+      if (resp?.token) {
+        try { localStorage.setItem('auth_token', resp.token); } catch {}
       }
+      // If this is a signup-first flow, continue onboarding to username
+      if (mode === 'signup' || resp?.flow_hint === 'signup_created') {
+        navigate('/signup/username');
+        return;
+      }
+      // Otherwise, after successful sign-in, fetch profile and route by role
+      const token = resp?.token || localStorage.getItem('auth_token');
+      let target = '/dashboard';
+      try {
+        if (token) {
+          const prof = await authApi.getProfile(token);
+          const role = prof?.role || prof?.user?.role;
+          const isAdmin = prof?.is_admin === true || prof?.user?.is_admin === true;
+          if (role === 'admin' || isAdmin) target = '/admin';
+        }
+      } catch (_) {
+        // default to user dashboard if profile lookup fails
+      }
+      navigate(target, { replace: true });
     } catch (err){
       setStatusMsg('Verification failed.');
       setOtpError(err?.message || 'Invalid or expired code.');
@@ -169,6 +209,17 @@ export default function EmailPage({ mode = 'signin' }) {
                   <span>{loading ? 'Sending...' : 'Send Verification Code'}</span>
                 </button>
                 <div className="auth-helper auth-fade-item">We'll send a secure code to verify your identity.</div>
+                {showSwitchToSignin && (
+                  <button
+                    ref={switchModeBtnRef}
+                    type="button"
+                    className="auth-alt-action"
+                    onClick={()=> { setShowSwitchToSignin(false); setMode('signin'); setStatusMsg('Switched to Sign In. Enter your email to receive a code.'); }}
+                    aria-describedby={statusMsg ? 'status-msg' : undefined}
+                  >
+                    Switch to Sign In
+                  </button>
+                )}
                 <span role="status" aria-live="polite">{loading ? 'Request in progress' : ''}</span>
               </form>
             )}

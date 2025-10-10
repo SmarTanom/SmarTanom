@@ -1,0 +1,169 @@
+/* OTP Input Container */
+.otp-root {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Layout helper if needed */
+.otp-wrapper-center {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Variants */
+.otp-root.otp-variant-light .otp-cell {
+  background:#ffffff;
+  border:2px solid #1b5e20; /* deep green border for visibility */
+  color:#1b5e20;
+}
+
+.otp-root.otp-variant-light .otp-cell:focus {
+  border-color:#2e7d32;
+  box-shadow:0 0 0 3px rgba(46,125,50,0.25);
+}
+
+.otp-root.otp-variant-light.error .otp-cell {
+  border-color:#d32f2f;
+  color:#d32f2f;
+}
+
+/* Dark variant (optional) */
+.otp-root.otp-variant-dark .otp-cell {
+  background: rgba(0,0,0,0.55);
+  border:2px solid rgba(255,255,255,0.35);
+  color:#fff;
+}
+
+.otp-root.otp-variant-dark .otp-cell:focus {
+  border-color:#7ae68a;
+  box-shadow:0 0 0 4px rgba(122,230,138,0.28), 0 4px 18px rgba(0,0,0,0.4);
+}
+
+.otp-root.otp-variant-dark.error .otp-cell {
+  border-color:#ff6b6b;
+  color:#ffb3b3;
+  background:rgba(77,0,0,0.5);
+}
+
+/* Individual OTP Cell */
+.otp-cell {
+  width: 56px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(0,0,0,0.15);
+  border-radius: 14px;
+  color: #016b22;
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+  caret-color: #4A9B4D;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 2px rgba(255,255,255,0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  position: relative;
+}
+
+/* Hover State */
+.otp-cell:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 1);
+  border-color: #4A9B4D;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25), inset 0 1px 2px rgba(255,255,255,0.8);
+}
+
+/* Focus State */
+.otp-cell:focus {
+  background: rgba(255, 255, 255, 1);
+  border-color: #4A9B4D;
+  box-shadow: 0 0 0 4px rgba(74,155,77,0.3), 0 4px 20px rgba(0,0,0,0.3);
+  transform: scale(1.05);
+}
+
+/* Filled State */
+.otp-cell[data-filled="true"] {
+  background: rgba(255, 255, 255, 1);
+  border-color: #4A9B4D;
+  border-width: 3px;
+  box-shadow: 0 4px 16px rgba(74,155,77,0.4), inset 0 1px 3px rgba(74,155,77,0.2);
+  animation: otp-pop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Filled + Focus State */
+.otp-cell[data-filled="true"]:focus {
+  box-shadow: 0 0 0 4px rgba(74,155,77,0.35), 0 4px 20px rgba(74,155,77,0.4);
+}
+
+/* Disabled State */
+.otp-cell:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: rgba(255,255,255,0.7);
+  border-color: rgba(255,255,255,0.5);
+}
+
+/* Error State */
+.otp-root.error .otp-cell {
+  background: rgba(255, 230, 230, 0.95);
+  border-color: #d9534f;
+  border-width: 3px;
+  color: #c62828;
+  animation: otp-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  box-shadow: 0 0 0 3px rgba(217,83,79,0.3), 0 4px 16px rgba(217,83,79,0.4);
+}
+
+.otp-root.error .otp-cell:focus {
+  box-shadow: 0 0 0 4px rgba(217,83,79,0.4), 0 4px 20px rgba(217,83,79,0.5);
+}
+
+/* Animations */
+@keyframes otp-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+  20%, 40%, 60%, 80% { transform: translateX(6px); }
+}
+
+@keyframes otp-pop {
+  0% { transform: scale(0.92); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* Responsive Design */
+@media (max-width: 520px) {
+  .otp-root { gap: 10px; margin-top: 16px; }
+  .otp-cell {
+    width: 48px;
+    height: 56px;
+    font-size: 28px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 400px) {
+  .otp-root { gap: 8px; }
+  .otp-cell {
+    width: 42px;
+    height: 52px;
+    font-size: 24px;
+    border-radius: 10px;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .otp-cell,
+  .otp-root.error .otp-cell,
+  .otp-cell[data-filled="true"] {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -50,6 +50,7 @@ INSTALLED_APPS = [
 	"django.contrib.messages",
 	"django.contrib.staticfiles",
 	# Third-party
+	"corsheaders",
 	"rest_framework",
 	"rest_framework.authtoken",
 	"django_filters",
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
 	"django.middleware.security.SecurityMiddleware",
+	"corsheaders.middleware.CorsMiddleware",
 	"django.contrib.sessions.middleware.SessionMiddleware",
 	"django.middleware.common.CommonMiddleware",
 	"django.middleware.csrf.CsrfViewMiddleware",
@@ -154,6 +156,16 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# CORS (development permissive; tighten in production)
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+	'*'
+]
+CORS_ALLOW_METHODS = [
+	'GET','POST','PUT','PATCH','DELETE','OPTIONS'
+]
 
 
 # Django REST Framework configuration

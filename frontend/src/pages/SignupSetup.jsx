@@ -662,11 +662,21 @@ export default function SignupSetup() {
       const token = localStorage.getItem('auth_token');
       if (!token) throw new Error('Missing auth session (token). Please re-authenticate.');
       await authApi.finalizeAccount(username.trim(), token);
+      // Retrieve profile to determine role for redirect
+      let role = 'user';
+      try {
+        const prof = await authApi.getProfile(token);
+        role = prof?.role || (prof?.user?.role) || 'user';
+      } catch (e) {
+        // non-fatal; default user
+        console.warn('[finalizeAccount] profile fetch failed, defaulting to user role');
+      }
       setAccountCreated(true);
+      // Small delay to show success state then navigate
       setTimeout(()=>{
-        const btn = document.getElementById('go-dashboard-btn');
-        if(btn) btn.focus();
-      }, 50);
+        const target = role === 'admin' ? '/admin' : '/dashboard';
+        navigate(target, { replace: true });
+      }, 400);
     } catch (e) {
       setFinalError(e.message || 'Unable to create account');
     } finally {

@@ -203,49 +203,73 @@ def request_otp(request):
         )
     
     try:
-        # Enforce that email must already exist for login (per requirement)
-        if purpose == 'login':
-            if not User.objects.filter(email=email).exists():
-                LoginAttempt.record_attempt(email, ip_address, successful=False)
-                return Response(
-                    {'error': 'Email not found. Please contact your administrator.'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-        else:
-            # If registering, ensure it doesn't already exist
-            if User.objects.filter(email=email).exists():
-                return Response(
-                    {'error': 'User already exists with this email.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        # Determine whether the email already exists. We now enforce explicit flows:
+        #  - If user selects signup (register) but email exists -> still send a code tied to *login* purpose but include flag so frontend can prompt login instead of continuing signup.
+        #  - If user selects login but email does not exist -> send code for *register* purpose but include flag so frontend can prompt them to create an account after verification.
+        # This preserves security (no direct disclosure) while preventing an existing account from proceeding down the signup completion path.
+        email_exists = User.objects.filter(email=email).exists()
+        original_purpose = purpose
+        existence_mismatch = False
+        if purpose == OTPCode.PURPOSE_LOGIN and not email_exists:
+            purpose = OTPCode.PURPOSE_REGISTER
+            existence_mismatch = True  # attempting login for new email
+        elif purpose == OTPCode.PURPOSE_REGISTER and email_exists:
+            purpose = OTPCode.PURPOSE_LOGIN
+            existence_mismatch = True  # attempting register for existing email
 
         # Verify email is a Google account based on configured policy
         if not verify_google_account(email):
             LoginAttempt.record_attempt(email, ip_address, successful=False)
-            return Response(
-                {'error': 'Email is not a valid Google account per policy.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            # Generic message to avoid differentiating policy failure specifics
+            return Response({
+                'message': 'If the account exists, a code was sent.',
+                'email': email,
+                'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60
+            }, status=status.HTTP_200_OK)
 
-        # Create OTP
+        # If a login was attempted for a non-existent email, do NOT generate an OTP.
+        # Frontend should redirect user to signup instead.
+        if original_purpose == OTPCode.PURPOSE_LOGIN and not email_exists:
+            response_data = {
+                'message': 'If the account exists, a code was sent.',
+                'email': email,
+                'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60,
+                'flow_hint': 'should_signup'
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
+        if original_purpose == OTPCode.PURPOSE_REGISTER and email_exists:
+            # Do not send OTP for existing account trying to re-register.
+            response_data = {
+                'message': 'If the account exists, a code was sent.',
+                'email': email,
+                'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60,
+                'flow_hint': 'should_login'
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        # Otherwise create OTP (covers normal login for existing account, or register/create flow, or register attempt for existing which we coerce to login)
         otp = OTPCode.create_otp(email, purpose)
 
         # Send email
         if send_otp_email(email, otp.code, purpose):
             LoginAttempt.record_attempt(email, ip_address, successful=True)
-            response_data = {
-                'message': 'OTP sent successfully',
-                'email': email,
-                'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60
-            }
-            if settings.DEBUG:
-                response_data['debug_code'] = otp.code
-            return Response(response_data, status=status.HTTP_200_OK)
-        else:
-            return Response(
-                {'error': 'Failed to send OTP. Please try again.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        # Always return generic message regardless of underlying send failure to avoid probing
+        response_data = {
+            'message': 'If the account exists, a code was sent.',
+            'email': email,
+            'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60,
+            'flow_hint': None,
+        }
+        # flow_hint communicates to frontend that user intent and existence mismatch.
+        # Values: 'should_login' (user tried register but exists), 'should_signup' (user tried login but new), or null.
+        if existence_mismatch:
+            if original_purpose == OTPCode.PURPOSE_REGISTER and email_exists:
+                response_data['flow_hint'] = 'should_login'
+            elif original_purpose == OTPCode.PURPOSE_LOGIN and not email_exists:
+                response_data['flow_hint'] = 'should_signup'
+        if settings.DEBUG:
+            response_data['debug_code'] = otp.code
+        return Response(response_data, status=status.HTTP_200_OK)
 
     except Exception as e:
         logger.error(f"Error in request_otp: {str(e)}")
@@ -280,20 +304,28 @@ def verify_otp(request):
         )
     
     try:
-        # Verify OTP validity
+        # Verify OTP validity (generic failure message to avoid enumeration)
         if not OTPCode.verify_otp(email, code, purpose):
             LoginAttempt.record_attempt(email, ip_address, successful=False)
-            return Response({'error': 'Invalid or expired OTP code.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Invalid code or authentication failed.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Retrieve or create user depending on purpose
+        # Retrieve existing user or create only if purpose is register and user does not exist.
         user = None
-        try:
+        user_exists = User.objects.filter(email=email).exists()
+        creation_flow = False
+        if user_exists:
             user = User.objects.get(email=email)
-        except User.DoesNotExist:
+            # If purpose is register but user already exists, treat as login success but include flow_hint so frontend can route to login completion (skipping signup steps like username if already set).
+            flow_hint = 'should_login' if purpose == OTPCode.PURPOSE_REGISTER else None
+        else:
             if purpose == OTPCode.PURPOSE_REGISTER:
                 user = User.objects.create_user(email=email)
+                creation_flow = True
+                flow_hint = None
             else:
-                return Response({'error': 'User not found. Please contact your administrator.'}, status=status.HTTP_404_NOT_FOUND)
+                # Attempted login for non-existent account
+                LoginAttempt.record_attempt(email, ip_address, successful=False)
+                return Response({'error': 'Invalid code or authentication failed.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Mark verified if needed
         if not user.is_verified:
@@ -307,7 +339,17 @@ def verify_otp(request):
         token, _ = Token.objects.get_or_create(user=user)
         LoginAttempt.record_attempt(email, ip_address, successful=True)
         user_data = UserSerializer(user).data
-        return Response({'message': 'Authentication successful', 'token': token.key, 'user': user_data}, status=status.HTTP_200_OK)
+        resp = {
+            'message': 'Authentication successful',
+            'token': token.key,
+            'user': user_data,
+        }
+        # Include flow_hint if relevant (existing account attempted register)
+        if user_exists and purpose == OTPCode.PURPOSE_REGISTER:
+            resp['flow_hint'] = 'should_login'
+        elif (not user_exists) and creation_flow and purpose == OTPCode.PURPOSE_REGISTER:
+            resp['flow_hint'] = 'signup_created'
+        return Response(resp, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"Error in verify_otp: {str(e)}")
         return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
