@@ -258,18 +258,18 @@ def verify_device_otp(request):
 class DeviceViewSet(BaseAuthViewSet):
     """ViewSet for Device model with user-based filtering."""
 
-    queryset = Device.objects.select_related("user").all()
+    queryset = Device.objects.all()
     serializer_class = DeviceSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["device_name", "status", "user__username", "user__email"]
+    search_fields = ["device_name", "status", "bound_email"]
     ordering_fields = ["device_name", "status", "created_at"]
     ordering = ["-created_at"]
 
-    def get_queryset(self):  # Users see only their devices unless staff
+    def get_queryset(self):  # Users see only their bound devices unless staff
         qs = super().get_queryset()
         user = self.request.user
         if user.is_staff:
-            # Staff users see all devices (owned and unowned)
+            # Staff users see all devices (bound and unbound)
             return qs
-        # Regular users see only their own devices (not unowned ones)
-        return qs.filter(user=user)
+        # Regular users see only devices bound to their email
+        return qs.filter(bound_email=user.email, is_bound=True)

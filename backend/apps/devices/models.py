@@ -25,10 +25,6 @@ class Device(TimeStampedModel):
         MAINTENANCE = "maintenance", "Maintenance"
         DECOMMISSIONED = "decommissioned", "Decommissioned"
 
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="new_devices", db_index=True,
-        null=True, blank=True, help_text="Owner of the device. Null for unowned devices."
-    )
     device_serial = models.CharField(
         max_length=12,
         unique=True,
@@ -50,14 +46,11 @@ class Device(TimeStampedModel):
     )
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["user", "device_name"], name="uq_newdevice_user_name"
-            )
-        ]
         indexes = [
-            models.Index(fields=["user", "status"], name="idx_newdevice_user_status"),
-            models.Index(fields=["device_serial"], name="idx_device_serial")
+            models.Index(fields=["device_serial"], name="idx_device_serial"),
+            models.Index(fields=["status"], name="idx_device_status"),
+            models.Index(fields=["is_bound"], name="idx_device_is_bound"),
+            models.Index(fields=["bound_email"], name="idx_device_bound_email")
         ]
         verbose_name = "Device"
         verbose_name_plural = "Devices"

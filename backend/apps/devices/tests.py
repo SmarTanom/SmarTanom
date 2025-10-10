@@ -15,19 +15,18 @@ User = get_user_model()
 class DeviceModelTests(TestCase):
     """Tests for the Device model."""
 
-    def setUp(self):
-        self.user = User.objects.create_user(email='test@example.com')
-
     def test_create_device(self):
         """Test creating a device."""
         device = Device.objects.create(
-            user=self.user,
             device_name='Test Device',
+            device_serial='SMRT-TST-001',
             status=Device.Status.ACTIVE
         )
         self.assertEqual(device.device_name, 'Test Device')
+        self.assertEqual(device.device_serial, 'SMRT-TST-001')
         self.assertEqual(device.status, Device.Status.ACTIVE)
-        self.assertEqual(device.user, self.user)
+        self.assertFalse(device.is_bound)
+        self.assertIsNone(device.bound_email)
 
 
 class DeviceAPITests(TestCase):
@@ -42,9 +41,20 @@ class DeviceAPITests(TestCase):
         )
 
     def test_device_list_authenticated(self):
-        """Test that authenticated users can access their devices."""
-        Device.objects.create(user=self.user, device_name='User Device')
-        Device.objects.create(user=self.staff_user, device_name='Staff Device')
+        """Test that authenticated users can access their bound devices."""
+        # Create devices bound to different emails
+        Device.objects.create(
+            device_name='User Device',
+            device_serial='SMRT-USR-001',
+            is_bound=True,
+            bound_email='test@example.com'
+        )
+        Device.objects.create(
+            device_name='Staff Device',
+            device_serial='SMRT-STF-001',
+            is_bound=True,
+            bound_email='staff@example.com'
+        )
 
         self.client.force_authenticate(user=self.user)
         url = reverse('devices:device-list')
@@ -56,15 +66,30 @@ class DeviceAPITests(TestCase):
 
     def test_staff_can_see_all_devices(self):
         """Test that staff users can access all devices."""
-        Device.objects.create(user=self.user, device_name='User Device')
-        Device.objects.create(user=self.staff_user, device_name='Staff Device')
+        Device.objects.create(
+            device_name='User Device',
+            device_serial='SMRT-USR-002',
+            is_bound=True,
+            bound_email='test@example.com'
+        )
+        Device.objects.create(
+            device_name='Staff Device',
+            device_serial='SMRT-STF-002',
+            is_bound=True,
+            bound_email='staff@example.com'
+        )
+        Device.objects.create(
+            device_name='Unbound Device',
+            device_serial='SMRT-UBD-001',
+            is_bound=False
+        )
 
         self.client.force_authenticate(user=self.staff_user)
         url = reverse('devices:device-list')
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 2)
+        self.assertEqual(len(response.data['results']), 3)
 
 
 class DeviceBindingTests(TestCase):

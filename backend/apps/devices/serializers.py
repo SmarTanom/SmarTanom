@@ -112,17 +112,10 @@ class DeviceBindVerifySerializer(serializers.Serializer):
 class DeviceSerializer(serializers.ModelSerializer):
     """Serializer for Device model."""
 
-    user_id = serializers.PrimaryKeyRelatedField(
-        source="user", queryset=User.objects.all(), write_only=True
-    )
-    user = serializers.StringRelatedField(read_only=True)
-
     class Meta:
         model = Device
         fields = [
             "id",
-            "user",
-            "user_id",
             "device_serial",
             "device_name",
             "status",

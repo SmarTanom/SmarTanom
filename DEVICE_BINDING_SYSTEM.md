@@ -21,7 +21,7 @@ The SmarTanom Device Binding System allows users to securely bind IoT devices to
    - Username setup and finalization
 
 3. **Database Models**
-   - `Device`: Physical device registry
+   - `Device`: Physical device registry with email-based binding
    - `DeviceOTPCode`: Temporary verification codes
    - `User`: Account management
    - `Token`: Authentication tokens
@@ -183,12 +183,14 @@ Authorization: Token 9af91b8c4c774a5e8f3c2d1e0c5b4a9e8d7c6b5a
 ### Device Model
 ```python
 class Device(TimeStampedModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
     device_serial = models.CharField(max_length=12, unique=True)  # SMRT-XXX-XXX format
     device_name = models.CharField(max_length=100)
     status = models.CharField(max_length=20, choices=Status.choices)
     is_bound = models.BooleanField(default=False)
     bound_email = models.EmailField(null=True, blank=True)
+
+    # Device ownership is determined by bound_email matching User.email
+    # No direct foreign key relationship needed
 ```
 
 ### DeviceOTPCode Model
@@ -215,6 +217,38 @@ class DeviceOTPCode(TimeStampedModel):
 - **Indexed Lookups**: All queries use indexed fields
 - **Efficient OTP Cleanup**: Indexed queries for removing expired codes
 - **Minimal Database Hits**: Single query per API operation
+
+## Architectural Design
+
+### Email-Based Device Ownership
+
+The system uses an email-based device ownership model instead of direct foreign key relationships:
+
+- **Devices** are bound to email addresses through `bound_email` field
+- **Users** own devices where `device.bound_email == user.email`
+- **No direct FK**: Eliminates redundant user field in Device model
+- **Flexible binding**: Allows device transfer by email change
+- **Clean separation**: Device registry independent of user accounts
+
+### Benefits
+
+1. **Reduced redundancy**: Single source of truth for device ownership
+2. **Simplified queries**: Direct email matching instead of FK joins
+3. **Email portability**: Easy device transfer between accounts
+4. **Clean architecture**: Decoupled device registry from user management
+
+### Query Patterns
+
+```python
+# User's bound devices
+user_devices = Device.objects.filter(
+    bound_email=request.user.email,
+    is_bound=True
+)
+
+# Staff sees all devices
+all_devices = Device.objects.all()
+```
 
 ## Configuration
 
