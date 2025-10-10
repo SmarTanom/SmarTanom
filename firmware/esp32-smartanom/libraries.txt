@@ -1,0 +1,94 @@
+# Required Arduino Libraries for SmarTanom ESP32
+
+## Install via Arduino IDE Library Manager
+
+### 1. DHT Sensor Library
+- **Name**: DHT sensor library
+- **Author**: Adafruit
+- **Version**: 1.4.4 or later
+- **Installation**: Tools → Manage Libraries → Search "DHT sensor library"
+- **Purpose**: DHT22 temperature and humidity readings
+
+### 2. OneWire Library  
+- **Name**: OneWire
+- **Author**: Jim Studt, Tom Pollard, Paul Stoffregen
+- **Version**: 2.3.7 or later
+- **Installation**: Tools → Manage Libraries → Search "OneWire"
+- **Purpose**: DS18B20 water temperature sensor communication
+
+### 3. Dallas Temperature Library
+- **Name**: DallasTemperature
+- **Author**: Miles Burton, Tim Newsome
+- **Version**: 3.9.1 or later
+- **Installation**: Tools → Manage Libraries → Search "DallasTemperature"
+- **Purpose**: DS18B20 temperature conversion and management
+
+### 4. BH1750 Light Sensor Library
+- **Name**: BH1750
+- **Author**: Claws (Christopher Laws)
+- **Version**: 1.3.0 or later
+- **Installation**: Tools → Manage Libraries → Search "BH1750 Claws"
+- **Purpose**: BH1750 light sensor I2C communication
+
+## Core ESP32 Libraries (Pre-installed)
+
+These libraries come with the ESP32 Arduino Core:
+
+- **Arduino.h** - Core Arduino functions
+- **Wire.h** - I2C communication
+- **WiFi.h** - WiFi connectivity (for future use)
+
+## Library Dependencies
+
+The above libraries may automatically install these dependencies:
+
+- **Adafruit Unified Sensor** (dependency of DHT)
+- **SPI.h** (system library)
+
+## Installation Steps
+
+1. Open Arduino IDE
+2. Go to **Tools → Manage Libraries**
+3. Search for each library name
+4. Click **Install** on the correct library (match author names)
+5. Accept any dependency installations
+
+## Verification
+
+To verify libraries are installed correctly:
+
+1. Go to **File → Examples**
+2. Check that you can see:
+   - **DHT sensor library → DHTtester**
+   - **OneWire → DS18x20_Temperature**
+   - **DallasTemperature → Simple**  
+   - **BH1750 → BH1750test**
+
+## Library Versions Tested
+
+This firmware has been tested with:
+
+```
+DHT sensor library: v1.4.4
+OneWire: v2.3.7  
+DallasTemperature: v3.9.1
+BH1750: v1.3.0
+ESP32 Arduino Core: v2.0.11
+```
+
+## Troubleshooting Library Issues
+
+### **"Library not found" errors:**
+- Ensure Arduino IDE has ESP32 board package installed
+- Restart Arduino IDE after installing libraries
+- Check library names match exactly
+
+### **Compilation errors:**
+- Update to latest library versions
+- Check ESP32 Arduino Core version compatibility
+- Clear Arduino cache: File → Preferences → Clear cache
+
+### **Runtime errors:**
+- Verify sensor wiring matches library expectations
+- Check pull-up resistors for OneWire sensors
+- Ensure proper I2C connections for BH1750
