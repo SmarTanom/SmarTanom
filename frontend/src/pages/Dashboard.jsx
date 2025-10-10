@@ -197,13 +197,13 @@ export default function Dashboard() {
 
         {/* Current pH level */}
         <section className="card current-ph" aria-label="Current pH">
-          <div className="icon-circle">
-            <Activity size={20} color="#32A86D" strokeWidth={2.5} />
-          </div>
-          <div className="current-ph-content">
+          <div className="current-ph-left">
+            <div className="icon-circle">
+              <Activity size={20} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <span className="current-ph-label">Current pH level</span>
-            <span className="current-ph-value">{currentPH} pH</span>
           </div>
+          <span className="current-ph-value">{currentPH} pH</span>
         </section>
 
         {/* Sensor grid */}
