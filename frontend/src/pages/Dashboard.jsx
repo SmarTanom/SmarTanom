@@ -144,7 +144,7 @@ export default function Dashboard() {
   // Handle FAB click (if not dragged)
   const handleFabClick = () => {
     if (!hasDraggedRef.current) {
-      navigate('/start-cycle');
+      navigate('/add-device');
     }
   };
 

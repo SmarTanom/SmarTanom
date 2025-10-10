@@ -7,6 +7,7 @@ import CodePage from './pages/CodePage.jsx';
 import UsernamePage from './pages/UsernamePage.jsx';
 import SplashPage from './pages/SplashPage.jsx';
 import SignupSetup from './pages/SignupSetup.jsx';
+import AddDevicePage from './pages/AddDevicePage.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import DeviceDetails from './pages/DeviceDetails.jsx';
@@ -92,6 +93,7 @@ export default function App() {
         <Route path="/signup/code" element={<CodePage mode="signup" />} />
         <Route path="/signup/setup" element={<SignupSetup />} />
         <Route path="/signup/username" element={<UsernamePage />} />
+        <Route path="/add-device" element={<AddDevicePage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/start-cycle" element={<StartCyclePage />} />
         <Route path="/device/:deviceId" element={<DeviceDetails />} />
