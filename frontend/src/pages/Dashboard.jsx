@@ -104,11 +104,15 @@ export default function Dashboard() {
       <main className="dash-main" role="main">
         {/* Alert Summary */}
         <section className="card alert-card" aria-label="Alert summary">
-          <div className="alert-card-header">
-            <AlertCircle size={20} color="#E1554A" />
-            <span className="alert-card-label">Alert Summary</span>
-            <button className="alert-card-expand" aria-label="Open alerts">▸</button>
+          <div className="alert-card-top">
+            <div className="alert-icon-wrapper">
+              <AlertCircle size={24} color="#32A86D" strokeWidth={2.5} />
+            </div>
+            <button className="alert-card-expand" aria-label="Open alerts">
+              <ChevronRight size={20} color="#8BA797" />
+            </button>
           </div>
+          <h3 className="alert-card-title">Alert Summary</h3>
           <div className="alert-card-message">EC too low (Inadequate nutrients)</div>
         </section>
         {/* Connectivity & Sync */}
