@@ -195,38 +195,48 @@ export default function Dashboard() {
 
         {/* Current pH level */}
         <section className="card current-ph" aria-label="Current pH">
-          <div className="current-ph-icon-label">
-            <Activity size={20} color="#32A86D" />
-            <span className="current-ph-label">Current pH level</span>
+          <div className="current-ph-icon-wrapper">
+            <Activity size={24} color="#32A86D" strokeWidth={2.5} />
           </div>
-          <span className="current-ph-value">{currentPH} pH</span>
+          <div className="current-ph-content">
+            <span className="current-ph-label">Current pH level</span>
+            <span className="current-ph-value">{currentPH} pH</span>
+          </div>
         </section>
 
         {/* Sensor grid */}
         <section className="sensor-grid" aria-label="Sensor data">
           <div className="sensor-cell">
-            <Zap size={24} color="#32A86D" />
+            <div className="sensor-icon-wrapper">
+              <Zap size={24} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">EC Levels</span>
               <span className="sensor-value">2.4 mS/cm</span>
             </div>
           </div>
           <div className="sensor-cell">
-            <Waves size={24} color="#32A86D" />
+            <div className="sensor-icon-wrapper">
+              <Waves size={24} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">TDS</span>
               <span className="sensor-value">950 ppm</span>
             </div>
           </div>
           <div className="sensor-cell">
-            <Droplet size={24} color="#32A86D" />
+            <div className="sensor-icon-wrapper">
+              <Droplet size={24} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Water Level</span>
-              <span className="sensor-value">85%</span>
+              <span className="sensor-value">Sufficient</span>
             </div>
           </div>
           <div className="sensor-cell">
-            <Droplets size={24} color="#32A86D" />
+            <div className="sensor-icon-wrapper">
+              <Droplets size={24} color="#32A86D" strokeWidth={2.5} />
+            </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Turbidity</span>
               <span className="sensor-value">3 NTU</span>
