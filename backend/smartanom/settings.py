@@ -54,9 +54,14 @@ INSTALLED_APPS = [
 	"rest_framework",
 	"rest_framework.authtoken",
 	"django_filters",
-	# Local apps
+	# Local apps - Legacy apps needed for auth
 	"apps.accounts",
 	"apps.monitoring",
+	# New app structure
+	"apps.common",
+	"apps.devices",
+	"apps.sensors",
+	"apps.reservoirs",
 ]
 
 MIDDLEWARE = [
