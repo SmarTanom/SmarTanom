@@ -1,0 +1,154 @@
+[
+{
+  "model": "accounts.user",
+  "pk": 2,
+  "fields": {
+    "password": "pbkdf2_sha256$600000$zlYu8OXRWNpfrzFO6dvnuL$jUsqB8xQjVhR4LZnYjd7e+bzMqLnTMgulonp5zf1xZ0=",
+    "is_superuser": true,
+    "email": "smartanom01@gmail.com",
+    "username": null,
+    "first_name": "",
+    "last_name": "",
+    "role": "admin",
+    "is_active": true,
+    "is_staff": true,
+    "is_verified": false,
+    "date_joined": "2025-09-30T03:08:50.007Z",
+    "last_login": "2025-10-10T11:35:13.534Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "accounts.user",
+  "pk": 10,
+  "fields": {
+    "password": "",
+    "is_superuser": false,
+    "email": "test1@smartanom.com",
+    "username": null,
+    "first_name": "",
+    "last_name": "",
+    "role": "user",
+    "is_active": true,
+    "is_staff": false,
+    "is_verified": false,
+    "date_joined": "2025-10-10T11:47:38.942Z",
+    "last_login": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "devices.device",
+  "pk": 11,
+  "fields": {
+    "created_at": "2025-10-10T11:47:38.947Z",
+    "updated_at": "2025-10-10T11:47:38.947Z",
+    "user": 10,
+    "device_name": "Greenhouse Alpha 1",
+    "status": "active"
+  }
+},
+{
+  "model": "reservoirs.reservoir",
+  "pk": 11,
+  "fields": {
+    "created_at": "2025-10-10T11:47:38.951Z",
+    "updated_at": "2025-10-10T11:47:38.951Z",
+    "device": 11,
+    "reservoir_name": "Main Tank",
+    "plant_type": "Kale",
+    "start_date": "2025-07-11",
+    "end_date": "2025-09-10"
+  }
+},
+{
+  "model": "sensors.sensor",
+  "pk": 47,
+  "fields": {
+    "created_at": "2025-10-10T11:47:38.956Z",
+    "updated_at": "2025-10-10T11:47:38.956Z",
+    "device": 11,
+    "sensor_type": "ph",
+    "unit": "pH"
+  }
+},
+{
+  "model": "sensors.sensor",
+  "pk": 48,
+  "fields": {
+    "created_at": "2025-10-10T11:47:38.961Z",
+    "updated_at": "2025-10-10T11:47:38.961Z",
+    "device": 11,
+    "sensor_type": "tds",
+    "unit": "ppm"
+  }
+},
+{
+  "model": "sensors.sensor",
+  "pk": 49,
+  "fields": {
+    "created_at": "2025-10-10T11:47:38.964Z",
+    "updated_at": "2025-10-10T11:47:38.964Z",
+    "device": 11,
+    "sensor_type": "water_temperature",
+    "unit": "°C"
+  }
+},
+{
+  "model": "sensors.sensor",
+  "pk": 50,
+  "fields": {
+    "created_at": "2025-10-10T11:47:38.974Z",
+    "updated_at": "2025-10-10T11:47:38.974Z",
+    "device": 11,
+    "sensor_type": "water_level",
+    "unit": "%"
+  }
+},
+{
+  "model": "sensors.sensor",
+  "pk": 51,
+  "fields": {
+    "created_at": "2025-10-10T11:47:38.978Z",
+    "updated_at": "2025-10-10T11:47:38.978Z",
+    "device": 11,
+    "sensor_type": "turbidity",
+    "unit": "NTU"
+  }
+},
+{
+  "model": "sensors.sensor",
+  "pk": 52,
+  "fields": {
+    "created_at": "2025-10-10T11:47:38.982Z",
+    "updated_at": "2025-10-10T11:47:38.982Z",
+    "device": 11,
+    "sensor_type": "air_temperature",
+    "unit": "°C"
+  }
+},
+{
+  "model": "sensors.sensor",
+  "pk": 53,
+  "fields": {
+    "created_at": "2025-10-10T11:47:38.987Z",
+    "updated_at": "2025-10-10T11:47:38.987Z",
+    "device": 11,
+    "sensor_type": "humidity",
+    "unit": "%"
+  }
+},
+{
+  "model": "sensors.sensor",
+  "pk": 54,
+  "fields": {
+    "created_at": "2025-10-10T11:47:38.992Z",
+    "updated_at": "2025-10-10T11:47:38.992Z",
+    "device": 11,
+    "sensor_type": "light",
+    "unit": "lux"
+  }
+}
+]
