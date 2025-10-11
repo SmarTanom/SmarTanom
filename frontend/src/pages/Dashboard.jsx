@@ -707,15 +707,16 @@ export default function Dashboard() {
     };
   }, [isDragging, fabPosition]);
 
-  // Create infinite carousel by duplicating devices at boundaries
+  // Only enable clone-based infinite carousel when there are 3+ devices to avoid visible duplicates
+  const isInfinite = devices.length >= 3;
   const infiniteDevices = useMemo(() => {
     if (devices.length === 0) return [];
-    if (devices.length === 1) return devices; // No need for infinite scroll with single device
-    // Add last device at start and first device at end for seamless loop
+    if (!isInfinite) return devices; // For 1-2 devices, render as-is
+    // For 3+ devices, add last at start and first at end for seamless loop
     return [devices[devices.length - 1], ...devices, devices[0]];
-  }, [devices]);
+  }, [devices, isInfinite]);
 
-  // Initialize scroll position to first real device (index 1 in infinite array)
+  // Initialize scroll position; for infinite mode, jump to index 1 (first real card)
   useEffect(() => {
     const el = carouselRef.current;
     if (!el || devices.length === 0) return;
@@ -723,14 +724,14 @@ export default function Dashboard() {
     const cardW = w * 0.85;
     const gap = 16;
 
-    if (devices.length > 1) {
+    if (isInfinite) {
       // Scroll to index 1 (first real device) on mount for infinite scroll
       el.scrollLeft = (cardW + gap) * 1;
     } else {
-      // Single device, no scroll needed
+      // Non-infinite (1-2 devices), start at first card
       el.scrollLeft = 0;
     }
-  }, [devices]);
+  }, [devices, isInfinite]);
 
   // Handle scroll position tracking and loop boundaries
   useEffect(() => {
@@ -751,13 +752,14 @@ export default function Dashboard() {
         clearTimeout(scrollTimeoutRef.current);
       }
 
-      // Handle single device case
-      if (devices.length === 1) {
-        setActiveIdx(0);
+      if (!isInfinite) {
+        // Non-infinite: directly map scroll index to device index (0..len-1)
+        const clamped = Math.max(0, Math.min(devices.length - 1, idx));
+        setActiveIdx(clamped);
         return;
       }
 
-      // Update active index (map to real device index)
+      // Infinite: map clone indexes to real device index
       if (idx === 0) {
         setActiveIdx(devices.length - 1); // Showing clone of last device
       } else if (idx === infiniteDevices.length - 1) {
@@ -789,7 +791,7 @@ export default function Dashboard() {
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, [infiniteDevices.length, devices.length]);
+  }, [infiniteDevices.length, devices.length, isInfinite]);
 
   const currentDevice = devices[activeIdx];
   const data = currentDevice ? devicesData[currentDevice.id] : null;
