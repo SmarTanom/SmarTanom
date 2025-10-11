@@ -12,6 +12,23 @@ import { getUserDevices } from '../services/api/devices.js';
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
+// Format a date string as "Month D, YYYY" without timezone shifts
+function formatMemberSince(dateString) {
+  if (!dateString) return '—';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d)) return '—';
+    return d.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC', // ensure stable date regardless of client TZ
+    });
+  } catch (_) {
+    return '—';
+  }
+}
+
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -40,7 +57,8 @@ export default function ProfilePage() {
           firstName: profile.first_name,
           lastName: profile.last_name,
           role: profile.role || (profile.is_admin ? 'admin' : 'user'),
-          joinedDate: profile.date_joined,
+          // Prefer exact account creation; fall back to common alternatives if backend changes naming
+          joinedDate: profile.date_joined || profile.created_at || profile.created || null,
           devicesOwned: 0,
           sharedWith: 0,
         };
@@ -138,7 +156,7 @@ export default function ProfilePage() {
             </div>
             <div className="info-row">
               <span className="info-label">Member Since</span>
-              <span className="info-value">{user.joinedDate ? new Date(user.joinedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—'}</span>
+              <span className="info-value">{formatMemberSince(user.joinedDate)}</span>
             </div>
           </div>
         </section>
