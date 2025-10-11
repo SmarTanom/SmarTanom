@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import '../assets/styles/ProfilePage.css';
 import { authApi } from '../services/apiClient';
+import { getUserDevices } from '../services/api/devices.js';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -44,6 +45,15 @@ export default function ProfilePage() {
           sharedWith: 0,
         };
         setUser(uiUser);
+
+        // Fetch user's bound devices count
+        try {
+          const devices = await getUserDevices();
+          if (!mounted) return;
+          setUser(prev => prev ? { ...prev, devicesOwned: Array.isArray(devices) ? devices.length : (devices?.results?.length || 0) } : prev);
+        } catch (_) {
+          // ignore device fetch errors; keep count at 0
+        }
       } catch (e) {
         // On auth error, send to landing
         navigate('/');
@@ -128,7 +138,7 @@ export default function ProfilePage() {
             </div>
             <div className="info-row">
               <span className="info-label">Member Since</span>
-              <span className="info-value">{user.joinedDate ? new Date(user.joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}</span>
+              <span className="info-value">{user.joinedDate ? new Date(user.joinedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—'}</span>
             </div>
           </div>
         </section>
