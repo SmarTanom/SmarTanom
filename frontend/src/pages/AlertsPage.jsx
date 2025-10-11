@@ -20,9 +20,8 @@ import {
 import { getUserDevices } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 
-// Local persistence for read alerts
+// Local persistence for read alerts (database alerts only)
 const READ_STORAGE_KEY = 'alerts.readingIds';
-const MOCK_READ_STORAGE_KEY = 'alerts.mockIds';
 
 function loadIdSet(key) {
   try {
@@ -45,23 +44,15 @@ function saveIdSet(key, set) {
 
 function isPersistedRead(alert) {
   const readingIds = loadIdSet(READ_STORAGE_KEY);
-  const mockIds = loadIdSet(MOCK_READ_STORAGE_KEY);
   if (alert && alert.readingId && readingIds.has(alert.readingId)) return true;
-  if (alert && !alert.readingId && typeof alert.id !== 'undefined' && mockIds.has(String(alert.id))) return true;
   return false;
 }
 
 function persistMarkRead(alert) {
-  if (!alert) return;
-  if (alert.readingId) {
-    const s = loadIdSet(READ_STORAGE_KEY);
-    s.add(alert.readingId);
-    saveIdSet(READ_STORAGE_KEY, s);
-  } else if (typeof alert.id !== 'undefined') {
-    const s = loadIdSet(MOCK_READ_STORAGE_KEY);
-    s.add(String(alert.id));
-    saveIdSet(MOCK_READ_STORAGE_KEY, s);
-  }
+  if (!alert || !alert.readingId) return;
+  const s = loadIdSet(READ_STORAGE_KEY);
+  s.add(alert.readingId);
+  saveIdSet(READ_STORAGE_KEY, s);
 }
 
 // Helper: format a ISO date string to a relative time (minutes/hours/days ago)
@@ -94,87 +85,11 @@ const TDS_TOLERANCE = 200; // within 200 units of the bounds shows a warning
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
-// Mock alerts data
-const mockAlerts = [
-  {
-    id: 1,
-    type: 'critical',
-    icon: 'droplet',
-    title: 'Low water levels',
-    device: 'Porch SmarTanom',
-    deviceId: 'D000000001',
-    message: 'Low water level detected. Refill reservoir with fresh water immediately.',
-    timestamp: '2 minutes ago',
-    date: '2025-10-10T14:30:00',
-    read: false
-  },
-  {
-    id: 2,
-    type: 'warning',
-    icon: 'zap',
-    title: 'Inadequate nutrients',
-    device: 'Greenhouse A',
-    deviceId: 'D000000002',
-    message: 'EC is low (10 mS/cm). Refill: Part A (Calcium Nitrate) and Part B (Micronutrient mix).',
-    timestamp: '15 minutes ago',
-    date: '2025-10-10T14:17:00',
-    read: false
-  },
-  {
-    id: 3,
-    type: 'info',
-    icon: 'sprout',
-    title: 'Ready for harvest',
-    device: 'Indoor Rack',
-    deviceId: 'D000000003',
-    message: 'Your plants are now ready for harvest. Harvest now to start a new cycle.',
-    timestamp: '1 hour ago',
-    date: '2025-10-10T13:32:00',
-    read: false
-  },
-  {
-    id: 4,
-    type: 'warning',
-    icon: 'thermometer',
-    title: 'High temperature detected',
-    device: 'Greenhouse A',
-    deviceId: 'D000000002',
-    message: 'Temperature is above optimal range (32°C). Check ventilation system.',
-    timestamp: '2 hours ago',
-    date: '2025-10-10T12:32:00',
-    read: true
-  },
-  {
-    id: 5,
-    type: 'critical',
-    icon: 'zap',
-    title: 'Nutrient solution depleted',
-    device: 'Porch SmarTanom',
-    deviceId: 'D000000001',
-    message: 'EC reading critically low. Immediate refill required to prevent plant stress.',
-    timestamp: '3 hours ago',
-    date: '2025-10-10T11:32:00',
-    read: true
-  },
-  {
-    id: 6,
-    type: 'info',
-    icon: 'sprout',
-    title: 'New cycle started',
-    device: 'Indoor Rack',
-    deviceId: 'D000000003',
-    message: 'You started a new growing cycle. Monitor plant progress over the next few days.',
-    timestamp: '5 hours ago',
-    date: '2025-10-10T09:32:00',
-    read: true
-  }
-];
-
 export default function AlertsPage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'critical'
-  // Alerts state initialized from mock alerts; we'll fetch real pH and prepend an alert if needed
-  const [alerts, setAlerts] = useState(mockAlerts);
+  // Alerts state initialized as empty - only real database alerts will be shown
+  const [alerts, setAlerts] = useState([]);
 
   // On first mount, apply persisted read flags to initial alerts
   React.useEffect(() => {
@@ -459,7 +374,7 @@ export default function AlertsPage() {
           return next;
         });
       } catch (err) {
-        // Non-fatal; alerts page should still render mock alerts
+        // Non-fatal; alerts page should still render (empty if no database alerts)
         // eslint-disable-next-line no-console
         console.warn('AlertsPage: failed to fetch recent pH readings', err);
       }
