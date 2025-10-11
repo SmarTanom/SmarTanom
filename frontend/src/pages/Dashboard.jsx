@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../assets/styles/UserDashboard.css';
 import {
   Leaf,
@@ -15,9 +16,13 @@ import {
   Thermometer,
   Wind,
   Sun,
-  User
+  User,
+  Plus
 } from 'lucide-react';
 import { MdScience } from 'react-icons/md';
+
+// Brand color constant
+const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
 // Simple hash function to seed PRNG from device ID
 const hashStringToSeed = (str) => {
@@ -113,10 +118,126 @@ function PHBar({ v, i }) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const carouselRef = useRef(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const scrollTimeoutRef = useRef(null);
   const isAdjustingRef = useRef(false);
+
+  // Floating Action Button (FAB) draggable state
+  const fabRef = useRef(null);
+  const navHeight = 64; // Bottom nav height from CSS
+  const fabSize = 56; // FAB size from CSS
+  const dragStartRef = useRef({ x: 0, y: 0, fabX: 0, fabY: 0 });
+  const hasDraggedRef = useRef(false);
+  const [fabPosition, setFabPosition] = useState({ 
+    x: typeof window !== 'undefined' ? window.innerWidth - 80 : 300, 
+    y: typeof window !== 'undefined' ? window.innerHeight - navHeight - fabSize - 24 : 500
+  });
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Handle device card click
+  const handleDeviceClick = (deviceId) => {
+    navigate(`/device/${deviceId}`);
+  };
+
+  // Handle FAB click (if not dragged)
+  const handleFabClick = () => {
+    if (!hasDraggedRef.current) {
+      navigate('/add-device');
+    }
+  };
+
+  // FAB Mouse Drag Handlers
+  const handleFabMouseDown = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    hasDraggedRef.current = false;
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      fabX: fabPosition.x,
+      fabY: fabPosition.y
+    };
+  };
+
+  const handleFabMouseMove = (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    // Consider it a drag if moved more than 5px
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      hasDraggedRef.current = true;
+    }
+    const newX = Math.max(16, Math.min(window.innerWidth - fabSize - 16, dragStartRef.current.fabX + dx));
+    const newY = Math.max(16, Math.min(window.innerHeight - navHeight - fabSize - 16, dragStartRef.current.fabY + dy));
+    setFabPosition({ x: newX, y: newY });
+  };
+
+  const handleFabMouseUp = () => {
+    setIsDragging(false);
+    // Trigger click action if not dragged
+    if (!hasDraggedRef.current) {
+      handleFabClick();
+    }
+  };
+
+  // FAB Touch Drag Handlers
+  const handleFabTouchStart = (e) => {
+    const touch = e.touches[0];
+    setIsDragging(true);
+    hasDraggedRef.current = false;
+    dragStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      fabX: fabPosition.x,
+      fabY: fabPosition.y
+    };
+  };
+
+  const handleFabTouchMove = (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const dx = touch.clientX - dragStartRef.current.x;
+    const dy = touch.clientY - dragStartRef.current.y;
+    // Consider it a drag if moved more than 5px
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      hasDraggedRef.current = true;
+    }
+    const newX = Math.max(16, Math.min(window.innerWidth - fabSize - 16, dragStartRef.current.fabX + dx));
+    const newY = Math.max(16, Math.min(window.innerHeight - navHeight - fabSize - 16, dragStartRef.current.fabY + dy));
+    setFabPosition({ x: newX, y: newY });
+  };
+
+  const handleFabTouchEnd = () => {
+    setIsDragging(false);
+    // Trigger click action if not dragged
+    if (!hasDraggedRef.current) {
+      handleFabClick();
+    }
+  };
+
+  // Attach/detach global mouse/touch listeners for FAB dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleFabMouseMove);
+      window.addEventListener('mouseup', handleFabMouseUp);
+      window.addEventListener('touchmove', handleFabTouchMove, { passive: false });
+      window.addEventListener('touchend', handleFabTouchEnd);
+    } else {
+      window.removeEventListener('mousemove', handleFabMouseMove);
+      window.removeEventListener('mouseup', handleFabMouseUp);
+      window.removeEventListener('touchmove', handleFabTouchMove);
+      window.removeEventListener('touchend', handleFabTouchEnd);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleFabMouseMove);
+      window.removeEventListener('mouseup', handleFabMouseUp);
+      window.removeEventListener('touchmove', handleFabTouchMove);
+      window.removeEventListener('touchend', handleFabTouchEnd);
+    };
+  }, [isDragging, fabPosition]);
 
   // Create infinite carousel by duplicating devices at boundaries
   const infiniteDevices = useMemo(() => {
@@ -199,8 +320,8 @@ export default function Dashboard() {
         <h1 className="dash-header-title">
           Hello, User <span className="dash-header-emoji">🌿</span>
         </h1>
-        <button className="dash-header-settings" aria-label="Settings">
-          <Settings size={24} color="#32A86D" />
+        <button className="dash-header-settings" aria-label="Sync">
+          <RefreshCw size={24} color={PRIMARY_GREEN} />
         </button>
       </header>
 
@@ -208,7 +329,12 @@ export default function Dashboard() {
       <section className="device-carousel-wrapper" aria-label="Your devices">
         <div className="device-carousel" ref={carouselRef}>
           {infiniteDevices.map((d, i) => (
-            <article className="device-card tap" key={`${d.id}-${i}`} aria-label={`${d.name} ${d.id}`}>
+            <article 
+              className="device-card tap" 
+              key={`${d.id}-${i}`} 
+              aria-label={`${d.name} ${d.id}`}
+              onClick={() => handleDeviceClick(d.id)}
+            >
               <div className="device-card-media" aria-hidden="true">
                 <img src={d.image} alt="Device" />
               </div>
@@ -236,7 +362,7 @@ export default function Dashboard() {
         <section className="card alert-card" aria-label="Alert summary">
           <div className="alert-card-top">
             <div className="icon-circle">
-              <AlertCircle size={20} color="#32A86D" strokeWidth={2.5} />
+              <AlertCircle size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <button className="alert-card-expand" aria-label="Open alerts">
               <ChevronRight size={20} color="#8BA797" />
@@ -249,7 +375,7 @@ export default function Dashboard() {
         <section className="status-grid" aria-label="Status">
           <div className="status-box">
             <div className="icon-circle">
-              <Wifi size={20} color="#32A86D" strokeWidth={2.5} />
+              <Wifi size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <div className="status-box-content">
               <span className="status-label">Connectivity</span>
@@ -258,7 +384,7 @@ export default function Dashboard() {
           </div>
           <div className="status-box">
             <div className="icon-circle">
-              <RefreshCw size={20} color="#32A86D" strokeWidth={2.5} />
+              <RefreshCw size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <div className="status-box-content">
               <span className="status-label">Last Data Sync</span>
@@ -272,7 +398,7 @@ export default function Dashboard() {
           <h3 className="nutrient-title">Nutrient Level</h3>
           <div className="nutrient-status">
             <div className="icon-circle">
-              <Leaf size={20} color="#32A86D" strokeWidth={2.5} />
+              <Leaf size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <span className="nutrient-text">{data.nutrientText}</span>
           </div>
@@ -282,7 +408,7 @@ export default function Dashboard() {
         <section className="card ph-card" aria-label="pH levels over time">
           <div className="ph-card-header">
             <div className="icon-circle">
-              <Activity size={20} color="#32A86D" strokeWidth={2.5} />
+              <Activity size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <span className="ph-card-title">pH Levels over time</span>
             <button className="range-switch" aria-label="Change range">Days ▾</button>
@@ -318,7 +444,7 @@ export default function Dashboard() {
         <section className="card current-ph" aria-label="Current pH">
           <div className="current-ph-left">
             <div className="icon-circle">
-              <Activity size={20} color="#32A86D" strokeWidth={2.5} />
+              <Activity size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <span className="current-ph-label">Current pH level</span>
           </div>
@@ -329,7 +455,7 @@ export default function Dashboard() {
         <section className="sensor-grid" aria-label="Sensor data">
           <div className="sensor-cell">
             <div className="icon-circle">
-              <Zap size={20} color="#32A86D" strokeWidth={2.5} />
+              <Zap size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">EC Levels</span>
@@ -338,7 +464,7 @@ export default function Dashboard() {
           </div>
           <div className="sensor-cell">
             <div className="icon-circle">
-              <Waves size={20} color="#32A86D" strokeWidth={2.5} />
+              <Waves size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">TDS</span>
@@ -347,7 +473,7 @@ export default function Dashboard() {
           </div>
           <div className="sensor-cell">
             <div className="icon-circle">
-              <Droplet size={20} color="#32A86D" strokeWidth={2.5} />
+              <Droplet size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Water Level</span>
@@ -356,7 +482,7 @@ export default function Dashboard() {
           </div>
           <div className="sensor-cell">
             <div className="icon-circle">
-              <Droplets size={20} color="#32A86D" strokeWidth={2.5} />
+              <Droplets size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Turbidity</span>
@@ -371,21 +497,21 @@ export default function Dashboard() {
           <div className="environment-list">
             <div className="environment-row">
               <div className="icon-circle">
-                <Thermometer size={20} color="#32A86D" strokeWidth={2.5} />
+                <Thermometer size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
               </div>
               <span className="environment-label">Temperature</span>
               <span className="environment-value">{data.environment.temperature.toFixed(1)}°C</span>
             </div>
             <div className="environment-row">
               <div className="icon-circle">
-                <Wind size={20} color="#32A86D" strokeWidth={2.5} />
+                <Wind size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
               </div>
               <span className="environment-label">Humidity</span>
               <span className="environment-value">{Math.round(data.environment.humidity)}%</span>
             </div>
             <div className="environment-row">
               <div className="icon-circle">
-                <Sun size={20} color="#32A86D" strokeWidth={2.5} />
+                <Sun size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
               </div>
               <span className="environment-label">Light Intensity</span>
               <span className="environment-value">{Math.round(data.environment.light).toLocaleString()} Lux</span>
@@ -400,15 +526,31 @@ export default function Dashboard() {
           <Leaf size={20} />
           <span>Tanom</span>
         </button>
-        <button className="nav-item">
+        <button className="nav-item" onClick={() => navigate('/alerts')}>
           <AlertCircle size={20} />
           <span>Alerts</span>
         </button>
-        <button className="nav-item">
+        <button className="nav-item" onClick={() => navigate('/profile')}>
           <User size={20} />
           <span>Profile</span>
         </button>
       </nav>
+
+      {/* Floating Action Button (FAB) */}
+      <button
+        ref={fabRef}
+        className={`floating-action-button ${isDragging ? 'dragging' : ''}`}
+        style={{
+          left: `${fabPosition.x}px`,
+          top: `${fabPosition.y}px`,
+        }}
+        onMouseDown={handleFabMouseDown}
+        onTouchStart={handleFabTouchStart}
+        aria-label="Start new cycle"
+      >
+        <Plus size={24} strokeWidth={2.5} />
+      </button>
     </div>
   );
 }
+

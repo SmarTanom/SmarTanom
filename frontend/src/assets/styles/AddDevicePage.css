@@ -1,0 +1,375 @@
+/* Add Device Page - Modern White Design */
+
+.add-device-root {
+  min-height: 100vh;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Header */
+.add-device-header {
+  padding: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.close-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.close-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.close-btn:active {
+  transform: scale(0.95);
+}
+
+/* Content Container */
+.add-device-container {
+  flex: 1;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Step Indicator */
+.step-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.step-counter {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(51, 148, 50, 0.9);
+  letter-spacing: 0.5px;
+}
+
+.step-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.step-dot.active {
+  width: 24px;
+  border-radius: 4px;
+  background: rgba(51, 148, 50, 0.9);
+}
+
+.step-dot.completed {
+  background: rgba(51, 148, 50, 0.4);
+}
+
+/* Step Header */
+.step-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.step-icon-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(51, 148, 50, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(51, 148, 50, 0.9);
+  margin-bottom: 8px;
+}
+
+.step-title {
+  font-family: 'Abril Fatface', serif;
+  font-size: 32px;
+  font-weight: 400;
+  color: rgba(17, 17, 17, 0.86);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.step-subtitle {
+  font-size: 16px;
+  color: rgba(0, 0, 0, 0.6);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Step Form */
+.step-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.87);
+  letter-spacing: 0.2px;
+}
+
+.field-input {
+  width: 100%;
+  padding: 16px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  font-size: 16px;
+  font-family: 'Montserrat', sans-serif;
+  color: rgba(0, 0, 0, 0.87);
+  background: #FFFFFF;
+  transition: all 0.2s ease;
+}
+
+.field-input::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: rgba(51, 148, 50, 0.9);
+  background: rgba(51, 148, 50, 0.02);
+}
+
+.field-input.otp-style {
+  letter-spacing: 12px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* Password Field */
+.password-field {
+  position: relative;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.password-toggle-btn:hover {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* Checkbox Field */
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-field input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: rgba(51, 148, 50, 0.9);
+}
+
+.checkbox-field span {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* Info Banner */
+.info-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(51, 148, 50, 0.08);
+  border-radius: 12px;
+  color: rgba(51, 148, 50, 0.9);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.info-banner svg {
+  flex-shrink: 0;
+}
+
+/* Code Hint */
+.code-hint {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+/* Resend Link */
+.resend-link {
+  background: none;
+  border: none;
+  color: rgba(51, 148, 50, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px;
+  text-align: center;
+  transition: opacity 0.2s ease;
+}
+
+.resend-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+/* Error Banner */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(225, 85, 74, 0.1);
+  border-radius: 12px;
+  color: #E1554A;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.error-banner svg {
+  flex-shrink: 0;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.btn-primary,
+.btn-secondary {
+  flex: 1;
+  padding: 18px 24px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: 'Montserrat', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: rgba(51, 148, 50, 0.9);
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(51, 148, 50, 0.25);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2d8043;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(51, 148, 50, 0.3);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(51, 148, 50, 0.2);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Button Spinner */
+.btn-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .add-device-container {
+    padding: 0 20px 32px;
+  }
+
+  .step-title {
+    font-size: 28px;
+  }
+
+  .step-icon-circle {
+    width: 64px;
+    height: 64px;
+  }
+
+  .step-icon-circle svg {
+    width: 28px;
+    height: 28px;
+  }
+}

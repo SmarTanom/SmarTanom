@@ -20,6 +20,9 @@ import {
   Database
 } from 'lucide-react';
 
+// Brand color constant
+const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
+
 // Mock data - will be replaced with real device data from props/API
 const mockDevices = {
   'D000000001': {
@@ -123,9 +126,9 @@ export default function DeviceDetails() {
       case 'warning':
         return <TriangleAlert size={20} color="#E1554A" strokeWidth={2.5} />;
       case 'success':
-        return <CircleAlert size={20} color="#32A86D" strokeWidth={2.5} />;
+        return <CircleAlert size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />;
       case 'harvest':
-        return <Sprout size={20} color="#32A86D" strokeWidth={2.5} />;
+        return <Sprout size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />;
       default:
         return <CircleAlert size={20} color="#8BA797" strokeWidth={2.5} />;
     }
@@ -190,13 +193,13 @@ export default function DeviceDetails() {
           <>
             {/* Harvest estimate */}
             <div className="harvest-estimate">
-              <Clock size={20} color="#32A86D" strokeWidth={2.5} />
+              <Clock size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
               <p className="harvest-estimate-text">{device.plant.estimatedHarvestMessage}</p>
             </div>
 
             {/* Plant status */}
             <div className="plant-status-card">
-              <Sprout size={18} color="#32A86D" strokeWidth={2.5} />
+              <Sprout size={18} color={PRIMARY_GREEN} strokeWidth={2.5} />
               <span className="plant-status-text">{device.plant.status}</span>
             </div>
 
@@ -205,18 +208,22 @@ export default function DeviceDetails() {
               <div className="plant-card-image">
                 <img src={device.plant.image} alt={device.plant.name} />
               </div>
-              <div className="plant-card-info">
-                <h3 className="plant-card-name">{device.plant.name}</h3>
-                <p className="plant-card-variety">{device.plant.variety}</p>
-              </div>
-              <div className="plant-card-harvest">
-                <span className="harvest-label">Harvest in</span>
-                <span className="harvest-days">{device.plant.daysToHarvest} days</span>
+              <div className="plant-card-content">
+                <div className="plant-card-info">
+                  <h3 className="plant-card-name">{device.plant.name}</h3>
+                  <p className="plant-card-variety">{device.plant.variety}</p>
+                </div>
+                <div className="plant-card-harvest">
+                  <span className="harvest-label">Harvest in {device.plant.daysToHarvest} days</span>
+                </div>
               </div>
             </div>
 
             {/* Start new cycle button */}
-            <button className="start-cycle-button">
+            <button 
+              className="start-cycle-button"
+              onClick={() => navigate('/start-cycle')}
+            >
               Start New Cycle
             </button>
           </>
@@ -257,7 +264,7 @@ export default function DeviceDetails() {
           <div className="settings-list">
             <button className="settings-item" onClick={() => console.log('Connectivity')}>
               <div className="settings-item-left">
-                <Wifi size={20} color="#32A86D" strokeWidth={2.5} />
+                <Wifi size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
                 <span className="settings-item-label">Connectivity</span>
               </div>
               <div className="settings-item-right">
@@ -268,7 +275,7 @@ export default function DeviceDetails() {
 
             <button className="settings-item" onClick={() => console.log('Sensor Settings')}>
               <div className="settings-item-left">
-                <Gauge size={20} color="#32A86D" strokeWidth={2.5} />
+                <Gauge size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
                 <span className="settings-item-label">Sensor Settings</span>
               </div>
               <ChevronRight size={20} color="#8BA797" />
@@ -276,7 +283,7 @@ export default function DeviceDetails() {
 
             <button className="settings-item" onClick={() => console.log('Cycle Settings')}>
               <div className="settings-item-left">
-                <RefreshCw size={20} color="#32A86D" strokeWidth={2.5} />
+                <RefreshCw size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
                 <span className="settings-item-label">Cycle Settings</span>
               </div>
               <ChevronRight size={20} color="#8BA797" />
@@ -284,7 +291,7 @@ export default function DeviceDetails() {
 
             <button className="settings-item" onClick={() => console.log('SmarTanom Sync Settings')}>
               <div className="settings-item-left">
-                <Database size={20} color="#32A86D" strokeWidth={2.5} />
+                <Database size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
                 <span className="settings-item-label">SmarTanom Sync Settings</span>
               </div>
               <ChevronRight size={20} color="#8BA797" />
