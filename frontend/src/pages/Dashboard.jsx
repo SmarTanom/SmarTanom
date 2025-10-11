@@ -511,6 +511,7 @@ export default function Dashboard() {
     y: typeof window !== 'undefined' ? window.innerHeight - navHeight - fabSize - 24 : 500
   });
   const [isDragging, setIsDragging] = useState(false);
+  const [deviceLoading, setDeviceLoading] = useState({}); // { [deviceId]: boolean }
 
   // Targeted fetch for a single device: refresh its sensors/reservoirs and readings only
   const fetchDeviceDataById = async (deviceId) => {
@@ -589,13 +590,18 @@ export default function Dashboard() {
     navigate(`/device/${device.id}`);
   };
 
-  const handleDeviceMediaClick = (e, device) => {
+  const handleDeviceMediaClick = async (e, device) => {
     e.stopPropagation();
     if (!device || !device.id) return;
     // Focus this device in dashboard and refresh its data
     const idx = devices.findIndex(d => d.id === device.id);
     if (idx >= 0) setActiveIdx(idx);
-    fetchDeviceDataById(device.id);
+    try {
+      setDeviceLoading(prev => ({ ...prev, [device.id]: true }));
+      await fetchDeviceDataById(device.id);
+    } finally {
+      setDeviceLoading(prev => ({ ...prev, [device.id]: false }));
+    }
     // Optionally: scroll to metrics area (dash-main)
     const main = document.querySelector('.dash-main');
     if (main && typeof main.scrollIntoView === 'function') {
@@ -949,11 +955,34 @@ export default function Dashboard() {
                 onClick={(e) => handleDeviceMediaClick(e, d)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleDeviceMediaClick(e, d); }}
                 aria-label="Open sensor data dashboard for this device"
+                aria-busy={deviceLoading[d.id] ? 'true' : 'false'}
+                style={{ position: 'relative' }}
               >
                 <img
                   src={d.plant_photo_url || '/favicon.png'}
                   alt={d.plant_name ? `${d.plant_name} in ${d.device_name}` : "Device"}
                 />
+                {deviceLoading[d.id] && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'rgba(0,0,0,0.35)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      letterSpacing: 0.2
+                    }}
+                    aria-live="polite"
+                  >
+                    <Loader size={18} style={{ marginBottom: 6 }} />
+                    Refreshing...
+                  </div>
+                )}
               </div>
               <div
                 className="device-card-info"
