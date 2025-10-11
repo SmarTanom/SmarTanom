@@ -512,9 +512,95 @@ export default function Dashboard() {
   });
   const [isDragging, setIsDragging] = useState(false);
 
+  // Targeted fetch for a single device: refresh its sensors/reservoirs and readings only
+  const fetchDeviceDataById = async (deviceId) => {
+    try {
+      if (!deviceId) return;
+      const [sensorsResp, reservoirsResp] = await Promise.all([
+        getDeviceSensors(deviceId),
+        getDeviceReservoirs(deviceId)
+      ]);
+      const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
+      const reservoirs = reservoirsResp && reservoirsResp.results ? reservoirsResp.results : reservoirsResp;
+      const sensorDataMap = {};
+      if (Array.isArray(sensors) && sensors.length > 0) {
+        const sensorDataPromises = sensors.map(async (sensor) => {
+          try {
+            const resp = await getSensorData(sensor.id);
+            const data = resp && resp.results ? resp.results : resp;
+            return { sensorId: sensor.id, data: Array.isArray(data) ? data : (data ? [data] : []) };
+          } catch (_e) {
+            return { sensorId: sensor.id, data: [] };
+          }
+        });
+        const sensorDataResults = await Promise.all(sensorDataPromises);
+        sensorDataResults.forEach(({ sensorId, data }) => { sensorDataMap[sensorId] = data; });
+      }
+      const transformedSensors = transformSensorData(sensors || [], sensorDataMap);
+      const phSensor = Array.isArray(sensors) ? sensors.find(s => s.sensor_type === 'ph') : null;
+      const phHistory = getPHHistory(sensorDataMap, phSensor?.id);
+      let lastSensorUpdate = null;
+      Object.values(sensorDataMap).forEach(arr => {
+        if (Array.isArray(arr)) {
+          arr.forEach(d => {
+            if (!d || !d.created_at) return;
+            try {
+              const t = new Date(d.created_at);
+              if (!lastSensorUpdate || t > lastSensorUpdate) lastSensorUpdate = t;
+            } catch (_e) {}
+          });
+        }
+      });
+      const { connectivity, lastSync } = getConnectivityStatus(lastSensorUpdate);
+      const alertText = Object.keys(transformedSensors).length ? generateAlertText(transformedSensors) : undefined;
+      const nutrientText = typeof transformedSensors.tds === 'number' ? getNutrientStatus(transformedSensors.tds) : undefined;
+
+      const dataPayload = {
+        alertText,
+        connectivity,
+        lastSyncLabel: lastSync,
+        nutrientText,
+        phHistory,
+        sensors: {
+          ...(typeof transformedSensors.ec === 'number' ? { ec: transformedSensors.ec } : {}),
+          ...(typeof transformedSensors.tds === 'number' ? { tds: transformedSensors.tds } : {}),
+          ...(typeof transformedSensors.waterLevel === 'number' ? { waterLevel: transformedSensors.waterLevel } : {}),
+          ...(typeof transformedSensors.turbidity === 'number' ? { turbidity: transformedSensors.turbidity } : {}),
+        },
+        environment: {
+          ...(typeof transformedSensors.temperature === 'number' ? { temperature: transformedSensors.temperature } : {}),
+          ...(typeof transformedSensors.humidity === 'number' ? { humidity: transformedSensors.humidity } : {}),
+          ...(typeof transformedSensors.light === 'number' ? { light: transformedSensors.light } : {}),
+        },
+        sensors_raw: sensors || [],
+        reservoirs: reservoirs || []
+      };
+
+      setDevicesData(prev => ({ ...prev, [deviceId]: dataPayload }));
+    } catch (_e) {
+      // leave existing data untouched on failure
+    }
+  };
+
   // Handle device card click
-  const handleDeviceClick = (deviceId) => {
-    navigate(`/device/${deviceId}`);
+  const handleDeviceInfoClick = (e, device) => {
+    e.stopPropagation();
+    if (!device || !device.id) return;
+    navigate(`/device/${device.id}`);
+  };
+
+  const handleDeviceMediaClick = (e, device) => {
+    e.stopPropagation();
+    if (!device || !device.id) return;
+    // Focus this device in dashboard and refresh its data
+    const idx = devices.findIndex(d => d.id === device.id);
+    if (idx >= 0) setActiveIdx(idx);
+    fetchDeviceDataById(device.id);
+    // Optionally: scroll to metrics area (dash-main)
+    const main = document.querySelector('.dash-main');
+    if (main && typeof main.scrollIntoView === 'function') {
+      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   // Handle FAB click (if not dragged)
@@ -855,15 +941,28 @@ export default function Dashboard() {
               className="device-card tap"
               key={`${d.id}-${i}`}
               aria-label={`${d.device_name} ${d.device_serial}`}
-              onClick={() => handleDeviceClick(d.id)}
             >
-              <div className="device-card-media" aria-hidden="true">
+              <div
+                className="device-card-media"
+                role="button"
+                tabIndex={0}
+                onClick={(e) => handleDeviceMediaClick(e, d)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleDeviceMediaClick(e, d); }}
+                aria-label="Open sensor data dashboard for this device"
+              >
                 <img
                   src={d.plant_photo_url || '/favicon.png'}
                   alt={d.plant_name ? `${d.plant_name} in ${d.device_name}` : "Device"}
                 />
               </div>
-              <div className="device-card-info">
+              <div
+                className="device-card-info"
+                role="button"
+                tabIndex={0}
+                onClick={(e) => handleDeviceInfoClick(e, d)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleDeviceInfoClick(e, d); }}
+                aria-label="Open device details"
+              >
                 <div>
                   <h3 className="device-name">{d.device_name}</h3>
                   <p className="device-id">
