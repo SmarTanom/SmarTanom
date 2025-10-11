@@ -51,20 +51,15 @@ __pycache__/
 
 
 # Environment variables (sensitive)
-.env
-.env.local
-.env.development
-.env.production
-.env*.local
-backend/.env
-backend/.env.local
-backend/.env.development
-backend/.env.production
-
-# Exceptions: commit these specific env files per maintainer request
-!.env
-!frontend/.env
-!backend/.env
+#.env
+#.env.local
+#.env.development
+#.env.production
+#.env*.local
+#backend/.env
+#backend/.env.local
+#backend/.env.development
+#backend/.env.production
 
 # Test/probe files (temporary)
 *_probe.py
@@ -73,5 +68,4 @@ tmp_*.py
 # Frontend build artifacts
 frontend/dist/
 
-# (Keep everything else versioned intentionally)
-.env
+
