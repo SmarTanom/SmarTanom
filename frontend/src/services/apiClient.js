@@ -80,4 +80,29 @@ export const authApi = {
   logout: (token) => apiClient.post('/api/auth/logout/', {}, { authToken: token }),
 };
 
-export default apiClient;
+// Device-specific convenience wrappers
+export const deviceApi = {
+  list: (token) => apiClient.get('/api/devices/devices/', { authToken: token }),
+  get: (deviceId, token) => apiClient.get(`/api/devices/devices/${deviceId}/`, { authToken: token }),
+  create: (deviceData, token) => apiClient.post('/api/devices/devices/', deviceData, { authToken: token }),
+  update: (deviceId, deviceData, token) => apiClient.post(`/api/devices/devices/${deviceId}/`, deviceData, { authToken: token }),
+  uploadPlantPhoto: (deviceId, photoFile, plantName = '', plantVariety = '', token) => {
+    const formData = new FormData();
+    formData.append('plant_photo', photoFile);
+    if (plantName) formData.append('plant_name', plantName);
+    if (plantVariety) formData.append('plant_variety', plantVariety);
+
+    return apiClient.post(`/api/devices/devices/${deviceId}/upload-photo/`, formData, {
+      authToken: token,
+      json: false // Don't set Content-Type header for FormData
+    });
+  },
+  updatePlantInfo: (deviceId, plantName = '', plantVariety = '', token) => {
+    return apiClient.post(`/api/devices/devices/${deviceId}/`, {
+      plant_name: plantName,
+      plant_variety: plantVariety
+    }, {
+      authToken: token
+    });
+  },
+};export default apiClient;
