@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  User, Mail, LogOut, Bell, Share2, Shield, 
+import {
+  User, Mail, LogOut, Bell, Share2, Shield,
   ChevronRight, Leaf, AlertCircle, Settings,
   Users, Plus, X, Check
 } from 'lucide-react';
 import '../assets/styles/ProfilePage.css';
+import { authApi } from '../services/apiClient';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -18,50 +19,49 @@ export default function ProfilePage() {
   const [shareEmail, setShareEmail] = useState('');
   const [sharedAccess, setSharedAccess] = useState([]);
 
-  // Mock user data and devices
+  // Load current user profile from backend
   useEffect(() => {
-    // In production, fetch from API
-    const mockUser = {
-      username: 'JohnDoe',
-      email: 'john.doe@example.com',
-      firstName: 'John',
-      lastName: 'Doe',
-      role: 'user',
-      joinedDate: '2024-01-15',
-      devicesOwned: 3,
-      sharedWith: 2
-    };
-
-    const mockDevices = [
-      { id: 'RACK-01', name: 'Outdoor Garden' },
-      { id: 'RACK-02', name: 'Indoor Rack' },
-      { id: 'RACK-03', name: 'Greenhouse Unit' }
-    ];
-
-    const mockSharedAccess = [
-      {
-        id: 1,
-        deviceId: 'RACK-01',
-        deviceName: 'Outdoor Garden',
-        sharedWith: 'jane.smith@example.com',
-        sharedDate: '2024-09-20'
-      },
-      {
-        id: 2,
-        deviceId: 'RACK-02',
-        deviceName: 'Indoor Rack',
-        sharedWith: 'mike.jones@example.com',
-        sharedDate: '2024-09-15'
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      navigate('/');
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        const profile = await authApi.getProfile(token);
+        if (!mounted) return;
+        // Map backend fields -> UI state
+        const uiUser = {
+          username: profile.username || (profile.email ? profile.email.split('@')[0] : 'User'),
+          email: profile.email,
+          full_name: profile.full_name,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          role: profile.role || (profile.is_admin ? 'admin' : 'user'),
+          joinedDate: profile.date_joined,
+          devicesOwned: 0,
+          sharedWith: 0,
+        };
+        setUser(uiUser);
+      } catch (e) {
+        // On auth error, send to landing
+        navigate('/');
       }
-    ];
+    })();
+    return () => { mounted = false; };
+  }, [navigate]);
 
-    setUser(mockUser);
-    setSharedAccess(mockSharedAccess);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/');
+  const handleLogout = async () => {
+    const token = localStorage.getItem('authToken');
+    try {
+      if (token) await authApi.logout(token);
+    } catch (_) {
+      // ignore and proceed with local cleanup
+    } finally {
+      localStorage.removeItem('authToken');
+      navigate('/');
+    }
   };
 
   const handleShareDevice = () => {
@@ -105,7 +105,7 @@ export default function ProfilePage() {
         <div className="profile-avatar">
           <User size={48} strokeWidth={2} />
         </div>
-        <h1 className="profile-username">{user.username}</h1>
+        <h1 className="profile-username">{user.full_name || user.username}</h1>
         <p className="profile-email">{user.email}</p>
       </header>
 
@@ -116,7 +116,7 @@ export default function ProfilePage() {
           <div className="info-card">
             <div className="info-row">
               <span className="info-label">Full Name</span>
-              <span className="info-value">{user.firstName} {user.lastName}</span>
+              <span className="info-value">{user.full_name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || '—'}</span>
             </div>
             <div className="info-row">
               <span className="info-label">Email</span>
@@ -124,11 +124,11 @@ export default function ProfilePage() {
             </div>
             <div className="info-row">
               <span className="info-label">Role</span>
-              <span className="info-value">{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span>
+              <span className="info-value">{(user.role || 'user').charAt(0).toUpperCase() + (user.role || 'user').slice(1)}</span>
             </div>
             <div className="info-row">
               <span className="info-label">Member Since</span>
-              <span className="info-value">{new Date(user.joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+              <span className="info-value">{user.joinedDate ? new Date(user.joinedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}</span>
             </div>
           </div>
         </section>
@@ -162,7 +162,7 @@ export default function ProfilePage() {
         <section className="profile-section">
           <div className="section-header">
             <h2 className="section-title">Shared Monitoring</h2>
-            <button 
+            <button
               className="btn-share-new"
               onClick={() => openShareModal('RACK-01', 'Outdoor Garden')}
             >
@@ -170,7 +170,7 @@ export default function ProfilePage() {
               Share Device
             </button>
           </div>
-          
+
           <div className="share-info-banner">
             <Share2 size={20} />
             <p>Share device monitoring data with other users. All users can view real-time data and alerts to guide data-driven decisions.</p>
@@ -199,7 +199,7 @@ export default function ProfilePage() {
                     </div>
                     <span className="shared-date">Shared on {new Date(share.sharedDate).toLocaleDateString()}</span>
                   </div>
-                  <button 
+                  <button
                     className="btn-revoke"
                     onClick={() => handleRevokeAccess(share.id)}
                   >
@@ -223,7 +223,7 @@ export default function ProfilePage() {
               <span className="setting-label">Notifications</span>
               <ChevronRight size={20} color="rgba(51, 148, 50, 0.9)" />
             </button>
-            
+
             <button className="setting-item" onClick={() => navigate('/privacy-security')}>
               <div className="setting-icon">
                 <Shield size={22} color="rgba(51, 148, 50, 0.9)" />
@@ -231,7 +231,7 @@ export default function ProfilePage() {
               <span className="setting-label">Privacy & Security</span>
               <ChevronRight size={20} color="rgba(51, 148, 50, 0.9)" />
             </button>
-            
+
             <button className="setting-item">
               <div className="setting-icon">
                 <Settings size={22} color="rgba(51, 148, 50, 0.9)" />
@@ -277,12 +277,12 @@ export default function ProfilePage() {
                 <X size={24} />
               </button>
             </div>
-            
+
             <div className="modal-body">
               {/* Device Selection */}
               <div className="form-group">
                 <label className="form-label">Select Device</label>
-                <select 
+                <select
                   className="form-select"
                   value={selectedDevice?.id || ''}
                   onChange={(e) => {
@@ -304,7 +304,7 @@ export default function ProfilePage() {
               {/* Email Input */}
               <div className="form-group">
                 <label className="form-label">User Email</label>
-                <input 
+                <input
                   type="email"
                   className="form-input"
                   placeholder="user@example.com"
@@ -312,7 +312,7 @@ export default function ProfilePage() {
                   onChange={(e) => setShareEmail(e.target.value)}
                 />
                 <p className="form-help-text">
-                  <Shield size={14} style={{ verticalAlign: 'middle' }} /> 
+                  <Shield size={14} style={{ verticalAlign: 'middle' }} />
                   <span style={{ marginLeft: '6px' }}>View-only access - can see real-time monitoring data and alerts</span>
                 </p>
               </div>

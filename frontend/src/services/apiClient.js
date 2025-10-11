@@ -11,7 +11,7 @@ function buildUrl(path) {
   return `${API_BASE}${path}`;
 }
 
-async function lowLevelFetch(url, opts){
+async function lowLevelFetch(url, opts) {
   return fetch(url, opts);
 }
 
@@ -77,6 +77,7 @@ export const authApi = {
   finalizeAccount: (username, token) => apiClient.post('/api/auth/finalize-account/', { username }, { authToken: token }),
   checkUsername: (username) => apiClient.get(`/api/auth/check-username/?username=${encodeURIComponent(username)}`),
   getProfile: (token) => apiClient.get('/api/auth/profile/', { authToken: token }),
+  logout: (token) => apiClient.post('/api/auth/logout/', {}, { authToken: token }),
 };
 
 export default apiClient;
