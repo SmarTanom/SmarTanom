@@ -16,6 +16,7 @@ class Sensor(TimeStampedModel):
         # Water quality sensors
         PH = "ph", "pH Sensor"
         TDS = "tds", "TDS Sensor (ppm)"
+        EC = "ec", "Electrical Conductivity (mS/cm)"
         WATER_TEMPERATURE = "water_temperature", "Water Temperature Sensor (°C)"
         WATER_LEVEL = "water_level", "Water Level Sensor"
         TURBIDITY = "turbidity", "Turbidity Sensor (NTU)"
@@ -60,6 +61,7 @@ class Sensor(TimeStampedModel):
                 self.SensorType.HUMIDITY: "%",
                 self.SensorType.PH: "pH",
                 self.SensorType.TDS: "ppm",
+                self.SensorType.EC: "mS/cm",
                 self.SensorType.LIGHT: "lux",
                 self.SensorType.WATER_LEVEL: "%",
                 self.SensorType.TURBIDITY: "NTU",

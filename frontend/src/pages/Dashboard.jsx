@@ -51,8 +51,10 @@ const transformSensorData = (sensors, sensorDataMap) => {
         }
       }, allData[0]);
     }
-
-    const value = latestData && typeof latestData.value !== 'undefined' ? latestData.value : 0;
+    if (!latestData || typeof latestData.value === 'undefined') {
+      return; // Do not set mock/default values
+    }
+    const value = latestData.value;
 
     switch (sensor.sensor_type) {
       case 'ph':
@@ -60,6 +62,9 @@ const transformSensorData = (sensors, sensorDataMap) => {
         break;
       case 'tds':
         sensorMap.tds = value;
+        break;
+      case 'ec':
+        sensorMap.ec = value;
         break;
       case 'water_level':
         sensorMap.waterLevel = value;
@@ -86,7 +91,7 @@ const transformSensorData = (sensors, sensorDataMap) => {
 // Return pH history array ordered from oldest -> newest and padded/trimmed to 60 values.
 const getPHHistory = (sensorDataMap, phSensorId) => {
   if (!phSensorId || !sensorDataMap[phSensorId]) {
-    return Array(60).fill(6.3); // Default pH history
+    return null; // No mock data; absence indicates loading/empty
   }
 
   const phData = sensorDataMap[phSensorId] || [];
@@ -105,13 +110,8 @@ const getPHHistory = (sensorDataMap, phSensorId) => {
     return sorted.slice(sorted.length - 60);
   }
 
-  // If fewer than 60, pad with the first value (oldest) to the left so newer values sit at the end
-  const history = [...sorted];
-  const padValue = history.length > 0 ? history[0] : 6.3;
-  while (history.length < 60) {
-    history.unshift(padValue);
-  }
-  return history;
+  // If fewer than 60 and you want fixed-width charts, you could pad; here we avoid mock padding.
+  return sorted;
 };
 
 // Helper function to determine connectivity status
@@ -197,6 +197,8 @@ export default function Dashboard() {
   // State for real data
   const [devices, setDevices] = useState([]);
   const [devicesData, setDevicesData] = useState({});
+  // Latest reading for the first device's first sensor (useful for small widgets)
+  const [firstSensorReading, setFirstSensorReading] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [displayName, setDisplayName] = useState('User');
@@ -248,6 +250,32 @@ export default function Dashboard() {
         setDevicesData({});
         setLoading(false);
         return;
+      }
+
+      // Fetch the first device's first sensor latest reading (small, best-effort fetch)
+      try {
+        const firstDevice = userDevices[0];
+        if (firstDevice && firstDevice.id) {
+          const sensorsResp = await getDeviceSensors(firstDevice.id);
+          const sensorsList = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
+          if (Array.isArray(sensorsList) && sensorsList.length > 0) {
+            const firstSensor = sensorsList[0];
+            try {
+              const firstSensorDataResp = await getSensorData(firstSensor.id, 1);
+              const firstData = firstSensorDataResp && firstSensorDataResp.results
+                ? firstSensorDataResp.results[0]
+                : (Array.isArray(firstSensorDataResp) ? firstSensorDataResp[0] : null);
+              setFirstSensorReading(firstData || null);
+              // Small debug log so devs can see the value in console
+              console.log('Dashboard - first device first sensor reading:', firstData);
+            } catch (err) {
+              console.warn('Failed to load first sensor data:', err);
+            }
+          }
+        }
+      } catch (err) {
+        // Non-fatal; continue with full device fetch below
+        console.warn('Failed to load first device sensors (best-effort):', err);
       }
 
       setDevices(userDevices);
@@ -309,8 +337,8 @@ export default function Dashboard() {
           });
 
           const { connectivity, lastSync } = getConnectivityStatus(lastSensorUpdate);
-          const alertText = generateAlertText(transformedSensors);
-          const nutrientText = getNutrientStatus(transformedSensors.tds || 0);
+          const alertText = Object.keys(transformedSensors).length ? generateAlertText(transformedSensors) : undefined;
+          const nutrientText = typeof transformedSensors.tds === 'number' ? getNutrientStatus(transformedSensors.tds) : undefined;
 
           return {
             deviceId: device.id,
@@ -321,15 +349,15 @@ export default function Dashboard() {
               nutrientText,
               phHistory,
               sensors: {
-                ec: transformedSensors.ec || 0,
-                tds: transformedSensors.tds || 0,
-                waterLevel: transformedSensors.waterLevel || 0,
-                turbidity: transformedSensors.turbidity || 0
+                ...(typeof transformedSensors.ec === 'number' ? { ec: transformedSensors.ec } : {}),
+                ...(typeof transformedSensors.tds === 'number' ? { tds: transformedSensors.tds } : {}),
+                ...(typeof transformedSensors.waterLevel === 'number' ? { waterLevel: transformedSensors.waterLevel } : {}),
+                ...(typeof transformedSensors.turbidity === 'number' ? { turbidity: transformedSensors.turbidity } : {}),
               },
               environment: {
-                temperature: transformedSensors.temperature || 22,
-                humidity: transformedSensors.humidity || 65,
-                light: transformedSensors.light || 8000
+                ...(typeof transformedSensors.temperature === 'number' ? { temperature: transformedSensors.temperature } : {}),
+                ...(typeof transformedSensors.humidity === 'number' ? { humidity: transformedSensors.humidity } : {}),
+                ...(typeof transformedSensors.light === 'number' ? { light: transformedSensors.light } : {}),
               },
               sensors_raw: sensors || [],
               reservoirs: reservoirs || []
@@ -341,13 +369,9 @@ export default function Dashboard() {
           return {
             deviceId: device.id,
             data: {
-              alertText: 'Unable to fetch sensor data',
+              // Minimal fallback; omit mock values so UI shows Loading...
               connectivity: 'Offline',
-              lastSyncLabel: 'Unknown',
-              nutrientText: 'Unknown',
-              phHistory: Array(60).fill(6.3),
-              sensors: { ec: 0, tds: 0, waterLevel: 0, turbidity: 0 },
-              environment: { temperature: 22, humidity: 65, light: 8000 },
+              lastSyncLabel: 'Never',
               sensors_raw: [],
               reservoirs: []
             }
@@ -677,10 +701,24 @@ export default function Dashboard() {
 
   const currentDevice = devices[activeIdx];
   const data = currentDevice ? devicesData[currentDevice.id] : null;
+  // Robust label for pH legend: prefer device_name, then plant_name, then serial
+  const legendLabel = useMemo(() => {
+    if (!currentDevice) return 'Device';
+    const name = (currentDevice.device_name || '').trim();
+    const plant = (currentDevice.plant_name || '').trim();
+    return name || plant || currentDevice.device_serial || 'Device';
+  }, [currentDevice]);
   const currentPH = useMemo(() => {
     if (!data?.phHistory) return '6.3';
     return data.phHistory[data.phHistory.length - 1].toFixed(1);
   }, [activeIdx, data]);
+
+  // When devices list changes (e.g., after fetch), reset to the first device
+  useEffect(() => {
+    if (devices && devices.length > 0) {
+      setActiveIdx(0);
+    }
+  }, [devices.length]);
 
   // Show loading state
   if (loading) {
@@ -899,8 +937,8 @@ export default function Dashboard() {
             </div>
             <div className="status-box-content">
               <span className="status-label">Connectivity</span>
-              <span className={`status-value ${(data?.connectivity || 'Offline') === 'Online' ? 'status-online' : 'status-offline'}`}>
-                {data?.connectivity || 'Offline'}
+              <span className={`status-value ${data?.connectivity === 'Online' ? 'status-online' : 'status-offline'}`}>
+                {data ? (data.connectivity || 'Offline') : 'Loading...'}
               </span>
             </div>
           </div>
@@ -910,7 +948,7 @@ export default function Dashboard() {
             </div>
             <div className="status-box-content">
               <span className="status-label">Last Data Sync</span>
-              <span className="status-value">{data?.lastSyncLabel || 'Unknown'}</span>
+              <span className="status-value">{data ? (data.lastSyncLabel || 'Never') : 'Loading...'}</span>
             </div>
           </div>
         </section>
@@ -922,7 +960,7 @@ export default function Dashboard() {
             <div className="icon-circle">
               <Leaf size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
-            <span className="nutrient-text">{data?.nutrientText || 'Loading...'}</span>
+            <span className="nutrient-text">{data ? (data.nutrientText || 'Loading...') : 'Loading...'}</span>
           </div>
         </section>
 
@@ -937,7 +975,7 @@ export default function Dashboard() {
           </div>
           <div className="ph-legend">
             <span className="ph-legend-dot"></span>
-            <span className="ph-legend-label">{currentDevice?.device_name || 'Device'}</span>
+            <span className="ph-legend-label">{legendLabel}</span>
           </div>
           <div className="ph-chart-container">
             <div className="ph-y-axis">
@@ -950,9 +988,9 @@ export default function Dashboard() {
               <span className="ph-y-label">6.0 pH</span>
             </div>
             <div className="ph-bars" role="img" aria-label="pH chart">
-              {(data?.phHistory || Array(60).fill(6.3)).map((v, i) => (
-                <PHBar key={i} v={v} i={i} />
-              ))}
+              {data && Array.isArray(data.phHistory) && data.phHistory.length > 0
+                ? data.phHistory.map((v, i) => <PHBar key={i} v={v} i={i} />)
+                : <div style={{ color: '#999', fontSize: 12 }}>Loading...</div>}
             </div>
           </div>
           <div className="ph-x-axis">
@@ -970,7 +1008,7 @@ export default function Dashboard() {
             </div>
             <span className="current-ph-label">Current pH level</span>
           </div>
-          <span className="current-ph-value">{currentPH} pH</span>
+          <span className="current-ph-value">{data && data.phHistory && data.phHistory.length > 0 ? `${currentPH} pH` : 'Loading...'}</span>
         </section>
 
         {/* Sensor grid */}
@@ -981,7 +1019,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">EC Levels</span>
-              <span className="sensor-value">{(data?.sensors?.ec || 0).toFixed(1)} mS/cm</span>
+              <span className="sensor-value">{data && typeof data.sensors?.ec === 'number' ? `${data.sensors.ec.toFixed(1)} mS/cm` : 'Loading...'}</span>
             </div>
           </div>
           <div className="sensor-cell">
@@ -990,7 +1028,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">TDS</span>
-              <span className="sensor-value">{Math.round(data?.sensors?.tds || 0)} ppm</span>
+              <span className="sensor-value">{data && typeof data.sensors?.tds === 'number' ? `${Math.round(data.sensors.tds)} ppm` : 'Loading...'}</span>
             </div>
           </div>
           <div className="sensor-cell">
@@ -999,7 +1037,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Water Level</span>
-              <span className="sensor-value">{Math.round(data?.sensors?.waterLevel || 0)}%</span>
+              <span className="sensor-value">{data && typeof data.sensors?.waterLevel === 'number' ? `${Math.round(data.sensors.waterLevel)}%` : 'Loading...'}</span>
             </div>
           </div>
           <div className="sensor-cell">
@@ -1008,7 +1046,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Turbidity</span>
-              <span className="sensor-value">{(data?.sensors?.turbidity || 0).toFixed(1)} NTU</span>
+              <span className="sensor-value">{data && typeof data.sensors?.turbidity === 'number' ? `${data.sensors.turbidity.toFixed(1)} NTU` : 'Loading...'}</span>
             </div>
           </div>
         </section>
@@ -1022,21 +1060,21 @@ export default function Dashboard() {
                 <Thermometer size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
               </div>
               <span className="environment-label">Temperature</span>
-              <span className="environment-value">{(data?.environment?.temperature || 22).toFixed(1)}°C</span>
+              <span className="environment-value">{data && typeof data.environment?.temperature === 'number' ? `${data.environment.temperature.toFixed(1)}°C` : 'Loading...'}</span>
             </div>
             <div className="environment-row">
               <div className="icon-circle">
                 <Wind size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
               </div>
               <span className="environment-label">Humidity</span>
-              <span className="environment-value">{Math.round(data?.environment?.humidity || 65)}%</span>
+              <span className="environment-value">{data && typeof data.environment?.humidity === 'number' ? `${Math.round(data.environment.humidity)}%` : 'Loading...'}</span>
             </div>
             <div className="environment-row">
               <div className="icon-circle">
                 <Sun size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
               </div>
               <span className="environment-label">Light Intensity</span>
-              <span className="environment-value">{Math.round(data?.environment?.light || 8000).toLocaleString()} Lux</span>
+              <span className="environment-value">{data && typeof data.environment?.light === 'number' ? `${Math.round(data.environment.light).toLocaleString()} Lux` : 'Loading...'}</span>
             </div>
           </div>
         </section>

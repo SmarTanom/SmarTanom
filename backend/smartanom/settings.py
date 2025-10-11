@@ -333,6 +333,15 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+		# Reduce verbosity from Django's internal development server (basehttp)
+		# which logs "- Broken pipe from ..." at INFO. In development this is
+		# usually harmless (clients disconnecting / polling). Set to WARNING to
+		# avoid noisy logs while keeping errors visible.
+		'django.server': {
+			'handlers': ['console', 'file'],
+			'level': 'WARNING',
+			'propagate': False,
+		},
         'apps.accounts': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG' if DEBUG else 'INFO',

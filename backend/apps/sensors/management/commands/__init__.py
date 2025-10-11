@@ -1,0 +1,1 @@
+"""Commands for sensors app."""
