@@ -320,10 +320,13 @@ export default function DeviceDetails() {
 
   const resolvedDevice = device || (mockDevices[deviceId] || mockDevices['D000000001']);
 
-  return (
+  // Use plant photo if available, otherwise fall back to mock image or default
+  const headerImage = (device && device.plant_photo_url)
+    ? device.plant_photo_url
+    : (resolvedDevice.image || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop');  return (
     <div className="device-details-root">
       {/* Header with background image */}
-      <header className="device-header" style={{ backgroundImage: `url(${resolvedDevice.image})` }}>
+      <header className="device-header" style={{ backgroundImage: `url(${headerImage})` }}>
         <div className="device-header-overlay">
           <button className="back-button" onClick={handleGoBack}>
             <ChevronLeft size={20} />
@@ -376,27 +379,51 @@ export default function DeviceDetails() {
             {/* Harvest estimate */}
             <div className="harvest-estimate">
               <Clock size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              <p className="harvest-estimate-text">{resolvedDevice.plant ? resolvedDevice.plant.estimatedHarvestMessage : 'Device is running normally.'}</p>
+              <p className="harvest-estimate-text">
+                {(device && device.plant_name)
+                  ? `Growing ${device.plant_name}${device.plant_variety ? ` (${device.plant_variety})` : ''} - ${device.plant_status || 'Active'}`
+                  : (resolvedDevice.plant ? resolvedDevice.plant.estimatedHarvestMessage : 'Device is running normally.')
+                }
+              </p>
             </div>
 
             {/* Plant status */}
             <div className="plant-status-card">
               <Sprout size={18} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              <span className="plant-status-text">{resolvedDevice.plant ? resolvedDevice.plant.status : 'Active'}</span>
+              <span className="plant-status-text">
+                {(device && device.plant_status) || (resolvedDevice.plant ? resolvedDevice.plant.status : 'Active')}
+              </span>
             </div>
 
             {/* Plant card */}
             <div className="plant-card">
               <div className="plant-card-image">
-                <img src={(resolvedDevice.plant && resolvedDevice.plant.image) || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop'} alt={(resolvedDevice.plant && resolvedDevice.plant.name) || 'Plant'} />
+                <img
+                  src={
+                    (device && device.plant_photo_url)
+                      ? device.plant_photo_url
+                      : ((resolvedDevice.plant && resolvedDevice.plant.image) || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop')
+                  }
+                  alt={
+                    (device && device.plant_name)
+                      ? device.plant_name
+                      : ((resolvedDevice.plant && resolvedDevice.plant.name) || 'Plant')
+                  }
+                />
               </div>
               <div className="plant-card-content">
                 <div className="plant-card-info">
-                  <h3 className="plant-card-name">{resolvedDevice.plant ? resolvedDevice.plant.name : '—'}</h3>
-                  <p className="plant-card-variety">{resolvedDevice.plant ? resolvedDevice.plant.variety : '—'}</p>
+                  <h3 className="plant-card-name">
+                    {(device && device.plant_name) || (resolvedDevice.plant ? resolvedDevice.plant.name : '—')}
+                  </h3>
+                  <p className="plant-card-variety">
+                    {(device && device.plant_variety) || (resolvedDevice.plant ? resolvedDevice.plant.variety : '—')}
+                  </p>
                 </div>
                 <div className="plant-card-harvest">
-                  <span className="harvest-label">{resolvedDevice.plant ? `Harvest in ${resolvedDevice.plant.daysToHarvest} days` : '—'}</span>
+                  <span className="harvest-label">
+                    {(device && device.plant_status) || (resolvedDevice.plant ? `Harvest in ${resolvedDevice.plant.daysToHarvest} days` : '—')}
+                  </span>
                 </div>
               </div>
             </div>

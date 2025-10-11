@@ -212,6 +212,19 @@ export default function Dashboard() {
       const devicesResponse = await getUserDevices();
       const userDevices = devicesResponse.results || devicesResponse;
 
+      // Debug: Log device data to see what's returned
+      console.log('Dashboard - Devices response:', devicesResponse);
+      console.log('Dashboard - User devices:', userDevices);
+      if (userDevices && userDevices.length > 0) {
+        console.log('Dashboard - First device plant data:', {
+          plant_photo: userDevices[0].plant_photo,
+          plant_photo_url: userDevices[0].plant_photo_url,
+          plant_name: userDevices[0].plant_name,
+          plant_variety: userDevices[0].plant_variety,
+          plant_status: userDevices[0].plant_status
+        });
+      }
+
       if (!userDevices || userDevices.length === 0) {
         setDevices([]);
         setDevicesData({});
@@ -688,12 +701,17 @@ export default function Dashboard() {
               onClick={() => handleDeviceClick(d.id)}
             >
               <div className="device-card-media" aria-hidden="true">
-                <img src="/favicon.png" alt="Device" />
+                <img
+                  src={d.plant_photo_url || '/favicon.png'}
+                  alt={d.plant_name ? `${d.plant_name} in ${d.device_name}` : "Device"}
+                />
               </div>
               <div className="device-card-info">
                 <div>
                   <h3 className="device-name">{d.device_name}</h3>
-                  <p className="device-id">Serial: {d.device_serial}</p>
+                  <p className="device-id">
+                    {d.plant_name ? `Growing: ${d.plant_name}` : `Serial: ${d.device_serial}`}
+                  </p>
                 </div>
                 <div className="device-card-arrow">
                   <ChevronRight size={18} />

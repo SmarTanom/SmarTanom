@@ -112,6 +112,8 @@ class DeviceBindVerifySerializer(serializers.Serializer):
 class DeviceSerializer(serializers.ModelSerializer):
     """Serializer for Device model."""
 
+    plant_photo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Device
         fields = [
@@ -121,10 +123,24 @@ class DeviceSerializer(serializers.ModelSerializer):
             "status",
             "is_bound",
             "bound_email",
+            "plant_photo",
+            "plant_photo_url",
+            "plant_name",
+            "plant_variety",
+            "plant_status",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "device_serial", "is_bound", "bound_email", "created_at", "updated_at"]
+        read_only_fields = ["id", "device_serial", "is_bound", "bound_email", "plant_photo_url", "created_at", "updated_at"]
+
+    def get_plant_photo_url(self, obj):
+        """Get the full URL for the plant photo."""
+        if obj.plant_photo:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.plant_photo.url)
+            return obj.plant_photo.url
+        return None
 
 
 class DeviceOTPCodeSerializer(serializers.ModelSerializer):

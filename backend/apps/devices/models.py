@@ -45,6 +45,29 @@ class Device(TimeStampedModel):
         help_text="Email address this device is bound to"
     )
 
+    # Plant information fields
+    plant_photo = models.ImageField(
+        upload_to='device_photos/',
+        null=True, blank=True,
+        help_text="Photo of the plant growing in this device"
+    )
+    plant_name = models.CharField(
+        max_length=100,
+        null=True, blank=True,
+        help_text="Name of the plant being grown"
+    )
+    plant_variety = models.CharField(
+        max_length=100,
+        null=True, blank=True,
+        help_text="Specific variety of the plant"
+    )
+    plant_status = models.CharField(
+        max_length=50,
+        null=True, blank=True,
+        default="Active",
+        help_text="Current status of the plant"
+    )
+
     class Meta:
         indexes = [
             models.Index(fields=["device_serial"], name="idx_device_serial"),

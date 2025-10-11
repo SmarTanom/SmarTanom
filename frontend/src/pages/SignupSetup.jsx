@@ -6,7 +6,7 @@ import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
 import { Check } from '../components/ui/Icon.jsx';
 import { Mail } from '../components/ui/Icon.jsx';
 import { Wifi, Refresh, Lock, SignalBars } from '../components/ui/Icon.jsx';
-import { authApi } from '../services/apiClient.js';
+import { authApi, deviceApi } from '../services/apiClient.js';
 import { checkDevice, requestDeviceOTP, verifyDeviceOTP } from '../services/api/devices.js';
 // Removed shared OtpInput component per request; using local inline inputs
 // (Removed duplicate React hook import; useRef/useEffect already available or use React.useRef if needed)
@@ -206,6 +206,7 @@ export default function SignupSetup() {
   const [plantPhotoChoice, setPlantPhotoChoice] = useState('none'); // 'camera' | 'upload' | 'default' | 'none'
   const [uploadPhotoName, setUploadPhotoName] = useState('');
   const [uploadPhotoUrl, setUploadPhotoUrl] = useState('');
+  const [uploadedPhotoFile, setUploadedPhotoFile] = useState(null); // Store the actual file
   const defaultImages = [
     'Salanova', 'Butterhead', 'Looseleaf', 'Batavia', 'Romaine',
     'Spinach', 'Arugula', 'Kale', 'Bok Choy', 'Basil', 'Mint', 'Oregano', 'Cilantro', 'Chives', 'Parsley', 'Thyme'
@@ -217,6 +218,7 @@ export default function SignupSetup() {
 
   // Step 3 state
   const [bindEmail, setBindEmail] = useState('');
+  const [boundDeviceSerial, setBoundDeviceSerial] = useState(''); // Store device serial after binding
   const [sendingCode, setSendingCode] = useState(false);
   const [emailError, setEmailError] = useState('');
 
@@ -544,6 +546,10 @@ export default function SignupSetup() {
           console.log('Authentication token stored');
         }
 
+        // Store device serial for photo upload later
+        setBoundDeviceSerial(deviceSerial);
+        console.log('Device serial stored for photo upload:', deviceSerial);
+
         setStatusMsg('Device bound successfully!');
 
         // Show success message briefly then proceed to next step
@@ -717,8 +723,57 @@ export default function SignupSetup() {
     try {
       const token = localStorage.getItem('authToken');
       if (!token) throw new Error('Missing auth session (token). Please re-authenticate.');
+
+      // First finalize the account (set username)
       await authApi.finalizeAccount(username.trim(), token);
-      // Retrieve profile to determine role for redirect
+
+      // If there's plant information to save (photo or default selection), save it to the device
+      if ((uploadedPhotoFile || plantPhotoChoice === 'default') && boundDeviceSerial) {
+        try {
+          console.log('Updating device plant information for device:', boundDeviceSerial);
+
+          // Get the list of user devices to find the device ID
+          const devicesResponse = await deviceApi.list(token);
+          console.log('Devices response:', devicesResponse);
+
+          // Handle paginated response (DRF returns {results: [...]} format)
+          const devicesList = Array.isArray(devicesResponse) ? devicesResponse : devicesResponse.results || [];
+          const userDevice = devicesList.find(device =>
+            device.device_serial === boundDeviceSerial
+          );
+
+          if (userDevice) {
+            // Determine plant name from selection
+            const plantName = selectedDefaultImage || nickname || userDevice.device_name || '';
+
+            if (uploadedPhotoFile) {
+              // Upload the photo with plant information
+              await deviceApi.uploadPlantPhoto(
+                userDevice.id,
+                uploadedPhotoFile,
+                plantName,
+                '', // plant variety
+                token
+              );
+              console.log('Plant photo uploaded successfully');
+            } else if (plantPhotoChoice === 'default' && selectedDefaultImage) {
+              // For default images, update the plant name without a file
+              await deviceApi.updatePlantInfo(
+                userDevice.id,
+                plantName,
+                '', // plant variety
+                token
+              );
+              console.log('Plant information updated with default selection:', selectedDefaultImage);
+            }
+          } else {
+            console.warn('Device not found in user devices, skipping plant info update');
+          }
+        } catch (updateError) {
+          console.error('Plant information update failed:', updateError);
+          // Don't fail the entire process if plant info update fails
+        }
+      }      // Retrieve profile to determine role for redirect
       let role = 'user';
       try {
         const prof = await authApi.getProfile(token);
@@ -1392,6 +1447,7 @@ export default function SignupSetup() {
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) {
+                      setUploadedPhotoFile(f);
                       setUploadPhotoName(f.name);
                       const url = URL.createObjectURL(f);
                       setUploadPhotoUrl(url);
@@ -1408,6 +1464,7 @@ export default function SignupSetup() {
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) {
+                      setUploadedPhotoFile(f);
                       setUploadPhotoName(f.name);
                       const url = URL.createObjectURL(f);
                       setUploadPhotoUrl(url);
@@ -1437,6 +1494,7 @@ export default function SignupSetup() {
                       type="button"
                       className="setup-btn outline"
                       onClick={() => {
+                        setUploadedPhotoFile(null);
                         setUploadPhotoName('');
                         setUploadPhotoUrl('');
                         setPlantPhotoChoice('none');

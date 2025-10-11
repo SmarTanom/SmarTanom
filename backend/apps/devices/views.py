@@ -6,7 +6,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.utils import timezone
 from rest_framework import filters, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
 from apps.accounts.models import User
@@ -273,3 +273,41 @@ class DeviceViewSet(BaseAuthViewSet):
             return qs
         # Regular users see only devices bound to their email
         return qs.filter(bound_email=user.email, is_bound=True)
+
+    @action(detail=True, methods=['post'], url_path='upload-photo')
+    def upload_plant_photo(self, request, pk=None):
+        """Upload plant photo for a device."""
+        device = self.get_object()
+
+        # Check if user owns this device (unless staff)
+        if not request.user.is_staff and device.bound_email != request.user.email:
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        photo = request.FILES.get('plant_photo')
+        if not photo:
+            return Response(
+                {'error': 'No photo file provided'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate file type (basic check)
+        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+        if photo.content_type not in allowed_types:
+            return Response(
+                {'error': 'Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Update device with new photo and plant info
+        device.plant_photo = photo
+        device.plant_name = request.data.get('plant_name', device.plant_name)
+        device.plant_variety = request.data.get('plant_variety', device.plant_variety)
+        device.plant_status = request.data.get('plant_status', device.plant_status or 'Active')
+        device.save()
+
+        # Return updated device data
+        serializer = self.get_serializer(device, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmarTanom Photo Upload Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; }
+        .error { background-color: #f8d7da; }
+        .info { background-color: #d1ecf1; }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>SmarTanom Photo Upload Test</h1>
+
+    <div class="test-section info">
+        <h2>Test Environment</h2>
+        <p>This page tests the photo upload functionality for SmarTanom device setup.</p>
+        <p><strong>Note:</strong> Make sure the backend server is running on <span id="api-base">http://localhost:8000</span></p>
+    </div>
+
+    <div class="test-section">
+        <h2>1. API Connection Test</h2>
+        <button onclick="testAPIConnection()">Test API Connection</button>
+        <div id="api-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Photo Upload Test</h2>
+        <p>Select a photo to test the upload functionality:</p>
+        <input type="file" id="photo-input" accept="image/*">
+        <br>
+        <label>Device ID: <input type="text" id="device-id" placeholder="SMRT-XXX-XXX" value="SMRT-ABC-123"></label>
+        <br>
+        <label>Plant Name: <input type="text" id="plant-name" placeholder="Plant Name" value="Test Plant"></label>
+        <br>
+        <button onclick="testPhotoUpload()">Test Photo Upload</button>
+        <div id="upload-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Implementation Overview</h2>
+        <p>The photo upload implementation includes:</p>
+        <ul>
+            <li>✅ Backend: Device model with plant_photo ImageField</li>
+            <li>✅ Backend: upload_plant_photo API endpoint</li>
+            <li>✅ Frontend: Photo selection modal in SignupSetup</li>
+            <li>✅ Frontend: deviceApi service functions</li>
+            <li>✅ Frontend: Integration with finalizeAccount function</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        // API Base URL (adjust if needed)
+        const API_BASE = 'http://localhost:8000';
+
+        // Update display
+        document.getElementById('api-base').textContent = API_BASE;
+
+        // Test API Connection
+        window.testAPIConnection = async function() {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.innerHTML = '<p>Testing connection...</p>';
+
+            try {
+                const response = await fetch(`${API_BASE}/healthz`);
+                if (response.ok) {
+                    resultDiv.innerHTML = '<div class="success"><p>✅ API Connection successful!</p></div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="error"><p>❌ API responded with error: ' + response.status + '</p></div>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error"><p>❌ Connection failed: ' + error.message + '</p></div>';
+            }
+        };
+
+        // Test Photo Upload
+        window.testPhotoUpload = async function() {
+            const resultDiv = document.getElementById('upload-result');
+            const photoInput = document.getElementById('photo-input');
+            const deviceId = document.getElementById('device-id').value;
+            const plantName = document.getElementById('plant-name').value;
+
+            if (!photoInput.files[0]) {
+                resultDiv.innerHTML = '<div class="error"><p>❌ Please select a photo first</p></div>';
+                return;
+            }
+
+            if (!deviceId.trim()) {
+                resultDiv.innerHTML = '<div class="error"><p>❌ Please enter a device ID</p></div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<p>Uploading photo...</p>';
+
+            try {
+                // Create FormData for upload
+                const formData = new FormData();
+                formData.append('plant_photo', photoInput.files[0]);
+                formData.append('plant_name', plantName);
+
+                // Mock auth token (you'll need a real one for actual testing)
+                const authToken = 'your-auth-token-here';
+
+                const response = await fetch(`${API_BASE}/api/devices/devices/1/upload-photo/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${authToken}`
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <p>✅ Photo uploaded successfully!</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <p>❌ Upload failed: ${response.status}</p>
+                            <pre>${JSON.stringify(errorData, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error"><p>❌ Upload error: ' + error.message + '</p></div>';
+            }
+        };
+
+        // Auto-test API connection on load
+        window.addEventListener('load', () => {
+            setTimeout(testAPIConnection, 500);
+        });
+    </script>
+</body>
+</html>
