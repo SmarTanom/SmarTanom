@@ -110,7 +110,7 @@ export default function EmailPage({ mode = 'signin' }) {
       setStatusMsg('Verification successful!');
       // Persist token if provided (login or register)
       if (resp?.token) {
-        try { localStorage.setItem('auth_token', resp.token); } catch {}
+        try { localStorage.setItem('authToken', resp.token); } catch {}
       }
       // If this is a signup-first flow, continue onboarding to username
       if (mode === 'signup' || resp?.flow_hint === 'signup_created') {
@@ -118,7 +118,7 @@ export default function EmailPage({ mode = 'signin' }) {
         return;
       }
       // Otherwise, after successful sign-in, fetch profile and route by role
-      const token = resp?.token || localStorage.getItem('auth_token');
+      const token = resp?.token || localStorage.getItem('authToken');
       let target = '/dashboard';
       try {
         if (token) {

@@ -17,93 +17,117 @@ import {
   Wind,
   Sun,
   User,
-  Plus
+  Plus,
+  Loader
 } from 'lucide-react';
 import { MdScience } from 'react-icons/md';
+import { getUserDevices } from '../services/api/devices.js';
+import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
+import { getDeviceReservoirs } from '../services/api/reservoirs.js';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
-// Simple hash function to seed PRNG from device ID
-const hashStringToSeed = (str) => {
-  let hash = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return Math.abs(hash);
-};
+// Helper function to transform sensor data to expected structure
+const transformSensorData = (sensors, sensorDataMap) => {
+  const sensorMap = {};
 
-// Seeded PRNG (mulberry32)
-const mulberry32 = (seed) => {
-  return function() {
-    let t = seed += 0x6D2B79F5;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-};
+  sensors.forEach(sensor => {
+    const latestData = sensorDataMap[sensor.id]?.[0]; // Get most recent data
+    const value = latestData ? latestData.value : 0;
 
-// Generate pH history with seeded randomness
-const generatePHHistory = (rng) => {
-  const points = [];
-  const baseValues = [6.1, 6.15, 6.2, 6.25, 6.3, 6.35, 6.4, 6.5, 6.55, 6.6, 6.55, 6.5, 6.45, 6.4, 6.35, 6.3];
-  for (let i = 0; i < 60; i++) {
-    const baseIdx = i % baseValues.length;
-    const noise = (rng() - 0.5) * 0.08;
-    points.push(Math.min(6.6, Math.max(6.0, baseValues[baseIdx] + noise)));
-  }
-  return points;
-};
-
-// Generate per-device mock data
-const generateDeviceData = (deviceId) => {
-  const seed = hashStringToSeed(deviceId);
-  const rng = mulberry32(seed);
-  
-  const connectivity = rng() > 0.2 ? 'Online' : 'Offline';
-  const syncMinutes = Math.floor(rng() * 60) + 1;
-  const lastSyncLabel = syncMinutes === 1 ? '1 minute ago' : `${syncMinutes} minutes ago`;
-  
-  const alerts = [
-    'EC too low (Inadequate nutrients)',
-    'pH trending high - check solution',
-    'Water level below threshold',
-    'Temperature outside optimal range'
-  ];
-  const alertText = alerts[Math.floor(rng() * alerts.length)];
-  
-  const nutrients = ['Low (Nutrient needs refilling)', 'Optimal', 'High (Reduce concentration)'];
-  const nutrientText = nutrients[Math.floor(rng() * nutrients.length)];
-  
-  return {
-    alertText,
-    connectivity,
-    lastSyncLabel,
-    nutrientText,
-    phHistory: generatePHHistory(mulberry32(seed + 1000)),
-    sensors: {
-      ec: 0.8 + rng() * 2.0,
-      tds: 400 + rng() * 800,
-      waterLevel: 60 + rng() * 35,
-      turbidity: 1.5 + rng() * 3.0
-    },
-    environment: {
-      temperature: 20 + rng() * 8,
-      humidity: 50 + rng() * 30,
-      light: 5000 + rng() * 10000
+    switch (sensor.sensor_type) {
+      case 'ph':
+        sensorMap.ph = value;
+        break;
+      case 'tds':
+        sensorMap.tds = value;
+        break;
+      case 'water_level':
+        sensorMap.waterLevel = value;
+        break;
+      case 'turbidity':
+        sensorMap.turbidity = value;
+        break;
+      case 'air_temperature':
+        sensorMap.temperature = value;
+        break;
+      case 'humidity':
+        sensorMap.humidity = value;
+        break;
+      case 'light':
+        sensorMap.light = value;
+        break;
     }
-  };
+  });
+
+  return sensorMap;
 };
 
-// Initialize devices with per-device data
-const initDevices = () => [
-  { name: 'Porch SmarTanom', id: '0000000001', image: '/favicon.png', data: generateDeviceData('0000000001') },
-  { name: 'Greenhouse A', id: 'GH-A-01', image: '/favicon.png', data: generateDeviceData('GH-A-01') },
-  { name: 'Indoor Rack', id: 'RACK-02', image: '/favicon.png', data: generateDeviceData('RACK-02') },
-];
+// Helper function to get pH history from sensor data
+const getPHHistory = (sensorDataMap, phSensorId) => {
+  if (!phSensorId || !sensorDataMap[phSensorId]) {
+    return Array(60).fill(6.3); // Default pH history
+  }
 
-const devices = initDevices();
+  const phData = sensorDataMap[phSensorId];
+  // Pad or trim to 60 points for chart
+  if (phData.length >= 60) {
+    return phData.slice(0, 60).map(d => d.value);
+  } else {
+    const history = phData.map(d => d.value);
+    // Fill remaining with last value or default
+    const lastValue = history[history.length - 1] || 6.3;
+    while (history.length < 60) {
+      history.push(lastValue);
+    }
+    return history;
+  }
+};
+
+// Helper function to determine connectivity status
+const getConnectivityStatus = (lastSensorUpdate) => {
+  if (!lastSensorUpdate) return { connectivity: 'Offline', lastSync: 'Never' };
+
+  const now = new Date();
+  const lastUpdate = new Date(lastSensorUpdate);
+  const diffMinutes = Math.floor((now - lastUpdate) / (1000 * 60));
+
+  if (diffMinutes < 5) {
+    return { connectivity: 'Online', lastSync: '< 1 minute ago' };
+  } else if (diffMinutes < 60) {
+    return { connectivity: 'Online', lastSync: `${diffMinutes} minutes ago` };
+  } else {
+    return { connectivity: 'Offline', lastSync: `${Math.floor(diffMinutes / 60)} hours ago` };
+  }
+};
+
+// Helper function to generate alert text based on sensor values
+const generateAlertText = (sensors) => {
+  const alerts = [];
+
+  if (sensors.tds < 300) {
+    alerts.push('TDS too low (Inadequate nutrients)');
+  }
+  if (sensors.ph > 7.0) {
+    alerts.push('pH trending high - check solution');
+  }
+  if (sensors.waterLevel < 20) {
+    alerts.push('Water level below threshold');
+  }
+  if (sensors.temperature < 18 || sensors.temperature > 28) {
+    alerts.push('Temperature outside optimal range');
+  }
+
+  return alerts.length > 0 ? alerts[0] : 'All systems normal';
+};
+
+// Helper function to determine nutrient status
+const getNutrientStatus = (tdsValue) => {
+  if (tdsValue < 400) return 'Low (Nutrient needs refilling)';
+  if (tdsValue > 1200) return 'High (Reduce concentration)';
+  return 'Optimal';
+};
 
 function PHBar({ v, i }) {
   const min = 6.0;
@@ -124,14 +148,161 @@ export default function Dashboard() {
   const scrollTimeoutRef = useRef(null);
   const isAdjustingRef = useRef(false);
 
+  // State for real data
+  const [devices, setDevices] = useState([]);
+  const [devicesData, setDevicesData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch user devices and their data
+  const fetchDevicesData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Check if user is authenticated
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      // Fetch user's devices
+      const devicesResponse = await getUserDevices();
+      const userDevices = devicesResponse.results || devicesResponse;
+
+      if (!userDevices || userDevices.length === 0) {
+        setDevices([]);
+        setDevicesData({});
+        setLoading(false);
+        return;
+      }
+
+      setDevices(userDevices);
+
+      // Fetch sensors and sensor data for each device
+      const deviceDataPromises = userDevices.map(async (device) => {
+        try {
+          const [sensorsResponse, reservoirsResponse] = await Promise.all([
+            getDeviceSensors(device.id),
+            getDeviceReservoirs(device.id)
+          ]);
+
+          const sensors = sensorsResponse.results || sensorsResponse;
+          const reservoirs = reservoirsResponse.results || reservoirsResponse;
+
+          // Fetch recent sensor data for all sensors
+          const sensorDataMap = {};
+          if (sensors && sensors.length > 0) {
+            const sensorDataPromises = sensors.map(async (sensor) => {
+              try {
+                const dataResponse = await getSensorData(sensor.id, 60); // Get last 60 readings
+                return { sensorId: sensor.id, data: dataResponse.results || dataResponse };
+              } catch (error) {
+                console.warn(`Failed to fetch data for sensor ${sensor.id}:`, error);
+                return { sensorId: sensor.id, data: [] };
+              }
+            });
+
+            const sensorDataResults = await Promise.all(sensorDataPromises);
+            sensorDataResults.forEach(({ sensorId, data }) => {
+              sensorDataMap[sensorId] = data;
+            });
+          }
+
+          // Transform the data to match expected structure
+          const transformedSensors = transformSensorData(sensors || [], sensorDataMap);
+
+          // Find pH sensor for history
+          const phSensor = sensors?.find(s => s.sensor_type === 'ph');
+          const phHistory = getPHHistory(sensorDataMap, phSensor?.id);
+
+          // Get latest sensor update time
+          let lastSensorUpdate = null;
+          Object.values(sensorDataMap).forEach(sensorData => {
+            if (sensorData.length > 0) {
+              const latestTime = new Date(sensorData[0].created_at);
+              if (!lastSensorUpdate || latestTime > lastSensorUpdate) {
+                lastSensorUpdate = latestTime;
+              }
+            }
+          });
+
+          const { connectivity, lastSync } = getConnectivityStatus(lastSensorUpdate);
+          const alertText = generateAlertText(transformedSensors);
+          const nutrientText = getNutrientStatus(transformedSensors.tds || 0);
+
+          return {
+            deviceId: device.id,
+            data: {
+              alertText,
+              connectivity,
+              lastSyncLabel: lastSync,
+              nutrientText,
+              phHistory,
+              sensors: {
+                ec: transformedSensors.ec || 0,
+                tds: transformedSensors.tds || 0,
+                waterLevel: transformedSensors.waterLevel || 0,
+                turbidity: transformedSensors.turbidity || 0
+              },
+              environment: {
+                temperature: transformedSensors.temperature || 22,
+                humidity: transformedSensors.humidity || 65,
+                light: transformedSensors.light || 8000
+              },
+              sensors_raw: sensors || [],
+              reservoirs: reservoirs || []
+            }
+          };
+        } catch (error) {
+          console.warn(`Failed to fetch data for device ${device.id}:`, error);
+          // Return default data structure for failed device
+          return {
+            deviceId: device.id,
+            data: {
+              alertText: 'Unable to fetch sensor data',
+              connectivity: 'Offline',
+              lastSyncLabel: 'Unknown',
+              nutrientText: 'Unknown',
+              phHistory: Array(60).fill(6.3),
+              sensors: { ec: 0, tds: 0, waterLevel: 0, turbidity: 0 },
+              environment: { temperature: 22, humidity: 65, light: 8000 },
+              sensors_raw: [],
+              reservoirs: []
+            }
+          };
+        }
+      });
+
+      const deviceDataResults = await Promise.all(deviceDataPromises);
+      const deviceDataMap = {};
+      deviceDataResults.forEach(({ deviceId, data }) => {
+        deviceDataMap[deviceId] = data;
+      });
+
+      setDevicesData(deviceDataMap);
+    } catch (error) {
+      console.error('Failed to fetch devices data:', error);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchDevicesData();
+  }, []);
+
   // Floating Action Button (FAB) draggable state
   const fabRef = useRef(null);
   const navHeight = 64; // Bottom nav height from CSS
   const fabSize = 56; // FAB size from CSS
   const dragStartRef = useRef({ x: 0, y: 0, fabX: 0, fabY: 0 });
   const hasDraggedRef = useRef(false);
-  const [fabPosition, setFabPosition] = useState({ 
-    x: typeof window !== 'undefined' ? window.innerWidth - 80 : 300, 
+  const [fabPosition, setFabPosition] = useState({
+    x: typeof window !== 'undefined' ? window.innerWidth - 80 : 300,
     y: typeof window !== 'undefined' ? window.innerHeight - navHeight - fabSize - 24 : 500
   });
   const [isDragging, setIsDragging] = useState(false);
@@ -144,7 +315,7 @@ export default function Dashboard() {
   // Handle FAB click (if not dragged)
   const handleFabClick = () => {
     if (!hasDraggedRef.current) {
-      navigate('/add-device');
+      navigate('/signup-setup');
     }
   };
 
@@ -241,25 +412,33 @@ export default function Dashboard() {
 
   // Create infinite carousel by duplicating devices at boundaries
   const infiniteDevices = useMemo(() => {
+    if (devices.length === 0) return [];
+    if (devices.length === 1) return devices; // No need for infinite scroll with single device
     // Add last device at start and first device at end for seamless loop
     return [devices[devices.length - 1], ...devices, devices[0]];
-  }, []);
+  }, [devices]);
 
   // Initialize scroll position to first real device (index 1 in infinite array)
   useEffect(() => {
     const el = carouselRef.current;
-    if (!el) return;
+    if (!el || devices.length === 0) return;
     const w = el.clientWidth;
     const cardW = w * 0.85;
     const gap = 16;
-    // Scroll to index 1 (first real device) on mount
-    el.scrollLeft = (cardW + gap) * 1;
-  }, []);
+
+    if (devices.length > 1) {
+      // Scroll to index 1 (first real device) on mount for infinite scroll
+      el.scrollLeft = (cardW + gap) * 1;
+    } else {
+      // Single device, no scroll needed
+      el.scrollLeft = 0;
+    }
+  }, [devices]);
 
   // Handle scroll position tracking and loop boundaries
   useEffect(() => {
     const el = carouselRef.current;
-    if (!el) return;
+    if (!el || devices.length === 0) return;
 
     const onScroll = () => {
       if (isAdjustingRef.current) return;
@@ -273,6 +452,12 @@ export default function Dashboard() {
       // Clear any pending timeout
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
+      }
+
+      // Handle single device case
+      if (devices.length === 1) {
+        setActiveIdx(0);
+        return;
       }
 
       // Update active index (map to real device index)
@@ -307,11 +492,129 @@ export default function Dashboard() {
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, [infiniteDevices.length]);
+  }, [infiniteDevices.length, devices.length]);
 
   const currentDevice = devices[activeIdx];
-  const data = currentDevice.data;
-  const currentPH = useMemo(() => data.phHistory[data.phHistory.length - 1].toFixed(1), [activeIdx]);
+  const data = currentDevice ? devicesData[currentDevice.id] : null;
+  const currentPH = useMemo(() => {
+    if (!data?.phHistory) return '6.3';
+    return data.phHistory[data.phHistory.length - 1].toFixed(1);
+  }, [activeIdx, data]);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="dashboard-root">
+        <header className="dash-header" role="banner">
+          <h1 className="dash-header-title">
+            Hello, User <span className="dash-header-emoji">🌿</span>
+          </h1>
+        </header>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '60vh',
+          flexDirection: 'column',
+          gap: '1rem'
+        }}>
+          <Loader size={48} color={PRIMARY_GREEN} className="animate-spin" />
+          <p style={{ color: '#666', fontSize: '1rem' }}>Loading your devices...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="dashboard-root">
+        <header className="dash-header" role="banner">
+          <h1 className="dash-header-title">
+            Hello, User <span className="dash-header-emoji">🌿</span>
+          </h1>
+        </header>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '60vh',
+          flexDirection: 'column',
+          gap: '1rem'
+        }}>
+          <AlertCircle size={48} color="#e74c3c" />
+          <p style={{ color: '#e74c3c', fontSize: '1rem' }}>{error}</p>
+          <button
+            onClick={fetchDevicesData}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: PRIMARY_GREEN,
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show no devices state
+  if (devices.length === 0) {
+    return (
+      <div className="dashboard-root">
+        <header className="dash-header" role="banner">
+          <h1 className="dash-header-title">
+            Hello, User <span className="dash-header-emoji">🌿</span>
+          </h1>
+        </header>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '60vh',
+          flexDirection: 'column',
+          gap: '1rem'
+        }}>
+          <Leaf size={48} color={PRIMARY_GREEN} />
+          <p style={{ color: '#666', fontSize: '1rem' }}>No devices found</p>
+          <p style={{ color: '#999', fontSize: '0.9rem' }}>Bind your first device to get started!</p>
+          <button
+            onClick={() => navigate('/signup-setup')}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: PRIMARY_GREEN,
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            Add Device
+          </button>
+        </div>
+        {/* Bottom navigation */}
+        <nav className="bottom-nav" aria-label="Primary">
+          <button className="nav-item active" aria-current="page">
+            <Leaf size={20} />
+            <span>Tanom</span>
+          </button>
+          <button className="nav-item" onClick={() => navigate('/alerts')}>
+            <AlertCircle size={20} />
+            <span>Alerts</span>
+          </button>
+          <button className="nav-item" onClick={() => navigate('/profile')}>
+            <User size={20} />
+            <span>Profile</span>
+          </button>
+        </nav>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-root">
@@ -320,7 +623,7 @@ export default function Dashboard() {
         <h1 className="dash-header-title">
           Hello, User <span className="dash-header-emoji">🌿</span>
         </h1>
-        <button className="dash-header-settings" aria-label="Sync">
+        <button className="dash-header-settings" aria-label="Sync" onClick={fetchDevicesData}>
           <RefreshCw size={24} color={PRIMARY_GREEN} />
         </button>
       </header>
@@ -329,19 +632,19 @@ export default function Dashboard() {
       <section className="device-carousel-wrapper" aria-label="Your devices">
         <div className="device-carousel" ref={carouselRef}>
           {infiniteDevices.map((d, i) => (
-            <article 
-              className="device-card tap" 
-              key={`${d.id}-${i}`} 
-              aria-label={`${d.name} ${d.id}`}
+            <article
+              className="device-card tap"
+              key={`${d.id}-${i}`}
+              aria-label={`${d.device_name} ${d.device_serial}`}
               onClick={() => handleDeviceClick(d.id)}
             >
               <div className="device-card-media" aria-hidden="true">
-                <img src={d.image} alt="Device" />
+                <img src="/favicon.png" alt="Device" />
               </div>
               <div className="device-card-info">
                 <div>
-                  <h3 className="device-name">{d.name}</h3>
-                  <p className="device-id">ID: {d.id}</p>
+                  <h3 className="device-name">{d.device_name}</h3>
+                  <p className="device-id">Serial: {d.device_serial}</p>
                 </div>
                 <div className="device-card-arrow">
                   <ChevronRight size={18} />
@@ -350,14 +653,14 @@ export default function Dashboard() {
             </article>
           ))}
         </div>
-        <div className="carousel-dots" role="tablist" aria-label="Device position">
-          {devices.map((_, i) => (
-            <span key={i} className={`carousel-dot ${i === activeIdx ? 'active' : ''}`} role="tab" aria-selected={i === activeIdx} />
-          ))}
-        </div>
-      </section>
-
-      <main className="dash-main" role="main">
+        {devices.length > 1 && (
+          <div className="carousel-dots" role="tablist" aria-label="Device position">
+            {devices.map((_, i) => (
+              <span key={i} className={`carousel-dot ${i === activeIdx ? 'active' : ''}`} role="tab" aria-selected={i === activeIdx} />
+            ))}
+          </div>
+        )}
+      </section>      <main className="dash-main" role="main">
         {/* Alert Summary */}
         <section className="card alert-card" aria-label="Alert summary">
           <div className="alert-card-top">
@@ -369,7 +672,7 @@ export default function Dashboard() {
             </button>
           </div>
           <h3 className="alert-card-title">Alert Summary</h3>
-          <div className="alert-card-message">{data.alertText}</div>
+          <div className="alert-card-message">{data?.alertText || 'Loading...'}</div>
         </section>
         {/* Connectivity & Sync */}
         <section className="status-grid" aria-label="Status">
@@ -379,7 +682,9 @@ export default function Dashboard() {
             </div>
             <div className="status-box-content">
               <span className="status-label">Connectivity</span>
-              <span className={`status-value ${data.connectivity === 'Online' ? 'status-online' : 'status-offline'}`}>{data.connectivity}</span>
+              <span className={`status-value ${(data?.connectivity || 'Offline') === 'Online' ? 'status-online' : 'status-offline'}`}>
+                {data?.connectivity || 'Offline'}
+              </span>
             </div>
           </div>
           <div className="status-box">
@@ -388,7 +693,7 @@ export default function Dashboard() {
             </div>
             <div className="status-box-content">
               <span className="status-label">Last Data Sync</span>
-              <span className="status-value">{data.lastSyncLabel}</span>
+              <span className="status-value">{data?.lastSyncLabel || 'Unknown'}</span>
             </div>
           </div>
         </section>
@@ -400,7 +705,7 @@ export default function Dashboard() {
             <div className="icon-circle">
               <Leaf size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
-            <span className="nutrient-text">{data.nutrientText}</span>
+            <span className="nutrient-text">{data?.nutrientText || 'Loading...'}</span>
           </div>
         </section>
 
@@ -415,7 +720,7 @@ export default function Dashboard() {
           </div>
           <div className="ph-legend">
             <span className="ph-legend-dot"></span>
-            <span className="ph-legend-label">{currentDevice.name}</span>
+            <span className="ph-legend-label">{currentDevice?.device_name || 'Device'}</span>
           </div>
           <div className="ph-chart-container">
             <div className="ph-y-axis">
@@ -428,7 +733,7 @@ export default function Dashboard() {
               <span className="ph-y-label">6.0 pH</span>
             </div>
             <div className="ph-bars" role="img" aria-label="pH chart">
-              {data.phHistory.map((v, i) => (
+              {(data?.phHistory || Array(60).fill(6.3)).map((v, i) => (
                 <PHBar key={i} v={v} i={i} />
               ))}
             </div>
@@ -459,7 +764,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">EC Levels</span>
-              <span className="sensor-value">{data.sensors.ec.toFixed(1)} mS/cm</span>
+              <span className="sensor-value">{(data?.sensors?.ec || 0).toFixed(1)} mS/cm</span>
             </div>
           </div>
           <div className="sensor-cell">
@@ -468,7 +773,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">TDS</span>
-              <span className="sensor-value">{Math.round(data.sensors.tds)} ppm</span>
+              <span className="sensor-value">{Math.round(data?.sensors?.tds || 0)} ppm</span>
             </div>
           </div>
           <div className="sensor-cell">
@@ -477,7 +782,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Water Level</span>
-              <span className="sensor-value">{Math.round(data.sensors.waterLevel)}%</span>
+              <span className="sensor-value">{Math.round(data?.sensors?.waterLevel || 0)}%</span>
             </div>
           </div>
           <div className="sensor-cell">
@@ -486,7 +791,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Turbidity</span>
-              <span className="sensor-value">{data.sensors.turbidity.toFixed(1)} NTU</span>
+              <span className="sensor-value">{(data?.sensors?.turbidity || 0).toFixed(1)} NTU</span>
             </div>
           </div>
         </section>
@@ -500,21 +805,21 @@ export default function Dashboard() {
                 <Thermometer size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
               </div>
               <span className="environment-label">Temperature</span>
-              <span className="environment-value">{data.environment.temperature.toFixed(1)}°C</span>
+              <span className="environment-value">{(data?.environment?.temperature || 22).toFixed(1)}°C</span>
             </div>
             <div className="environment-row">
               <div className="icon-circle">
                 <Wind size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
               </div>
               <span className="environment-label">Humidity</span>
-              <span className="environment-value">{Math.round(data.environment.humidity)}%</span>
+              <span className="environment-value">{Math.round(data?.environment?.humidity || 65)}%</span>
             </div>
             <div className="environment-row">
               <div className="icon-circle">
                 <Sun size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
               </div>
               <span className="environment-label">Light Intensity</span>
-              <span className="environment-value">{Math.round(data.environment.light).toLocaleString()} Lux</span>
+              <span className="environment-value">{Math.round(data?.environment?.light || 8000).toLocaleString()} Lux</span>
             </div>
           </div>
         </section>

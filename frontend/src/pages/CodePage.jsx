@@ -61,9 +61,9 @@ export default function CodePage({ mode = 'signin' }) {
         // Store token in memory/localStorage if desired by app; backend also supports DRF Token
         // Example minimal handling:
         if (resp?.token) {
-          try { localStorage.setItem('auth_token', resp.token); } catch {}
+          try { localStorage.setItem('authToken', resp.token); } catch {}
         }
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (err) {
       setStatusMsg('Verification failed.');
@@ -114,9 +114,9 @@ export default function CodePage({ mode = 'signin' }) {
                 {loading && <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />}
                 <span>{loading ? 'Verifying...' : 'Verify Code'}</span>
               </button>
-              <button 
-                type="button" 
-                className="auth-link" 
+              <button
+                type="button"
+                className="auth-link"
                 onClick={handleResendCode}
                 disabled={resendCooldown > 0}
                 style={{ alignSelf: 'center', opacity: resendCooldown > 0 ? 0.5 : 1 }}

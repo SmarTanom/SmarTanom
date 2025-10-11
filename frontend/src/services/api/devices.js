@@ -32,9 +32,39 @@ export async function verifyDeviceOTP(serialNumber, email, code) {
   });
 }
 
+/**
+ * Get user's bound devices
+ */
+export async function getUserDevices() {
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  return apiClient.get('/api/devices/devices/', {
+    authToken: token
+  });
+}
+
+/**
+ * Get device details by ID
+ */
+export async function getDeviceById(deviceId) {
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  return apiClient.get(`/api/devices/devices/${deviceId}/`, {
+    authToken: token
+  });
+}
+
 // Export as default object for consistency with auth.js
 export default {
   checkDevice,
   requestDeviceOTP,
-  verifyDeviceOTP
+  verifyDeviceOTP,
+  getUserDevices,
+  getDeviceById
 };

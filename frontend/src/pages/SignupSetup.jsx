@@ -540,7 +540,7 @@ export default function SignupSetup() {
 
         // Store authentication token for later use
         if (data.auth && data.auth.token) {
-          localStorage.setItem('auth_token', data.auth.token);
+          localStorage.setItem('authToken', data.auth.token);
           console.log('Authentication token stored');
         }
 
@@ -715,7 +715,7 @@ export default function SignupSetup() {
     setFinalError('');
     setFinalizing(true);
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('authToken');
       if (!token) throw new Error('Missing auth session (token). Please re-authenticate.');
       await authApi.finalizeAccount(username.trim(), token);
       // Retrieve profile to determine role for redirect

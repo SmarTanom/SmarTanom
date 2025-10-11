@@ -11,9 +11,9 @@ from .serializers import SensorSerializer, SensorDataSerializer
 
 
 class SensorViewSet(BaseAuthViewSet):
-    """ViewSet for Sensor model with user-based filtering."""
+    """ViewSet for Sensor model with email-based filtering."""
 
-    queryset = Sensor.objects.select_related("device", "device__user").all()
+    queryset = Sensor.objects.select_related("device").all()
     serializer_class = SensorSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["device", "sensor_type"]
@@ -27,11 +27,11 @@ class SensorViewSet(BaseAuthViewSet):
         user = self.request.user
         if user.is_staff:
             return qs
-        return qs.filter(device__user=user)
+        return qs.filter(device__bound_email=user.email, device__is_bound=True)
 
 
 class SensorDataViewSet(BaseAuthViewSet):
-    """ViewSet for SensorData model with user-based filtering."""
+    """ViewSet for SensorData model with email-based filtering."""
 
     queryset = SensorData.objects.select_related("sensor", "sensor__device").all()
     serializer_class = SensorDataSerializer
@@ -46,4 +46,4 @@ class SensorDataViewSet(BaseAuthViewSet):
         user = self.request.user
         if user.is_staff:
             return qs
-        return qs.filter(sensor__device__user=user)
+        return qs.filter(sensor__device__bound_email=user.email, sensor__device__is_bound=True)

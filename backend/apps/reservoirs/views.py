@@ -11,9 +11,9 @@ from .serializers import ReservoirSerializer
 
 
 class ReservoirViewSet(BaseAuthViewSet):
-    """ViewSet for Reservoir model with user-based filtering."""
+    """ViewSet for Reservoir model with email-based filtering."""
 
-    queryset = Reservoir.objects.select_related("device", "device__user").all()
+    queryset = Reservoir.objects.select_related("device").all()
     serializer_class = ReservoirSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["device", "plant_type"]
@@ -27,4 +27,4 @@ class ReservoirViewSet(BaseAuthViewSet):
         user = self.request.user
         if user.is_staff:
             return qs
-        return qs.filter(device__user=user)
+        return qs.filter(device__bound_email=user.email, device__is_bound=True)
