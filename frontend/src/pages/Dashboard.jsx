@@ -24,6 +24,7 @@ import { MdScience } from 'react-icons/md';
 import { getUserDevices } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 import { getDeviceReservoirs } from '../services/api/reservoirs.js';
+import { authApi } from '../services/apiClient.js';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -153,6 +154,7 @@ export default function Dashboard() {
   const [devicesData, setDevicesData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [displayName, setDisplayName] = useState('User');
 
   // Fetch user devices and their data
   const fetchDevicesData = async () => {
@@ -165,6 +167,17 @@ export default function Dashboard() {
       if (!token) {
         navigate('/login');
         return;
+      }
+
+      // Fetch current user profile for greeting (best-effort; non-blocking)
+      try {
+        const profile = await authApi.getProfile(token);
+        const name =
+          (profile && (profile.full_name?.trim() || profile.first_name?.trim() || profile.username?.trim())) ||
+          (profile && profile.email ? (profile.email.split('@')[0] || 'User') : 'User');
+        setDisplayName(name);
+      } catch (_) {
+        // ignore profile errors; keep default
       }
 
       // Fetch user's devices
@@ -507,7 +520,7 @@ export default function Dashboard() {
       <div className="dashboard-root">
         <header className="dash-header" role="banner">
           <h1 className="dash-header-title">
-            Hello, User <span className="dash-header-emoji">🌿</span>
+            Hello, {displayName} <span className="dash-header-emoji">🌿</span>
           </h1>
         </header>
         <div style={{
@@ -531,7 +544,7 @@ export default function Dashboard() {
       <div className="dashboard-root">
         <header className="dash-header" role="banner">
           <h1 className="dash-header-title">
-            Hello, User <span className="dash-header-emoji">🌿</span>
+            Hello, {displayName} <span className="dash-header-emoji">🌿</span>
           </h1>
         </header>
         <div style={{
@@ -568,7 +581,7 @@ export default function Dashboard() {
       <div className="dashboard-root">
         <header className="dash-header" role="banner">
           <h1 className="dash-header-title">
-            Hello, User <span className="dash-header-emoji">🌿</span>
+            Hello, {displayName} <span className="dash-header-emoji">🌿</span>
           </h1>
         </header>
         <div style={{
@@ -621,7 +634,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="dash-header" role="banner">
         <h1 className="dash-header-title">
-          Hello, User <span className="dash-header-emoji">🌿</span>
+          Hello, {displayName} <span className="dash-header-emoji">🌿</span>
         </h1>
         <button className="dash-header-settings" aria-label="Sync" onClick={fetchDevicesData}>
           <RefreshCw size={24} color={PRIMARY_GREEN} />
