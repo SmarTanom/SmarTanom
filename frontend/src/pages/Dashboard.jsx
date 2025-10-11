@@ -30,12 +30,29 @@ import { authApi } from '../services/apiClient.js';
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
 // Helper function to transform sensor data to expected structure
+// Pick the most recent reading for each sensor by comparing created_at timestamps.
 const transformSensorData = (sensors, sensorDataMap) => {
   const sensorMap = {};
 
   sensors.forEach(sensor => {
-    const latestData = sensorDataMap[sensor.id]?.[0]; // Get most recent data
-    const value = latestData ? latestData.value : 0;
+    const allData = sensorDataMap[sensor.id] || [];
+    // Find the most recent by created_at. Defensive: fall back to first element.
+    let latestData = null;
+    if (allData.length === 1) {
+      latestData = allData[0];
+    } else if (allData.length > 1) {
+      latestData = allData.reduce((best, cur) => {
+        try {
+          const bestT = best && best.created_at ? new Date(best.created_at).getTime() : 0;
+          const curT = cur && cur.created_at ? new Date(cur.created_at).getTime() : 0;
+          return curT > bestT ? cur : best;
+        } catch (e) {
+          return best;
+        }
+      }, allData[0]);
+    }
+
+    const value = latestData && typeof latestData.value !== 'undefined' ? latestData.value : 0;
 
     switch (sensor.sensor_type) {
       case 'ph':
@@ -66,24 +83,35 @@ const transformSensorData = (sensors, sensorDataMap) => {
 };
 
 // Helper function to get pH history from sensor data
+// Return pH history array ordered from oldest -> newest and padded/trimmed to 60 values.
 const getPHHistory = (sensorDataMap, phSensorId) => {
   if (!phSensorId || !sensorDataMap[phSensorId]) {
     return Array(60).fill(6.3); // Default pH history
   }
 
-  const phData = sensorDataMap[phSensorId];
-  // Pad or trim to 60 points for chart
-  if (phData.length >= 60) {
-    return phData.slice(0, 60).map(d => d.value);
-  } else {
-    const history = phData.map(d => d.value);
-    // Fill remaining with last value or default
-    const lastValue = history[history.length - 1] || 6.3;
-    while (history.length < 60) {
-      history.push(lastValue);
-    }
-    return history;
+  const phData = sensorDataMap[phSensorId] || [];
+  // Defensive: sort by created_at ascending (oldest first)
+  const sorted = phData
+    .slice()
+    .sort((a, b) => {
+      const ta = a && a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b && b.created_at ? new Date(b.created_at).getTime() : 0;
+      return ta - tb;
+    })
+    .map(d => (typeof d.value !== 'undefined' ? d.value : 6.3));
+
+  // Now ensure length is 60: if more than 60, take the last 60 (most recent 60)
+  if (sorted.length >= 60) {
+    return sorted.slice(sorted.length - 60);
   }
+
+  // If fewer than 60, pad with the first value (oldest) to the left so newer values sit at the end
+  const history = [...sorted];
+  const padValue = history.length > 0 ? history[0] : 6.3;
+  while (history.length < 60) {
+    history.unshift(padValue);
+  }
+  return history;
 };
 
 // Helper function to determine connectivity status
@@ -230,14 +258,22 @@ export default function Dashboard() {
           const phSensor = sensors?.find(s => s.sensor_type === 'ph');
           const phHistory = getPHHistory(sensorDataMap, phSensor?.id);
 
-          // Get latest sensor update time
+          // Get latest sensor update time across all sensors. Arrays may not be ordered,
+          // so scan each array for the max created_at value.
           let lastSensorUpdate = null;
           Object.values(sensorDataMap).forEach(sensorData => {
             if (sensorData.length > 0) {
-              const latestTime = new Date(sensorData[0].created_at);
-              if (!lastSensorUpdate || latestTime > lastSensorUpdate) {
-                lastSensorUpdate = latestTime;
-              }
+              sensorData.forEach(d => {
+                if (!d || !d.created_at) return;
+                try {
+                  const t = new Date(d.created_at);
+                  if (!lastSensorUpdate || t > lastSensorUpdate) {
+                    lastSensorUpdate = t;
+                  }
+                } catch (e) {
+                  // ignore parse errors
+                }
+              });
             }
           });
 
