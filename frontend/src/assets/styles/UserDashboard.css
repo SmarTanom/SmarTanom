@@ -82,23 +82,23 @@ body { background: var(--color-bg); }
 /* 3. Alert Summary */
 .alert-card { position:relative; }
 .alert-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-3); }
-.alert-card-title { 
-  font-size:13px; 
-  font-weight:500; 
-  color:var(--color-muted); 
-  margin:0 0 var(--space-2); 
+.alert-card-title {
+  font-size:13px;
+  font-weight:500;
+  color:var(--color-muted);
+  margin:0 0 var(--space-2);
 }
-.alert-card-message { 
-  font-size:18px; 
-  font-weight:700; 
-  color:rgba(17, 17, 17, 0.86); 
+.alert-card-message {
+  font-size:18px;
+  font-weight:700;
+  color:rgba(17, 17, 17, 0.86);
   line-height:1.3;
 }
-.alert-card-expand { 
-  background:none; 
-  border:none; 
-  padding:4px; 
-  cursor:pointer; 
+.alert-card-expand {
+  background:none;
+  border:none;
+  padding:4px;
+  cursor:pointer;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -141,33 +141,33 @@ body { background: var(--color-bg); }
 .ph-x-axis { display:flex; justify-content:space-around; margin-left:62px; margin-top:8px; }
 .ph-x-label { font-size:11px; color:var(--color-muted); font-weight:500; }
 @keyframes growBar { from { transform:scaleY(0); opacity:0;} to {transform:scaleY(1); opacity:1;} }
-.current-ph { 
-  display:flex; 
-  align-items:center; 
-  justify-content:space-between; 
-  gap:16px; 
-  background:var(--color-surface); 
-  padding:var(--space-4); 
-  border-radius:var(--radius-lg); 
-  box-shadow:var(--shadow-elev); 
+.current-ph {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  background:var(--color-surface);
+  padding:var(--space-4);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-elev);
 }
-.current-ph-left { 
-  display:flex; 
-  align-items:center; 
-  gap:12px; 
+.current-ph-left {
+  display:flex;
+  align-items:center;
+  gap:12px;
 }
-.current-ph-label { 
-  font-size:13px; 
-  font-weight:500; 
-  color:var(--color-muted); 
-  line-height:1.4; 
+.current-ph-label {
+  font-size:13px;
+  font-weight:500;
+  color:var(--color-muted);
+  line-height:1.4;
   white-space:nowrap;
 }
-.current-ph-value { 
-  font-size:18px; 
-  font-weight:700; 
-  color:var(--color-secondary); 
-  line-height:1.3; 
+.current-ph-value {
+  font-size:18px;
+  font-weight:700;
+  color:var(--color-secondary);
+  line-height:1.3;
   white-space:nowrap;
 }
 
@@ -255,21 +255,21 @@ body { background: var(--color-bg); }
   .device-card { flex:0 0 400px; max-width:500px; }
   .device-carousel-wrapper { padding:0 var(--space-4); margin-top:var(--space-4); margin-bottom:var(--space-4); }
   .dash-main { max-width:800px; margin:0 auto 90px; padding:0 var(--space-6) var(--space-6); gap:var(--space-5); }
-  
+
   /* Status grid - keep 2 columns on tablet portrait */
   .status-grid { gap:var(--space-4); }
   .status-box { padding:var(--space-5); }
-  
+
   /* Sensor grid - 2 columns on tablet */
   .sensor-grid { gap:var(--space-4); }
   .sensor-cell { padding:var(--space-5); }
-  
+
   /* Environment stays vertical list on tablet portrait */
   .environment-list { gap:var(--space-4); }
-  
+
   /* Cards get more padding */
   .card { padding:var(--space-5); }
-  
+
   /* pH chart slightly taller */
   .ph-bars { height:240px; }
 }
@@ -292,54 +292,54 @@ body { background: var(--color-bg); }
   .dashboard-root { max-width:1400px; }
   .dash-header { padding:var(--space-6) var(--space-6); }
   .dash-header-title { font-size:36px; }
-  
+
   .device-carousel-wrapper { padding:0 var(--space-6); margin-top:var(--space-5); margin-bottom:var(--space-5); }
   .device-card { flex:0 0 480px; max-width:600px; }
-  
-  .dash-main { 
-    max-width:1200px; 
-    padding:0 var(--space-6) var(--space-6); 
+
+  .dash-main {
+    max-width:1200px;
+    padding:0 var(--space-6) var(--space-6);
     gap:var(--space-5);
     display:grid;
     grid-template-columns:repeat(2, 1fr);
     grid-auto-flow:row;
   }
-  
+
   /* Alert card spans full width */
   .alert-card { grid-column:1 / -1; }
-  
+
   /* Status grid spans full width but shows 2 items */
   .status-grid { grid-column:1 / -1; display:grid; grid-template-columns:repeat(2, 1fr); gap:var(--space-5); max-width:100%; }
-  
+
   /* Nutrient card - left column */
   .nutrient-card { grid-column:1 / 2; }
-  
+
   /* pH card - right column, spans 2 rows */
   .ph-card { grid-column:2 / 3; grid-row:span 2; }
   .ph-bars { height:280px; }
-  
+
   /* Current pH - left column */
   .current-ph { grid-column:1 / 2; }
-  
+
   /* Sensor grid spans full width, 4 columns */
-  .sensor-grid { 
-    grid-column:1 / -1; 
-    grid-template-columns:repeat(4, 1fr); 
-    gap:var(--space-5); 
+  .sensor-grid {
+    grid-column:1 / -1;
+    grid-template-columns:repeat(4, 1fr);
+    gap:var(--space-5);
   }
-  
+
   /* Environment spans full width, horizontal layout */
   .environment-card { grid-column:1 / -1; }
-  .environment-list { 
-    display:grid; 
-    grid-template-columns:repeat(4, 1fr); 
-    gap:var(--space-5); 
+  .environment-list {
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:var(--space-5);
   }
-  
+
   /* Larger cards */
   .card { padding:var(--space-6); }
   .status-box, .sensor-cell { padding:var(--space-5); }
-  
+
   /* Bottom nav adjustment */
   .bottom-nav { height:72px; }
   .nav-item { font-size:14px; }
@@ -352,6 +352,44 @@ body { background: var(--color-bg); }
   .device-card { flex:0 0 520px; max-width:640px; }
 }
 
+/* Notification badges for alerts */
+.alert-notification-badge,
+.nav-notification-badge {
+  background-color: var(--color-alert) !important;
+  color: white !important;
+  border-radius: 50% !important;
+  font-size: 10px !important;
+  font-weight: bold !important;
+  border: 2px solid white !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  z-index: 10 !important;
+  animation: pulseAlert 2s infinite ease-in-out;
+}
+
+@keyframes pulseAlert {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* Ensure notification badges are visible on different backgrounds */
+.nav-item {
+  position: relative !important;
+}
+
+.icon-circle {
+  position: relative !important;
+}
+
 @media (prefers-reduced-motion:reduce){
   * { animation:none !important; transition:none !important; }
+  .alert-notification-badge,
+  .nav-notification-badge {
+    animation: none !important;
+  }
 }

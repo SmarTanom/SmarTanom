@@ -158,6 +158,23 @@ const getNutrientStatus = (tdsValue) => {
   return 'Optimal';
 };
 
+// Helper functions for alert detection (shared with AlertsPage logic)
+const loadReadAlerts = () => {
+  try {
+    const raw = localStorage.getItem('alerts.readingIds');
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (_e) {
+    return new Set();
+  }
+};
+
+const isAlertRead = (readingId) => {
+  const readAlerts = loadReadAlerts();
+  return readAlerts.has(readingId);
+};
+
 function PHBar({ v, i }) {
   const min = 6.0;
   const max = 6.6;
@@ -183,6 +200,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [displayName, setDisplayName] = useState('User');
+  const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
 
   // Fetch user devices and their data
   const fetchDevicesData = async () => {
@@ -352,10 +370,111 @@ export default function Dashboard() {
     }
   };
 
+  // Function to count unread alerts from sensor data
+  const countUnreadAlerts = async () => {
+    try {
+      const devicesResponse = await getUserDevices();
+      const userDevices = devicesResponse.results || devicesResponse;
+      if (!userDevices || userDevices.length === 0) return 0;
+
+      let unreadCount = 0;
+
+      // Check each device for out-of-range sensor readings
+      await Promise.all(userDevices.map(async (device) => {
+        try {
+          if (!device || !device.id) return;
+          const sensorsResponse = await getDeviceSensors(device.id);
+          const sensors = sensorsResponse && sensorsResponse.results ? sensorsResponse.results : sensorsResponse;
+          if (!sensors || sensors.length === 0) return;
+
+          // Check pH, TDS, water_level, air_temperature sensors for alerts
+          const phSensors = sensors.filter(s => s.sensor_type === 'ph');
+          const tdsSensors = sensors.filter(s => s.sensor_type === 'tds');
+          const waterLevelSensors = sensors.filter(s => s.sensor_type === 'water_level');
+          const tempSensors = sensors.filter(s => s.sensor_type === 'air_temperature');
+
+          const allSensorsToCheck = [...phSensors, ...tdsSensors, ...waterLevelSensors, ...tempSensors];
+
+          await Promise.all(allSensorsToCheck.map(async (sensor) => {
+            try {
+              const sensorDataResponse = await getSensorData(sensor.id);
+              const sensorReadings = sensorDataResponse.results || sensorDataResponse;
+              if (!sensorReadings || sensorReadings.length === 0) return;
+
+              // Check recent readings (last 24 hours worth)
+              const recentReadings = sensorReadings.filter(reading => {
+                if (!reading.created_at) return false;
+                const readingTime = new Date(reading.created_at);
+                const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                return readingTime > oneDayAgo;
+              });
+
+              recentReadings.forEach(reading => {
+                const readingKey = reading.id || reading.created_at || JSON.stringify(reading);
+                if (isAlertRead(readingKey)) return; // Skip if already read
+
+                const value = reading.value;
+                let hasAlert = false;
+
+                // Check for alert conditions based on sensor type
+                if (sensor.sensor_type === 'ph') {
+                  if (value < 6.0 || value > 7.0) hasAlert = true;
+                } else if (sensor.sensor_type === 'tds') {
+                  if (value < 800 || value > 1500) hasAlert = true;
+                } else if (sensor.sensor_type === 'water_level') {
+                  if (value < 20) hasAlert = true;
+                } else if (sensor.sensor_type === 'air_temperature') {
+                  if (value < 18 || value > 28) hasAlert = true;
+                }
+
+                if (hasAlert) {
+                  unreadCount++;
+                }
+              });
+            } catch (err) {
+              console.warn('Error checking sensor data for alerts:', err);
+            }
+          }));
+        } catch (err) {
+          console.warn('Error checking device for alerts:', err);
+        }
+      }));
+
+      return unreadCount;
+    } catch (err) {
+      console.warn('Error counting unread alerts:', err);
+      return 0;
+    }
+  };
+
   // Fetch data on component mount
   useEffect(() => {
     fetchDevicesData();
   }, []);
+
+  // Count unread alerts when devices data is loaded
+  useEffect(() => {
+    if (!loading && devices.length > 0) {
+      const fetchAlertCount = async () => {
+        const count = await countUnreadAlerts();
+        setUnreadAlertsCount(count);
+      };
+      fetchAlertCount();
+    }
+  }, [loading, devices]);
+
+  // Refresh alert count when returning to dashboard (window focus)
+  useEffect(() => {
+    const handleWindowFocus = async () => {
+      if (!loading && devices.length > 0) {
+        const count = await countUnreadAlerts();
+        setUnreadAlertsCount(count);
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  }, [loading, devices]);
 
   // Floating Action Button (FAB) draggable state
   const fabRef = useRef(null);
@@ -729,16 +848,44 @@ export default function Dashboard() {
         )}
       </section>      <main className="dash-main" role="main">
         {/* Alert Summary */}
-        <section className="card alert-card" aria-label="Alert summary">
+        <section className="card alert-card" aria-label="Alert summary" onClick={() => navigate('/alerts')} style={{ cursor: 'pointer' }}>
           <div className="alert-card-top">
-            <div className="icon-circle">
+            <div className="icon-circle" style={{ position: 'relative' }}>
               <AlertCircle size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
+              {unreadAlertsCount > 0 && (
+                <span className="alert-notification-badge" style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  backgroundColor: '#e74c3c',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '16px',
+                  height: '16px',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  border: '2px solid white',
+                  minWidth: '16px',
+                }}>
+                  {unreadAlertsCount > 9 ? '9+' : unreadAlertsCount}
+                </span>
+              )}
             </div>
-            <button className="alert-card-expand" aria-label="Open alerts">
+            <button className="alert-card-expand" aria-label="Open alerts" onClick={(e) => { e.stopPropagation(); navigate('/alerts'); }}>
               <ChevronRight size={20} color="#8BA797" />
             </button>
           </div>
-          <h3 className="alert-card-title">Alert Summary</h3>
+          <h3 className="alert-card-title">
+            Alert Summary
+            {unreadAlertsCount > 0 && (
+              <span style={{ color: '#e74c3c', fontWeight: 'bold', marginLeft: '8px' }}>
+                ({unreadAlertsCount} new)
+              </span>
+            )}
+          </h3>
           <div className="alert-card-message">{data?.alertText || 'Loading...'}</div>
         </section>
         {/* Connectivity & Sync */}
@@ -898,8 +1045,29 @@ export default function Dashboard() {
           <Leaf size={20} />
           <span>Tanom</span>
         </button>
-        <button className="nav-item" onClick={() => navigate('/alerts')}>
+        <button className="nav-item" onClick={() => navigate('/alerts')} style={{ position: 'relative' }}>
           <AlertCircle size={20} />
+          {unreadAlertsCount > 0 && (
+            <span className="nav-notification-badge" style={{
+              position: 'absolute',
+              top: '8px',
+              right: '18px',
+              backgroundColor: '#e74c3c',
+              color: 'white',
+              borderRadius: '50%',
+              width: '16px',
+              height: '16px',
+              fontSize: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              border: '2px solid white',
+              minWidth: '16px',
+            }}>
+              {unreadAlertsCount > 9 ? '9+' : unreadAlertsCount}
+            </span>
+          )}
           <span>Alerts</span>
         </button>
         <button className="nav-item" onClick={() => navigate('/profile')}>
