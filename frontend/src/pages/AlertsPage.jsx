@@ -20,6 +20,50 @@ import {
 import { getUserDevices } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 
+// Local persistence for read alerts
+const READ_STORAGE_KEY = 'alerts.readingIds';
+const MOCK_READ_STORAGE_KEY = 'alerts.mockIds';
+
+function loadIdSet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (_e) {
+    return new Set();
+  }
+}
+
+function saveIdSet(key, set) {
+  try {
+    localStorage.setItem(key, JSON.stringify(Array.from(set)));
+  } catch (_e) {
+    // ignore
+  }
+}
+
+function isPersistedRead(alert) {
+  const readingIds = loadIdSet(READ_STORAGE_KEY);
+  const mockIds = loadIdSet(MOCK_READ_STORAGE_KEY);
+  if (alert && alert.readingId && readingIds.has(alert.readingId)) return true;
+  if (alert && !alert.readingId && typeof alert.id !== 'undefined' && mockIds.has(String(alert.id))) return true;
+  return false;
+}
+
+function persistMarkRead(alert) {
+  if (!alert) return;
+  if (alert.readingId) {
+    const s = loadIdSet(READ_STORAGE_KEY);
+    s.add(alert.readingId);
+    saveIdSet(READ_STORAGE_KEY, s);
+  } else if (typeof alert.id !== 'undefined') {
+    const s = loadIdSet(MOCK_READ_STORAGE_KEY);
+    s.add(String(alert.id));
+    saveIdSet(MOCK_READ_STORAGE_KEY, s);
+  }
+}
+
 // Helper: format a ISO date string to a relative time (minutes/hours/days ago)
 function relativeTimeFromISO(iso) {
   try {
@@ -131,6 +175,11 @@ export default function AlertsPage() {
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'critical'
   // Alerts state initialized from mock alerts; we'll fetch real pH and prepend an alert if needed
   const [alerts, setAlerts] = useState(mockAlerts);
+
+  // On first mount, apply persisted read flags to initial alerts
+  React.useEffect(() => {
+    setAlerts(prev => prev.map(a => ({ ...a, read: isPersistedRead(a) || a.read }))); // preserve existing read true
+  }, []);
 
   // On mount: fetch user's bound devices -> find pH sensors -> fetch recent readings
   React.useEffect(() => {
@@ -389,6 +438,7 @@ export default function AlertsPage() {
                 title,
                 device: device.device_name || device.device_serial || `Device ${device.id}`,
                 deviceId: device.id,
+                deviceSerial: device.device_serial || null,
                 message,
                 timestamp: relativeTimeFromISO(latestIso),
                 date: latestIso,
@@ -396,6 +446,11 @@ export default function AlertsPage() {
                 // metadata for deduplication / tracking
                 readingId: readingKey,
               };
+
+              // Set read state from persistence if this reading was previously read
+              if (isPersistedRead(alertObj)) {
+                alertObj.read = true;
+              }
 
               // prepend so newest appear first
               next.unshift(alertObj);
@@ -420,21 +475,39 @@ export default function AlertsPage() {
     return true;
   });
 
+  // Ensure descending order by alert creation time
+  const sortedAlerts = [...filteredAlerts].sort((a, b) => {
+    const ta = a && a.date ? new Date(a.date).getTime() : 0;
+    const tb = b && b.date ? new Date(b.date).getTime() : 0;
+    return tb - ta; // newest first
+  });
+
   const unreadCount = alerts.filter(a => !a.read).length;
 
   const markAsRead = (alertId) => {
-    setAlerts(prev => prev.map(alert =>
-      alert.id === alertId ? { ...alert, read: true } : alert
-    ));
+    setAlerts(prev => prev.map(alert => {
+      if (alert.id === alertId) {
+        // persist
+        persistMarkRead(alert);
+        return { ...alert, read: true };
+      }
+      return alert;
+    }));
   };
 
   const markAllAsRead = () => {
-    setAlerts(prev => prev.map(alert => ({ ...alert, read: true })));
+    setAlerts(prev => {
+      // persist all alerts currently present
+      prev.forEach(a => persistMarkRead(a));
+      return prev.map(alert => ({ ...alert, read: true }));
+    });
   };
 
   const handleAlertClick = (alert) => {
-    markAsRead(alert.id);
-    navigate(`/device/${alert.deviceId}`);
+    // Persist and update state immediately before navigating
+    try { persistMarkRead(alert); } catch (_e) { }
+    setAlerts(prev => prev.map(a => (a.id === alert.id ? { ...a, read: true } : a)));
+    navigate(`/device/${alert.deviceId}`, { state: { deviceId: alert.deviceId, deviceName: alert.device, deviceSerial: alert.deviceSerial } });
   };
 
   const getAlertIcon = (iconType) => {
@@ -498,7 +571,7 @@ export default function AlertsPage() {
 
       {/* Alerts list */}
       <main className="alerts-content">
-        {filteredAlerts.length === 0 ? (
+        {sortedAlerts.length === 0 ? (
           <div className="alerts-empty">
             <AlertCircle size={48} color="#8BA797" strokeWidth={1.5} />
             <h3>No alerts to display</h3>
@@ -506,7 +579,7 @@ export default function AlertsPage() {
           </div>
         ) : (
           <div className="alerts-list">
-            {filteredAlerts.map((alert) => (
+            {sortedAlerts.map((alert) => (
               <article
                 key={alert.id}
                 className={`alert-item ${alert.type} ${alert.read ? 'read' : 'unread'}`}

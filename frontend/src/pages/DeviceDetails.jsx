@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import '../assets/styles/DeviceDetails.css';
 import {
   ChevronLeft,
@@ -19,6 +19,9 @@ import {
   RefreshCw,
   Database
 } from 'lucide-react';
+
+import { getDeviceById } from '../services/api/devices.js';
+import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -66,64 +69,241 @@ const mockDevices = {
   }
 };
 
-// Mock log entries
-const mockLogEntries = [
-  {
-    id: 1,
-    type: 'warning',
-    title: 'Inadequate nutrients',
-    message: 'This SmarTanom EC is low (10 mS/cm refill: Part A (Calcium Nitrate) and Part B (Micronutrient mix).',
-    time: '1m',
-    date: '05/06/25'
-  },
-  {
-    id: 2,
-    type: 'success',
-    title: 'New cycle started',
-    message: 'You just started a new cycle, time to grow new plants.',
-    time: '5m',
-    date: '05/06/25'
-  },
-  {
-    id: 3,
-    type: 'harvest',
-    title: 'Ready for harvest',
-    message: 'Your SmarTanom is now ready for harvest. Harvest now to start a new cycle of plants.',
-    time: '05/06/25',
-    date: '05/06/25'
-  },
-  {
-    id: 4,
-    type: 'warning',
-    title: 'Low water levels',
-    message: 'Low water level detected. Refill reservoir with fresh water.',
-    time: '05/06/25',
-    date: '05/06/25'
+// Helper: relative time from ISO
+function relativeTimeFromISO(iso) {
+  try {
+    const then = new Date(iso);
+    if (Number.isNaN(then.getTime())) return 'just now';
+    const now = new Date();
+    const diffMs = now - then;
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return 'just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d`;
+  } catch (_e) {
+    return 'just now';
   }
-];
+}
 
 export default function DeviceDetails() {
   const { deviceId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('plants');
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' for newest first, 'asc' for oldest
+  const [device, setDevice] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [logEntries, setLogEntries] = useState([]);
 
-  const device = mockDevices[deviceId] || mockDevices['D000000001'];
+  useEffect(() => {
+    let mounted = true;
+    async function fetchDevice() {
+      try {
+        setLoading(true);
+        setError(null);
+        const id = deviceId || (location.state && location.state.deviceId);
+        if (!id) {
+          // fallback to mock if no id
+          if (mounted) setDevice(mockDevices['D000000001']);
+          return;
+        }
+        const resp = await getDeviceById(id);
+        const dev = resp && resp.id ? resp : (resp && resp.results ? resp.results : resp);
+        if (mounted) setDevice(dev);
+      } catch (e) {
+        console.warn('DeviceDetails: failed to load device', e);
+        if (mounted) {
+          setError('Failed to load device');
+          setDevice(mockDevices[deviceId] || mockDevices['D000000001']);
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    fetchDevice();
+    return () => { mounted = false; };
+  }, [deviceId, location.state]);
+
+  // Build alert entries for this device in the Log tab
+  useEffect(() => {
+    let mounted = true;
+    async function fetchDeviceAlerts() {
+      try {
+        // only fetch when viewing the log tab
+        if (activeTab !== 'log') return;
+        const id = (device && (device.id || device.device_id)) || deviceId || (location.state && location.state.deviceId);
+        if (!id) return;
+        const sensorsResp = await getDeviceSensors(id);
+        const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
+        if (!Array.isArray(sensors) || sensors.length === 0) {
+          if (mounted) setLogEntries([]);
+          return;
+        }
+
+        const relevantSensors = sensors.filter(s => ['ph', 'water_level', 'tds', 'turbidity', 'light', 'humidity', 'air_temperature'].includes(s.sensor_type));
+
+        const abnormalReadings = [];
+        await Promise.all(relevantSensors.map(async (sensor) => {
+          try {
+            const dataResp = await getSensorData(sensor.id, 60);
+            const data = dataResp && dataResp.results ? dataResp.results : dataResp;
+            const readings = Array.isArray(data) ? data : (data ? [data] : []);
+            readings.forEach(r => {
+              const val = r && typeof r.value !== 'undefined' ? r.value : null;
+              if (val === null) return;
+              const vNum = Number(val);
+              if (sensor.sensor_type === 'ph') {
+                if (vNum < 6 || vNum > 7) abnormalReadings.push({ sensor, reading: r });
+              } else if (sensor.sensor_type === 'water_level') {
+                if (vNum === 0 || vNum <= 40) abnormalReadings.push({ sensor, reading: r });
+              } else if (sensor.sensor_type === 'tds') {
+                if (vNum < 800 || (vNum >= 800 && vNum <= 999) || (vNum >= 1301 && vNum <= 1500) || vNum > 1500) abnormalReadings.push({ sensor, reading: r });
+              } else if (sensor.sensor_type === 'turbidity') {
+                if (!(vNum > 2100)) abnormalReadings.push({ sensor, reading: r });
+              } else if (sensor.sensor_type === 'light') {
+                if (vNum > 1500) abnormalReadings.push({ sensor, reading: r });
+              } else if (sensor.sensor_type === 'humidity') {
+                if (vNum < 50 || vNum > 70) abnormalReadings.push({ sensor, reading: r });
+              } else if (sensor.sensor_type === 'air_temperature') {
+                if (vNum < 18 || vNum > 26) abnormalReadings.push({ sensor, reading: r });
+              }
+            });
+          } catch (_e) { /* ignore a sensor failure */ }
+        }));
+
+        // Build entries with specific messages mirroring AlertsPage
+        let nextId = 1;
+        const built = abnormalReadings
+          .sort((a, b) => {
+            const ta = a.reading && (a.reading.created_at || a.reading.timestamp) ? new Date(a.reading.created_at || a.reading.timestamp).getTime() : 0;
+            const tb = b.reading && (b.reading.created_at || b.reading.timestamp) ? new Date(b.reading.created_at || b.reading.timestamp).getTime() : 0;
+            return tb - ta;
+          })
+          .map(({ sensor, reading }) => {
+            const val = Number(reading.value);
+            const iso = reading.created_at || reading.timestamp || new Date().toISOString();
+            let type = 'warning';
+            let title = 'Alert';
+            let message = `Reading is ${val}`;
+            if (sensor.sensor_type === 'ph') {
+              if (val < 6) {
+                type = 'critical';
+                title = 'Low pH detected';
+                message = `pH is ${val}. Raise pH using pH Up, mix thoroughly, and re-check in 10–15 minutes.`;
+              } else {
+                type = 'critical';
+                title = 'High pH detected';
+                message = `pH is ${val}. Lower pH using pH Down, mix thoroughly, and re-check in 10–15 minutes.`;
+              }
+            } else if (sensor.sensor_type === 'water_level') {
+              if (val === 0) {
+                type = 'critical';
+                title = 'Water level empty';
+                message = `Water level 0% — refill immediately, prime pumps, and check for leaks.`;
+              } else {
+                type = 'warning';
+                title = 'Low water level';
+                message = `Water level ${val}% — refill soon and verify auto-refill or inspect for leaks.`;
+              }
+            } else if (sensor.sensor_type === 'tds') {
+              if (val < 800) {
+                type = 'critical';
+                title = 'TDS critically low';
+                message = `TDS ${val} ppm — solution too weak. Increase nutrients and re-check.`;
+              } else if (val <= 999) {
+                type = 'warning';
+                title = 'TDS low warning';
+                message = `TDS ${val} ppm — near lower bound. Consider topping up nutrients.`;
+              } else if (val <= 1500) {
+                type = 'warning';
+                title = 'TDS high warning';
+                message = `TDS ${val} ppm — near upper bound. Consider dilution or reduce dosing.`;
+              } else {
+                type = 'critical';
+                title = 'TDS critically high';
+                message = `TDS ${val} ppm — too concentrated. Drain/refill and check dosing.`;
+              }
+            } else if (sensor.sensor_type === 'turbidity') {
+              if (val > 2100) {
+                type = 'info';
+                title = 'Water clarity OK';
+                message = `Turbidity ${val} — clear water.`;
+              } else if (val > 1800) {
+                type = 'warning';
+                title = 'Water cloudy';
+                message = `Turbidity ${val} — cloudy. Clean filters and consider partial change.`;
+              } else {
+                type = 'critical';
+                title = 'Water turbid';
+                message = `Turbidity ${val} — turbid. Drain/refill, clean filters and tubing.`;
+              }
+            } else if (sensor.sensor_type === 'light') {
+              type = 'critical';
+              title = 'Very bright sunlight detected';
+              message = `Light ${val} lux — very bright. Provide shading or reduce lighting.`;
+            } else if (sensor.sensor_type === 'humidity') {
+              if (val < 50) {
+                type = 'warning';
+                title = 'Low humidity detected';
+                message = `Humidity ${val}% — increase humidity (misters, trays, humidifier).`;
+              } else {
+                type = 'warning';
+                title = 'High humidity detected';
+                message = `Humidity ${val}% — improve ventilation or dehumidify.`;
+              }
+            } else if (sensor.sensor_type === 'air_temperature') {
+              if (val < 18) {
+                type = 'warning';
+                title = 'Low temperature detected';
+                message = `Temperature ${val}°C — increase heating or insulation.`;
+              } else {
+                type = 'warning';
+                title = 'High temperature detected';
+                message = `Temperature ${val}°C — improve ventilation, add shading or cooling.`;
+              }
+            }
+            return {
+              id: nextId++,
+              type,
+              title,
+              message,
+              time: relativeTimeFromISO(iso),
+              date: new Date(iso).toLocaleDateString(),
+              createdAt: iso,
+            };
+          });
+
+        if (mounted) setLogEntries(built);
+      } catch (e) {
+        console.warn('DeviceDetails: failed to build device alerts', e);
+        if (mounted) setLogEntries([]);
+      }
+    }
+    fetchDeviceAlerts();
+    return () => { mounted = false; };
+  }, [activeTab, device, deviceId, location.state]);
 
   const toggleSortOrder = () => {
     setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
   };
 
-  const sortedLogEntries = [...mockLogEntries].sort((a, b) => {
+  const sortedLogEntries = [...logEntries].sort((a, b) => {
     if (sortOrder === 'desc') {
-      return b.id - a.id; // Newest first
+      return (new Date(b.createdAt || 0)) - (new Date(a.createdAt || 0)); // Newest first
     }
-    return a.id - b.id; // Oldest first
+    return (new Date(a.createdAt || 0)) - (new Date(b.createdAt || 0)); // Oldest first
   });
 
   const getLogIcon = (type) => {
     switch (type) {
       case 'warning':
+        return <TriangleAlert size={20} color="#E1554A" strokeWidth={2.5} />;
+      case 'critical':
         return <TriangleAlert size={20} color="#E1554A" strokeWidth={2.5} />;
       case 'success':
         return <CircleAlert size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />;
@@ -138,10 +318,12 @@ export default function DeviceDetails() {
     navigate('/dashboard');
   };
 
+  const resolvedDevice = device || (mockDevices[deviceId] || mockDevices['D000000001']);
+
   return (
     <div className="device-details-root">
       {/* Header with background image */}
-      <header className="device-header" style={{ backgroundImage: `url(${device.image})` }}>
+      <header className="device-header" style={{ backgroundImage: `url(${resolvedDevice.image})` }}>
         <div className="device-header-overlay">
           <button className="back-button" onClick={handleGoBack}>
             <ChevronLeft size={20} />
@@ -155,8 +337,8 @@ export default function DeviceDetails() {
 
       {/* Device info */}
       <div className="device-info-section">
-        <h1 className="device-info-title">{device.name}</h1>
-        <p className="device-info-id">ID: {device.id}</p>
+        <h1 className="device-info-title">{resolvedDevice.device_name || resolvedDevice.name || (location.state && location.state.deviceName) || 'Device'}</h1>
+        <p className="device-info-id">Serial: {resolvedDevice.device_serial || (location.state && location.state.deviceSerial) || resolvedDevice.id || deviceId}</p>
       </div>
 
       {/* Tabs */}
@@ -194,33 +376,33 @@ export default function DeviceDetails() {
             {/* Harvest estimate */}
             <div className="harvest-estimate">
               <Clock size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              <p className="harvest-estimate-text">{device.plant.estimatedHarvestMessage}</p>
+              <p className="harvest-estimate-text">{resolvedDevice.plant ? resolvedDevice.plant.estimatedHarvestMessage : 'Device is running normally.'}</p>
             </div>
 
             {/* Plant status */}
             <div className="plant-status-card">
               <Sprout size={18} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              <span className="plant-status-text">{device.plant.status}</span>
+              <span className="plant-status-text">{resolvedDevice.plant ? resolvedDevice.plant.status : 'Active'}</span>
             </div>
 
             {/* Plant card */}
             <div className="plant-card">
               <div className="plant-card-image">
-                <img src={device.plant.image} alt={device.plant.name} />
+                <img src={(resolvedDevice.plant && resolvedDevice.plant.image) || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop'} alt={(resolvedDevice.plant && resolvedDevice.plant.name) || 'Plant'} />
               </div>
               <div className="plant-card-content">
                 <div className="plant-card-info">
-                  <h3 className="plant-card-name">{device.plant.name}</h3>
-                  <p className="plant-card-variety">{device.plant.variety}</p>
+                  <h3 className="plant-card-name">{resolvedDevice.plant ? resolvedDevice.plant.name : '—'}</h3>
+                  <p className="plant-card-variety">{resolvedDevice.plant ? resolvedDevice.plant.variety : '—'}</p>
                 </div>
                 <div className="plant-card-harvest">
-                  <span className="harvest-label">Harvest in {device.plant.daysToHarvest} days</span>
+                  <span className="harvest-label">{resolvedDevice.plant ? `Harvest in ${resolvedDevice.plant.daysToHarvest} days` : '—'}</span>
                 </div>
               </div>
             </div>
 
             {/* Start new cycle button */}
-            <button 
+            <button
               className="start-cycle-button"
               onClick={() => navigate('/start-cycle')}
             >
