@@ -14,6 +14,7 @@ class DeviceAdmin(admin.ModelAdmin):
     list_display = (
         'id',
         'device_serial',
+        'location',
         'device_name',
         'status',
         'is_bound',
@@ -26,14 +27,14 @@ class DeviceAdmin(admin.ModelAdmin):
         'updated_at'
     )
     list_filter = ('status', 'is_bound', 'plant_status', 'created_at', 'updated_at')
-    search_fields = ('device_name', 'device_serial', 'bound_email', 'plant_name', 'plant_variety')
+    search_fields = ('device_name', 'device_serial', 'bound_email', 'plant_name', 'plant_variety', 'location')
     ordering = ('-created_at',)
     list_per_page = 25  # Show up to 25 devices per page
-    list_editable = ('device_name', 'status', 'plant_name', 'plant_variety', 'plant_status')
+    list_editable = ('device_name', 'status', 'plant_name', 'plant_variety', 'plant_status', 'location')
 
     fieldsets = (
         ('Device Information', {
-            'fields': ('device_serial', 'device_name', 'status')
+            'fields': ('device_serial', 'device_name', 'location', 'status')
         }),
         ('Binding Information', {
             'fields': ('is_bound', 'bound_email'),

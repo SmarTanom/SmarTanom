@@ -72,6 +72,9 @@ class DeviceBindVerifySerializer(serializers.Serializer):
     serial_number = serializers.CharField(max_length=12)
     email = serializers.EmailField()
     code = serializers.CharField(max_length=6, min_length=6)
+    # Optional metadata that can be provided during first-time setup
+    location = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    device_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
 
     def validate_serial_number(self, value):
         """Validate and normalize serial number."""
@@ -120,6 +123,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             "id",
             "device_serial",
             "device_name",
+            "location",
             "status",
             "is_bound",
             "bound_email",

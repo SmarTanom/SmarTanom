@@ -67,13 +67,21 @@ class Device(TimeStampedModel):
         default="Active",
         help_text="Current status of the plant"
     )
+    # Optional human-readable device location provided during initial setup
+    location = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+        help_text="Optional location or placement description for the device"
+    )
 
     class Meta:
         indexes = [
             models.Index(fields=["device_serial"], name="idx_device_serial"),
             models.Index(fields=["status"], name="idx_device_status"),
             models.Index(fields=["is_bound"], name="idx_device_is_bound"),
-            models.Index(fields=["bound_email"], name="idx_device_bound_email")
+            models.Index(fields=["bound_email"], name="idx_device_bound_email"),
+            models.Index(fields=["location"], name="idx_device_location")
         ]
         verbose_name = "Device"
         verbose_name_plural = "Devices"

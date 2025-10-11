@@ -201,9 +201,12 @@ def verify_device_otp(request):
         # Verify OTP
         if DeviceOTPCode.verify_otp(device, email, code):
             # Bind device to email
+            # Update optional fields provided during setup
             device.is_bound = True
             device.bound_email = email
-            device.save(update_fields=['is_bound', 'bound_email'])
+            device.device_name = serializer.validated_data.get('device_name', device.device_name)
+            device.location = serializer.validated_data.get('location', device.location)
+            device.save(update_fields=['is_bound', 'bound_email', 'device_name', 'location'])
 
             # Find or create user account with this email
             user, created = User.objects.get_or_create(
@@ -261,8 +264,8 @@ class DeviceViewSet(BaseAuthViewSet):
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["device_name", "status", "bound_email"]
-    ordering_fields = ["device_name", "status", "created_at"]
+    search_fields = ["device_name", "status", "bound_email", "location"]
+    ordering_fields = ["device_name", "status", "created_at", "location"]
     ordering = ["-created_at"]
 
     def get_queryset(self):  # Users see only their bound devices unless staff

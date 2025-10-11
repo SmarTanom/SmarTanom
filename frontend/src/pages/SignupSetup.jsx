@@ -534,8 +534,12 @@ export default function SignupSetup() {
 
       console.log('Verifying device OTP:', { deviceSerial, email, code });
 
-      // Use device binding OTP verification
-      const data = await verifyDeviceOTP(deviceSerial, email, code);
+      // Use device binding OTP verification; include optional metadata
+      const extras = {
+        location: location.trim() || undefined,
+        device_name: nickname.trim() || undefined,
+      };
+      const data = await verifyDeviceOTP(deviceSerial, email, code, extras);
 
       if (data.success) {
         console.log('Device bound successfully:', data);

@@ -24,11 +24,13 @@ export async function requestDeviceOTP(serialNumber, email) {
 /**
  * Verify OTP and bind device
  */
-export async function verifyDeviceOTP(serialNumber, email, code) {
+export async function verifyDeviceOTP(serialNumber, email, code, extras = {}) {
+  // extras may include optional fields such as { location, device_name }
   return apiClient.post('/api/devices/verify-otp/', {
     serial_number: serialNumber,
     email: email,
-    code: code
+    code: code,
+    ...extras
   });
 }
 
