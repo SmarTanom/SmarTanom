@@ -153,7 +153,11 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+
+# Timezone Configuration
+# Set to Singapore timezone (detected from your system) or override with DJANGO_TIME_ZONE env var
+TIME_ZONE = os.getenv("DJANGO_TIME_ZONE") or "Asia/Singapore"
+
 USE_I18N = True
 USE_TZ = True
 
