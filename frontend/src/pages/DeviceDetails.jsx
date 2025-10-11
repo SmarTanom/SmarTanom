@@ -342,6 +342,9 @@ export default function DeviceDetails() {
       <div className="device-info-section">
         <h1 className="device-info-title">{resolvedDevice.device_name || resolvedDevice.name || (location.state && location.state.deviceName) || 'Device'}</h1>
         <p className="device-info-id">Serial: {resolvedDevice.device_serial || (location.state && location.state.deviceSerial) || resolvedDevice.id || deviceId}</p>
+        {resolvedDevice.location ? (
+          <p className="device-location">Location: {resolvedDevice.location}</p>
+        ) : null}
       </div>
 
       {/* Tabs */}

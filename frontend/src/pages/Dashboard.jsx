@@ -831,6 +831,9 @@ export default function Dashboard() {
                   <p className="device-id">
                     {d.plant_name ? `Growing: ${d.plant_name}` : `Serial: ${d.device_serial}`}
                   </p>
+                  {d.location ? (
+                    <p className="device-location">{d.location}</p>
+                  ) : null}
                 </div>
                 <div className="device-card-arrow">
                   <ChevronRight size={18} />
