@@ -61,6 +61,11 @@ backend/.env.local
 backend/.env.development
 backend/.env.production
 
+# Exceptions: commit these specific env files per maintainer request
+!.env
+!frontend/.env
+!backend/.env
+
 # Test/probe files (temporary)
 *_probe.py
 tmp_*.py
