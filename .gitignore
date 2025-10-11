@@ -69,3 +69,4 @@ tmp_*.py
 frontend/dist/
 
 # (Keep everything else versioned intentionally)
+.env
