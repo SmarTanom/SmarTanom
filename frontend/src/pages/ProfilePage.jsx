@@ -8,6 +8,7 @@ import {
 import '../assets/styles/ProfilePage.css';
 import { authApi } from '../services/apiClient';
 import { getUserDevices } from '../services/api/devices.js';
+import { useAuth } from '../contexts/AuthContext.jsx';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -31,6 +32,7 @@ function formatMemberSince(dateString) {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [user, setUser] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState(null);
@@ -81,13 +83,18 @@ export default function ProfilePage() {
   }, [navigate]);
 
   const handleLogout = async () => {
-    const token = localStorage.getItem('authToken');
     try {
-      if (token) await authApi.logout(token);
-    } catch (_) {
-      // ignore and proceed with local cleanup
-    } finally {
-      localStorage.removeItem('authToken');
+      const result = await logout();
+      if (result.success) {
+        navigate('/');
+      } else {
+        // Even if logout fails, clear local state and navigate
+        console.error('Logout error:', result.error);
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Force navigation even on error
       navigate('/');
     }
   };

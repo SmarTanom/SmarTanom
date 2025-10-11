@@ -1,6 +1,9 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthFlowProvider } from './features/auth/AuthFlowContext.jsx';
+import { AuthProvider } from './contexts/AuthContext.jsx';
+import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
+import PublicRoute from './components/auth/PublicRoute.jsx';
 import LandingPage from './pages/LandingPage.jsx';
 import EmailPage from './pages/EmailPage.jsx';
 import CodePage from './pages/CodePage.jsx';
@@ -83,27 +86,157 @@ function useKeyboardViewport() {
 export default function App() {
   useKeyboardViewport();
   return (
-    <AuthFlowProvider>
-      <Routes>
-        <Route path="/splash" element={<SplashPage />} />
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/signin/email" element={<EmailPage mode="signin" />} />
-        <Route path="/signup/email" element={<EmailPage mode="signup" />} />
-        <Route path="/signin/code" element={<CodePage mode="signin" />} />
-        <Route path="/signup/code" element={<CodePage mode="signup" />} />
-        <Route path="/signup/setup" element={<SignupSetup />} />
-        <Route path="/signup/username" element={<UsernamePage />} />
-        <Route path="/add-device" element={<AddDevicePage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/start-cycle" element={<StartCyclePage />} />
-        <Route path="/device/:deviceId" element={<DeviceDetails />} />
-        <Route path="/alerts" element={<AlertsPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
-        <Route path="/privacy-security" element={<PrivacySecurityPage />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AuthFlowProvider>
+    <AuthProvider>
+      <AuthFlowProvider>
+        <Routes>
+          {/* Public routes - only accessible to non-authenticated users */}
+          <Route
+            path="/splash"
+            element={
+              <PublicRoute>
+                <SplashPage />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/"
+            element={
+              <PublicRoute>
+                <LandingPage />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signin/email"
+            element={
+              <PublicRoute>
+                <EmailPage mode="signin" />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signup/email"
+            element={
+              <PublicRoute>
+                <EmailPage mode="signup" />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signin/code"
+            element={
+              <PublicRoute>
+                <CodePage mode="signin" />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signup/code"
+            element={
+              <PublicRoute>
+                <CodePage mode="signup" />
+              </PublicRoute>
+            }
+          />
+
+          {/* Signup flow routes - semi-protected (user needs to be in signup process) */}
+          <Route
+            path="/signup/setup"
+            element={
+              <PublicRoute redirectTo="/signup/username">
+                <SignupSetup />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signup/username"
+            element={
+              <PublicRoute redirectTo="/dashboard">
+                <UsernamePage />
+              </PublicRoute>
+            }
+          />
+
+          {/* Protected routes - require authentication */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/add-device"
+            element={
+              <ProtectedRoute>
+                <AddDevicePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/start-cycle"
+            element={
+              <ProtectedRoute>
+                <StartCyclePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/device/:deviceId"
+            element={
+              <ProtectedRoute>
+                <DeviceDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/alerts"
+            element={
+              <ProtectedRoute>
+                <AlertsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/privacy-security"
+            element={
+              <ProtectedRoute>
+                <PrivacySecurityPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin routes - require admin privileges */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Catch-all route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthFlowProvider>
+    </AuthProvider>
   );
 }

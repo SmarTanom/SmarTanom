@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
+import { useAuth } from '../contexts/AuthContext.jsx';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthCodePage.css';
 import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
@@ -10,6 +11,7 @@ import { verifyCode, requestCode } from '../services/api/auth.js';
 export default function CodePage({ mode = 'signin' }) {
   const navigate = useNavigate();
   const { email, setMode } = useAuthFlow();
+  const { login } = useAuth();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,15 +57,22 @@ export default function CodePage({ mode = 'signin' }) {
     try {
       const resp = await verifyCode({ email, code, mode });
       setStatusMsg('Verification successful!');
+
       if (mode === 'signup') {
+        // For signup, just navigate to username setup
         navigate('/signup/username');
       } else {
-        // Store token in memory/localStorage if desired by app; backend also supports DRF Token
-        // Example minimal handling:
+        // For signin, use AuthContext to handle login
         if (resp?.token) {
-          try { localStorage.setItem('authToken', resp.token); } catch {}
+          const loginResult = await login(resp.token, resp.user);
+          if (loginResult.success) {
+            navigate('/dashboard');
+          } else {
+            setError(loginResult.error || 'Login failed');
+          }
+        } else {
+          setError('No authentication token received');
         }
-        navigate('/dashboard');
       }
     } catch (err) {
       setStatusMsg('Verification failed.');

@@ -1,13 +1,16 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
+import { useAuth } from '../contexts/AuthContext.jsx';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthUsernamePage.css';
 import { ChevronLeftFilled } from '../components/ui/Icon.jsx';
+import { authApi } from '../services/apiClient.js';
 
 export default function UsernamePage() {
   const navigate = useNavigate();
   const { setMode } = useAuthFlow();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [status, setStatus] = useState(''); // 'available' | 'taken' | ''
   const [error, setError] = useState('');
@@ -31,50 +34,61 @@ export default function UsernamePage() {
       return;
     }
 
-    setChecking(true); 
-    setError(''); 
+    setChecking(true);
+    setError('');
     setStatus('');
     try {
-      // TODO: Call backend endpoint to check username availability here
-      // const { available } = await api.auth.checkUsername(name)
-      await new Promise(r => setTimeout(r, 400));
-      // Fake: even length available, odd length taken
-      const available = name.length % 2 === 0;
+      const result = await authApi.checkUsername(name);
+      const available = result.available;
       setStatus(available ? 'available' : 'taken');
       if (!available) setError('This username is already taken. Please try another.');
     } catch (err) {
       setError('Could not check availability. Please try again.');
-    } finally { 
-      setChecking(false); 
+    } finally {
+      setChecking(false);
     }
-  }
-
-  async function finishSetup(e) {
+  }  async function finishSetup(e) {
     e.preventDefault();
     setError('');
     const msg = localValidate(username);
-    if (msg) { 
-      setError(msg); 
+    if (msg) {
+      setError(msg);
       inputRef.current?.focus();
-      return; 
+      return;
     }
-    if (status !== 'available') { 
-      setError('Please choose an available username.'); 
+    if (status !== 'available') {
+      setError('Please choose an available username.');
       inputRef.current?.focus();
-      return; 
+      return;
     }
     setSaving(true);
     try {
-      // TODO: Call backend to finish account setup/creation
-      // await api.auth.finishSignup({ username })
-      await new Promise(r => setTimeout(r, 800));
-      // TODO: On success, navigate to dashboard/home state
-      navigate('/');
+      // Get the temp token from localStorage (set during OTP verification)
+      const tempToken = localStorage.getItem('authToken');
+      if (!tempToken) {
+        setError('Authentication session expired. Please start over.');
+        navigate('/');
+        return;
+      }
+
+      // Finalize account with username
+      const result = await authApi.finalizeAccount(username, tempToken);
+
+      // Login with the final token
+      if (result.token) {
+        const loginResult = await login(result.token, result.user);
+        if (loginResult.success) {
+          navigate('/dashboard');
+        } else {
+          setError(loginResult.error || 'Account setup failed');
+        }
+      } else {
+        setError('Account setup incomplete. Please try again.');
+      }
     } catch (err) {
-      // TODO: Display backend error message here if creation fails
-      setError('Could not complete account setup. Please try again.');
-    } finally { 
-      setSaving(false); 
+      setError(err.message || 'Could not complete account setup. Please try again.');
+    } finally {
+      setSaving(false);
     }
   }
 
