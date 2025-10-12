@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 import re
 
-from .models import Device, DeviceOTPCode
+from .models import Device, DeviceOTPCode, DeviceCollaboration, DeviceInvitation
 
 User = get_user_model()
 
@@ -175,3 +175,113 @@ class DeviceOTPCodeSerializer(serializers.ModelSerializer):
             'is_expired',
             'is_valid'
         ]
+
+
+# Device Collaboration Serializers
+
+class DeviceShareRequestSerializer(serializers.Serializer):
+    """Serializer for sharing a device with another user."""
+
+    invite_email = serializers.EmailField(
+        help_text="Email address to share device with"
+    )
+    permissions = serializers.ChoiceField(
+        choices=['view_only', 'manage'],
+        default='view_only',
+        help_text="Permission level for the collaborator"
+    )
+    message = serializers.CharField(
+        max_length=500,
+        required=False,
+        allow_blank=True,
+        help_text="Optional message to include in invitation"
+    )
+
+    def validate_invite_email(self, value):
+        """Validate that user isn't sharing with themselves."""
+        request = self.context.get('request')
+        if request and request.user.email == value:
+            raise serializers.ValidationError("You cannot share a device with yourself.")
+        return value
+
+
+class DeviceCollaborationSerializer(serializers.ModelSerializer):
+    """Serializer for DeviceCollaboration model."""
+
+    device_name = serializers.CharField(source='device.device_name', read_only=True)
+    device_serial = serializers.CharField(source='device.device_serial', read_only=True)
+    shared_date = serializers.DateTimeField(source='created_at', read_only=True)
+
+    class Meta:
+        model = DeviceCollaboration
+        fields = [
+            'id',
+            'device',
+            'device_name',
+            'device_serial',
+            'collaborator_email',
+            'permissions',
+            'status',
+            'shared_by_email',
+            'shared_date',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = [
+            'id',
+            'device_name',
+            'device_serial',
+            'shared_date',
+            'created_at',
+            'updated_at'
+        ]
+
+
+class DeviceInvitationSerializer(serializers.ModelSerializer):
+    """Serializer for DeviceInvitation model."""
+
+    device_name = serializers.CharField(source='device.device_name', read_only=True)
+    device_serial = serializers.CharField(source='device.device_serial', read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = DeviceInvitation
+        fields = [
+            'id',
+            'device',
+            'device_name',
+            'device_serial',
+            'invite_email',
+            'invited_by_email',
+            'status',
+            'message',
+            'permissions',
+            'token',
+            'expires_at',
+            'is_expired',
+            'created_at',
+            'updated_at'
+        ]
+        read_only_fields = [
+            'id',
+            'device_name',
+            'device_serial',
+            'token',
+            'expires_at',
+            'is_expired',
+            'created_at',
+            'updated_at'
+        ]
+
+
+class InvitationResponseSerializer(serializers.Serializer):
+    """Serializer for accepting/declining invitations."""
+
+    action = serializers.ChoiceField(
+        choices=['accept', 'decline'],
+        help_text="Action to take on the invitation"
+    )
+    token = serializers.CharField(
+        max_length=64,
+        help_text="Invitation token"
+    )

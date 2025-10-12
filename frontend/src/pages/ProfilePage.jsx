@@ -8,6 +8,7 @@ import {
 import '../assets/styles/ProfilePage.css';
 import { authApi } from '../services/apiClient';
 import { getUserDevices } from '../services/api/devices.js';
+import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation } from '../services/api/sharing.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
 // Brand color constant
@@ -40,6 +41,11 @@ export default function ProfilePage() {
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [shareEmail, setShareEmail] = useState('');
   const [sharedAccess, setSharedAccess] = useState([]);
+  const [sharingLoading, setSharingLoading] = useState(false);
+  const [sharingError, setSharingError] = useState('');
+  const [loadingSharedAccess, setLoadingSharedAccess] = useState(false);
+  const [pendingInvitations, setPendingInvitations] = useState([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
   // Inline edit states
   const [isEditing, setIsEditing] = useState(false);
   const [editFirst, setEditFirst] = useState('');
@@ -97,6 +103,14 @@ export default function ProfilePage() {
     })();
     return () => { mounted = false; };
   }, [navigate]);
+
+  // Load shared access and invitations when user is loaded
+  useEffect(() => {
+    if (user) {
+      loadSharedAccess();
+      loadPendingInvitations();
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -202,8 +216,8 @@ export default function ProfilePage() {
   const loadDevicesForSharing = async () => {
     setDevicesLoading(true);
     try {
-      const devicesResponse = await getUserDevices();
-      const userDevices = devicesResponse.results || devicesResponse;
+  const devicesResponse = await getUserDevices();
+  const userDevices = (devicesResponse && (devicesResponse.results || devicesResponse)) || [];
       if (Array.isArray(userDevices)) {
         setDevices(userDevices);
         console.log(`📱 Loaded ${userDevices.length} devices for sharing`);
@@ -219,36 +233,220 @@ export default function ProfilePage() {
     }
   };
 
-  const handleShareDevice = () => {
+  // Load existing shared access for all user devices
+  const loadSharedAccess = async () => {
+    setLoadingSharedAccess(true);
+    try {
+      const devicesResponse = await getUserDevices();
+      const userDevices = devicesResponse.results || devicesResponse;
+      if (!Array.isArray(userDevices)) {
+        setSharedAccess([]);
+        return;
+      }
+
+      // Load collaborators for each device
+      const allSharedAccess = [];
+      await Promise.all(
+        userDevices.map(async (device) => {
+          try {
+            const collaborators = (await getDeviceCollaborators(device.id)) || { results: [] };
+            const collaboratorList = collaborators.results || collaborators || [];
+            if (Array.isArray(collaboratorList)) {
+              collaboratorList.forEach(collaborator => {
+                allSharedAccess.push({
+                  id: `${device.id}_${collaborator.id}`,
+                  deviceId: device.id,
+                  deviceName: device.device_name || device.plant_name || `Device ${device.device_serial}`,
+                  collaboratorId: collaborator.id,
+                  sharedWith: collaborator.email,
+                  sharedDate: collaborator.shared_date || collaborator.created_at,
+                  permissions: collaborator.permissions || { view_only: true },
+                  status: collaborator.status || 'active'
+                });
+              });
+            }
+          } catch (error) {
+            // Handle 404 gracefully - sharing endpoints not implemented yet
+            if (error.message.includes('404')) {
+              console.log(`Sharing not available for device ${device.id} (backend endpoints not implemented yet)`);
+            } else {
+              console.warn(`Failed to load collaborators for device ${device.id}:`, error);
+            }
+          }
+        })
+      );
+
+      setSharedAccess(allSharedAccess);
+      console.log(`👥 Loaded ${allSharedAccess.length} shared access entries`);
+    } catch (error) {
+      console.error('Failed to load shared access:', error);
+      setSharedAccess([]);
+    } finally {
+      setLoadingSharedAccess(false);
+    }
+  };
+
+  // Load pending invitations for current user
+  const loadPendingInvitations = async () => {
+    setLoadingInvitations(true);
+    try {
+      const invitations = (await getPendingInvitations()) || { results: [] };
+      const invitationList = invitations.results || invitations || [];
+      setPendingInvitations(Array.isArray(invitationList) ? invitationList : []);
+      console.log(`📩 Loaded ${invitationList.length} pending invitations`);
+    } catch (error) {
+      // Handle 404 gracefully - sharing endpoints not implemented yet
+      if (error.message.includes('404')) {
+        console.log('Pending invitations not available (backend endpoints not implemented yet)');
+      } else {
+        console.error('Failed to load pending invitations:', error);
+      }
+      setPendingInvitations([]);
+    } finally {
+      setLoadingInvitations(false);
+    }
+  };
+
+  // Accept device invitation
+  const handleAcceptInvitation = async (invitation) => {
+    try {
+      await acceptDeviceInvitation(invitation.token);
+      console.log('✅ Invitation accepted');
+
+      // Remove from pending invitations
+      setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
+
+      // Reload shared access to show the new device
+      loadSharedAccess();
+
+    } catch (error) {
+      console.error('❌ Failed to accept invitation:', error);
+      alert('Failed to accept invitation. Please try again.');
+    }
+  };
+
+  // Decline device invitation
+  const handleDeclineInvitation = async (invitation) => {
+    try {
+      await declineDeviceInvitation(invitation.token);
+      console.log('❌ Invitation declined');
+
+      // Remove from pending invitations
+      setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
+
+    } catch (error) {
+      console.error('❌ Failed to decline invitation:', error);
+      alert('Failed to decline invitation. Please try again.');
+    }
+  };
+
+  const handleShareDevice = async () => {
     if (!selectedDevice || !shareEmail.trim()) {
-      alert('Please select a device and enter an email address');
+      setSharingError('Please select a device and enter an email address');
       return;
     }
 
-    // In production, call API to share device
-    const newShare = {
-      id: sharedAccess.length + 1,
-      deviceId: selectedDevice.id,
-      deviceName: selectedDevice.device_name || selectedDevice.plant_name || selectedDevice.device_serial,
-      sharedWith: shareEmail,
-      sharedDate: new Date().toISOString().split('T')[0]
-    };
+    // Prevent sharing to own email (client-side guard)
+    if (user?.email && shareEmail.trim().toLowerCase() === user.email.toLowerCase()) {
+      setSharingError('You cannot share a device with your own email.');
+      return;
+    }
 
-    setSharedAccess([...sharedAccess, newShare]);
-    setShowShareModal(false);
-    setShareEmail('');
-    setSelectedDevice(null);
+    setSharingLoading(true);
+    setSharingError('');
+
+    try {
+      // Call API to share device
+  const result = await shareDevice(selectedDevice.id, shareEmail.trim(), 'view_only');
+
+      console.log('✅ Device shared successfully:', result);
+
+      // Add to local state immediately for UI feedback
+      const newShare = {
+        id: `${selectedDevice.id}_invite_${Date.now()}`,
+        deviceId: selectedDevice.id,
+        deviceName: selectedDevice.device_name || selectedDevice.plant_name || selectedDevice.device_serial,
+        collaboratorId: result.collaboration_id || result.invitation_id || result.id || undefined,
+        sharedWith: shareEmail.trim(),
+        sharedDate: new Date().toISOString().split('T')[0],
+        permissions: { view_only: true },
+        status: 'pending'
+      };
+
+      setSharedAccess(prev => [...prev, newShare]);
+
+      // Close modal and reset form
+      setShowShareModal(false);
+      setShareEmail('');
+      setSelectedDevice(null);
+
+      // Reload shared access to get the latest data
+      setTimeout(() => loadSharedAccess(), 1000);
+
+    } catch (error) {
+      console.error('❌ Failed to share device:', error);
+
+      // Handle specific error cases
+      const status = error?.status || error?.response?.status;
+      const data = error?.data || error?.response?.data;
+      const detail = data?.detail;
+
+      // Attempt to extract first field error if present
+      let fieldMsg = '';
+      if (!detail && data && typeof data === 'object') {
+        for (const [key, val] of Object.entries(data)) {
+          if (Array.isArray(val) && val.length > 0) {
+            fieldMsg = String(val[0]);
+            break;
+          }
+          if (typeof val === 'string') {
+            fieldMsg = val;
+            break;
+          }
+        }
+      }
+
+      if (status === 404 || error.message?.includes('404')) {
+        setSharingError('Unable to share this device right now. Please verify the device exists and you have permission.');
+      } else if (status === 400) {
+        setSharingError(detail || fieldMsg || 'Invalid request. Please check the email address.');
+      } else if (status === 409) {
+        setSharingError('This user already has access to this device.');
+      } else {
+        setSharingError('Failed to share device. Please try again.');
+      }
+    } finally {
+      setSharingLoading(false);
+    }
   };
 
-  const handleRevokeAccess = (shareId) => {
-    if (confirm('Are you sure you want to revoke access?')) {
-      setSharedAccess(sharedAccess.filter(s => s.id !== shareId));
+  const handleRevokeAccess = async (shareId) => {
+    const share = sharedAccess.find(s => s.id === shareId);
+    if (!share) return;
+
+    if (!confirm(`Are you sure you want to revoke ${share.sharedWith}'s access to ${share.deviceName}?`)) {
+      return;
+    }
+
+    try {
+      // Call API to revoke access
+      await revokeDeviceAccess(share.deviceId, share.collaboratorId);
+
+      console.log('✅ Access revoked successfully');
+
+      // Remove from local state
+      setSharedAccess(prev => prev.filter(s => s.id !== shareId));
+
+    } catch (error) {
+      console.error('❌ Failed to revoke access:', error);
+      alert('Failed to revoke access. Please try again.');
     }
   };
 
   const openShareModal = async () => {
     console.log('🔄 Opening share device modal...');
     setShowShareModal(true);
+    setSharingError(''); // Clear any previous errors
     await loadDevicesForSharing();
     // Reset selection when opening modal
     setSelectedDevice(null);
@@ -368,6 +566,44 @@ export default function ProfilePage() {
           </div>
         </section>
 
+        {/* Pending Invitations */}
+        {pendingInvitations.length > 0 && (
+          <section className="profile-section">
+            <h2 className="section-title">Device Invitations</h2>
+            <div className="invitations-list">
+              {pendingInvitations.map(invitation => (
+                <div key={invitation.id} className="invitation-notification">
+                  <div className="notification-icon">
+                    <Share2 size={20} color={PRIMARY_GREEN} />
+                  </div>
+                  <div className="notification-content">
+                    <h4 className="notification-title">
+                      Device Invitation from {invitation.owner_name || invitation.owner_email}
+                    </h4>
+                    <p className="notification-message">
+                      You've been invited to monitor "{invitation.device_name}" with view-only access
+                    </p>
+                  </div>
+                  <div className="notification-actions">
+                    <button
+                      className="btn-accept"
+                      onClick={() => handleAcceptInvitation(invitation)}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      className="btn-decline"
+                      onClick={() => handleDeclineInvitation(invitation)}
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Shared Monitoring */}
         <section className="profile-section">
           <div className="section-header">
@@ -386,7 +622,14 @@ export default function ProfilePage() {
             <p>Share device monitoring data with other users. All users can view real-time data and alerts to guide data-driven decisions.</p>
           </div>
 
-          {sharedAccess.length === 0 ? (
+          {/* Development Notice removed: backend sharing implemented */}
+
+          {loadingSharedAccess ? (
+            <div className="empty-state">
+              <Users size={48} color="#C5D4CB" />
+              <p>Loading shared access...</p>
+            </div>
+          ) : sharedAccess.length === 0 ? (
             <div className="empty-state">
               <Users size={48} color="#C5D4CB" />
               <p>No shared access yet</p>
@@ -406,8 +649,20 @@ export default function ProfilePage() {
                     <div className="shared-user-info">
                       <Mail size={16} />
                       <span className="shared-email">{share.sharedWith}</span>
+                      <span className={`shared-status ${share.status || 'active'}`}>
+                        {share.status === 'pending' ? '⏳ Pending' :
+                         share.status === 'active' ? '✅ Active' :
+                         '❌ Inactive'}
+                      </span>
                     </div>
-                    <span className="shared-date">Shared on {new Date(share.sharedDate).toLocaleDateString()}</span>
+                    <div className="shared-meta">
+                      <span className="shared-date">
+                        Shared on {new Date(share.sharedDate).toLocaleDateString()}
+                      </span>
+                      <span className="shared-permissions">
+                        📖 View-only access
+                      </span>
+                    </div>
                   </div>
                   <button
                     className="btn-revoke"
@@ -540,6 +795,11 @@ export default function ProfilePage() {
                   <Shield size={14} style={{ verticalAlign: 'middle' }} />
                   <span style={{ marginLeft: '6px' }}>View-only access - can see real-time monitoring data and alerts</span>
                 </p>
+                {sharingError && (
+                  <p className="form-help-text" style={{ color: '#e74c3c', marginTop: '8px' }}>
+                    ⚠️ {sharingError}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -550,14 +810,14 @@ export default function ProfilePage() {
               <button
                 className="btn-confirm"
                 onClick={handleShareDevice}
-                disabled={devicesLoading || devices.length === 0 || !selectedDevice || !shareEmail.trim()}
+                disabled={devicesLoading || devices.length === 0 || !selectedDevice || !shareEmail.trim() || sharingLoading}
                 style={{
-                  opacity: (devicesLoading || devices.length === 0 || !selectedDevice || !shareEmail.trim()) ? 0.5 : 1,
-                  cursor: (devicesLoading || devices.length === 0 || !selectedDevice || !shareEmail.trim()) ? 'not-allowed' : 'pointer'
+                  opacity: (devicesLoading || devices.length === 0 || !selectedDevice || !shareEmail.trim() || sharingLoading) ? 0.5 : 1,
+                  cursor: (devicesLoading || devices.length === 0 || !selectedDevice || !shareEmail.trim() || sharingLoading) ? 'not-allowed' : 'pointer'
                 }}
               >
                 <Check size={16} />
-                {devicesLoading ? 'Loading...' : 'Share Device'}
+                {sharingLoading ? 'Sharing...' : devicesLoading ? 'Loading...' : 'Share Device'}
               </button>
             </div>
           </div>

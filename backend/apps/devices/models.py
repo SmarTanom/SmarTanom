@@ -206,3 +206,173 @@ class DeviceOTPCode(models.Model):
             expires_at__lt=timezone.now()
         ).delete()[0]
         return expired_count
+
+
+class DeviceCollaboration(TimeStampedModel):
+    """Model for device sharing/collaboration access control."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        REVOKED = "revoked", "Revoked"
+        SUSPENDED = "suspended", "Suspended"
+
+    class Permission(models.TextChoices):
+        VIEW_ONLY = "view_only", "View Only"
+        MANAGE = "manage", "Manage"  # Future expansion
+
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.CASCADE,
+        related_name='collaborations'
+    )
+    collaborator_email = models.EmailField(
+        help_text="Email address of the collaborator"
+    )
+    permissions = models.CharField(
+        max_length=20,
+        choices=Permission.choices,
+        default=Permission.VIEW_ONLY
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        db_index=True
+    )
+    shared_by_email = models.EmailField(
+        help_text="Email address of the user who shared this device"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['device', 'collaborator_email'],
+                name='unique_device_collaborator'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['device'], name='idx_collaboration_device'),
+            models.Index(fields=['collaborator_email'], name='idx_collaboration_collaborator'),
+            models.Index(fields=['shared_by_email'], name='idx_collaboration_shared_by'),
+            models.Index(fields=['status'], name='idx_collaboration_status'),
+        ]
+        verbose_name = "Device Collaboration"
+        verbose_name_plural = "Device Collaborations"
+
+    def __str__(self) -> str:
+        return f"{self.device.device_serial} shared with {self.collaborator_email}"
+
+
+class DeviceInvitation(TimeStampedModel):
+    """Model for device sharing invitations."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+        EXPIRED = "expired", "Expired"
+
+    device = models.ForeignKey(
+        Device,
+        on_delete=models.CASCADE,
+        related_name='invitations'
+    )
+    invite_email = models.EmailField(
+        help_text="Email address being invited"
+    )
+    invited_by_email = models.EmailField(
+        help_text="Email address of the user sending the invitation"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True
+    )
+    message = models.TextField(
+        blank=True,
+        help_text="Optional message from the inviter"
+    )
+    permissions = models.CharField(
+        max_length=20,
+        choices=DeviceCollaboration.Permission.choices,
+        default=DeviceCollaboration.Permission.VIEW_ONLY
+    )
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        help_text="Unique token for accepting/declining invitation"
+    )
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['device', 'invite_email'],
+                name='unique_device_invitation',
+                condition=models.Q(status='pending')
+            )
+        ]
+        indexes = [
+            models.Index(fields=['device'], name='idx_invitation_device'),
+            models.Index(fields=['invite_email'], name='idx_invitation_email'),
+            models.Index(fields=['invited_by_email'], name='idx_invitation_invited_by'),
+            models.Index(fields=['status'], name='idx_invitation_status'),
+            models.Index(fields=['token'], name='idx_invitation_token'),
+            models.Index(fields=['expires_at'], name='idx_invitation_expires'),
+        ]
+        verbose_name = "Device Invitation"
+        verbose_name_plural = "Device Invitations"
+
+    def save(self, *args, **kwargs):
+        """Override save to generate token and expiration if not set."""
+        if not self.token:
+            self.token = secrets.token_urlsafe(32)
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(days=7)  # 7 days to accept
+        super().save(*args, **kwargs)
+
+    def is_expired(self) -> bool:
+        """Check if invitation has expired."""
+        return timezone.now() > self.expires_at
+
+    def accept(self, accepting_user_email: str) -> DeviceCollaboration:
+        """Accept the invitation and create collaboration."""
+        if self.status != self.Status.PENDING:
+            raise ValueError(f"Cannot accept invitation with status: {self.status}")
+
+        if self.is_expired():
+            self.status = self.Status.EXPIRED
+            self.save()
+            raise ValueError("Invitation has expired")
+
+        if accepting_user_email != self.invite_email:
+            raise ValueError("Only the invited user can accept this invitation")
+
+        # Create the collaboration
+        collaboration = DeviceCollaboration.objects.create(
+            device=self.device,
+            collaborator_email=self.invite_email,
+            permissions=self.permissions,
+            shared_by_email=self.invited_by_email
+        )
+
+        # Update invitation status
+        self.status = self.Status.ACCEPTED
+        self.save()
+
+        return collaboration
+
+    def decline(self, declining_user_email: str) -> None:
+        """Decline the invitation."""
+        if self.status != self.Status.PENDING:
+            raise ValueError(f"Cannot decline invitation with status: {self.status}")
+
+        if declining_user_email != self.invite_email:
+            raise ValueError("Only the invited user can decline this invitation")
+
+        self.status = self.Status.DECLINED
+        self.save()
+
+    def __str__(self) -> str:
+        return f"Invitation for {self.device.device_serial} to {self.invite_email}"

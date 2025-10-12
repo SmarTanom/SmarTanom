@@ -3,7 +3,15 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import DeviceViewSet, check_device, request_device_otp, verify_device_otp
+from .views import (
+    DeviceViewSet,
+    check_device,
+    request_device_otp,
+    verify_device_otp,
+    get_pending_invitations,
+    respond_to_invitation,
+    get_shared_devices
+)
 
 app_name = 'devices'
 
@@ -16,4 +24,8 @@ urlpatterns = [
     path("check/", check_device, name="check_device"),
     path("request-otp/", request_device_otp, name="request_device_otp"),
     path("verify-otp/", verify_device_otp, name="verify_device_otp"),
+    # Device sharing endpoints
+    path("invitations/pending/", get_pending_invitations, name="get_pending_invitations"),
+    path("invitations/respond/", respond_to_invitation, name="respond_to_invitation"),
+    path("shared/", get_shared_devices, name="get_shared_devices"),
 ]

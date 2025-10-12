@@ -798,3 +798,122 @@
     padding: var(--space-5);
   }
 }
+
+/* Device Sharing Status Styles */
+.shared-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+
+.shared-status.pending {
+  background: rgba(245, 158, 11, 0.1);
+  color: #F59E0B;
+}
+
+.shared-status.active {
+  background: rgba(51, 148, 50, 0.1);
+  color: var(--color-primary-solid);
+}
+
+.shared-status.inactive {
+  background: rgba(225, 85, 74, 0.1);
+  color: var(--color-alert);
+}
+
+.shared-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.shared-permissions {
+  font-size: 11px;
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+.shared-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+/* Invitation Notification Styles */
+.invitation-notification {
+  background: rgba(51, 148, 50, 0.1);
+  border: 1px solid rgba(51, 148, 50, 0.2);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.invitation-notification .notification-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(51, 148, 50, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.invitation-notification .notification-content {
+  flex: 1;
+}
+
+.invitation-notification .notification-title {
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 4px 0;
+}
+
+.invitation-notification .notification-message {
+  font-size: 13px;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.invitation-notification .notification-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.invitation-notification .btn-accept,
+.invitation-notification .btn-decline {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.invitation-notification .btn-accept {
+  background: var(--color-primary);
+  color: white;
+}
+
+.invitation-notification .btn-accept:hover {
+  background: var(--color-primary-solid);
+}
+
+.invitation-notification .btn-decline {
+  background: rgba(225, 85, 74, 0.1);
+  color: var(--color-alert);
+}
+
+.invitation-notification .btn-decline:hover {
+  background: rgba(225, 85, 74, 0.2);
+}
+
+/* Dev notice styles removed (feature live) */

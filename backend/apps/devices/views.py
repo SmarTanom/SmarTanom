@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import filters, status
 from rest_framework.decorators import api_view, permission_classes, action
@@ -15,12 +16,16 @@ from django_filters.rest_framework import DjangoFilterBackend
 import logging
 
 from apps.common.views import BaseAuthViewSet
-from .models import Device, DeviceOTPCode
+from .models import Device, DeviceOTPCode, DeviceCollaboration, DeviceInvitation
 from .serializers import (
     DeviceSerializer,
     DeviceCheckSerializer,
     DeviceBindRequestSerializer,
-    DeviceBindVerifySerializer
+    DeviceBindVerifySerializer,
+    DeviceShareRequestSerializer,
+    DeviceCollaborationSerializer,
+    DeviceInvitationSerializer,
+    InvitationResponseSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -268,26 +273,46 @@ class DeviceViewSet(BaseAuthViewSet):
     ordering_fields = ["device_name", "status", "created_at", "location"]
     ordering = ["-created_at"]
 
-    def get_queryset(self):  # Users see only their bound devices unless staff
+    def get_queryset(self):  # Users see only their bound devices and shared devices unless staff
         qs = super().get_queryset()
         user = self.request.user
         if user.is_staff:
             # Staff users see all devices (bound and unbound)
             return qs
-        # Regular users see only devices bound to their email
-        return qs.filter(bound_email=user.email, is_bound=True)
+
+        # Regular users see devices bound to their email OR shared with them
+        # Get device IDs where user is a collaborator
+        shared_device_ids = DeviceCollaboration.objects.filter(
+            collaborator_email=user.email,
+            status=DeviceCollaboration.Status.ACTIVE
+        ).values_list('device_id', flat=True)
+
+        return qs.filter(
+            Q(bound_email=user.email, is_bound=True) |  # Owned devices
+            Q(id__in=shared_device_ids)  # Shared devices
+        )
 
     @action(detail=True, methods=['post'], url_path='upload-photo')
     def upload_plant_photo(self, request, pk=None):
         """Upload plant photo for a device."""
         device = self.get_object()
 
-        # Check if user owns this device (unless staff)
-        if not request.user.is_staff and device.bound_email != request.user.email:
-            return Response(
-                {'error': 'Permission denied'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        # Check if user owns this device or has manage permissions (unless staff)
+        if not request.user.is_staff:
+            if device.bound_email != request.user.email:
+                # Check if user is a collaborator with manage permissions
+                collaboration = DeviceCollaboration.objects.filter(
+                    device=device,
+                    collaborator_email=request.user.email,
+                    status=DeviceCollaboration.Status.ACTIVE,
+                    permissions=DeviceCollaboration.Permission.MANAGE
+                ).first()
+
+                if not collaboration:
+                    return Response(
+                        {'error': 'Permission denied. You need manage permissions to upload photos.'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
 
         photo = request.FILES.get('plant_photo')
         if not photo:
@@ -311,3 +336,259 @@ class DeviceViewSet(BaseAuthViewSet):
         # Return updated device data
         serializer = self.get_serializer(device, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    # Device Collaboration Endpoints
+
+    @action(detail=True, methods=['post'], url_path='share')
+    def share_device(self, request, pk=None):
+        """Share a device with another user by email."""
+        device = self.get_object()
+
+        # Check if user owns this device (unless staff)
+        if not request.user.is_staff and device.bound_email != request.user.email:
+            return Response(
+                {'error': 'Permission denied. You can only share devices you own.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = DeviceShareRequestSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+
+        if not serializer.is_valid():
+            # Extract a human-friendly message while still returning full errors
+            errors = serializer.errors
+            detail_msg = None
+            try:
+                for key, val in errors.items():
+                    if isinstance(val, (list, tuple)) and val:
+                        detail_msg = f"{key}: {val[0]}" if isinstance(val[0], str) else None
+                        if detail_msg:
+                            break
+                    elif isinstance(val, str):
+                        detail_msg = f"{key}: {val}"
+                        break
+            except Exception:
+                detail_msg = None
+
+            return Response(
+                {
+                    'detail': detail_msg or 'Invalid request. Please check the provided email and permissions.',
+                    'errors': errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        invite_email = serializer.validated_data['invite_email']
+        permissions = serializer.validated_data.get('permissions', 'view_only')
+        message = serializer.validated_data.get('message', '')
+
+        # Check if device is already shared with this user
+        existing_collab = DeviceCollaboration.objects.filter(
+            device=device,
+            collaborator_email=invite_email,
+            status=DeviceCollaboration.Status.ACTIVE
+        ).first()
+
+        if existing_collab:
+            return Response(
+                {'error': 'Device is already shared with this user.'},
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # Check for existing pending invitation
+        existing_invitation = DeviceInvitation.objects.filter(
+            device=device,
+            invite_email=invite_email,
+            status=DeviceInvitation.Status.PENDING
+        ).first()
+
+        if existing_invitation:
+            return Response(
+                {'error': 'A pending invitation already exists for this user.'},
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # Create invitation
+        invitation = DeviceInvitation.objects.create(
+            device=device,
+            invite_email=invite_email,
+            invited_by_email=request.user.email,
+            message=message,
+            permissions=permissions
+        )
+
+        # TODO: Send email notification (implement later)
+        # send_invitation_email(invitation)
+
+        logger.info(f"Device {device.device_serial} shared with {invite_email} by {request.user.email}")
+
+        return Response({
+            'success': True,
+            'message': f'Invitation sent to {invite_email}',
+            'invitation_id': invitation.id,
+            'token': invitation.token  # For development/testing
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get'], url_path='collaborators')
+    def get_collaborators(self, request, pk=None):
+        """Get all collaborators for a device."""
+        device = self.get_object()
+
+        # Check if user owns this device or is a collaborator (unless staff)
+        if not request.user.is_staff:
+            if device.bound_email != request.user.email:
+                # Check if user is a collaborator
+                is_collaborator = DeviceCollaboration.objects.filter(
+                    device=device,
+                    collaborator_email=request.user.email,
+                    status=DeviceCollaboration.Status.ACTIVE
+                ).exists()
+
+                if not is_collaborator:
+                    return Response(
+                        {'error': 'Permission denied.'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+
+        collaborations = DeviceCollaboration.objects.filter(
+            device=device,
+            status=DeviceCollaboration.Status.ACTIVE
+        ).order_by('created_at')
+
+        serializer = DeviceCollaborationSerializer(collaborations, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': len(serializer.data)
+        })
+
+    @action(detail=True, methods=['delete'], url_path='collaborators/(?P<collaborator_id>[^/.]+)')
+    def revoke_access(self, request, pk=None, collaborator_id=None):
+        """Revoke device access for a collaborator."""
+        device = self.get_object()
+
+        # Check if user owns this device (unless staff)
+        if not request.user.is_staff and device.bound_email != request.user.email:
+            return Response(
+                {'error': 'Permission denied. Only device owners can revoke access.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            collaboration = DeviceCollaboration.objects.get(
+                id=collaborator_id,
+                device=device,
+                status=DeviceCollaboration.Status.ACTIVE
+            )
+        except DeviceCollaboration.DoesNotExist:
+            return Response(
+                {'error': 'Collaboration not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        collaboration.status = DeviceCollaboration.Status.REVOKED
+        collaboration.save()
+
+        logger.info(f"Access revoked for {collaboration.collaborator_email} on device {device.device_serial}")
+
+        return Response({
+            'success': True,
+            'message': f'Access revoked for {collaboration.collaborator_email}'
+        })
+
+
+# Device Invitation Management Views
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_pending_invitations(request):
+    """Get pending invitations for the current user."""
+    user_email = request.user.email
+
+    pending_invitations = DeviceInvitation.objects.filter(
+        invite_email=user_email,
+        status=DeviceInvitation.Status.PENDING
+    ).select_related('device').order_by('-created_at')
+
+    # Filter out expired invitations and mark them as expired
+    active_invitations = []
+    for invitation in pending_invitations:
+        if invitation.is_expired():
+            invitation.status = DeviceInvitation.Status.EXPIRED
+            invitation.save()
+        else:
+            active_invitations.append(invitation)
+
+    serializer = DeviceInvitationSerializer(active_invitations, many=True)
+    return Response({
+        'results': serializer.data,
+        'count': len(serializer.data)
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def respond_to_invitation(request):
+    """Accept or decline a device invitation."""
+    serializer = InvitationResponseSerializer(data=request.data)
+
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    action = serializer.validated_data['action']
+    token = serializer.validated_data['token']
+
+    try:
+        invitation = DeviceInvitation.objects.get(
+            token=token,
+            invite_email=request.user.email,
+            status=DeviceInvitation.Status.PENDING
+        )
+    except DeviceInvitation.DoesNotExist:
+        return Response(
+            {'error': 'Invitation not found or already processed.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    try:
+        if action == 'accept':
+            collaboration = invitation.accept(request.user.email)
+            logger.info(f"User {request.user.email} accepted invitation for device {invitation.device.device_serial}")
+            return Response({
+                'success': True,
+                'message': 'Invitation accepted successfully.',
+                'collaboration_id': collaboration.id
+            })
+
+        elif action == 'decline':
+            invitation.decline(request.user.email)
+            logger.info(f"User {request.user.email} declined invitation for device {invitation.device.device_serial}")
+            return Response({
+                'success': True,
+                'message': 'Invitation declined.'
+            })
+
+    except ValueError as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_shared_devices(request):
+    """Get devices shared with the current user."""
+    user_email = request.user.email
+
+    collaborations = DeviceCollaboration.objects.filter(
+        collaborator_email=user_email,
+        status=DeviceCollaboration.Status.ACTIVE
+    ).select_related('device').order_by('-created_at')
+
+    serializer = DeviceCollaborationSerializer(collaborations, many=True)
+    return Response({
+        'results': serializer.data,
+        'count': len(serializer.data)
+    })
