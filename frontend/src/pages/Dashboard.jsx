@@ -89,24 +89,57 @@ const transformSensorData = (sensors, sensorDataMap) => {
   return sensorMap;
 };
 
-// Helper function to get pH history from sensor data
-// Return pH history array ordered from oldest -> newest and padded/trimmed to 60 values.
-const getPHHistory = (sensorDataMap, phSensorId) => {
+// Helper function to get pH history from sensor data based on time range
+const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
   if (!phSensorId || !sensorDataMap[phSensorId]) {
-    return null; // No mock data; absence indicates loading/empty
+    return null;
   }
 
   const phData = sensorDataMap[phSensorId] || [];
-
-  // Create a date-based map for the last 10 days
   const endDate = new Date();
   const dateMap = {};
 
-  // Initialize last 10 days with null values
-  for (let i = 9; i >= 0; i--) {
-    const date = new Date(endDate);
-    date.setDate(date.getDate() - i);
-    const dateKey = date.toDateString();
+  let periods, getDateKey, formatPeriod;
+
+  switch (timeRange) {
+    case 'weeks':
+      periods = 20; // Last 20 weeks
+      getDateKey = (date) => {
+        const startOfWeek = new Date(date);
+        startOfWeek.setDate(date.getDate() - date.getDay());
+        return startOfWeek.toDateString();
+      };
+      formatPeriod = (i) => {
+        const date = new Date(endDate);
+        date.setDate(date.getDate() - (i * 7));
+        return getDateKey(date);
+      };
+      break;
+
+    case 'months':
+      periods = 12; // Last 12 months
+      getDateKey = (date) => `${date.getFullYear()}-${date.getMonth()}`;
+      formatPeriod = (i) => {
+        const date = new Date(endDate);
+        date.setMonth(date.getMonth() - i);
+        return getDateKey(date);
+      };
+      break;
+
+    default: // 'days'
+      periods = 30; // Last 30 days
+      getDateKey = (date) => date.toDateString();
+      formatPeriod = (i) => {
+        const date = new Date(endDate);
+        date.setDate(date.getDate() - i);
+        return getDateKey(date);
+      };
+      break;
+  }
+
+  // Initialize periods with null values
+  for (let i = periods - 1; i >= 0; i--) {
+    const dateKey = formatPeriod(i);
     dateMap[dateKey] = null;
   }
 
@@ -115,14 +148,17 @@ const getPHHistory = (sensorDataMap, phSensorId) => {
     if (d && d.created_at) {
       try {
         const dataDate = new Date(d.created_at);
-        const dateKey = dataDate.toDateString();
+        const dateKey = getDateKey(dataDate);
 
-        // Only include if within our 10-day window
         if (dateMap.hasOwnProperty(dateKey)) {
           const value = Number(d.value);
           if (Number.isFinite(value)) {
-            // If multiple readings per day, take the latest/average
-            dateMap[dateKey] = value;
+            // Average multiple readings in the same period
+            if (dateMap[dateKey] === null) {
+              dateMap[dateKey] = value;
+            } else {
+              dateMap[dateKey] = (dateMap[dateKey] + value) / 2;
+            }
           }
         }
       } catch (e) {
@@ -131,22 +167,51 @@ const getPHHistory = (sensorDataMap, phSensorId) => {
     }
   });
 
-  // Convert map back to array in chronological order
   return Object.values(dateMap);
 };
 
-// Helper function to get pH labels (e.g., day numbers or short dates) aligned with getPHHistory ordering
-const getPHLabels = (sensorDataMap, phSensorId) => {
+// Helper function to get pH labels based on time range
+const getPHLabels = (sensorDataMap, phSensorId, timeRange = 'days') => {
   if (!phSensorId || !sensorDataMap[phSensorId]) return null;
 
-  // Create labels for the last 10 days
   const endDate = new Date();
   const labels = [];
 
-  for (let i = 9; i >= 0; i--) {
-    const date = new Date(endDate);
-    date.setDate(date.getDate() - i);
-    labels.push(date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+  let periods, formatLabel;
+
+  switch (timeRange) {
+    case 'weeks':
+      periods = 20;
+      formatLabel = (i) => {
+        const date = new Date(endDate);
+        date.setDate(date.getDate() - (i * 7));
+        const startOfWeek = new Date(date);
+        startOfWeek.setDate(date.getDate() - date.getDay());
+        return startOfWeek.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      };
+      break;
+
+    case 'months':
+      periods = 12;
+      formatLabel = (i) => {
+        const date = new Date(endDate);
+        date.setMonth(date.getMonth() - i);
+        return date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+      };
+      break;
+
+    default: // 'days'
+      periods = 30;
+      formatLabel = (i) => {
+        const date = new Date(endDate);
+        date.setDate(date.getDate() - i);
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      };
+      break;
+  }
+
+  for (let i = periods - 1; i >= 0; i--) {
+    labels.push(formatLabel(i));
   }
 
   return labels;
@@ -176,7 +241,7 @@ const generateAlertText = (sensors) => {
   if (sensors.tds < 300) {
     alerts.push('TDS too low (Inadequate nutrients)');
   }
-  if (sensors.ph > 7.0) {
+  if (sensors.ph > 6.5) {
     alerts.push('pH trending high - check solution');
   }
   if (sensors.waterLevel < 20) {
@@ -217,8 +282,23 @@ function PHBar({ v, i, min, max }) {
   // Handle null/undefined values (no data for this date)
   if (v === null || v === undefined) {
     return (
-      <div className="ph-bar-wrapper" aria-label="No data">
-        {/* No bar rendered for dates without data */}
+      <div className="ph-bar-wrapper" aria-label="No data" style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        minWidth: '8px',
+        maxWidth: '32px',
+        height: '100%'
+      }}>
+        {/* Show a minimal placeholder bar for missing data */}
+        <div style={{
+          width: '100%',
+          height: '2px',
+          background: 'rgba(139, 167, 151, 0.2)',
+          borderRadius: '2px 2px 0 0'
+        }} />
       </div>
     );
   }
@@ -226,10 +306,37 @@ function PHBar({ v, i, min, max }) {
   const vv = Number(v);
   const isValid = Number.isFinite(vv);
   const clamped = isValid ? Math.min(max, Math.max(min, vv)) : min;
-  const pct = ((clamped - min) / (max - min)) * 100;
+  const pct = Math.max(2, ((clamped - min) / (max - min)) * 100); // Minimum 2% height for visibility
+
   return (
-    <div className="ph-bar-wrapper" aria-label={`pH ${isValid ? vv.toFixed(1) : 'N/A'}`}>
-      <div className="ph-bar" style={{ height: `${pct}%`, minHeight: '2px', animationDelay: `${Math.min(i * 20, 800)}ms` }} />
+    <div className="ph-bar-wrapper" aria-label={`pH ${isValid ? vv.toFixed(1) : 'N/A'}`} style={{
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      minWidth: '8px',
+      maxWidth: '32px',
+      height: '100%',
+      cursor: 'pointer'
+    }}>
+      <div
+        className="ph-bar"
+        style={{
+          height: `${pct}%`,
+          width: '100%',
+          background: isValid && vv >= 5.5 && vv <= 6.5
+            ? 'var(--color-primary)'
+            : vv < 5.5
+              ? '#f59e0b'
+              : '#ef4444',
+          borderRadius: '2px 2px 0 0',
+          transformOrigin: 'bottom',
+          animation: `growBar 0.8s ease forwards`,
+          animationDelay: `${Math.min(i * 50, 500)}ms`,
+          opacity: 0
+        }}
+      />
     </div>
   );
 }
@@ -240,8 +347,23 @@ export default function Dashboard() {
   const [activeIdx, setActiveIdx] = useState(0);
   const scrollTimeoutRef = useRef(null);
   const isAdjustingRef = useRef(false);
-  // Window size for pH chart navigation
-  const PH_WINDOW_SIZE = 10;
+  const [timeRange, setTimeRange] = useState('days'); // 'days', 'weeks', 'months'
+
+  // Window size for pH chart navigation (adaptive based on time range)
+  const getWindowSize = (timeRange) => {
+    switch (timeRange) {
+      case 'weeks': return 8; // Show 8 weeks at a time
+      case 'months': return 6; // Show 6 months at a time
+      default: return 10; // Show 10 days at a time
+    }
+  };
+  const PH_WINDOW_SIZE = getWindowSize(timeRange);
+
+  // Reset pH windows when timeRange changes
+  const handleTimeRangeChange = (newTimeRange) => {
+    setTimeRange(newTimeRange);
+    setPhWindows({}); // Reset all device windows
+  };
   // Keep per-device pH window start index so users can navigate dates
   const [phWindows, setPhWindows] = useState({}); // { [deviceId]: startIndex }
 
@@ -364,8 +486,8 @@ export default function Dashboard() {
 
           // Find pH sensor for history
           const phSensor = sensors?.find(s => s.sensor_type === 'ph');
-          const phHistory = getPHHistory(sensorDataMap, phSensor?.id);
-          const phLabels = getPHLabels(sensorDataMap, phSensor?.id);
+          const phHistory = getPHHistory(sensorDataMap, phSensor?.id, timeRange);
+          const phLabels = getPHLabels(sensorDataMap, phSensor?.id, timeRange);
 
           // Get latest sensor update time across all sensors. Arrays may not be ordered,
           // so scan each array for the max created_at value.
@@ -493,7 +615,7 @@ export default function Dashboard() {
 
                 // Check for alert conditions based on sensor type
                 if (sensor.sensor_type === 'ph') {
-                  if (value < 6.0 || value > 7.0) hasAlert = true;
+                  if (value < 5.5 || value > 6.5) hasAlert = true;
                 } else if (sensor.sensor_type === 'tds') {
                   if (value < 800 || value > 1500) hasAlert = true;
                 } else if (sensor.sensor_type === 'water_level') {
@@ -522,10 +644,10 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch data on component mount
+  // Fetch data on component mount and when time range changes
   useEffect(() => {
     fetchDevicesData();
-  }, []);
+  }, [timeRange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Count unread alerts when devices data is loaded
   useEffect(() => {
@@ -590,8 +712,8 @@ export default function Dashboard() {
       }
       const transformedSensors = transformSensorData(sensors || [], sensorDataMap);
   const phSensor = Array.isArray(sensors) ? sensors.find(s => s.sensor_type === 'ph') : null;
-  const phHistory = getPHHistory(sensorDataMap, phSensor?.id);
-  const phLabels = getPHLabels(sensorDataMap, phSensor?.id);
+  const phHistory = getPHHistory(sensorDataMap, phSensor?.id, timeRange);
+  const phLabels = getPHLabels(sensorDataMap, phSensor?.id, timeRange);
       let lastSensorUpdate = null;
       Object.values(sensorDataMap).forEach(arr => {
         if (Array.isArray(arr)) {
@@ -862,14 +984,18 @@ export default function Dashboard() {
   }, [currentDevice, phWindows, maxStart]);
   const phHistoryDisplay = useMemo(() => {
     if (!data || !Array.isArray(data.phHistory)) return [];
-    // Show all 10 days of data (no windowing needed since we have fixed 10-day range)
-    return data.phHistory;
-  }, [data]);
+    // Show 10-day window from the 30-day dataset based on currentStart
+    const start = Math.max(0, currentStart);
+    const end = Math.min(data.phHistory.length, start + PH_WINDOW_SIZE);
+    return data.phHistory.slice(start, end);
+  }, [data, currentStart]);
   const phLabelsDisplay = useMemo(() => {
     if (!data || !Array.isArray(data.phLabels)) return [];
-    // Show all 10 days of labels
-    return data.phLabels;
-  }, [data]);
+    // Show corresponding labels for the windowed data
+    const start = Math.max(0, currentStart);
+    const end = Math.min(data.phLabels.length, start + PH_WINDOW_SIZE);
+    return data.phLabels.slice(start, end);
+  }, [data, currentStart]);
 
   // Dynamic scale for pH bars based on displayed data (excluding null values)
   const phNumbers = useMemo(() =>
@@ -1226,13 +1352,94 @@ export default function Dashboard() {
               <Activity size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
             <span className="ph-card-title">pH Levels over time</span>
-            <button className="range-switch" aria-label="Change range">Days ▾</button>
+            <select
+              className="range-switch"
+              aria-label="Select time range"
+              value={timeRange}
+              onChange={(e) => handleTimeRangeChange(e.target.value)}
+              style={{
+                fontSize: '12px',
+                background: 'rgba(139,167,151,0.1)',
+                border: 'none',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                color: 'var(--color-secondary)',
+                cursor: 'pointer',
+                fontWeight: '500'
+              }}
+            >
+              <option value="days">Days</option>
+              <option value="weeks">Weeks</option>
+              <option value="months">Months</option>
+            </select>
           </div>
           <div className="ph-legend" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="ph-legend-dot"></span>
             <span className="ph-legend-label">{legendLabel}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-              <span style={{ fontSize: 12, color: '#666', fontWeight: '500' }}>Last 10 Days</span>
+              <button
+                className="ph-nav-btn"
+                onClick={onPrev}
+                disabled={!canPrev}
+                style={{
+                  background: 'none',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  padding: '4px 6px',
+                  cursor: canPrev ? 'pointer' : 'not-allowed',
+                  opacity: canPrev ? 1 : 0.3,
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                aria-label="Previous period"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span style={{ fontSize: 12, color: '#666', fontWeight: '500', minWidth: '80px', textAlign: 'center' }}>
+                {phLabelsDisplay && phLabelsDisplay.length >= 2
+                  ? `${phLabelsDisplay[0]} - ${phLabelsDisplay[phLabelsDisplay.length - 1]}`
+                  : timeRange === 'days' ? `Last ${PH_WINDOW_SIZE} Days`
+                    : timeRange === 'weeks' ? `Last ${PH_WINDOW_SIZE} Weeks`
+                    : `Last ${PH_WINDOW_SIZE} Months`
+                }
+              </span>
+              <button
+                className="ph-nav-btn"
+                onClick={onNext}
+                disabled={!canNext}
+                style={{
+                  background: 'none',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  padding: '4px 6px',
+                  cursor: canNext ? 'pointer' : 'not-allowed',
+                  opacity: canNext ? 1 : 0.3,
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+                aria-label="Next period"
+              >
+                <ChevronRight size={14} />
+              </button>
+              {currentStart < maxStart && (
+                <button
+                  onClick={() => currentDevice && setPhWindows(prev => ({ ...prev, [currentDevice.id]: maxStart }))}
+                  style={{
+                    background: 'var(--color-primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    fontSize: '10px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    marginLeft: '4px'
+                  }}
+                  aria-label="Jump to latest data"
+                >
+                  Today
+                </button>
+              )}
             </div>
           </div>
           <div className="ph-chart-container">
@@ -1241,32 +1448,141 @@ export default function Dashboard() {
                 <span key={i} className="ph-y-label">{label}</span>
               ))}
             </div>
-            <div className="ph-bars" role="img" aria-label="pH chart">
-              {phHistoryDisplay && phHistoryDisplay.length > 0
-                ? phHistoryDisplay.map((v, i) => <PHBar key={i} v={v} i={i} min={phScale.min} max={phScale.max} />)
-                : <div style={{ color: '#999', fontSize: 12 }}>Loading...</div>}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div className="ph-chart-area" style={{ position: 'relative', marginBottom: '8px' }}>
+                {/* Horizontal Grid Lines */}
+                <div className="ph-grid-horizontal" style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  pointerEvents: 'none',
+                  zIndex: 1
+                }}>
+                  {phYTicks.map((_, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        borderTop: i === 0 ? 'none' : '1px solid rgba(139, 167, 151, 0.15)',
+                        height: i === 0 ? '1px' : 'auto',
+                        flex: 1
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {/* Vertical Grid Lines */}
+                <div className="ph-grid-vertical" style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  pointerEvents: 'none',
+                  zIndex: 1
+                }}>
+                  {phHistoryDisplay && phHistoryDisplay.length > 0
+                    ? phHistoryDisplay.map((_, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            borderLeft: i === 0 ? 'none' : '1px solid rgba(139, 167, 151, 0.1)',
+                            width: i === 0 ? '1px' : 'auto',
+                            flex: 1,
+                            height: '100%'
+                          }}
+                        />
+                      ))
+                    : Array.from({ length: 10 }, (_, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            borderLeft: i === 0 ? 'none' : '1px solid rgba(139, 167, 151, 0.1)',
+                            width: i === 0 ? '1px' : 'auto',
+                            flex: 1,
+                            height: '100%'
+                          }}
+                        />
+                      ))
+                  }
+                </div>
+
+                {/* pH Bars */}
+                <div className="ph-bars" role="img" aria-label="pH chart" style={{
+                  position: 'relative',
+                  zIndex: 2,
+                  height: '220px',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  gap: '2px',
+                  justifyContent: 'space-between',
+                  padding: '8px 0'
+                }}>
+                  {phHistoryDisplay && phHistoryDisplay.length > 0
+                    ? phHistoryDisplay.map((v, i) => <PHBar key={i} v={v} i={i} min={phScale.min} max={phScale.max} />)
+                    : <div style={{ color: '#999', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', zIndex: 3 }}>Loading...</div>}
+                </div>
+              </div>
+              <div className="ph-x-axis" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0', gap: '2px' }}>
+                {phLabelsDisplay && phLabelsDisplay.length > 0
+                  ? phLabelsDisplay.map((label, i) => (
+                      <span key={i} className="ph-x-label" style={{ flex: 1, textAlign: 'center', fontSize: '10px' }}>{label}</span>
+                    ))
+                  : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((_, i) => (
+                      <span key={i} className="ph-x-label" style={{ flex: 1, textAlign: 'center', fontSize: '10px' }}>--</span>
+                    ))}
+              </div>
             </div>
-          </div>
-          <div className="ph-x-axis">
-            {phLabelsDisplay && phLabelsDisplay.length > 0
-              ? phLabelsDisplay.map((label, i) => (
-                  <span key={i} className="ph-x-label">{label}</span>
-                ))
-              : [0, 0, 0, 0, 0, 0, 0].map((_, i) => (
-                  <span key={i} className="ph-x-label">0</span>
-                ))}
           </div>
         </section>
 
         {/* Current pH level */}
-        <section className="card current-ph" aria-label="Current pH">
-          <div className="current-ph-left">
-            <div className="icon-circle">
-              <Activity size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
+        <section className="card current-ph-card" aria-label="Current pH">
+          <div className="ph-value-container">
+            <div className="ph-value-main">
+              <span className="ph-number">{data && data.phHistory && data.phHistory.length > 0 ? currentPH : '--'}</span>
+              <span className="ph-unit">pH</span>
             </div>
-            <span className="current-ph-label">Current pH level</span>
+            <div className="ph-status-indicator">
+              <div className={`ph-status-dot ${data && data.phHistory && data.phHistory.length > 0 && currentPH >= 5.5 && currentPH <= 6.5 ? 'optimal' : 'warning'}`}></div>
+              <span className="ph-status-text">
+                {data && data.phHistory && data.phHistory.length > 0
+                  ? (currentPH >= 5.5 && currentPH <= 6.5 ? 'Optimal' : currentPH < 5.5 ? 'Too Low' : 'Too High')
+                  : 'Loading...'
+                }
+              </span>
+            </div>
           </div>
-          <span className="current-ph-value">{data && data.phHistory && data.phHistory.length > 0 ? `${currentPH} pH` : 'Loading...'}</span>
+          <div className="ph-info-section">
+            <div className="ph-label-row">
+              <Activity size={16} color={PRIMARY_GREEN} strokeWidth={2.5} />
+              <span className="ph-label">Current Level</span>
+            </div>
+            <div className="ph-range-indicator">
+              <div className="range-bar">
+                <div className="optimal-range"></div>
+                <div
+                  className="current-marker"
+                  style={{
+                    left: data && data.phHistory && data.phHistory.length > 0
+                      ? `${Math.max(0, Math.min(100, ((currentPH - 5.5) / (8.5 - 5.5)) * 100))}%`
+                      : '50%'
+                  }}
+                ></div>
+              </div>
+              <div className="range-labels">
+                <span>5.5</span>
+                <span style={{ fontWeight: '600', color: PRIMARY_GREEN }}>5.5-6.5</span>
+                <span>8.5</span>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Sensor grid */}

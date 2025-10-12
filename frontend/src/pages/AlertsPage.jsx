@@ -141,8 +141,8 @@ export default function AlertsPage() {
                   if (val === null) return;
 
                   if (sensor.sensor_type === 'ph') {
-                    // Flag readings that are outside the desired pH window: <6 or >7
-                    if (val < 6 || val > 7) {
+                    // Flag readings that are outside the desired pH window: <5.5 or >6.5
+                    if (val < 5.5 || val > 6.5) {
                       abnormalReadings.push({ device, sensor, reading: r });
                     }
                   } else if (sensor.sensor_type === 'water_level') {
@@ -252,14 +252,14 @@ export default function AlertsPage() {
               }
 
               if (sensor && sensor.sensor_type === 'ph') {
-                const isLow = val < 6;
-                const isHigh = val > 7;
+                const isLow = val < 5.5;
+                const isHigh = val > 6.5;
                 title = isLow ? 'Low pH detected' : 'High pH detected';
                 type = isLow ? 'critical' : 'critical';
                 if (isLow) {
-                  message = `pH reading is ${val}. pH below 6 can severely limit nutrient uptake and stress plants. Slowly raise pH using a pH Up solution (follow product dosing), mix thoroughly and re-check in 10-15 minutes.`;
+                  message = `pH reading is ${val}. pH below 5.5 can severely limit nutrient uptake and stress plants. Slowly raise pH using a pH Up solution (follow product dosing), mix thoroughly and re-check in 10-15 minutes.`;
                 } else {
-                  message = `pH reading is ${val}. pH above 7 reduces availability of key nutrients. Slowly lower pH using a pH Down solution (follow product dosing), mix thoroughly and re-check in 10-15 minutes.`;
+                  message = `pH reading is ${val}. pH above 6.5 reduces availability of key nutrients. Slowly lower pH using a pH Down solution (follow product dosing), mix thoroughly and re-check in 10-15 minutes.`;
                 }
                 // use droplet icon
                 icon = 'droplet';

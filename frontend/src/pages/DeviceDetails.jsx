@@ -178,7 +178,7 @@ export default function DeviceDetails() {
               if (val === null) return;
               const vNum = Number(val);
               if (sensor.sensor_type === 'ph') {
-                if (vNum < 6 || vNum > 7) abnormalReadings.push({ sensor, reading: r });
+                if (vNum < 5.5 || vNum > 6.5) abnormalReadings.push({ sensor, reading: r });
               } else if (sensor.sensor_type === 'water_level') {
                 if (vNum === 0 || vNum <= 40) abnormalReadings.push({ sensor, reading: r });
               } else if (sensor.sensor_type === 'tds') {
@@ -211,7 +211,7 @@ export default function DeviceDetails() {
             let title = 'Alert';
             let message = `Reading is ${val}`;
             if (sensor.sensor_type === 'ph') {
-              if (val < 6) {
+              if (val < 5.5) {
                 type = 'critical';
                 title = 'Low pH detected';
                 message = `pH is ${val}. Raise pH using pH Up, mix thoroughly, and re-check in 10–15 minutes.`;

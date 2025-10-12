@@ -136,42 +136,290 @@ body { background: var(--color-bg); }
 .ph-chart-container { display:flex; gap:12px; align-items:stretch; }
 .ph-y-axis { display:flex; flex-direction:column; justify-content:space-between; padding:8px 0; min-width:50px; }
 .ph-y-label { font-size:11px; color:var(--color-muted); font-weight:500; line-height:1; }
-.ph-bars { display:flex; align-items:flex-end; gap:2px; height:220px; flex:1; padding:8px 0; }
+.ph-bars { display:flex; align-items:flex-end; gap:2px; height:220px; flex:1; padding:8px 0; justify-content: space-between; }
 .ph-bar-wrapper { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; min-width:2px; height:100%; }
 .ph-bar { width:100%; background:var(--color-primary); border-radius:2px 2px 0 0; transform-origin:bottom; animation:growBar .8s ease forwards; }
-.ph-x-axis { display:flex; justify-content:space-between; padding:8px 16px 0 62px; margin:0; gap:6px; flex-wrap:nowrap; overflow:visible; width:100%; }
+.ph-x-axis { display:flex; justify-content:space-between; padding:0; margin:0; gap:2px; flex-wrap:nowrap; overflow:visible; width:100%; }
 .ph-x-label { white-space:nowrap; }
 .ph-x-label:last-child { margin-right:4px; }
 .ph-x-label { font-size:11px; color:var(--color-muted); font-weight:500; }
-@keyframes growBar { from { transform:scaleY(0); opacity:0;} to {transform:scaleY(1); opacity:1;} }
-.current-ph {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
-  background:var(--color-surface);
-  padding:var(--space-4);
-  border-radius:var(--radius-lg);
-  box-shadow:var(--shadow-elev);
+@keyframes growBar {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
 }
-.current-ph-left {
-  display:flex;
-  align-items:center;
-  gap:12px;
+
+/* pH Navigation Buttons */
+.ph-nav-btn:hover:not(:disabled) {
+  background-color: rgba(139, 167, 151, 0.1) !important;
+  border-color: rgba(139, 167, 151, 0.3) !important;
 }
-.current-ph-label {
-  font-size:13px;
-  font-weight:500;
-  color:var(--color-muted);
-  line-height:1.4;
-  white-space:nowrap;
+
+/* pH Chart Grid Lines */
+.ph-chart-area {
+  position: relative;
+  height: 220px;
 }
-.current-ph-value {
-  font-size:18px;
-  font-weight:700;
-  color:var(--color-secondary);
-  line-height:1.3;
-  white-space:nowrap;
+
+.ph-grid-horizontal,
+.ph-grid-vertical {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.ph-grid-horizontal {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.ph-grid-vertical {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* pH Bar Hover Effects for Value Display */
+.ph-bar-wrapper {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.ph-bar-wrapper:hover {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 4px 8px rgba(51, 148, 50, 0.3));
+}
+
+.ph-bar-wrapper:hover::after {
+  content: attr(aria-label);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+  margin-bottom: 4px;
+}
+
+.ph-bar-wrapper:hover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid rgba(0, 0, 0, 0.8);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Mobile responsiveness for pH chart */
+@media (max-width: 480px) {
+  .ph-legend {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .ph-legend > div:last-child {
+    align-self: stretch;
+    justify-content: space-between;
+  }
+
+  .ph-x-label {
+    font-size: 9px !important;
+    transform: rotate(-45deg);
+    transform-origin: center;
+    white-space: nowrap;
+  }
+
+  .ph-bars {
+    height: 180px;
+  }
+
+  /* Mobile adjustments for new pH display */
+  .current-ph-card {
+    padding: var(--space-4);
+  }
+
+  .ph-value-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .ph-number {
+    font-size: 28px;
+  }
+
+  .range-labels {
+    font-size: 9px;
+  }
+
+  /* Mobile grid adjustments */
+  .ph-chart-area {
+    height: 180px;
+  }
+
+  .ph-bar-wrapper:hover::after {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}
+/* Enhanced pH Value Display */
+.current-ph-card {
+  background: linear-gradient(135deg, rgba(51, 148, 50, 0.05) 0%, rgba(255, 255, 255, 1) 100%);
+  border: 1px solid rgba(51, 148, 50, 0.1);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-elev);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ph-value-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ph-value-main {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.ph-number {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+.ph-unit {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-secondary);
+  opacity: 0.7;
+}
+
+.ph-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ph-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.ph-status-dot.optimal {
+  background-color: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+}
+
+.ph-status-dot.warning {
+  background-color: #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
+}
+
+.ph-status-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ph-info-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ph-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ph-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+.ph-range-indicator {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.range-bar {
+  position: relative;
+  height: 6px;
+  background: linear-gradient(to right, #ef4444 0%, #f59e0b 20%, #10b981 30%, #10b981 70%, #f59e0b 80%, #ef4444 100%);
+  border-radius: 3px;
+}
+
+.optimal-range {
+  position: absolute;
+  left: 0%;
+  width: 33.33%;
+  height: 100%;
+  background: rgba(16, 185, 129, 0.3);
+  border-radius: 3px;
+  border: 1px solid rgba(16, 185, 129, 0.5);
+}
+
+.current-marker {
+  position: absolute;
+  top: -2px;
+  width: 10px;
+  height: 10px;
+  background: white;
+  border: 2px solid var(--color-primary);
+  border-radius: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.range-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  color: var(--color-muted);
+  font-weight: 500;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 
 /* 7. Sensor Data Grid */
@@ -322,7 +570,7 @@ body { background: var(--color-bg); }
   .ph-bars { height:280px; }
 
   /* Current pH - left column */
-  .current-ph { grid-column:1 / 2; }
+  .current-ph-card { grid-column:1 / 2; }
 
   /* Sensor grid spans full width, 4 columns */
   .sensor-grid {
