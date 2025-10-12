@@ -73,6 +73,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     date_joined = models.DateTimeField(default=timezone.now)
     last_login = models.DateTimeField(null=True, blank=True)
+    # Profile photo (optional)
+    user_photo = models.ImageField(upload_to='user_photos/', null=True, blank=True)
 
     objects = CustomUserManager()
 

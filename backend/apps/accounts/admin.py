@@ -14,6 +14,7 @@ class UserAdmin(BaseUserAdmin):
     """Legacy admin configuration for custom User model."""
 
     list_display = [
+        'user_photo_thumbnail',
         'email',
         'full_name',
         'role',
@@ -29,7 +30,7 @@ class UserAdmin(BaseUserAdmin):
         'is_active',
         'is_staff',
         'is_superuser',
-        'date_joined'
+        'date_joined',
     ]
     search_fields = ['email', 'first_name', 'last_name']
     ordering = ['-date_joined']
@@ -39,7 +40,12 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('email', 'role')
         }),
         ('Personal info', {
-            'fields': ('first_name', 'last_name')
+            'fields': (
+                'first_name',
+                'last_name',
+                'user_photo',
+                'user_photo_preview',
+            )
         }),
         ('Permissions', {
             'fields': (
@@ -63,7 +69,7 @@ class UserAdmin(BaseUserAdmin):
         }),
     )
 
-    readonly_fields = ['date_joined', 'last_login']
+    readonly_fields = ['date_joined', 'last_login', 'user_photo_preview']
 
     def full_name(self, obj):
         return obj.full_name
@@ -84,6 +90,34 @@ class UserAdmin(BaseUserAdmin):
         if not change:  # Creating new user
             obj.set_unusable_password()
         super().save_model(request, obj, form, change)
+
+    # --- Custom helpers for photo display ---
+    def user_photo_thumbnail(self, obj):
+        if getattr(obj, 'user_photo', None):
+            try:
+                url = obj.user_photo.url
+            except Exception:
+                return '—'
+            return format_html(
+                '<img src="{}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />',
+                url
+            )
+        return '—'
+    user_photo_thumbnail.short_description = 'Photo'
+    user_photo_thumbnail.allow_tags = True
+
+    def user_photo_preview(self, obj):
+        if getattr(obj, 'user_photo', None):
+            try:
+                url = obj.user_photo.url
+            except Exception:
+                return '—'
+            return format_html(
+                '<img src="{}" style="max-width:120px;max-height:120px;border-radius:8px;object-fit:cover;border:1px solid #ddd;" />',
+                url
+            )
+        return '—'
+    user_photo_preview.short_description = 'Current Photo'
 
     def safe_delete_users(self, request, queryset):
         """Safely delete users by cleaning up references first."""

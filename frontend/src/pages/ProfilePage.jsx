@@ -44,6 +44,8 @@ export default function ProfilePage() {
   const [editLast, setEditLast] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [newPhotoFile, setNewPhotoFile] = useState(null);
+  const [newPhotoPreview, setNewPhotoPreview] = useState('');
 
 
   // Load current user profile from backend
@@ -68,6 +70,7 @@ export default function ProfilePage() {
           role: profile.role || (profile.is_admin ? 'admin' : 'user'),
           // Prefer exact account creation; fall back to common alternatives if backend changes naming
           joinedDate: profile.date_joined || profile.created_at || profile.created || null,
+          photoUrl: profile.user_photo_url || null,
           devicesOwned: 0,
           sharedWith: 0,
         };
@@ -117,12 +120,19 @@ export default function ProfilePage() {
     setEditFirst(user.firstName || '');
     setEditLast(user.lastName || '');
     setSaveError('');
+    setNewPhotoFile(null);
+    setNewPhotoPreview('');
     setIsEditing(true);
   }
 
   function cancelEdit() {
     setIsEditing(false);
     setSaveError('');
+    if (newPhotoPreview) {
+      URL.revokeObjectURL(newPhotoPreview);
+      setNewPhotoPreview('');
+    }
+    setNewPhotoFile(null);
   }
 
   async function saveProfile() {
@@ -139,8 +149,17 @@ export default function ProfilePage() {
     }
     setSaving(true);
     try {
-      const body = { first_name: editFirst.trim(), last_name: editLast.trim() };
-      const updated = await authApi.updateProfile(token, body);
+      let updated;
+      if (newPhotoFile) {
+        const form = new FormData();
+        form.append('first_name', editFirst.trim());
+        form.append('last_name', editLast.trim());
+        form.append('user_photo', newPhotoFile);
+        updated = await authApi.updateProfile(token, form);
+      } else {
+        const body = { first_name: editFirst.trim(), last_name: editLast.trim() };
+        updated = await authApi.updateProfile(token, body);
+      }
       // Update UI state
       const uiUser = {
         username: updated.username || (updated.email ? updated.email.split('@')[0] : 'User'),
@@ -150,16 +169,31 @@ export default function ProfilePage() {
         lastName: updated.last_name,
         role: updated.role || (updated.is_admin ? 'admin' : 'user'),
         joinedDate: updated.date_joined || updated.created_at || updated.created || user?.joinedDate || null,
+        photoUrl: updated.user_photo_url || user?.photoUrl || null,
         devicesOwned: user?.devicesOwned || 0,
         sharedWith: user?.sharedWith || 0,
       };
       setUser(uiUser);
       setIsEditing(false);
+      if (newPhotoPreview) {
+        URL.revokeObjectURL(newPhotoPreview);
+      }
+      setNewPhotoFile(null);
+      setNewPhotoPreview('');
     } catch (e) {
       setSaveError(e?.message || 'Failed to save profile');
     } finally {
       setSaving(false);
     }
+  }
+
+  function onSelectPhoto(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (newPhotoPreview) URL.revokeObjectURL(newPhotoPreview);
+    const preview = URL.createObjectURL(file);
+    setNewPhotoFile(file);
+    setNewPhotoPreview(preview);
   }
 
   const handleShareDevice = () => {
@@ -200,8 +234,14 @@ export default function ProfilePage() {
     <div className="profile-root">
       {/* Header */}
       <header className="profile-header">
-        <div className="profile-avatar">
-          <User size={48} strokeWidth={2} />
+        <div className="profile-avatar" style={{ overflow: 'hidden', position: 'relative' }}>
+          {newPhotoPreview ? (
+            <img src={newPhotoPreview} alt="New profile" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+          ) : user.photoUrl ? (
+            <img src={user.photoUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+          ) : (
+            <User size={48} strokeWidth={2} />
+          )}
         </div>
         <h1 className="profile-username">{user.full_name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email}</h1>
         <p className="profile-email">{user.email}</p>
@@ -240,6 +280,16 @@ export default function ProfilePage() {
               </>
             ) : (
               <>
+                <div className="form-group">
+                  <label className="form-label">Profile Photo</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <input id="photo-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={onSelectPhoto} />
+                    <button className="btn-share-new" type="button" onClick={() => document.getElementById('photo-input').click()}>
+                      Change Photo
+                    </button>
+                    {newPhotoFile && <span style={{ fontSize: 14, color: '#6B7D75' }}>{newPhotoFile.name}</span>}
+                  </div>
+                </div>
                 <div className="form-row-grid">
                   <div className="form-group">
                     <label className="form-label">First Name</label>

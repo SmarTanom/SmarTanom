@@ -5,7 +5,8 @@ from django.utils import timezone
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
@@ -413,7 +414,7 @@ def logout(request):
 def profile(request):
     """Get current user profile."""
     try:
-        serializer = UserProfileSerializer(request.user)
+        serializer = UserProfileSerializer(request.user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     except Exception as e:
@@ -426,6 +427,7 @@ def profile(request):
 
 @api_view(['PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
 def update_profile(request):
     """Update current user profile."""
     try:
@@ -433,7 +435,7 @@ def update_profile(request):
             request.user,
             data=request.data,
             partial=request.method == 'PATCH'
-        )
+        , context={'request': request})
 
         if serializer.is_valid():
             serializer.save()

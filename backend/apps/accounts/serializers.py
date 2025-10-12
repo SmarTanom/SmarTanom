@@ -64,6 +64,8 @@ class UserSerializer(serializers.ModelSerializer):
     
     full_name = serializers.ReadOnlyField()
     is_admin = serializers.ReadOnlyField()
+    user_photo = serializers.ImageField(read_only=True)
+    user_photo_url = serializers.SerializerMethodField()
     
     class Meta:
         model = User
@@ -76,6 +78,8 @@ class UserSerializer(serializers.ModelSerializer):
             'full_name',
             'role',
             'is_admin',
+            'user_photo',
+            'user_photo_url',
             'is_verified',
             'is_active',
             'date_joined',
@@ -92,12 +96,26 @@ class UserSerializer(serializers.ModelSerializer):
             'last_login'
         ]
 
+    def get_user_photo_url(self, obj):
+        request = self.context.get('request')
+        if getattr(obj, 'user_photo', None):
+            try:
+                url = obj.user_photo.url
+            except Exception:
+                return None
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+        return None
+
 
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer for User profile (editable view)."""
     
     full_name = serializers.ReadOnlyField()
     is_admin = serializers.ReadOnlyField()
+    user_photo = serializers.ImageField(required=False, allow_null=True)
+    user_photo_url = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = User
@@ -110,6 +128,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'full_name',
             'role',
             'is_admin',
+            'user_photo',
+            'user_photo_url',
             'is_verified',
             'is_active',
             'date_joined',
@@ -138,12 +158,26 @@ class UserProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Last name cannot be empty.")
         return value.strip() if value else value
 
+    def get_user_photo_url(self, obj):
+        request = self.context.get('request')
+        if getattr(obj, 'user_photo', None):
+            try:
+                url = obj.user_photo.url
+            except Exception:
+                return None
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+        return None
+
 
 class UserAdminSerializer(serializers.ModelSerializer):
     """Serializer for User model (admin view with more fields)."""
     
     full_name = serializers.ReadOnlyField()
     is_admin = serializers.ReadOnlyField()
+    user_photo = serializers.ImageField(required=False, allow_null=True)
+    user_photo_url = serializers.SerializerMethodField(read_only=True)
     
     class Meta:
         model = User
@@ -156,6 +190,8 @@ class UserAdminSerializer(serializers.ModelSerializer):
             'full_name',
             'role',
             'is_admin',
+            'user_photo',
+            'user_photo_url',
             'is_verified',
             'is_active',
             'is_staff',
@@ -181,6 +217,18 @@ class UserAdminSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Only admins can change user roles.")
         
         return value
+
+    def get_user_photo_url(self, obj):
+        request = self.context.get('request')
+        if getattr(obj, 'user_photo', None):
+            try:
+                url = obj.user_photo.url
+            except Exception:
+                return None
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+        return None
 
 
 class OTPCodeSerializer(serializers.ModelSerializer):

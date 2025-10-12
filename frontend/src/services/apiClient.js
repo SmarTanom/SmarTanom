@@ -84,7 +84,10 @@ export const authApi = {
   },
   checkUsername: (username) => apiClient.get(`/api/auth/check-username/?username=${encodeURIComponent(username)}`),
   getProfile: (token) => apiClient.get('/api/auth/profile/', { authToken: token }),
-  updateProfile: (token, data) => apiClient.patch('/api/auth/profile/update/', data, { authToken: token }),
+  updateProfile: (token, data) => {
+    const isForm = (typeof FormData !== 'undefined') && (data instanceof FormData);
+    return apiClient.patch('/api/auth/profile/update/', data, { authToken: token, json: !isForm });
+  },
   logout: (token) => apiClient.post('/api/auth/logout/', {}, { authToken: token }),
 };
 
