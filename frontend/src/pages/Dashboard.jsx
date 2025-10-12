@@ -344,7 +344,17 @@ function PHBar({ v, i, min, max }) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const carouselRef = useRef(null);
-  const [activeIdx, setActiveIdx] = useState(0);
+
+  // Initialize activeIdx from localStorage or default to 0
+  const [activeIdx, setActiveIdx] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dashboard.activeDeviceIndex');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch (e) {
+      return 0;
+    }
+  });
+
   const scrollTimeoutRef = useRef(null);
   const isAdjustingRef = useRef(false);
   const [timeRange, setTimeRange] = useState('days'); // 'days', 'weeks', 'months'
@@ -363,6 +373,17 @@ export default function Dashboard() {
   const handleTimeRangeChange = (newTimeRange) => {
     setTimeRange(newTimeRange);
     setPhWindows({}); // Reset all device windows
+  };
+
+  // Helper function to clear saved device persistence (useful for debugging)
+  const clearSavedDevice = () => {
+    try {
+      localStorage.removeItem('dashboard.activeDeviceIndex');
+      localStorage.removeItem('dashboard.activeDeviceId');
+      console.log('Cleared saved device persistence');
+    } catch (e) {
+      console.warn('Failed to clear saved device persistence:', e);
+    }
   };
   // Keep per-device pH window start index so users can navigate dates
   const [phWindows, setPhWindows] = useState({}); // { [deviceId]: startIndex }
@@ -893,7 +914,7 @@ export default function Dashboard() {
       ...devices.map(d => ({ ...d, _cloneType: 'original' })),
       { ...devices[0], _cloneType: 'first' }
     ];
-  }, [devices, isInfinite]);  // Initialize scroll position; for infinite mode, jump to index 1 (first real card)
+  }, [devices, isInfinite]);  // Initialize scroll position; scroll to restored device or first device
   useEffect(() => {
     const el = carouselRef.current;
     if (!el || devices.length === 0) return;
@@ -902,13 +923,14 @@ export default function Dashboard() {
     const gap = 16;
 
     if (isInfinite) {
-      // Scroll to index 1 (first real device) on mount for infinite scroll
-      el.scrollLeft = (cardW + gap) * 1;
+      // Scroll to restored device + 1 (account for clone at start)
+      el.scrollLeft = (cardW + gap) * (activeIdx + 1);
     } else {
-      // Non-infinite (1-2 devices), start at first card
-      el.scrollLeft = 0;
+      // Non-infinite: scroll directly to restored device index
+      el.scrollLeft = (cardW + gap) * activeIdx;
+      console.log(`Scrolled carousel to device index ${activeIdx}`);
     }
-  }, [devices, isInfinite]);
+  }, [devices, activeIdx, isInfinite]);
 
   // Handle scroll position tracking and loop boundaries
   useEffect(() => {
@@ -1034,14 +1056,14 @@ export default function Dashboard() {
     });
   }, [currentDevice, phTotal, maxStart]);
 
-  const canPrev = currentStart > 0;
-  const canNext = currentStart < maxStart;
+  const canPrev = phTotal > PH_WINDOW_SIZE && currentStart > 0;
+  const canNext = phTotal > PH_WINDOW_SIZE && currentStart < maxStart;
   const onPrev = () => {
-    if (!currentDevice) return;
+    if (!currentDevice || !canPrev) return;
     setPhWindows(prev => ({ ...prev, [currentDevice.id]: Math.max(0, (prev[currentDevice.id] ?? maxStart) - 1) }));
   };
   const onNext = () => {
-    if (!currentDevice) return;
+    if (!currentDevice || !canNext) return;
     setPhWindows(prev => ({ ...prev, [currentDevice.id]: Math.min(maxStart, (prev[currentDevice.id] ?? maxStart) + 1) }));
   };
   // Robust label for pH legend: prefer device_name, then plant_name, then serial
@@ -1058,14 +1080,57 @@ export default function Dashboard() {
     return lastValue ? Number(lastValue).toFixed(1) : '6.3';
   }, [activeIdx, data]);
 
-  // When devices list changes (e.g., after fetch), reset to the first device
+  // Save activeIdx and device ID to localStorage whenever it changes
+  useEffect(() => {
+    if (devices && devices.length > 0 && devices[activeIdx]) {
+      try {
+        const deviceId = devices[activeIdx].id.toString();
+        const deviceName = devices[activeIdx].device_name || devices[activeIdx].plant_name || `Device ${deviceId}`;
+        localStorage.setItem('dashboard.activeDeviceIndex', activeIdx.toString());
+        localStorage.setItem('dashboard.activeDeviceId', deviceId);
+        console.log(`💾 Saved device selection: "${deviceName}" (Index: ${activeIdx}, ID: ${deviceId})`);
+      } catch (e) {
+        console.warn('Failed to save active device index:', e);
+      }
+    }
+  }, [activeIdx, devices]);
+
+  // When devices list changes (e.g., after fetch), restore saved device or validate current index
   useEffect(() => {
     if (devices && devices.length > 0) {
-      setActiveIdx(0);
-    }
-  }, [devices.length]);
+      try {
+        const savedIdx = parseInt(localStorage.getItem('dashboard.activeDeviceIndex') || '0', 10);
+        const savedDeviceId = localStorage.getItem('dashboard.activeDeviceId');
 
-  // Show loading state
+        // First, try to find the device by ID (more reliable across refreshes)
+        if (savedDeviceId) {
+          const deviceIdxById = devices.findIndex(d => d.id.toString() === savedDeviceId);
+          if (deviceIdxById >= 0) {
+            console.log(`Restored device by ID: ${savedDeviceId} at index ${deviceIdxById}`);
+            setActiveIdx(deviceIdxById);
+            return;
+          }
+        }
+
+        // Fallback to saved index if valid for current device list
+        if (savedIdx >= 0 && savedIdx < devices.length) {
+          console.log(`Restored device by index: ${savedIdx}`);
+          setActiveIdx(savedIdx);
+        } else {
+          // If neither works, reset to first device
+          console.log('No valid saved device found, defaulting to first device');
+          setActiveIdx(0);
+          localStorage.setItem('dashboard.activeDeviceIndex', '0');
+          if (devices[0]) {
+            localStorage.setItem('dashboard.activeDeviceId', devices[0].id.toString());
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to restore active device index:', e);
+        setActiveIdx(0);
+      }
+    }
+  }, [devices.length]);  // Show loading state
   if (loading) {
     return (
       <div className="dashboard-root">
@@ -1270,7 +1335,7 @@ export default function Dashboard() {
         )}
       </section>      <main className="dash-main" role="main">
         {/* Alert Summary */}
-        <section className="card alert-card" aria-label="Alert summary" onClick={() => navigate('/alerts')} style={{ cursor: 'pointer' }}>
+        <section className="card alert-card" aria-label="Alert summary" onClick={() => navigate(`/alerts${currentDevice ? `?deviceId=${currentDevice.id}` : ''}`)} style={{ cursor: 'pointer' }}>
           <div className="alert-card-top">
             <div className="icon-circle" style={{ position: 'relative' }}>
               <AlertCircle size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
@@ -1296,12 +1361,12 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            <button className="alert-card-expand" aria-label="Open alerts" onClick={(e) => { e.stopPropagation(); navigate('/alerts'); }}>
+            <button className="alert-card-expand" aria-label="Open alerts" onClick={(e) => { e.stopPropagation(); navigate(`/alerts${currentDevice ? `?deviceId=${currentDevice.id}` : ''}`); }}>
               <ChevronRight size={20} color="#8BA797" />
             </button>
           </div>
           <h3 className="alert-card-title">
-            Alert Summary
+            {currentDevice ? `${currentDevice.device_name || currentDevice.plant_name || 'Device'} Alerts` : 'Alert Summary'}
             {unreadAlertsCount > 0 && (
               <span style={{ color: '#e74c3c', fontWeight: 'bold', marginLeft: '8px' }}>
                 ({unreadAlertsCount} new)
@@ -1309,6 +1374,16 @@ export default function Dashboard() {
             )}
           </h3>
           <div className="alert-card-message">{data?.alertText || 'Loading...'}</div>
+          {currentDevice && (
+            <p style={{
+              fontSize: '11px',
+              color: '#8BA797',
+              margin: '8px 0 0 0',
+              fontStyle: 'italic'
+            }}>
+              Click to view alerts for this device only
+            </p>
+          )}
         </section>
         {/* Connectivity & Sync */}
         <section className="status-grid" aria-label="Status">
@@ -1377,67 +1452,107 @@ export default function Dashboard() {
             <span className="ph-legend-dot"></span>
             <span className="ph-legend-label">{legendLabel}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+              {/* Debug info - remove in production */}
+              <span style={{ fontSize: '10px', color: '#999', marginRight: '8px' }}>
+                {phTotal > 0 && `${currentStart + 1}-${Math.min(currentStart + PH_WINDOW_SIZE, phTotal)} of ${phTotal}`}
+              </span>
               <button
                 className="ph-nav-btn"
-                onClick={onPrev}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Previous button clicked, canPrev:', canPrev, 'currentStart:', currentStart, 'phTotal:', phTotal);
+                  onPrev();
+                }}
                 disabled={!canPrev}
                 style={{
-                  background: 'none',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  padding: '4px 6px',
+                  background: canPrev ? 'rgba(51, 148, 50, 0.1)' : 'rgba(200, 200, 200, 0.1)',
+                  border: canPrev ? '1px solid rgba(51, 148, 50, 0.3)' : '1px solid #ddd',
+                  borderRadius: '6px',
+                  padding: '6px 8px',
                   cursor: canPrev ? 'pointer' : 'not-allowed',
-                  opacity: canPrev ? 1 : 0.3,
+                  opacity: canPrev ? 1 : 0.4,
                   display: 'flex',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  transition: 'all 0.2s ease',
+                  minWidth: '32px',
+                  height: '32px',
+                  justifyContent: 'center'
                 }}
                 aria-label="Previous period"
               >
-                <ChevronLeft size={14} />
+                <ChevronLeft size={16} color={canPrev ? 'rgba(51, 148, 50, 0.8)' : '#999'} />
               </button>
-              <span style={{ fontSize: 12, color: '#666', fontWeight: '500', minWidth: '80px', textAlign: 'center' }}>
+              <span style={{ fontSize: 12, color: '#666', fontWeight: '500', minWidth: '100px', textAlign: 'center' }}>
                 {phLabelsDisplay && phLabelsDisplay.length >= 2
                   ? `${phLabelsDisplay[0]} - ${phLabelsDisplay[phLabelsDisplay.length - 1]}`
-                  : timeRange === 'days' ? `Last ${PH_WINDOW_SIZE} Days`
-                    : timeRange === 'weeks' ? `Last ${PH_WINDOW_SIZE} Weeks`
-                    : `Last ${PH_WINDOW_SIZE} Months`
+                  : phTotal === 0
+                    ? 'No data available'
+                    : timeRange === 'days' ? `Last ${PH_WINDOW_SIZE} Days`
+                      : timeRange === 'weeks' ? `Last ${PH_WINDOW_SIZE} Weeks`
+                      : `Last ${PH_WINDOW_SIZE} Months`
                 }
               </span>
               <button
                 className="ph-nav-btn"
-                onClick={onNext}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Next button clicked, canNext:', canNext, 'currentStart:', currentStart, 'maxStart:', maxStart, 'phTotal:', phTotal);
+                  onNext();
+                }}
                 disabled={!canNext}
                 style={{
-                  background: 'none',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  padding: '4px 6px',
+                  background: canNext ? 'rgba(51, 148, 50, 0.1)' : 'rgba(200, 200, 200, 0.1)',
+                  border: canNext ? '1px solid rgba(51, 148, 50, 0.3)' : '1px solid #ddd',
+                  borderRadius: '6px',
+                  padding: '6px 8px',
                   cursor: canNext ? 'pointer' : 'not-allowed',
-                  opacity: canNext ? 1 : 0.3,
+                  opacity: canNext ? 1 : 0.4,
                   display: 'flex',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  transition: 'all 0.2s ease',
+                  minWidth: '32px',
+                  height: '32px',
+                  justifyContent: 'center'
                 }}
                 aria-label="Next period"
               >
-                <ChevronRight size={14} />
+                <ChevronRight size={16} color={canNext ? 'rgba(51, 148, 50, 0.8)' : '#999'} />
               </button>
-              {currentStart < maxStart && (
+              {currentStart < maxStart && phTotal > PH_WINDOW_SIZE && (
                 <button
-                  onClick={() => currentDevice && setPhWindows(prev => ({ ...prev, [currentDevice.id]: maxStart }))}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Today button clicked, jumping to maxStart:', maxStart);
+                    currentDevice && setPhWindows(prev => ({ ...prev, [currentDevice.id]: maxStart }));
+                  }}
                   style={{
                     background: 'var(--color-primary)',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '4px',
-                    padding: '4px 8px',
-                    fontSize: '10px',
-                    fontWeight: '500',
+                    borderRadius: '6px',
+                    padding: '6px 10px',
+                    fontSize: '11px',
+                    fontWeight: '600',
                     cursor: 'pointer',
-                    marginLeft: '4px'
+                    marginLeft: '6px',
+                    transition: 'all 0.2s ease',
+                    height: '32px',
+                    minWidth: '50px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = 'rgba(51, 148, 50, 1)';
+                    e.target.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = 'var(--color-primary)';
+                    e.target.style.transform = 'translateY(0)';
                   }}
                   aria-label="Jump to latest data"
                 >
-                  Today
+                  Latest
                 </button>
               )}
             </div>

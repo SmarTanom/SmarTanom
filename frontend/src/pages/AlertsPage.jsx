@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../assets/styles/AlertsPage.css';
 import {
   Leaf,
@@ -87,9 +87,12 @@ const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
 export default function AlertsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const deviceId = searchParams.get('deviceId'); // Get device filter from URL
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'critical'
   // Alerts state initialized as empty - only real database alerts will be shown
   const [alerts, setAlerts] = useState([]);
+  const [filteredDeviceName, setFilteredDeviceName] = useState(null); // Store device name when filtering
 
   // On first mount, apply persisted read flags to initial alerts
   React.useEffect(() => {
@@ -108,8 +111,28 @@ export default function AlertsPage() {
         // We'll collect out-of-range pH readings (low <6 or high >7) across all devices
         const abnormalReadings = [];
 
-        // For each device, fetch its sensors and pH readings
-        await Promise.all(devices.map(async (device) => {
+        // Filter devices if deviceId is specified
+        const devicesToCheck = deviceId
+          ? devices.filter(device => device.id.toString() === deviceId)
+          : devices;
+
+        // Set filtered device name for display
+        if (deviceId && devicesToCheck.length > 0) {
+          const device = devicesToCheck[0];
+          const deviceName = device.device_name || device.plant_name || `Device ${device.device_serial}`;
+          setFilteredDeviceName(deviceName);
+          console.log(`🔍 Filtering alerts for device: "${deviceName}" (ID: ${deviceId})`);
+        } else {
+          setFilteredDeviceName(null);
+          if (deviceId) {
+            console.warn(`⚠️ Device ID ${deviceId} not found in user's devices`);
+          } else {
+            console.log('📋 Showing alerts for all devices');
+          }
+        }
+
+        // For each device (filtered if needed), fetch its sensors and readings
+        await Promise.all(devicesToCheck.map(async (device) => {
           try {
             if (!device || !device.id) return;
             const sensorsResp = await getDeviceSensors(device.id);
@@ -448,18 +471,45 @@ export default function AlertsPage() {
       <header className="alerts-header">
         <div className="alerts-header-top">
           <h1 className="alerts-header-title">
-            Alerts
+            {deviceId && filteredDeviceName ? `${filteredDeviceName} Alerts` : 'Alerts'}
             <Bell size={28} color="rgba(17, 17, 17, 0.86)" strokeWidth={2.5} />
           </h1>
           {unreadCount > 0 && (
             <span className="alerts-unread-badge">{unreadCount}</span>
           )}
         </div>
-        {unreadCount > 0 && (
-          <button className="mark-all-read-button" onClick={markAllAsRead}>
-            Mark all as read
-          </button>
-        )}
+        <div className="alerts-header-actions">
+          {deviceId && (
+            <button
+              className="show-all-devices-button"
+              onClick={() => navigate('/alerts')}
+              style={{
+                background: 'none',
+                border: '1px solid rgba(51, 148, 50, 0.3)',
+                borderRadius: '6px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                color: 'rgba(51, 148, 50, 0.8)',
+                cursor: 'pointer',
+                marginRight: '12px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = 'rgba(51, 148, 50, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'none';
+              }}
+            >
+              Show All Devices
+            </button>
+          )}
+          {unreadCount > 0 && (
+            <button className="mark-all-read-button" onClick={markAllAsRead}>
+              Mark all as read
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Filter buttons */}
@@ -490,7 +540,12 @@ export default function AlertsPage() {
           <div className="alerts-empty">
             <AlertCircle size={48} color="#8BA797" strokeWidth={1.5} />
             <h3>No alerts to display</h3>
-            <p>You're all caught up! Check back later for updates.</p>
+            <p>
+              {deviceId && filteredDeviceName
+                ? `${filteredDeviceName} has no alerts. Everything looks good!`
+                : "You're all caught up! Check back later for updates."
+              }
+            </p>
           </div>
         ) : (
           <div className="alerts-list">
