@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import '../assets/styles/AlertsPage.css';
 import {
   Leaf,
@@ -87,8 +87,6 @@ const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
 export default function AlertsPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const deviceFilter = searchParams.get('deviceId'); // Get device ID from URL params
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'critical'
   // Alerts state initialized as empty - only real database alerts will be shown
   const [alerts, setAlerts] = useState([]);
@@ -104,19 +102,13 @@ export default function AlertsPage() {
     const fetchRecentPhReadings = async () => {
       try {
         const devicesResp = await getUserDevices();
-        let devices = devicesResp && devicesResp.results ? devicesResp.results : devicesResp;
+        const devices = devicesResp && devicesResp.results ? devicesResp.results : devicesResp;
         if (!devices || devices.length === 0) return;
 
-        // Filter devices if deviceFilter is provided
-        if (deviceFilter) {
-          devices = devices.filter(device => device.id === parseInt(deviceFilter, 10));
-          if (devices.length === 0) return; // No matching device found
-        }
-
-        // We'll collect out-of-range readings across filtered devices
+        // We'll collect out-of-range pH readings (low <6 or high >7) across all devices
         const abnormalReadings = [];
 
-        // For each device, fetch its sensors and readings
+        // For each device, fetch its sensors and pH readings
         await Promise.all(devices.map(async (device) => {
           try {
             if (!device || !device.id) return;
@@ -390,7 +382,7 @@ export default function AlertsPage() {
 
     fetchRecentPhReadings();
     return () => { mounted = false; };
-  }, [deviceFilter]);
+  }, []);
 
   const filteredAlerts = alerts.filter(alert => {
     if (filter === 'unread') return !alert.read;
@@ -469,36 +461,6 @@ export default function AlertsPage() {
           </button>
         )}
       </header>
-
-      {/* Device Filter Indication */}
-      {deviceFilter && (
-        <div className="device-filter-info" style={{
-          padding: '12px 20px',
-          backgroundColor: 'rgba(51, 148, 50, 0.1)',
-          borderLeft: '4px solid rgba(51, 148, 50, 0.9)',
-          marginBottom: '16px',
-          color: '#2d5a2d',
-          fontSize: '14px',
-          fontWeight: '500'
-        }}>
-          Showing alerts for selected device only
-          <button
-            onClick={() => navigate('/alerts')}
-            style={{
-              marginLeft: '12px',
-              padding: '4px 8px',
-              backgroundColor: 'transparent',
-              border: '1px solid rgba(51, 148, 50, 0.5)',
-              borderRadius: '4px',
-              color: 'rgba(51, 148, 50, 0.9)',
-              cursor: 'pointer',
-              fontSize: '12px'
-            }}
-          >
-            Show All Devices
-          </button>
-        </div>
-      )}
 
       {/* Filter buttons */}
       <div className="alerts-filters">

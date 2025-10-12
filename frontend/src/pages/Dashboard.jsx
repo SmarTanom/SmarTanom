@@ -1144,7 +1144,7 @@ export default function Dashboard() {
         )}
       </section>      <main className="dash-main" role="main">
         {/* Alert Summary */}
-        <section className="card alert-card" aria-label="Alert summary" onClick={() => navigate(`/alerts${currentDevice ? `?deviceId=${currentDevice.id}` : ''}`)} style={{ cursor: 'pointer' }}>
+        <section className="card alert-card" aria-label="Alert summary" onClick={() => navigate('/alerts')} style={{ cursor: 'pointer' }}>
           <div className="alert-card-top">
             <div className="icon-circle" style={{ position: 'relative' }}>
               <AlertCircle size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
@@ -1170,7 +1170,7 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            <button className="alert-card-expand" aria-label="Open alerts" onClick={(e) => { e.stopPropagation(); navigate(`/alerts${currentDevice ? `?deviceId=${currentDevice.id}` : ''}`); }}>
+            <button className="alert-card-expand" aria-label="Open alerts" onClick={(e) => { e.stopPropagation(); navigate('/alerts'); }}>
               <ChevronRight size={20} color="#8BA797" />
             </button>
           </div>
