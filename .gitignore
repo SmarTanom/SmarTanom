@@ -69,3 +69,6 @@ tmp_*.py
 frontend/dist/
 
 
+# Ignore local SQLite database
+backend/db.sqlite3
+backend/db.sqlite3.local_backup
