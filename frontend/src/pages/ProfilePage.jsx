@@ -38,6 +38,13 @@ export default function ProfilePage() {
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [shareEmail, setShareEmail] = useState('');
   const [sharedAccess, setSharedAccess] = useState([]);
+  // Inline edit states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFirst, setEditFirst] = useState('');
+  const [editLast, setEditLast] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
 
   // Load current user profile from backend
   useEffect(() => {
@@ -65,6 +72,10 @@ export default function ProfilePage() {
           sharedWith: 0,
         };
         setUser(uiUser);
+        // Prime edit fields
+        setEditFirst(uiUser.firstName || '');
+        setEditLast(uiUser.lastName || '');
+
 
         // Fetch user's bound devices count
         try {
@@ -98,6 +109,58 @@ export default function ProfilePage() {
       navigate('/');
     }
   };
+
+  // Username removed from editing per request; only first and last name are editable.
+
+  function beginEdit() {
+    if (!user) return;
+    setEditFirst(user.firstName || '');
+    setEditLast(user.lastName || '');
+    setSaveError('');
+    setIsEditing(true);
+  }
+
+  function cancelEdit() {
+    setIsEditing(false);
+    setSaveError('');
+  }
+
+  async function saveProfile() {
+    setSaveError('');
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      setSaveError('Not authenticated');
+      return;
+    }
+    // Validate names
+    if (!editFirst.trim() || !editLast.trim()) {
+      setSaveError('First and last name are required');
+      return;
+    }
+    setSaving(true);
+    try {
+      const body = { first_name: editFirst.trim(), last_name: editLast.trim() };
+      const updated = await authApi.updateProfile(token, body);
+      // Update UI state
+      const uiUser = {
+        username: updated.username || (updated.email ? updated.email.split('@')[0] : 'User'),
+        email: updated.email,
+        full_name: updated.full_name,
+        firstName: updated.first_name,
+        lastName: updated.last_name,
+        role: updated.role || (updated.is_admin ? 'admin' : 'user'),
+        joinedDate: updated.date_joined || updated.created_at || updated.created || user?.joinedDate || null,
+        devicesOwned: user?.devicesOwned || 0,
+        sharedWith: user?.sharedWith || 0,
+      };
+      setUser(uiUser);
+      setIsEditing(false);
+    } catch (e) {
+      setSaveError(e?.message || 'Failed to save profile');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const handleShareDevice = () => {
     if (!selectedDevice || !shareEmail.trim()) {
@@ -140,31 +203,66 @@ export default function ProfilePage() {
         <div className="profile-avatar">
           <User size={48} strokeWidth={2} />
         </div>
-        <h1 className="profile-username">{user.full_name || user.username}</h1>
+        <h1 className="profile-username">{user.full_name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email}</h1>
         <p className="profile-email">{user.email}</p>
       </header>
 
       <main className="profile-main">
         {/* Account Information */}
         <section className="profile-section">
-          <h2 className="section-title">Account Information</h2>
+          <div className="section-header">
+            <h2 className="section-title">Account Information</h2>
+            {!isEditing && (
+              <button className="btn-share-new" onClick={beginEdit} title="Edit profile">
+                Edit
+              </button>
+            )}
+          </div>
           <div className="info-card">
-            <div className="info-row">
-              <span className="info-label">Full Name</span>
-              <span className="info-value">{user.full_name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || '—'}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Email</span>
-              <span className="info-value">{user.email}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Role</span>
-              <span className="info-value">{(user.role || 'user').charAt(0).toUpperCase() + (user.role || 'user').slice(1)}</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Member Since</span>
-              <span className="info-value">{formatMemberSince(user.joinedDate)}</span>
-            </div>
+            {!isEditing ? (
+              <>
+                <div className="info-row">
+                  <span className="info-label">Full Name</span>
+                  <span className="info-value">{user.full_name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || '—'}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Email</span>
+                  <span className="info-value">{user.email}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Role</span>
+                  <span className="info-value">{(user.role || 'user').charAt(0).toUpperCase() + (user.role || 'user').slice(1)}</span>
+                </div>
+                <div className="info-row">
+                  <span className="info-label">Member Since</span>
+                  <span className="info-value">{formatMemberSince(user.joinedDate)}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="form-row-grid">
+                  <div className="form-group">
+                    <label className="form-label">First Name</label>
+                    <input className="form-input" value={editFirst} onChange={(e) => setEditFirst(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Last Name</label>
+                    <input className="form-input" value={editLast} onChange={(e) => setEditLast(e.target.value)} />
+                  </div>
+                </div>
+                {saveError && <p className="form-error" role="alert">{saveError}</p>}
+                <div className="edit-actions">
+                  <button className="btn-cancel" onClick={cancelEdit} disabled={saving}>Cancel</button>
+                  <button className="btn-confirm" onClick={saveProfile} disabled={saving}>
+                    {saving ? (<>
+                      <Check size={16} style={{ visibility: 'hidden' }} /> Saving…
+                    </>) : (<>
+                      <Check size={16} /> Save Changes
+                    </>)}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </section>
 

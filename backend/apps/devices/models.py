@@ -51,22 +51,6 @@ class Device(TimeStampedModel):
         null=True, blank=True,
         help_text="Photo of the plant growing in this device"
     )
-    plant_name = models.CharField(
-        max_length=100,
-        null=True, blank=True,
-        help_text="Name of the plant being grown"
-    )
-    plant_variety = models.CharField(
-        max_length=100,
-        null=True, blank=True,
-        help_text="Specific variety of the plant"
-    )
-    plant_status = models.CharField(
-        max_length=50,
-        null=True, blank=True,
-        default="Active",
-        help_text="Current status of the plant"
-    )
     # Optional human-readable device location provided during initial setup
     location = models.CharField(
         max_length=200,

@@ -68,15 +68,23 @@ export const apiClient = {
   request,
   get: (p, opts) => request(p, { ...opts, method: 'GET' }),
   post: (p, body, opts) => request(p, { ...opts, method: 'POST', body }),
+  put: (p, body, opts) => request(p, { ...opts, method: 'PUT', body }),
+  patch: (p, body, opts) => request(p, { ...opts, method: 'PATCH', body }),
 };
 
 // Auth-specific convenience wrappers
 export const authApi = {
   requestOtp: (email, purpose = 'login') => apiClient.post('/api/auth/request-otp/', { email, purpose }),
   verifyOtp: (email, code, purpose = 'login') => apiClient.post('/api/auth/verify-otp/', { email, code, purpose }),
-  finalizeAccount: (username, token) => apiClient.post('/api/auth/finalize-account/', { username }, { authToken: token }),
+  finalizeAccount: (username, token, extra = {}) => {
+    const body = { username };
+    if (extra.first_name) body.first_name = extra.first_name;
+    if (extra.last_name) body.last_name = extra.last_name;
+    return apiClient.post('/api/auth/finalize-account/', body, { authToken: token });
+  },
   checkUsername: (username) => apiClient.get(`/api/auth/check-username/?username=${encodeURIComponent(username)}`),
   getProfile: (token) => apiClient.get('/api/auth/profile/', { authToken: token }),
+  updateProfile: (token, data) => apiClient.patch('/api/auth/profile/update/', data, { authToken: token }),
   logout: (token) => apiClient.post('/api/auth/logout/', {}, { authToken: token }),
 };
 
@@ -105,4 +113,4 @@ export const deviceApi = {
       authToken: token
     });
   },
-};export default apiClient;
+}; export default apiClient;

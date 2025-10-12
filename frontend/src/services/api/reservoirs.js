@@ -44,9 +44,29 @@ export async function getReservoirById(reservoirId) {
   });
 }
 
+/**
+ * Create a reservoir for a device.
+ * @param {Object} payload
+ * @param {number} payload.device - Device primary key ID
+ * @param {string} payload.reservoir_name
+ * @param {string} payload.plant_type
+ * @param {string} payload.start_date - YYYY-MM-DD
+ * @param {string} payload.end_date - YYYY-MM-DD
+ */
+export async function createReservoir(payload) {
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+  return apiClient.post('/api/reservoirs/reservoirs/', payload, {
+    authToken: token
+  });
+}
+
 // Export as default object
 export default {
   getUserReservoirs,
   getDeviceReservoirs,
-  getReservoirById
+  getReservoirById,
+  createReservoir
 };

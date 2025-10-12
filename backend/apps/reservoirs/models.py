@@ -34,11 +34,23 @@ class Reservoir(TimeStampedModel):
         verbose_name_plural = "Reservoirs"
 
     def clean(self):  # Business validation
-        """Validate that end date is not before start date and start date isn't too far in future."""
-        if self.end_date < self.start_date:
-            raise ValidationError({"end_date": "End date cannot be before start date."})
-        if self.start_date > timezone.now().date() + timezone.timedelta(days=365 * 5):
-            raise ValidationError({"start_date": "Start date too far in the future."})
+        """Validate dates with None-safety.
+
+        - Only compare dates if both are provided to avoid TypeError in admin add form.
+        - Validate start_date bounds only when present.
+        """
+        errors = {}
+
+        if self.start_date and self.end_date:
+            if self.end_date < self.start_date:
+                errors["end_date"] = "End date cannot be before start date."
+
+        if self.start_date:
+            if self.start_date > timezone.now().date() + timezone.timedelta(days=365 * 5):
+                errors["start_date"] = "Start date too far in the future."
+
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self) -> str:
         return f"{self.reservoir_name} (device={self.device_id})"

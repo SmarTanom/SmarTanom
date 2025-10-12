@@ -7,22 +7,23 @@ import { Check } from '../components/ui/Icon.jsx';
 import { Mail } from '../components/ui/Icon.jsx';
 import { Wifi, Refresh, Lock, SignalBars } from '../components/ui/Icon.jsx';
 import { authApi, deviceApi } from '../services/apiClient.js';
+import { createReservoir } from '../services/api/reservoirs.js';
 import { checkDevice, requestDeviceOTP, verifyDeviceOTP } from '../services/api/devices.js';
 // Removed shared OtpInput component per request; using local inline inputs
 // (Removed duplicate React hook import; useRef/useEffect already available or use React.useRef if needed)
 
 function SignupStepFourOtp({ otpCode, setOtpCode, verifyingOtp, otpError, setStatusMsg }) {
   const refs = useRef([]);
-  useEffect(()=>{
+  useEffect(() => {
     // autofocus first empty digit when component mounts
-    const firstEmpty = otpCode.split('').findIndex(c=>!c);
+    const firstEmpty = otpCode.split('').findIndex(c => !c);
     const idx = firstEmpty === -1 ? 0 : firstEmpty;
     const el = refs.current[idx];
-    if (el && el.focus) { try { el.focus(); } catch {} }
+    if (el && el.focus) { try { el.focus(); } catch { } }
   }, []); // run once
   return (
-    <div className={`inline-otp-group ${otpError ? 'error':''}`} role="group" aria-label="Verification code">
-      {Array.from({length:6}).map((_,i)=>(
+    <div className={`inline-otp-group ${otpError ? 'error' : ''}`} role="group" aria-label="Verification code">
+      {Array.from({ length: 6 }).map((_, i) => (
         <input
           key={i}
           ref={el => refs.current[i] = el}
@@ -31,47 +32,47 @@ function SignupStepFourOtp({ otpCode, setOtpCode, verifyingOtp, otpError, setSta
           inputMode="numeric"
           pattern="[0-9]*"
           maxLength={1}
-          aria-label={`Digit ${i+1}`}
+          aria-label={`Digit ${i + 1}`}
           aria-invalid={otpError || undefined}
           value={otpCode[i] || ''}
-          data-filled={otpCode[i] ? 'true':'false'}
+          data-filled={otpCode[i] ? 'true' : 'false'}
           disabled={verifyingOtp}
-          onChange={(e)=>{
-            const v = e.target.value.replace(/\D/g,'');
-            if (!v){
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '');
+            if (!v) {
               const next = otpCode.split('');
               next[i] = '';
               setOtpCode(next.join(''));
               return;
             }
-            const next = otpCode.padEnd(6,'').split('');
+            const next = otpCode.padEnd(6, '').split('');
             next[i] = v[0];
             const joined = next.join('');
             setOtpCode(joined);
             if (i < 5) {
-              refs.current[i+1]?.focus();
+              refs.current[i + 1]?.focus();
             } else if (!next.includes('')) {
               setStatusMsg('Code entered. Ready to verify.');
             }
           }}
-          onKeyDown={(e)=>{
-            if (e.key==='Backspace' && !otpCode[i] && i>0){
-              refs.current[i-1]?.focus();
-            } else if (e.key==='ArrowLeft' && i>0){
+          onKeyDown={(e) => {
+            if (e.key === 'Backspace' && !otpCode[i] && i > 0) {
+              refs.current[i - 1]?.focus();
+            } else if (e.key === 'ArrowLeft' && i > 0) {
               e.preventDefault();
-              refs.current[i-1]?.focus();
-            } else if (e.key==='ArrowRight' && i<5){
+              refs.current[i - 1]?.focus();
+            } else if (e.key === 'ArrowRight' && i < 5) {
               e.preventDefault();
-              refs.current[i+1]?.focus();
+              refs.current[i + 1]?.focus();
             }
           }}
-          onPaste={(e)=>{
+          onPaste={(e) => {
             const text = e.clipboardData.getData('text');
             if (!text) return;
-            const digits = text.replace(/\D/g,'').slice(0,6).split('');
+            const digits = text.replace(/\D/g, '').slice(0, 6).split('');
             if (!digits.length) return;
             e.preventDefault();
-            const next = Array.from({length:6}, (_,idx)=> digits[idx] || otpCode[idx] || '');
+            const next = Array.from({ length: 6 }, (_, idx) => digits[idx] || otpCode[idx] || '');
             setOtpCode(next.join(''));
             if (!next.includes('')) {
               setStatusMsg('Code entered. Ready to verify.');
@@ -211,10 +212,34 @@ export default function SignupSetup() {
     'Salanova', 'Butterhead', 'Looseleaf', 'Batavia', 'Romaine',
     'Spinach', 'Arugula', 'Kale', 'Bok Choy', 'Basil', 'Mint', 'Oregano', 'Cilantro', 'Chives', 'Parsley', 'Thyme'
   ];
+  // Plant type choices aligned with StartCycle page
+  const PLANT_TYPES = [
+    'Romaine',
+    'Butterhead',
+    'Batavia',
+    'Pechay',
+    'Basil',
+    'Arugula',
+    'Spinach',
+    'Kale',
+  ];
   const [selectedDefaultImage, setSelectedDefaultImage] = useState('');
   const [showDefaultImageModal, setShowDefaultImageModal] = useState(false); // new modal state
   const [showPlantPhotoModal, setShowPlantPhotoModal] = useState(false); // plant photo modal
   const [durationDays, setDurationDays] = useState(''); // numeric string, optional
+
+  // Reservoir (Step 2)
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const plus30Str = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const [reservoirName, setReservoirName] = useState('');
+  const [plantType, setPlantType] = useState('');
+  const [resStartDate, setResStartDate] = useState(todayStr);
+  const [resEndDate, setResEndDate] = useState(plus30Str);
+  const [reservoirError, setReservoirError] = useState('');
 
   // Step 3 state
   const [bindEmail, setBindEmail] = useState('');
@@ -231,10 +256,10 @@ export default function SignupSetup() {
   const [statusMsg, setStatusMsg] = useState(''); // aria-live polite updates
 
   // Cooldown interval management
-  useEffect(()=>{
+  useEffect(() => {
     if (resendCooldown <= 0) return;
-    const t = setInterval(()=> setResendCooldown(c=> c-1), 1000);
-    return ()=> clearInterval(t);
+    const t = setInterval(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearInterval(t);
   }, [resendCooldown]);
 
   // Step 5 state (advanced WiFi setup)
@@ -258,7 +283,7 @@ export default function SignupSetup() {
   const [successModalOpen, setSuccessModalOpen] = useState(false);
 
   // Auto-collapse instructions on medium heights to save vertical space
-  useEffect(()=>{
+  useEffect(() => {
     if (step === 5 && typeof window !== 'undefined') {
       const h = window.innerHeight;
       if (h <= 840 && h >= 600) {
@@ -271,13 +296,11 @@ export default function SignupSetup() {
   const networkRefs = React.useRef({});
 
   // Step 6 state
-  const [username, setUsername] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [finalizing, setFinalizing] = useState(false);
   const [finalError, setFinalError] = useState('');
   const [accountCreated, setAccountCreated] = useState(false);
-  const [checkingUsername, setCheckingUsername] = useState(false);
-  const [usernameAvailable, setUsernameAvailable] = useState(null); // null | true | false
-  const [usernameMessage, setUsernameMessage] = useState('');
   const usernameCheckTimeoutRef = React.useRef(null);
   // (Snackbar removed per request)
 
@@ -285,51 +308,22 @@ export default function SignupSetup() {
     return /[^\s@]+@[^\s@]+\.[^\s@]+/.test(v);
   }
 
-  // Username validation check
-  async function checkUsernameAvailability(usernameToCheck) {
-    if (!usernameToCheck || usernameToCheck.trim().length < 3) {
-      setUsernameAvailable(null);
-      setUsernameMessage('');
-      return;
-    }
+  // Username field removed per request; availability checks removed.
 
-    setCheckingUsername(true);
-    setUsernameMessage('');
-
-    try {
-      const data = await authApi.checkUsername(usernameToCheck.trim());
-      setUsernameAvailable(data.available);
-      setUsernameMessage(data.message);
-    } catch (err) {
-      console.error('Username check error:', err);
-      setUsernameAvailable(null);
-      setUsernameMessage(err.message || 'Unable to check username availability');
-    } finally {
-      setCheckingUsername(false);
-    }
-  }
-
-  // Debounced username check
+  // When entering step 6, fetch current profile to prefill first/last names
   useEffect(() => {
-    if (usernameCheckTimeoutRef.current) {
-      clearTimeout(usernameCheckTimeoutRef.current);
-    }
-
-    if (username.trim().length >= 3) {
-      usernameCheckTimeoutRef.current = setTimeout(() => {
-        checkUsernameAvailability(username.trim());
-      }, 500); // 500ms debounce
-    } else {
-      setUsernameAvailable(null);
-      setUsernameMessage('');
-    }
-
-    return () => {
-      if (usernameCheckTimeoutRef.current) {
-        clearTimeout(usernameCheckTimeoutRef.current);
-      }
-    };
-  }, [username]);
+    if (step !== 6) return;
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+      authApi.getProfile(token).then(prof => {
+        const fn = prof?.first_name || prof?.user?.first_name || '';
+        const ln = prof?.last_name || prof?.user?.last_name || '';
+        setFirstName(fn);
+        setLastName(ln);
+      }).catch(() => { });
+    } catch { }
+  }, [step]);
 
   async function sendCode() {
     setEmailError('');
@@ -398,7 +392,7 @@ export default function SignupSetup() {
     'Bind Device to Email',
     'Verify Email',
     'WiFi Setup',
-    'Set Username',
+    'Your Profile',
   ];
 
   const subtexts = [
@@ -407,10 +401,10 @@ export default function SignupSetup() {
     'Enter your email to bind your SmarTanom device to your account',
     'Enter the 6-digit OTP code we sent to your email',
     'Connect your SmarTanom device to your WiFi network',
-    'Choose an account username',
+    'Set the name on your account',
   ];
 
-  const stepLabels = ['Device', 'Setup', 'Bind', 'Verify', 'WiFi', 'Username'];
+  const stepLabels = ['Device', 'Setup', 'Bind', 'Verify', 'WiFi', 'Profile'];
 
   function goPrev() { if (step > 1) setStep(step - 1); else navigate(-1); }
   function goNext() { if (step < total) setStep(step + 1); }
@@ -440,7 +434,7 @@ export default function SignupSetup() {
       if (fileName) {
         setVerified(true);
         setJustVerified(true);
-        setTimeout(()=>{ setStep(2); setJustVerified(false); }, 600);
+        setTimeout(() => { setStep(2); setJustVerified(false); }, 600);
         return;
       }
 
@@ -463,7 +457,7 @@ export default function SignupSetup() {
       setVerified(true);
       setJustVerified(true);
       // Brief pause to let user see inline confirmation, then advance
-      setTimeout(()=>{ setStep(2); setJustVerified(false); }, 600);
+      setTimeout(() => { setStep(2); setJustVerified(false); }, 600);
     } catch (e) {
       setModal({ open: true, message: e.message || 'Unable to verify device. Please try again.' });
     } finally {
@@ -556,6 +550,36 @@ export default function SignupSetup() {
 
         setStatusMsg('Device bound successfully!');
 
+        // Create initial Reservoir if inputs were provided and valid
+        try {
+          const token = localStorage.getItem('authToken');
+          if (token && reservoirName.trim() && plantType.trim()) {
+            // Fetch user devices and find the one matching the serial
+            const devicesResponse = await deviceApi.list(token);
+            const devicesList = Array.isArray(devicesResponse) ? devicesResponse : devicesResponse.results || [];
+            const matchedDevice = devicesList.find(d => (d.device_serial || '').toUpperCase() === deviceSerial);
+            if (matchedDevice && matchedDevice.id) {
+              // Basic guard to ensure dates are valid
+              const sd = resStartDate || todayStr;
+              const ed = resEndDate || sd;
+              const payload = {
+                device_id: matchedDevice.id,
+                reservoir_name: reservoirName.trim(),
+                plant_type: plantType.trim(),
+                start_date: sd,
+                end_date: ed,
+              };
+              await createReservoir(payload);
+              console.log('[SignupSetup] Reservoir created for device', matchedDevice.id);
+            } else {
+              console.warn('[SignupSetup] Device not found when creating reservoir');
+            }
+          }
+        } catch (reservoirErr) {
+          // Non-blocking: log and continue flow
+          console.warn('[SignupSetup] Reservoir creation skipped/failed:', reservoirErr?.message || reservoirErr);
+        }
+
         // Show success message briefly then proceed to next step
         setTimeout(() => {
           setStep(5); // Move to WiFi setup or next step
@@ -584,14 +608,14 @@ export default function SignupSetup() {
     '/device/wifi/scan'
   ], []);
 
-  function abortOngoingWifiScan(){
+  function abortOngoingWifiScan() {
     if (wifiAbortRef.current) {
-      try { wifiAbortRef.current.abort(); } catch(e){/*noop*/}
+      try { wifiAbortRef.current.abort(); } catch (e) {/*noop*/ }
     }
     wifiAbortRef.current = null;
   }
 
-  function mockNetworks(){
+  function mockNetworks() {
     // Provide a deterministic mock for dev; vary RSSI for bars variety
     return [
       { ssid: 'HydroNet_2G', rssi: -52, secure: true },
@@ -601,7 +625,7 @@ export default function SignupSetup() {
     ];
   }
 
-  function rssiToBars(rssi){
+  function rssiToBars(rssi) {
     if (typeof rssi !== 'number') return 0;
     if (rssi >= -55) return 4;
     if (rssi >= -65) return 3;
@@ -611,16 +635,16 @@ export default function SignupSetup() {
   }
 
   // Smooth scroll to selected network when it changes
-  useEffect(()=>{
+  useEffect(() => {
     if (!wifiSelected) return;
     const key = wifiSelected.ssid;
     const el = networkRefs.current[key];
     if (el && el.scrollIntoView) {
-      try { el.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'nearest' }); } catch(_) { el.scrollIntoView(); }
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }); } catch (_) { el.scrollIntoView(); }
     }
   }, [wifiSelected]);
 
-  async function scanWifi({auto=false}={}) {
+  async function scanWifi({ auto = false } = {}) {
     abortOngoingWifiScan();
     setWifiError('');
     setConnectionStatus('');
@@ -633,23 +657,23 @@ export default function SignupSetup() {
     wifiAbortRef.current = controller;
     const timeoutMs = 6000; // per-endpoint timeout
 
-    for (let i=0;i<wifiScanEndpoints.length;i++){
+    for (let i = 0; i < wifiScanEndpoints.length; i++) {
       const endpoint = wifiScanEndpoints[i];
       try {
-        const t = setTimeout(()=>controller.abort(), timeoutMs);
-        const res = await fetch(endpoint, { signal: controller.signal, headers:{ 'Accept':'application/json' }});
+        const t = setTimeout(() => controller.abort(), timeoutMs);
+        const res = await fetch(endpoint, { signal: controller.signal, headers: { 'Accept': 'application/json' } });
         clearTimeout(t);
-        if(!res.ok) throw new Error('HTTP '+res.status);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         // Expect array of {ssid,rssi,secure}
-        if(Array.isArray(data) && data.length){
+        if (Array.isArray(data) && data.length) {
           setWifiNetworks(data);
           setWifiPhase('results');
           wifiAbortRef.current = null;
           return;
         }
         // empty array -> continue to next endpoint
-      } catch(e){
+      } catch (e) {
         // continue to next endpoint unless last
       }
     }
@@ -658,7 +682,7 @@ export default function SignupSetup() {
     if (process.env.NODE_ENV === 'development') {
       const mocks = mockNetworks();
       setWifiNetworks(mocks);
-      setWifiPhase(mocks.length? 'results':'empty');
+      setWifiPhase(mocks.length ? 'results' : 'empty');
       wifiAbortRef.current = null;
       return;
     }
@@ -696,8 +720,8 @@ export default function SignupSetup() {
         throw new Error('Mock failure');
       }
       setConnectionStatus('success');
-      setTimeout(()=> setStep(6), 600);
-    } catch(e){
+      setTimeout(() => setStep(6), 600);
+    } catch (e) {
       setConnectionStatus(e.message || 'fail');
       setWifiPhase('results'); // return to results
     } finally {
@@ -706,20 +730,20 @@ export default function SignupSetup() {
   }
 
   // Auto-trigger scan when entering step 5 first time or after going back if previously idle
-  useEffect(()=>{
+  useEffect(() => {
     if (step === 5 && wifiPhase === 'idle') {
-      scanWifi({auto:true});
+      scanWifi({ auto: true });
     }
     // abort when leaving step
     if (step !== 5) {
       abortOngoingWifiScan();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   async function finalizeAccount() {
-    if (!username.trim()) {
-      setFinalError('Username is required');
+    if (!firstName.trim() || !lastName.trim()) {
+      setFinalError('First and last name are required');
       return;
     }
     setFinalError('');
@@ -728,8 +752,11 @@ export default function SignupSetup() {
       const token = localStorage.getItem('authToken');
       if (!token) throw new Error('Missing auth session (token). Please re-authenticate.');
 
-      // First finalize the account (set username)
-      await authApi.finalizeAccount(username.trim(), token);
+      // Update the profile with first and last name only (username removed per request)
+      await authApi.updateProfile(token, {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+      });
 
       // If there's plant information to save (photo or default selection), save it to the device
       if ((uploadedPhotoFile || plantPhotoChoice === 'default') && boundDeviceSerial) {
@@ -788,7 +815,7 @@ export default function SignupSetup() {
       }
       setAccountCreated(true);
       // Small delay to show success state then navigate
-      setTimeout(()=>{
+      setTimeout(() => {
         const target = role === 'admin' ? '/admin' : '/dashboard';
         navigate(target, { replace: true });
       }, 400);
@@ -799,14 +826,14 @@ export default function SignupSetup() {
     }
   }
 
-  function primaryCtaLabel(){
-    switch(step){
+  function primaryCtaLabel() {
+    switch (step) {
       case 1: return 'Next';
       case 2: return 'Next';
       case 3: return 'Send Code';
       case 4: return 'Verify Code';
-      case 5: return connecting? 'Connecting…':'Connect';
-      case 6: return accountCreated? 'Go to Dashboard':'Finish Setup';
+      case 5: return connecting ? 'Connecting…' : 'Connect';
+      case 6: return accountCreated ? 'Go to Dashboard' : 'Finish Setup';
       default: return 'Next';
     }
   }
@@ -825,7 +852,7 @@ export default function SignupSetup() {
 
   return (
     <>
-  <div className="auth-screen-root">
+      <div className="auth-screen-root">
         <div className="auth-content-wrapper">
           <div className={`auth-screen-inner setup-shell step-${step}-active`}>
             <div className="auth-content setup-flow">
@@ -883,493 +910,584 @@ export default function SignupSetup() {
                     </span>
                   </div>
                 </header>
-            </div>
-
-            <div className="setup-middle auth-fade-item" role="region" aria-live="polite" aria-label={headings[step - 1]}>
-              <div className="setup-heading">
-                <h1 className="auth-title">{headings[step - 1]}</h1>
-                <p className="auth-subtext">{subtexts[step - 1]}</p>
               </div>
 
-              <div className="setup-body">
-                {step === 1 && (
-                  <section className="setup-section setup-step-1" aria-label="Identify your SmarTanom device">
-                    <div className="setup-methods">
-                      <article className="setup-method-card">
-                        <header className="setup-method-card-head">
-                          <span className="setup-method-index" aria-hidden="true">1</span>
-                          <div className="setup-method-copy">
-                            <div className="setup-method-text">
-                              <h3>Scan QR Code</h3>
-                              <p>Open your camera and point to the QR sticker on your device.</p>
-                            </div>
-                            <div className="setup-method-icon" aria-hidden="true">
-                              <CameraIcon />
-                            </div>
-                          </div>
-                        </header>
-                        <div className="setup-method-card-body">
-                          <div className="setup-input-inline">
-                            <button
-                              type="button"
-                              className="setup-btn sm"
-                              aria-label="Open camera to scan device QR"
-                            >
-                              Open Camera
-                            </button>
-                            <span className="setup-hint">Allow camera permission when prompted.</span>
-                          </div>
-                        </div>
-                      </article>
+              <div className="setup-middle auth-fade-item" role="region" aria-live="polite" aria-label={headings[step - 1]}>
+                <div className="setup-heading">
+                  <h1 className="auth-title">{headings[step - 1]}</h1>
+                  <p className="auth-subtext">{subtexts[step - 1]}</p>
+                </div>
 
-                      <article className="setup-method-card">
-                        <header className="setup-method-card-head">
-                          <span className="setup-method-index" aria-hidden="true">2</span>
-                          <div className="setup-method-copy">
-                            <div className="setup-method-text">
-                              <h3>Upload QR Image</h3>
-                              <p>Choose an existing photo of the QR sticker if you have it saved.</p>
+                <div className="setup-body">
+                  {step === 1 && (
+                    <section className="setup-section setup-step-1" aria-label="Identify your SmarTanom device">
+                      <div className="setup-methods">
+                        <article className="setup-method-card">
+                          <header className="setup-method-card-head">
+                            <span className="setup-method-index" aria-hidden="true">1</span>
+                            <div className="setup-method-copy">
+                              <div className="setup-method-text">
+                                <h3>Scan QR Code</h3>
+                                <p>Open your camera and point to the QR sticker on your device.</p>
+                              </div>
+                              <div className="setup-method-icon" aria-hidden="true">
+                                <CameraIcon />
+                              </div>
                             </div>
-                            <div className="setup-method-icon" aria-hidden="true">
-                              <UploadIcon />
+                          </header>
+                          <div className="setup-method-card-body">
+                            <div className="setup-input-inline">
+                              <button
+                                type="button"
+                                className="setup-btn sm"
+                                aria-label="Open camera to scan device QR"
+                              >
+                                Open Camera
+                              </button>
+                              <span className="setup-hint">Allow camera permission when prompted.</span>
                             </div>
                           </div>
-                        </header>
-                        <div className="setup-method-card-body">
-                          <input id="qrfile" type="file" accept="image/*" className="setup-file" onChange={onPickFile} />
-                          <label htmlFor="qrfile" className="setup-btn sm" aria-label="Choose QR code image">
-                            Choose Image
-                          </label>
-                          {fileName && <span className="setup-file-name" aria-live="polite">{fileName}</span>}
-                        </div>
-                      </article>
+                        </article>
 
-                      <article className="setup-method-card">
-                        <header className="setup-method-card-head">
-                          <span className="setup-method-index" aria-hidden="true">3</span>
-                          <div className="setup-method-copy">
-                            <div className="setup-method-text">
-                              <h3>Manual Entry</h3>
-                              <p>Type the Device ID printed underneath the QR label.</p>
+                        <article className="setup-method-card">
+                          <header className="setup-method-card-head">
+                            <span className="setup-method-index" aria-hidden="true">2</span>
+                            <div className="setup-method-copy">
+                              <div className="setup-method-text">
+                                <h3>Upload QR Image</h3>
+                                <p>Choose an existing photo of the QR sticker if you have it saved.</p>
+                              </div>
+                              <div className="setup-method-icon" aria-hidden="true">
+                                <UploadIcon />
+                              </div>
                             </div>
-                            <div className="setup-method-icon" aria-hidden="true">
-                              <KeyboardIcon />
+                          </header>
+                          <div className="setup-method-card-body">
+                            <input id="qrfile" type="file" accept="image/*" className="setup-file" onChange={onPickFile} />
+                            <label htmlFor="qrfile" className="setup-btn sm" aria-label="Choose QR code image">
+                              Choose Image
+                            </label>
+                            {fileName && <span className="setup-file-name" aria-live="polite">{fileName}</span>}
+                          </div>
+                        </article>
+
+                        <article className="setup-method-card">
+                          <header className="setup-method-card-head">
+                            <span className="setup-method-index" aria-hidden="true">3</span>
+                            <div className="setup-method-copy">
+                              <div className="setup-method-text">
+                                <h3>Manual Entry</h3>
+                                <p>Type the Device ID printed underneath the QR label.</p>
+                              </div>
+                              <div className="setup-method-icon" aria-hidden="true">
+                                <KeyboardIcon />
+                              </div>
+                            </div>
+                          </header>
+                          <div className="setup-method-card-body">
+                            <div className="setup-field">
+                              <label className="setup-field-label setup-field-label--sm" htmlFor="deviceId">Device ID</label>
+                              <input
+                                id="deviceId"
+                                type="text"
+                                placeholder="Input Device ID here"
+                                value={deviceId}
+                                onChange={e => {
+                                  setDeviceId(e.target.value);
+                                  if (verified) setVerified(false);
+                                }}
+                                aria-label="Manual device ID"
+                                autoComplete="off"
+                                inputMode="text"
+                              />
                             </div>
                           </div>
-                        </header>
-                        <div className="setup-method-card-body">
+                        </article>
+                      </div>
+                    </section>
+                  )}
+                  {step === 2 && (
+                    <section className="setup-section setup-step-2" aria-label="First Time Device Setup - Hydroponic Info">
+                      {/* Device Information Card */}
+                      <div className="setup-card">
+                        <h3 className="setup-section-title">Device Information</h3>
+                        <div className="setup-form-grid">
                           <div className="setup-field">
-                            <label className="setup-field-label setup-field-label--sm" htmlFor="deviceId">Device ID</label>
+                            <div className="setup-field-label-row">
+                              <label className="setup-field-label setup-field-label--xs" htmlFor="nickname">Device Nickname</label>
+                              <span className="setup-optional" aria-hidden="true">optional</span>
+                            </div>
                             <input
-                              id="deviceId"
+                              id="nickname"
                               type="text"
-                              placeholder="Input Device ID here"
-                              value={deviceId}
-                              onChange={e => {
-                                setDeviceId(e.target.value);
-                                if (verified) setVerified(false);
-                              }}
-                              aria-label="Manual device ID"
+                              placeholder="Optional — defaults to serial ID"
+                              value={nickname}
+                              onChange={(e) => setNickname(e.target.value)}
+                              aria-describedby="help-nickname"
                               autoComplete="off"
                               inputMode="text"
                             />
+                            <p id="help-nickname" className="setup-helper setup-helper--sm">If left empty, we will use the device’s serial ID.</p>
+                          </div>
+
+                          <div className="setup-field">
+                            <div className="setup-field-label-row">
+                              <label className="setup-field-label setup-field-label--xs" htmlFor="location">Location</label>
+                              <span className="setup-optional" aria-hidden="true">optional</span>
+                            </div>
+                            <input
+                              id="location"
+                              type="text"
+                              placeholder="e.g., Balcony, Backyard"
+                              value={location}
+                              onChange={(e) => setLocation(e.target.value)}
+                              aria-describedby="help-location"
+                              autoComplete="off"
+                              inputMode="text"
+                            />
+                            <p id="help-location" className="setup-helper setup-helper--sm">Where is your SmarTanom installed? (e.g., balcony, backyard)</p>
                           </div>
                         </div>
-                      </article>
+                      </div>
+
+                      {/* Reservoir Info Card */}
+                      <div className="setup-card">
+                        <h3 className="setup-section-title">Reservoir</h3>
+                        <div className="setup-form-grid">
+                          <div className="setup-field">
+                            <div className="setup-field-label-row">
+                              <label className="setup-field-label setup-field-label--xs" htmlFor="resDeviceId">Device ID</label>
+                            </div>
+                            <input
+                              id="resDeviceId"
+                              type="text"
+                              value={deviceId}
+                              readOnly
+                              disabled
+                              aria-readonly="true"
+                            />
+                            <p className="setup-helper setup-helper--sm">Reservoir will be created for this device.</p>
+                          </div>
+
+                          <div className="setup-field">
+                            <div className="setup-field-label-row">
+                              <label className="setup-field-label setup-field-label--xs" htmlFor="reservoirName">Reservoir Name</label>
+                            </div>
+                            <input
+                              id="reservoirName"
+                              type="text"
+                              placeholder="e.g., Main Tank"
+                              value={reservoirName}
+                              onChange={(e) => setReservoirName(e.target.value)}
+                              autoComplete="off"
+                            />
+                          </div>
+
+                          <div className="setup-field">
+                            <div className="setup-field-label-row">
+                              <label className="setup-field-label setup-field-label--xs" htmlFor="plantType">Plant Type</label>
+                            </div>
+                            <select
+                              id="plantType"
+                              value={plantType}
+                              onChange={(e) => setPlantType(e.target.value)}
+                              aria-describedby="help-planttype"
+                            >
+                              <option value="" disabled>Select plant type</option>
+                              {PLANT_TYPES.map(pt => (
+                                <option key={pt} value={pt}>{pt}</option>
+                              ))}
+                            </select>
+                            <p id="help-planttype" className="setup-helper setup-helper--sm">Matches the options used in Start Cycle.</p>
+                          </div>
+
+                          <div className="setup-field">
+                            <div className="setup-field-label-row">
+                              <label className="setup-field-label setup-field-label--xs" htmlFor="resStart">Start Date</label>
+                            </div>
+                            <input
+                              id="resStart"
+                              type="date"
+                              value={resStartDate}
+                              onChange={(e) => setResStartDate(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="setup-field">
+                            <div className="setup-field-label-row">
+                              <label className="setup-field-label setup-field-label--xs" htmlFor="resEnd">End Date</label>
+                            </div>
+                            <input
+                              id="resEnd"
+                              type="date"
+                              value={resEndDate}
+                              onChange={(e) => setResEndDate(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        {reservoirError && (
+                          <p className="setup-error" role="alert" style={{ marginTop: 8 }}>{reservoirError}</p>
+                        )}
+                      </div>
+
+                      {/* Hydroponic Info Card */}
+                      <div className="setup-card">
+                        <h3 className="setup-section-title">Hydroponic Info</h3>
+                        <div className="setup-form-grid">
+                          <div className="setup-field span-2">
+                            <div className="setup-field-label-row">
+                              <label className="setup-field-label setup-field-label--xs">Plant Photo</label>
+                              <span className="setup-optional" aria-hidden="true">optional</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="setup-btn"
+                              onClick={() => setShowPlantPhotoModal(true)}
+                              style={{ marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            >
+                              <ImageIcon size={18} color="#ffffff" />
+                              <span>Choose Plant Photo</span>
+                            </button>
+                            {plantPhotoChoice === 'upload' && uploadPhotoUrl && (
+                              <p className="setup-helper" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <CameraIcon size={16} color="rgba(255,255,255,0.9)" />
+                                <span><strong>Photo Uploaded:</strong> {uploadPhotoName}</span>
+                              </p>
+                            )}
+                            {plantPhotoChoice === 'default' && selectedDefaultImage && (
+                              <p className="setup-helper" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <LeafIcon size={16} color="rgba(255,255,255,0.9)" />
+                                <span><strong>Selected:</strong> {selectedDefaultImage}</span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  )}
+                  {step === 3 && (
+                    <section className="setup-section setup-step-3" aria-label="Bind Device to Email">
+                      {/* Device summary card */}
+                      <div className="setup-card device-summary-card">
+                        <div className="device-summary-icon" aria-hidden="true">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 7h6" /></svg>
+                        </div>
+                        <div className="device-summary-text">
+                          <p className="device-summary-title" aria-live="polite">{deviceSummaryName}</p>
+                          {deviceSummarySub && (
+                            <p className="device-summary-sub" aria-live="polite">{deviceSummarySub}</p>
+                          )}
+                        </div>
+                      </div>
+                      {/* Email bind card */}
+                      <div className="setup-card">
+                        <div className="setup-form-grid">
+                          <div className="setup-field span-2">
+                            <div className="setup-field-label-row">
+                              <label className="setup-field-label" htmlFor="bindEmail">Email Address</label>
+                              <span className="label-right-icon" aria-hidden="true">
+                                <Mail size={14} color="#ffffff" />
+                              </span>
+                            </div>
+                            <input
+                              id="bindEmail"
+                              type="email"
+                              inputMode="email"
+                              autoComplete="email"
+                              placeholder="user@example.com"
+                              value={bindEmail}
+                              onChange={(e) => setBindEmail(e.target.value)}
+                              aria-describedby="help-bindemail"
+                            />
+                            <p id="help-bindemail" className="setup-helper setup-helper--sm">Enter your email to bind this device to your account.</p>
+                            {emailError && <p className="setup-error" role="alert">{emailError}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  )}
+                  {step === 4 && (
+                    <section className="setup-section setup-step-4" aria-label="Verify Email OTP Code">
+                      <div className="setup-card otp-verification-card">
+                        <div className="otp-header">
+                          <h3 className="setup-section-title" style={{ marginTop: 0, marginBottom: 6 }}>Enter Verification Code</h3>
+                          <p className="setup-helper" style={{ marginTop: 0, fontSize: '14px', opacity: 0.85 }}>
+                            We sent a 6-digit code to<br />
+                            <strong style={{ color: 'rgba(255,255,255,0.95)', fontSize: '15px' }}>{bindEmail || 'your email'}</strong>
+                          </p>
+                        </div>
+
+                        <SignupStepFourOtp
+                          otpCode={otpCode}
+                          setOtpCode={setOtpCode}
+                          verifyingOtp={verifyingOtp}
+                          otpError={otpError}
+                          setStatusMsg={setStatusMsg}
+                        />
+
+                        <div className="visually-hidden" aria-live="polite">{statusMsg}</div>
+
+                        <div className="otp-feedback-zone">
+                          {otpError && (
+                            <div className="otp-error-message" role="alert">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="8" x2="12" y2="12" />
+                                <line x1="12" y1="16" x2="12.01" y2="16" />
+                              </svg>
+                              <span>{otpError}</span>
+                            </div>
+                          )}
+                          {otpResent && !otpError && (
+                            <div className="otp-success-message" role="status">
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                                <polyline points="22 4 12 14.01 9 11.01" />
+                              </svg>
+                              <span>Code resent successfully!</span>
+                            </div>
+                          )}
+                          {resendCooldown > 0 && !otpError && !otpResent && (
+                            <p className="otp-cooldown-hint">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                              </svg>
+                              <span>Resend available in <strong>{resendCooldown}s</strong></span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+                  {step === 5 && (
+                    <section className="setup-section setup-step-5" aria-label="WiFi Setup">
+                      <div className="setup-card wifi-card-compact" role="group" aria-labelledby="wifi-setup-head">
+                        <h3 id="wifi-setup-head" className="setup-section-title">Connect to WiFi</h3>
+                        <p className="setup-helper" style={{ marginTop: 4 }}>Connect your SmarTanom device to your home WiFi network.</p>
+
+                        {connectionStatus === 'success' && (
+                          <div className="wifi-status-banner success" role="status" aria-live="polite" style={{ marginTop: 12 }}>
+                            Connected! Finalizing…
+                          </div>
+                        )}
+
+                        {wifiSelected && connectionStatus !== 'success' && (
+                          <div className="wifi-connected-summary" style={{ marginTop: 12 }}>
+                            <div className="wifi-summary-row">
+                              <SignalBars level={rssiToBars(wifiSelected.rssi)} size={18} />
+                              <span className="wifi-summary-ssid">{wifiSelected.ssid}</span>
+                              {wifiSelected.secure && <Lock size={12} color="#ffffff" className="wifi-lock" />}
+                            </div>
+                            <p className="setup-helper" style={{ marginTop: 4, fontSize: '12px' }}>Ready to connect with entered credentials.</p>
+                          </div>
+                        )}
+
+                        {hiddenSsidEnabled && connectionStatus !== 'success' && (
+                          <div className="wifi-connected-summary" style={{ marginTop: 12 }}>
+                            <p className="setup-helper" style={{ fontSize: '12px' }}>Hidden SSID: <strong>{hiddenSsid || '(not set)'}</strong></p>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          className="setup-btn"
+                          style={{ marginTop: 16, width: '100%' }}
+                          onClick={() => setWifiModalOpen(true)}
+                          disabled={connecting || connectionStatus === 'success'}
+                        >
+                          {wifiSelected || hiddenSsidEnabled ? 'Change Network' : 'Select Network'}
+                        </button>
+
+                      </div>
+                    </section>
+                  )}
+                  {step === 6 && (
+                    <section className="setup-section setup-step-6" aria-label="Set Username">
+                      <div className="setup-card">
+                        <h3 className="setup-section-title">Your Profile</h3>
+                        {!accountCreated && (<>
+                          <div className="setup-field-grid-two">
+                            <div className="setup-field">
+                              <label htmlFor="firstName" className="setup-field-label">First Name</label>
+                              <input
+                                id="firstName"
+                                type="text"
+                                placeholder="Your first name"
+                                value={firstName}
+                                onChange={e => setFirstName(e.target.value)}
+                                autoComplete="given-name"
+                              />
+                            </div>
+                            <div className="setup-field">
+                              <label htmlFor="lastName" className="setup-field-label">Last Name</label>
+                              <input
+                                id="lastName"
+                                type="text"
+                                placeholder="Your last name"
+                                value={lastName}
+                                onChange={e => setLastName(e.target.value)}
+                                autoComplete="family-name"
+                              />
+                            </div>
+                          </div>
+                          {finalError && <p className="setup-error" role="alert">{finalError}</p>}
+                        </>)}
+                        {accountCreated && (
+                          <div className="account-success" role="status" aria-live="polite" style={{ textAlign: 'center' }}>
+                            <h4 style={{ marginTop: 0 }}>🎉 All Set!</h4>
+                            <p>Your device and account are fully configured.</p>
+                            <button id="go-dashboard-btn" type="button" className="setup-btn" onClick={() => navigate('/dashboard')}>Go to Dashboard</button>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+                </div>
+              </div>
+
+              <div className="setup-bottom auth-fade-item">
+                {step === 1 && (
+                  <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify your device" data-section="verify">
+                    <div className="setup-verify-content">
+                      <h4>Verify your device</h4>
+                      {!verified && <p>We’ll confirm your SmarTanom before moving on.</p>}
+                      {verified && justVerified && (
+                        <p className="setup-status success" style={{ margin: 0 }} role="status">Device verified! Continuing…</p>
+                      )}
                     </div>
-                  </section>
+                    <div className="setup-verify-actions">
+                      <button type="button" className="setup-btn" onClick={verifyDevice} disabled={checking}>
+                        {checking ? 'Verifying…' : 'Verify Device'}
+                      </button>
+                    </div>
+                  </div>
                 )}
                 {step === 2 && (
-                  <section className="setup-section setup-step-2" aria-label="First Time Device Setup - Hydroponic Info">
-                    {/* Device Information Card */}
-                    <div className="setup-card">
-                      <h3 className="setup-section-title">Device Information</h3>
-                      <div className="setup-form-grid">
-                        <div className="setup-field">
-                          <div className="setup-field-label-row">
-                            <label className="setup-field-label setup-field-label--xs" htmlFor="nickname">Device Nickname</label>
-                            <span className="setup-optional" aria-hidden="true">optional</span>
-                          </div>
-                          <input
-                            id="nickname"
-                            type="text"
-                            placeholder="Optional — defaults to serial ID"
-                            value={nickname}
-                            onChange={(e) => setNickname(e.target.value)}
-                            aria-describedby="help-nickname"
-                            autoComplete="off"
-                            inputMode="text"
-                          />
-                          <p id="help-nickname" className="setup-helper setup-helper--sm">If left empty, we will use the device’s serial ID.</p>
-                        </div>
-
-                        <div className="setup-field">
-                          <div className="setup-field-label-row">
-                            <label className="setup-field-label setup-field-label--xs" htmlFor="location">Location</label>
-                            <span className="setup-optional" aria-hidden="true">optional</span>
-                          </div>
-                          <input
-                            id="location"
-                            type="text"
-                            placeholder="e.g., Balcony, Backyard"
-                            value={location}
-                            onChange={(e) => setLocation(e.target.value)}
-                            aria-describedby="help-location"
-                            autoComplete="off"
-                            inputMode="text"
-                          />
-                          <p id="help-location" className="setup-helper setup-helper--sm">Where is your SmarTanom installed? (e.g., balcony, backyard)</p>
-                        </div>
-                      </div>
+                  <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Continue setup" data-section="continue-step2">
+                    <div className="setup-verify-content">
+                      <h4>Continue setup</h4>
+                      <p>Proceed to bind your device to an email.</p>
                     </div>
-
-                    {/* Hydroponic Info Card */}
-                    <div className="setup-card">
-                      <h3 className="setup-section-title">Hydroponic Info</h3>
-                      <div className="setup-form-grid">
-                        <div className="setup-field span-2">
-                          <div className="setup-field-label-row">
-                            <label className="setup-field-label setup-field-label--xs">Plant Photo</label>
-                            <span className="setup-optional" aria-hidden="true">optional</span>
-                          </div>
-                          <button
-                            type="button"
-                            className="setup-btn"
-                            onClick={() => setShowPlantPhotoModal(true)}
-                            style={{ marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                          >
-                            <ImageIcon size={18} color="#ffffff" />
-                            <span>Choose Plant Photo</span>
-                          </button>
-                          {plantPhotoChoice === 'upload' && uploadPhotoUrl && (
-                            <p className="setup-helper" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <CameraIcon size={16} color="rgba(255,255,255,0.9)" />
-                              <span><strong>Photo Uploaded:</strong> {uploadPhotoName}</span>
-                            </p>
-                          )}
-                          {plantPhotoChoice === 'default' && selectedDefaultImage && (
-                            <p className="setup-helper" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <LeafIcon size={16} color="rgba(255,255,255,0.9)" />
-                              <span><strong>Selected:</strong> {selectedDefaultImage}</span>
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-                )}
-                {step === 3 && (
-                  <section className="setup-section setup-step-3" aria-label="Bind Device to Email">
-                    {/* Device summary card */}
-                    <div className="setup-card device-summary-card">
-                      <div className="device-summary-icon" aria-hidden="true">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6"/></svg>
-                      </div>
-                      <div className="device-summary-text">
-                        <p className="device-summary-title" aria-live="polite">{deviceSummaryName}</p>
-                        {deviceSummarySub && (
-                          <p className="device-summary-sub" aria-live="polite">{deviceSummarySub}</p>
-                        )}
-                      </div>
-                    </div>
-                    {/* Email bind card */}
-                    <div className="setup-card">
-                       <div className="setup-form-grid">
-                         <div className="setup-field span-2">
-                           <div className="setup-field-label-row">
-                            <label className="setup-field-label" htmlFor="bindEmail">Email Address</label>
-                            <span className="label-right-icon" aria-hidden="true">
-                              <Mail size={14} color="#ffffff" />
-                            </span>
-                          </div>
-                           <input
-                            id="bindEmail"
-                            type="email"
-                            inputMode="email"
-                            autoComplete="email"
-                            placeholder="user@example.com"
-                            value={bindEmail}
-                            onChange={(e) => setBindEmail(e.target.value)}
-                            aria-describedby="help-bindemail"
-                          />
-                           <p id="help-bindemail" className="setup-helper setup-helper--sm">Enter your email to bind this device to your account.</p>
-                           {emailError && <p className="setup-error" role="alert">{emailError}</p>}
-                        </div>
-                       </div>
-                     </div>
-                  </section>
-                )}
-                {step === 4 && (
-                  <section className="setup-section setup-step-4" aria-label="Verify Email OTP Code">
-                    <div className="setup-card otp-verification-card">
-                      <div className="otp-header">
-                        <h3 className="setup-section-title" style={{marginTop:0, marginBottom:6}}>Enter Verification Code</h3>
-                        <p className="setup-helper" style={{marginTop:0, fontSize:'14px', opacity:0.85}}>
-                          We sent a 6-digit code to<br />
-                          <strong style={{color:'rgba(255,255,255,0.95)', fontSize:'15px'}}>{bindEmail || 'your email'}</strong>
-                        </p>
-                      </div>
-
-                      <SignupStepFourOtp
-                        otpCode={otpCode}
-                        setOtpCode={setOtpCode}
-                        verifyingOtp={verifyingOtp}
-                        otpError={otpError}
-                        setStatusMsg={setStatusMsg}
-                      />
-
-                      <div className="visually-hidden" aria-live="polite">{statusMsg}</div>
-
-                      <div className="otp-feedback-zone">
-                        {otpError && (
-                          <div className="otp-error-message" role="alert">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
-                              <circle cx="12" cy="12" r="10"/>
-                              <line x1="12" y1="8" x2="12" y2="12"/>
-                              <line x1="12" y1="16" x2="12.01" y2="16"/>
-                            </svg>
-                            <span>{otpError}</span>
-                          </div>
-                        )}
-                        {otpResent && !otpError && (
-                          <div className="otp-success-message" role="status">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
-                              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                              <polyline points="22 4 12 14.01 9 11.01"/>
-                            </svg>
-                            <span>Code resent successfully!</span>
-                          </div>
-                        )}
-                        {resendCooldown > 0 && !otpError && !otpResent && (
-                          <p className="otp-cooldown-hint">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{opacity:0.7}}>
-                              <circle cx="12" cy="12" r="10"/>
-                              <polyline points="12 6 12 12 16 14"/>
-                            </svg>
-                            <span>Resend available in <strong>{resendCooldown}s</strong></span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </section>
-                )}
-                {step === 5 && (
-                  <section className="setup-section setup-step-5" aria-label="WiFi Setup">
-                    <div className="setup-card wifi-card-compact" role="group" aria-labelledby="wifi-setup-head">
-                      <h3 id="wifi-setup-head" className="setup-section-title">Connect to WiFi</h3>
-                      <p className="setup-helper" style={{marginTop:4}}>Connect your SmarTanom device to your home WiFi network.</p>
-
-                      {connectionStatus === 'success' && (
-                        <div className="wifi-status-banner success" role="status" aria-live="polite" style={{marginTop:12}}>
-                          Connected! Finalizing…
-                        </div>
-                      )}
-
-                      {wifiSelected && connectionStatus !== 'success' && (
-                        <div className="wifi-connected-summary" style={{marginTop:12}}>
-                          <div className="wifi-summary-row">
-                            <SignalBars level={rssiToBars(wifiSelected.rssi)} size={18} />
-                            <span className="wifi-summary-ssid">{wifiSelected.ssid}</span>
-                            {wifiSelected.secure && <Lock size={12} color="#ffffff" className="wifi-lock" />}
-                          </div>
-                          <p className="setup-helper" style={{marginTop:4,fontSize:'12px'}}>Ready to connect with entered credentials.</p>
-                        </div>
-                      )}
-
-                      {hiddenSsidEnabled && connectionStatus !== 'success' && (
-                        <div className="wifi-connected-summary" style={{marginTop:12}}>
-                          <p className="setup-helper" style={{fontSize:'12px'}}>Hidden SSID: <strong>{hiddenSsid || '(not set)'}</strong></p>
-                        </div>
-                      )}
-
+                    <div className="setup-verify-actions">
                       <button
                         type="button"
                         className="setup-btn"
-                        style={{marginTop:16,width:'100%'}}
-                        onClick={()=> setWifiModalOpen(true)}
-                        disabled={connecting || connectionStatus==='success'}
+                        onClick={() => {
+                          // Validate reservoir inputs lightly before proceeding
+                          setReservoirError('');
+                          const sd = resStartDate || todayStr;
+                          const ed = resEndDate || sd;
+                          if (!reservoirName.trim()) {
+                            setReservoirError('Reservoir name is required.');
+                            return;
+                          }
+                          if (!plantType.trim()) {
+                            setReservoirError('Plant type is required.');
+                            return;
+                          }
+                          if (sd > ed) {
+                            setReservoirError('End date cannot be before start date.');
+                            return;
+                          }
+                          setResStartDate(sd);
+                          setResEndDate(ed);
+                          setStep(3);
+                        }}
                       >
-                        {wifiSelected || hiddenSsidEnabled ? 'Change Network' : 'Select Network'}
+                        Continue
                       </button>
-
                     </div>
-                  </section>
+                  </div>
                 )}
-                {step === 6 && (
-                  <section className="setup-section setup-step-6" aria-label="Set Username">
-                    <div className="setup-card">
-                      <h3 className="setup-section-title">Create Account Username</h3>
-                      {!accountCreated && (<>
-                        <div className="setup-field">
-                          <label htmlFor="username" className="setup-field-label">Username</label>
-                          <div style={{position: 'relative'}}>
-                            <input
-                              id="username"
-                              type="text"
-                              placeholder="Pick a unique username"
-                              value={username}
-                              onChange={e=> setUsername(e.target.value)}
-                              autoComplete="username"
-                              style={{
-                                paddingRight: checkingUsername ? '40px' : '12px',
-                                borderColor: usernameAvailable === true ? '#4A9B4D' : usernameAvailable === false ? '#dc3545' : undefined
-                              }}
-                            />
-                            {checkingUsername && (
-                              <span style={{
-                                position: 'absolute',
-                                right: '12px',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                fontSize: '12px',
-                                color: 'rgba(255,255,255,0.6)'
-                              }}>
-                                Checking...
-                              </span>
-                            )}
-                          </div>
-                          {usernameMessage && (
-                            <p
-                              className={usernameAvailable ? 'setup-status success' : 'setup-error'}
-                              role={usernameAvailable ? 'status' : 'alert'}
-                              style={{marginTop: 4, fontSize: '11px'}}
-                            >
-                              {usernameAvailable ? '✓ ' : '✗ '}{usernameMessage}
-                            </p>
-                          )}
-                          <p className="setup-helper setup-helper--sm">This will be visible in your dashboard.</p>
-                          {finalError && <p className="setup-error" role="alert">{finalError}</p>}
-                        </div>
-                      </>)}
-                      {accountCreated && (
-                        <div className="account-success" role="status" aria-live="polite" style={{textAlign:'center'}}>
-                          <h4 style={{marginTop:0}}>🎉 All Set!</h4>
-                          <p>Your device and account are fully configured.</p>
-                          <button id="go-dashboard-btn" type="button" className="setup-btn" onClick={()=> navigate('/dashboard')}>Go to Dashboard</button>
-                        </div>
-                      )}
+                {step === 3 && (
+                  <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Send verification code" data-section="send-code">
+                    <div className="setup-verify-content">
+                      <h4>Send verification code</h4>
+                      <p>We will email you a one‑time code.</p>
                     </div>
-                  </section>
+                    <div className="setup-verify-actions">
+                      <button type="button" className="setup-btn" onClick={sendCode} disabled={sendingCode || !isValidEmail(bindEmail)}>{sendingCode ? 'Sending…' : 'Send Code'}</button>
+                    </div>
+                  </div>
+                )}
+                {step === 4 && (
+                  <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify email code" data-section="verify-step4">
+                    <div className="setup-verify-content">
+                      <h4>Verify email</h4>
+                      <p>Enter the code and continue.</p>
+                    </div>
+                    <div className="setup-verify-actions" style={{ display: 'flex', gap: 12 }}>
+                      <button
+                        type="button"
+                        className="setup-btn outline sm"
+                        disabled={verifyingOtp || resendCooldown > 0}
+                        onClick={resendOtp}
+                        aria-disabled={resendCooldown > 0 || undefined}
+                        aria-label={resendCooldown > 0 ? `Resend disabled ${resendCooldown} seconds remaining` : 'Resend code'}
+                      >
+                        {resendCooldown > 0 ? `Resend (${resendCooldown})` : 'Resend'}
+                      </button>
+                      <button
+                        type="button"
+                        className="setup-btn sm"
+                        disabled={verifyingOtp || otpCode.length !== 6 || !!otpCode.split('').some(c => !c)}
+                        onClick={verifyOtp}
+                      >
+                        {verifyingOtp ? 'Verifying…' : 'Verify Code'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {step === 6 && !accountCreated && (
+                  <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Finish account setup">
+                    <div className="setup-verify-content">
+                      <h4>Finish account setup</h4>
+                      <p>Complete your profile to access the dashboard.</p>
+                    </div>
+                    <div className="setup-verify-actions">
+                      <button
+                        type="button"
+                        className="setup-btn"
+                        disabled={!firstName.trim() || !lastName.trim() || finalizing}
+                        onClick={finalizeAccount}
+                      >
+                        {finalizing ? 'Finishing…' : 'Finish Setup'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {step === 6 && accountCreated && (
+                  <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Account created">
+                    <div className="setup-verify-content">
+                      <h4>🎉 Account Ready!</h4>
+                      <p>Your device and account are fully configured.</p>
+                    </div>
+                    <div className="setup-verify-actions">
+                      <button id="go-dashboard-btn" type="button" className="setup-btn" onClick={() => navigate('/dashboard')}>Go to Dashboard</button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="setup-bottom auth-fade-item">
-              {step === 1 && (
-                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify your device" data-section="verify">
-                  <div className="setup-verify-content">
-                    <h4>Verify your device</h4>
-                    {!verified && <p>We’ll confirm your SmarTanom before moving on.</p>}
-                    {verified && justVerified && (
-                      <p className="setup-status success" style={{margin:0}} role="status">Device verified! Continuing…</p>
-                    )}
-                  </div>
-                  <div className="setup-verify-actions">
-                    <button type="button" className="setup-btn" onClick={verifyDevice} disabled={checking}>
-                      {checking ? 'Verifying…' : 'Verify Device'}
-                    </button>
+            {modal.open && (
+              <div className="setup-modal" role="dialog" aria-modal="true" aria-label="Verification error">
+                <div className="setup-modal-content setup-modal-error" >
+                  <h4 style={{ margin: 0, textAlign: 'center' }}>Verification Error</h4>
+                  <p style={{ margin: 0, textAlign: 'center' }}>{modal.message}</p>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10, justifyContent: 'center' }}>
+                    <button type="button" className="setup-btn" onClick={closeModal}>OK</button>
                   </div>
                 </div>
-              )}
-              {step === 2 && (
-                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Continue setup" data-section="continue-step2">
-                  <div className="setup-verify-content">
-                    <h4>Continue setup</h4>
-                    <p>Proceed to bind your device to an email.</p>
-                  </div>
-                  <div className="setup-verify-actions">
-                    <button type="button" className="setup-btn" onClick={()=> setStep(3)}>Continue</button>
-                  </div>
-                </div>
-              )}
-              {step === 3 && (
-                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Send verification code" data-section="send-code">
-                  <div className="setup-verify-content">
-                    <h4>Send verification code</h4>
-                    <p>We will email you a one‑time code.</p>
-                  </div>
-                  <div className="setup-verify-actions">
-                    <button type="button" className="setup-btn" onClick={sendCode} disabled={sendingCode || !isValidEmail(bindEmail)}>{sendingCode? 'Sending…':'Send Code'}</button>
-                  </div>
-                </div>
-              )}
-              {step === 4 && (
-                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Verify email code" data-section="verify-step4">
-                  <div className="setup-verify-content">
-                    <h4>Verify email</h4>
-                    <p>Enter the code and continue.</p>
-                  </div>
-                  <div className="setup-verify-actions" style={{display:'flex', gap:12}}>
-                    <button
-                      type="button"
-                      className="setup-btn outline sm"
-                      disabled={verifyingOtp || resendCooldown>0}
-                      onClick={resendOtp}
-                      aria-disabled={resendCooldown>0 || undefined}
-                      aria-label={resendCooldown>0 ? `Resend disabled ${resendCooldown} seconds remaining` : 'Resend code'}
-                    >
-                      {resendCooldown>0 ? `Resend (${resendCooldown})` : 'Resend'}
-                    </button>
-                    <button
-                      type="button"
-                      className="setup-btn sm"
-                      disabled={verifyingOtp || otpCode.length !== 6 || !!otpCode.split('').some(c=> !c)}
-                      onClick={verifyOtp}
-                    >
-                      {verifyingOtp? 'Verifying…':'Verify Code'}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {step === 6 && !accountCreated && (
-                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Finish account setup">
-                  <div className="setup-verify-content">
-                    <h4>Finish account setup</h4>
-                    <p>Complete your profile to access the dashboard.</p>
-                  </div>
-                  <div className="setup-verify-actions">
-                    <button
-                      type="button"
-                      className="setup-btn"
-                      disabled={!username.trim() || checkingUsername || usernameAvailable === false || finalizing}
-                      onClick={finalizeAccount}
-                    >
-                      {finalizing ? 'Finishing…' : 'Finish Setup'}
-                    </button>
-                  </div>
-                </div>
-              )}
-              {step === 6 && accountCreated && (
-                <div className="setup-verify-panel" role="region" aria-live="polite" aria-label="Account created">
-                  <div className="setup-verify-content">
-                    <h4>🎉 Account Ready!</h4>
-                    <p>Your device and account are fully configured.</p>
-                  </div>
-                  <div className="setup-verify-actions">
-                    <button id="go-dashboard-btn" type="button" className="setup-btn" onClick={()=> navigate('/dashboard')}>Go to Dashboard</button>
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-
-          {modal.open && (
-            <div className="setup-modal" role="dialog" aria-modal="true" aria-label="Verification error">
-              <div className="setup-modal-content setup-modal-error" >
-                <h4 style={{ margin: 0, textAlign:'center' }}>Verification Error</h4>
-                <p style={{ margin: 0, textAlign:'center' }}>{modal.message}</p>
-                <div style={{ display: 'flex', gap: 10, marginTop: 10, justifyContent:'center' }}>
-                  <button type="button" className="setup-btn" onClick={closeModal}>OK</button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
+        <div className="auth-image-column" aria-hidden="true" />
       </div>
-      <div className="auth-image-column" aria-hidden="true" />
-    </div>
 
-    {showDefaultImageModal && (
+      {showDefaultImageModal && (
         <div
           className="setup-modal default-image-modal"
           role="dialog"
@@ -1402,7 +1520,7 @@ export default function SignupSetup() {
                         setSelectedDefaultImage(name);
                         setShowDefaultImageModal(false);
                       }}
-                      onKeyDown={(e)=>{ if(e.key==='Escape'){ setShowDefaultImageModal(false); } }}
+                      onKeyDown={(e) => { if (e.key === 'Escape') { setShowDefaultImageModal(false); } }}
                     >
                       <span className="default-image-label">{name}</span>
                       {selected && <span className="visually-hidden"> (selected)</span>}
@@ -1516,11 +1634,11 @@ export default function SignupSetup() {
 
       {/* WiFi Setup Modal - Full Screen Overlay */}
       {wifiModalOpen && (
-        <div className="wifi-modal-overlay" onClick={()=> setWifiModalOpen(false)} role="dialog" aria-modal="true" aria-labelledby="wifi-modal-title">
-          <div className="wifi-modal-content" onClick={e=> e.stopPropagation()}>
+        <div className="wifi-modal-overlay" onClick={() => setWifiModalOpen(false)} role="dialog" aria-modal="true" aria-labelledby="wifi-modal-title">
+          <div className="wifi-modal-content" onClick={e => e.stopPropagation()}>
             <div className="wifi-modal-header">
               <h1 id="wifi-modal-title" className="wifi-modal-title">Wi-Fi Setup</h1>
-              <button type="button" className="modal-close-btn" onClick={()=> setWifiModalOpen(false)} aria-label="Close modal">
+              <button type="button" className="modal-close-btn" onClick={() => setWifiModalOpen(false)} aria-label="Close modal">
                 ×
               </button>
             </div>
@@ -1528,7 +1646,7 @@ export default function SignupSetup() {
             <div className="wifi-modal-body">
               <p className="wifi-setup-description">Enter your Wi-Fi network credentials to connect your SmarTanom device to the internet.</p>
 
-              {connectionStatus && connectionStatus!=='success' && (
+              {connectionStatus && connectionStatus !== 'success' && (
                 <div className="wifi-status-banner error" role="alert">Connection failed: {connectionStatus}. Please try again.</div>
               )}
 
@@ -1541,7 +1659,7 @@ export default function SignupSetup() {
                   className="wifi-input"
                   placeholder="Enter your Wi-Fi network name"
                   value={hiddenSsid}
-                  onChange={e=> setHiddenSsid(e.target.value)}
+                  onChange={e => setHiddenSsid(e.target.value)}
                   autoComplete="off"
                   disabled={connecting}
                 />
@@ -1553,29 +1671,29 @@ export default function SignupSetup() {
                 <div className="wifi-password-wrapper">
                   <input
                     id="wifiPasswordInput"
-                    type={showWifiPw? 'text':'password'}
+                    type={showWifiPw ? 'text' : 'password'}
                     className="wifi-input"
                     placeholder="Enter your Wi-Fi password"
                     value={wifiPassword}
-                    onChange={e=> setWifiPassword(e.target.value)}
+                    onChange={e => setWifiPassword(e.target.value)}
                     autoComplete="off"
                     disabled={connecting}
                   />
                   <button
                     type="button"
                     className="wifi-password-toggle"
-                    onClick={()=> setShowWifiPw(p=>!p)}
-                    aria-label={showWifiPw? 'Hide password':'Show password'}
+                    onClick={() => setShowWifiPw(p => !p)}
+                    aria-label={showWifiPw ? 'Hide password' : 'Show password'}
                   >
-                    {showWifiPw? (
+                    {showWifiPw ? (
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
                       </svg>
                     ) : (
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                        <line x1="1" y1="1" x2="23" y2="23"/>
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
                       </svg>
                     )}
                   </button>
@@ -1587,12 +1705,12 @@ export default function SignupSetup() {
               <button
                 type="button"
                 className="wifi-user-guide-btn"
-                onClick={()=> setUserGuideOpen(true)}
+                onClick={() => setUserGuideOpen(true)}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
                 User Guide
               </button>
@@ -1600,16 +1718,16 @@ export default function SignupSetup() {
                 type="button"
                 className="wifi-connect-btn"
                 disabled={!hiddenSsid.trim() || wifiPassword.length < 8 || connecting}
-                onClick={()=> {
+                onClick={() => {
                   setConnecting(true);
-                  setTimeout(()=> {
+                  setTimeout(() => {
                     setConnecting(false);
                     setWifiModalOpen(false);
                     setSuccessModalOpen(true);
                   }, 1500);
                 }}
               >
-                {connecting? 'Connecting…':'Connect Device'}
+                {connecting ? 'Connecting…' : 'Connect Device'}
               </button>
             </div>
           </div>
@@ -1618,15 +1736,15 @@ export default function SignupSetup() {
 
       {/* Success Confirmation Modal - Full Screen Overlay */}
       {successModalOpen && (
-        <div className="wifi-modal-overlay" onClick={()=> setSuccessModalOpen(false)} role="dialog" aria-modal="true" aria-labelledby="success-modal-title">
-          <div className="success-modal-content" onClick={e=> e.stopPropagation()}>
-            <button type="button" className="modal-close-btn" onClick={()=> setSuccessModalOpen(false)} aria-label="Close modal">
+        <div className="wifi-modal-overlay" onClick={() => setSuccessModalOpen(false)} role="dialog" aria-modal="true" aria-labelledby="success-modal-title">
+          <div className="success-modal-content" onClick={e => e.stopPropagation()}>
+            <button type="button" className="modal-close-btn" onClick={() => setSuccessModalOpen(false)} aria-label="Close modal">
               ×
             </button>
             <div className="success-icon">
               <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22 4 12 14.01 9 11.01"/>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
             </div>
             <h2 id="success-modal-title" className="success-title">Device Successfully Connected to Wi-Fi!</h2>
@@ -1634,7 +1752,7 @@ export default function SignupSetup() {
             <button
               type="button"
               className="success-continue-btn"
-              onClick={()=> { setSuccessModalOpen(false); setStep(6); }}
+              onClick={() => { setSuccessModalOpen(false); setStep(6); }}
             >
               Continue
             </button>
@@ -1644,11 +1762,11 @@ export default function SignupSetup() {
 
       {/* User Guide Modal - Full Screen Overlay */}
       {userGuideOpen && (
-        <div className="wifi-modal-overlay" onClick={()=> setUserGuideOpen(false)} role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
-          <div className="guide-modal-content" onClick={e=> e.stopPropagation()}>
+        <div className="wifi-modal-overlay" onClick={() => setUserGuideOpen(false)} role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
+          <div className="guide-modal-content" onClick={e => e.stopPropagation()}>
             <div className="guide-modal-header">
               <h2 id="guide-modal-title" className="guide-modal-title">Wi-Fi Setup Guide</h2>
-              <button type="button" className="modal-close-btn" onClick={()=> setUserGuideOpen(false)} aria-label="Close modal">
+              <button type="button" className="modal-close-btn" onClick={() => setUserGuideOpen(false)} aria-label="Close modal">
                 ×
               </button>
             </div>
@@ -1692,9 +1810,9 @@ export default function SignupSetup() {
               </ol>
               <div className="guide-tip">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                  <line x1="12" y1="9" x2="12" y2="13"/>
-                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
                 <p><strong>Tip:</strong> If the connection fails, ensure your Wi-Fi password is correct and your router is within range of the device.</p>
               </div>
@@ -1703,7 +1821,7 @@ export default function SignupSetup() {
               <button
                 type="button"
                 className="guide-close-btn"
-                onClick={()=> setUserGuideOpen(false)}
+                onClick={() => setUserGuideOpen(false)}
               >
                 Got It
               </button>

@@ -20,17 +20,14 @@ class DeviceAdmin(admin.ModelAdmin):
         'is_bound',
         'bound_email',
         'plant_photo_thumbnail',
-        'plant_name',
-        'plant_variety',
-        'plant_status',
         'created_at',
         'updated_at'
     )
-    list_filter = ('status', 'is_bound', 'plant_status', 'created_at', 'updated_at')
-    search_fields = ('device_name', 'device_serial', 'bound_email', 'plant_name', 'plant_variety', 'location')
+    list_filter = ('status', 'is_bound', 'created_at', 'updated_at')
+    search_fields = ('device_name', 'device_serial', 'bound_email', 'location')
     ordering = ('-created_at',)
     list_per_page = 25  # Show up to 25 devices per page
-    list_editable = ('device_name', 'status', 'plant_name', 'plant_variety', 'plant_status', 'location')
+    list_editable = ('device_name', 'status', 'location')
 
     fieldsets = (
         ('Device Information', {
@@ -41,7 +38,7 @@ class DeviceAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
         ('Plant Information', {
-            'fields': ('plant_photo', 'plant_name', 'plant_variety', 'plant_status')
+            'fields': ('plant_photo',)
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -55,10 +52,8 @@ class DeviceAdmin(admin.ModelAdmin):
         if obj.plant_photo:
             try:
                 return format_html(
-                    '<img src="{}" width="50" height="50" style="object-fit: cover; border-radius: 4px; border: 1px solid #ddd;" title="{}" alt="{}" />',
+                    '<img src="{}" width="50" height="50" style="object-fit: cover; border-radius: 4px; border: 1px solid #ddd;" title="Plant photo" alt="Plant photo" />',
                     obj.plant_photo.url,
-                    obj.plant_name or 'Plant photo',
-                    obj.plant_name or 'Plant photo'
                 )
             except Exception:
                 return "❌ Error loading photo"
@@ -85,19 +80,7 @@ class DeviceAdmin(admin.ModelAdmin):
         )
     get_device_info.short_description = 'Device Info'
 
-    def plant_info_summary(self, obj):
-        """Display plant information summary."""
-        if obj.plant_name:
-            variety = f" ({obj.plant_variety})" if obj.plant_variety else ""
-            status = f" - {obj.plant_status}" if obj.plant_status else ""
-            return format_html(
-                '<div><strong>{}{}</strong><small>{}</small></div>',
-                obj.plant_name,
-                variety,
-                status
-            )
-        return "No plant info"
-    plant_info_summary.short_description = 'Plant Info'
+    # Removed plant_info_summary as plant details fields were dropped
 
     def get_queryset(self, request):
         """Override to ensure all devices are visible in admin."""

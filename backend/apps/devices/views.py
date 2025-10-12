@@ -306,9 +306,6 @@ class DeviceViewSet(BaseAuthViewSet):
 
         # Update device with new photo and plant info
         device.plant_photo = photo
-        device.plant_name = request.data.get('plant_name', device.plant_name)
-        device.plant_variety = request.data.get('plant_variety', device.plant_variety)
-        device.plant_status = request.data.get('plant_status', device.plant_status or 'Active')
         device.save()
 
         # Return updated device data

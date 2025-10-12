@@ -129,9 +129,6 @@ class DeviceSerializer(serializers.ModelSerializer):
             "bound_email",
             "plant_photo",
             "plant_photo_url",
-            "plant_name",
-            "plant_variety",
-            "plant_status",
             "created_at",
             "updated_at",
         ]
