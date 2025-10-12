@@ -12,8 +12,8 @@
   --radius-lg: 16px;
   --radius-md: 12px;
   --radius-sm: 8px;
-  --shadow-elev: 0 4px 8px rgba(0,0,0,0.05);
-  --transition-fast: 160ms cubic-bezier(.4,0,.2,1);
+  --shadow-elev: 0 4px 8px rgba(0, 0, 0, 0.05);
+  --transition-fast: 160ms cubic-bezier(.4, 0, .2, 1);
   --space-4: 16px;
   --space-6: 24px;
 }
@@ -42,7 +42,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, transparent 100%);
 }
 
 .back-button {
@@ -59,7 +59,7 @@
   color: var(--color-primary);
   cursor: pointer;
   transition: all var(--transition-fast);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .back-button:hover {
@@ -83,7 +83,7 @@
   justify-content: center;
   cursor: pointer;
   transition: all var(--transition-fast);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .more-button:hover {
@@ -195,6 +195,66 @@
   color: var(--color-primary);
 }
 
+/* Device status badge */
+.device-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 13px;
+  font-weight: 600;
+  align-self: flex-start;
+}
+
+.device-status-badge .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Status colors */
+.device-status-badge.status-active {
+  background: rgba(51, 148, 50, 0.10);
+  border-color: rgba(51, 148, 50, 0.20);
+  color: var(--color-primary);
+}
+
+.device-status-badge.status-active .status-dot {
+  background: var(--color-primary-solid);
+}
+
+.device-status-badge.status-inactive {
+  background: rgba(139, 167, 151, 0.10);
+  border-color: rgba(139, 167, 151, 0.25);
+  color: #8BA797;
+}
+
+.device-status-badge.status-inactive .status-dot {
+  background: #8BA797;
+}
+
+.device-status-badge.status-maintenance {
+  background: rgba(253, 200, 77, 0.10);
+  border-color: rgba(253, 200, 77, 0.30);
+  color: #D59000;
+}
+
+.device-status-badge.status-maintenance .status-dot {
+  background: #FDC84D;
+}
+
+.device-status-badge.status-decommissioned {
+  background: rgba(225, 85, 74, 0.10);
+  border-color: rgba(225, 85, 74, 0.30);
+  color: #E1554A;
+}
+
+.device-status-badge.status-decommissioned .status-dot {
+  background: #E1554A;
+}
+
 /* Plant card */
 .plant-card {
   display: flex;
@@ -289,6 +349,31 @@
 .start-cycle-button:active {
   transform: translateY(0);
   box-shadow: 0 2px 8px rgba(51, 148, 50, 0.2);
+}
+
+/* Inline cycle details inside plant card */
+.plant-card-cycle {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plant-cycle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.plant-cycle-label {
+  font-size: 12px;
+  color: var(--color-text-light);
+}
+
+.plant-cycle-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 /* Tab placeholders */

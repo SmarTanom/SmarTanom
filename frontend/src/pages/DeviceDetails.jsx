@@ -22,6 +22,7 @@ import {
 
 import { getDeviceById } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
+import { getDeviceReservoirs } from '../services/api/reservoirs.js';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -99,6 +100,7 @@ export default function DeviceDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [logEntries, setLogEntries] = useState([]);
+  const [reservoir, setReservoir] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -115,6 +117,24 @@ export default function DeviceDetails() {
         const resp = await getDeviceById(id);
         const dev = resp && resp.id ? resp : (resp && resp.results ? resp.results : resp);
         if (mounted) setDevice(dev);
+
+        // Fetch reservoirs for this device and pick the most recent entry
+        try {
+          const targetId = (dev && (dev.id || dev.device_id)) || id;
+          if (targetId) {
+            const resResp = await getDeviceReservoirs(targetId);
+            const list = (resResp && resResp.results) ? resResp.results : resResp;
+            if (mounted) {
+              if (Array.isArray(list) && list.length > 0) {
+                setReservoir(list[0]); // API orders by -created_at; take latest
+              } else {
+                setReservoir(null);
+              }
+            }
+          }
+        } catch (_e) {
+          if (mounted) setReservoir(null);
+        }
       } catch (e) {
         console.warn('DeviceDetails: failed to load device', e);
         if (mounted) {
@@ -320,10 +340,27 @@ export default function DeviceDetails() {
 
   const resolvedDevice = device || (mockDevices[deviceId] || mockDevices['D000000001']);
 
+  // Derive display values and only render when truthy to avoid placeholder dashes
+  const plantName = (device && device.plant_name) || (resolvedDevice.plant ? resolvedDevice.plant.name : '');
+  const plantVariety = (device && device.plant_variety) || (resolvedDevice.plant ? resolvedDevice.plant.variety : '');
+  const harvestText = (device && device.plant_status)
+    || (resolvedDevice.plant ? `Harvest in ${resolvedDevice.plant.daysToHarvest} days` : '');
+
+  // Device status badge configuration
+  const deviceStatusRaw = (device && device.status) || '';
+  const statusKey = (deviceStatusRaw || '').toLowerCase();
+  const statusLabel = deviceStatusRaw
+    ? deviceStatusRaw.charAt(0).toUpperCase() + deviceStatusRaw.slice(1)
+    : 'Active';
+  const statusClass = ['active', 'inactive', 'maintenance', 'decommissioned'].includes(statusKey)
+    ? statusKey
+    : 'active';
+
   // Use plant photo if available, otherwise fall back to mock image or default
   const headerImage = (device && device.plant_photo_url)
     ? device.plant_photo_url
-    : (resolvedDevice.image || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop');  return (
+    : (resolvedDevice.image || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop');
+  return (
     <div className="device-details-root">
       {/* Header with background image */}
       <header className="device-header" style={{ backgroundImage: `url(${headerImage})` }}>
@@ -390,12 +427,10 @@ export default function DeviceDetails() {
               </p>
             </div>
 
-            {/* Plant status */}
-            <div className="plant-status-card">
-              <Sprout size={18} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              <span className="plant-status-text">
-                {(device && device.plant_status) || (resolvedDevice.plant ? resolvedDevice.plant.status : 'Active')}
-              </span>
+            {/* Device status badge */}
+            <div className={`device-status-badge status-${statusClass}`} title={`Device status: ${statusLabel}`}>
+              <span className="status-dot" aria-hidden="true" />
+              <span className="device-status-text">{statusLabel}</span>
             </div>
 
             {/* Plant card */}
@@ -416,17 +451,32 @@ export default function DeviceDetails() {
               </div>
               <div className="plant-card-content">
                 <div className="plant-card-info">
-                  <h3 className="plant-card-name">
-                    {(device && device.plant_name) || (resolvedDevice.plant ? resolvedDevice.plant.name : '—')}
-                  </h3>
-                  <p className="plant-card-variety">
-                    {(device && device.plant_variety) || (resolvedDevice.plant ? resolvedDevice.plant.variety : '—')}
-                  </p>
+                  {plantName && (
+                    <h3 className="plant-card-name">{plantName}</h3>
+                  )}
+                  {plantVariety && (
+                    <p className="plant-card-variety">{plantVariety}</p>
+                  )}
                 </div>
-                <div className="plant-card-harvest">
-                  <span className="harvest-label">
-                    {(device && device.plant_status) || (resolvedDevice.plant ? `Harvest in ${resolvedDevice.plant.daysToHarvest} days` : '—')}
-                  </span>
+                {harvestText && (
+                  <div className="plant-card-harvest">
+                    <span className="harvest-label">{harvestText}</span>
+                  </div>
+                )}
+                {/* Inline cycle details inside the same card */}
+                <div className="plant-card-cycle">
+                  <div className="plant-cycle-row">
+                    <span className="plant-cycle-label">Plant type</span>
+                    <span className="plant-cycle-value">{(reservoir && reservoir.plant_type) || '—'}</span>
+                  </div>
+                  <div className="plant-cycle-row">
+                    <span className="plant-cycle-label">Start date</span>
+                    <span className="plant-cycle-value">{(reservoir && reservoir.start_date) ? new Date(reservoir.start_date).toLocaleDateString() : '—'}</span>
+                  </div>
+                  <div className="plant-cycle-row">
+                    <span className="plant-cycle-label">End date</span>
+                    <span className="plant-cycle-value">{(reservoir && reservoir.end_date) ? new Date(reservoir.end_date).toLocaleDateString() : '—'}</span>
+                  </div>
                 </div>
               </div>
             </div>
