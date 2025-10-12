@@ -34,6 +34,8 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [user, setUser] = useState(null);
+  const [devices, setDevices] = useState([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [shareEmail, setShareEmail] = useState('');
@@ -196,6 +198,27 @@ export default function ProfilePage() {
     setNewPhotoPreview(preview);
   }
 
+  // Load user devices for sharing
+  const loadDevicesForSharing = async () => {
+    setDevicesLoading(true);
+    try {
+      const devicesResponse = await getUserDevices();
+      const userDevices = devicesResponse.results || devicesResponse;
+      if (Array.isArray(userDevices)) {
+        setDevices(userDevices);
+        console.log(`📱 Loaded ${userDevices.length} devices for sharing`);
+      } else {
+        setDevices([]);
+        console.warn('No devices found or invalid response format');
+      }
+    } catch (error) {
+      console.error('Failed to load devices for sharing:', error);
+      setDevices([]);
+    } finally {
+      setDevicesLoading(false);
+    }
+  };
+
   const handleShareDevice = () => {
     if (!selectedDevice || !shareEmail.trim()) {
       alert('Please select a device and enter an email address');
@@ -206,7 +229,7 @@ export default function ProfilePage() {
     const newShare = {
       id: sharedAccess.length + 1,
       deviceId: selectedDevice.id,
-      deviceName: selectedDevice.name,
+      deviceName: selectedDevice.device_name || selectedDevice.plant_name || selectedDevice.device_serial,
       sharedWith: shareEmail,
       sharedDate: new Date().toISOString().split('T')[0]
     };
@@ -223,9 +246,13 @@ export default function ProfilePage() {
     }
   };
 
-  const openShareModal = (deviceId, deviceName) => {
-    setSelectedDevice({ id: deviceId, name: deviceName });
+  const openShareModal = async () => {
+    console.log('🔄 Opening share device modal...');
     setShowShareModal(true);
+    await loadDevicesForSharing();
+    // Reset selection when opening modal
+    setSelectedDevice(null);
+    setShareEmail('');
   };
 
   if (!user) return <div className="loading">Loading...</div>;
@@ -347,7 +374,7 @@ export default function ProfilePage() {
             <h2 className="section-title">Shared Monitoring</h2>
             <button
               className="btn-share-new"
-              onClick={() => openShareModal('RACK-01', 'Outdoor Garden')}
+              onClick={openShareModal}
             >
               <Plus size={16} />
               Share Device
@@ -469,19 +496,34 @@ export default function ProfilePage() {
                   className="form-select"
                   value={selectedDevice?.id || ''}
                   onChange={(e) => {
-                    const device = [
-                      { id: 'RACK-01', name: 'Outdoor Garden' },
-                      { id: 'RACK-02', name: 'Indoor Rack' },
-                      { id: 'RACK-03', name: 'Greenhouse Unit' }
-                    ].find(d => d.id === e.target.value);
+                    const device = devices.find(d => d.id.toString() === e.target.value);
                     setSelectedDevice(device);
                   }}
+                  disabled={devicesLoading}
                 >
-                  <option value="">Choose a device...</option>
-                  <option value="RACK-01">Outdoor Garden (RACK-01)</option>
-                  <option value="RACK-02">Indoor Rack (RACK-02)</option>
-                  <option value="RACK-03">Greenhouse Unit (RACK-03)</option>
+                  <option value="">
+                    {devicesLoading ? 'Loading devices...' : 'Choose a device...'}
+                  </option>
+                  {devices.map(device => {
+                    const deviceName = device.device_name || device.plant_name || `Device ${device.device_serial}`;
+                    const deviceLabel = device.device_serial
+                      ? `${deviceName} (${device.device_serial})`
+                      : deviceName;
+                    return (
+                      <option key={device.id} value={device.id}>
+                        {deviceLabel}
+                      </option>
+                    );
+                  })}
+                  {!devicesLoading && devices.length === 0 && (
+                    <option value="" disabled>No devices found</option>
+                  )}
                 </select>
+                {!devicesLoading && devices.length === 0 && (
+                  <p className="form-help-text" style={{ color: '#e74c3c' }}>
+                    You don't have any devices to share. Bind a device first.
+                  </p>
+                )}
               </div>
 
               {/* Email Input */}
@@ -505,9 +547,17 @@ export default function ProfilePage() {
               <button className="btn-cancel" onClick={() => setShowShareModal(false)}>
                 Cancel
               </button>
-              <button className="btn-confirm" onClick={handleShareDevice}>
+              <button
+                className="btn-confirm"
+                onClick={handleShareDevice}
+                disabled={devicesLoading || devices.length === 0 || !selectedDevice || !shareEmail.trim()}
+                style={{
+                  opacity: (devicesLoading || devices.length === 0 || !selectedDevice || !shareEmail.trim()) ? 0.5 : 1,
+                  cursor: (devicesLoading || devices.length === 0 || !selectedDevice || !shareEmail.trim()) ? 'not-allowed' : 'pointer'
+                }}
+              >
                 <Check size={16} />
-                Share Device
+                {devicesLoading ? 'Loading...' : 'Share Device'}
               </button>
             </div>
           </div>
