@@ -329,9 +329,7 @@ export default function Dashboard() {
         console.warn('Failed to load first device sensors (best-effort):', err);
       }
 
-      setDevices(userDevices);
-
-      // Fetch sensors and sensor data for each device
+      setDevices(userDevices);      // Fetch sensors and sensor data for each device
       const deviceDataPromises = userDevices.map(async (device) => {
         try {
           const [sensorsResponse, reservoirsResponse] = await Promise.all([
@@ -762,16 +760,18 @@ export default function Dashboard() {
     };
   }, [isDragging, fabPosition]);
 
-  // Only enable clone-based infinite carousel when there are 3+ devices to avoid visible duplicates
-  const isInfinite = devices.length >= 3;
+  // Infinite scroll disabled to prevent duplicate device appearance
+  const isInfinite = false;
   const infiniteDevices = useMemo(() => {
     if (devices.length === 0) return [];
-    if (!isInfinite) return devices; // For 1-2 devices, render as-is
-    // For 3+ devices, add last at start and first at end for seamless loop
-    return [devices[devices.length - 1], ...devices, devices[0]];
-  }, [devices, isInfinite]);
-
-  // Initialize scroll position; for infinite mode, jump to index 1 (first real card)
+    if (!isInfinite) return devices; // For normal carousel, render as-is
+    // For infinite scroll, add last at start and first at end for seamless loop
+    return [
+      { ...devices[devices.length - 1], _cloneType: 'last' },
+      ...devices.map(d => ({ ...d, _cloneType: 'original' })),
+      { ...devices[0], _cloneType: 'first' }
+    ];
+  }, [devices, isInfinite]);  // Initialize scroll position; for infinite mode, jump to index 1 (first real card)
   useEffect(() => {
     const el = carouselRef.current;
     if (!el || devices.length === 0) return;
@@ -810,6 +810,7 @@ export default function Dashboard() {
       if (!isInfinite) {
         // Non-infinite: directly map scroll index to device index (0..len-1)
         const clamped = Math.max(0, Math.min(devices.length - 1, idx));
+        console.log(`Non-infinite carousel: scroll idx=${idx}, clamped=${clamped}, devices.length=${devices.length}`);
         setActiveIdx(clamped);
         return;
       }
@@ -1071,7 +1072,7 @@ export default function Dashboard() {
           {infiniteDevices.map((d, i) => (
             <article
               className="device-card tap"
-              key={`${d.id}-${i}`}
+              key={`${d.id}-${d._cloneType || 'original'}-${i}`}
               aria-label={`${d.device_name} ${d.device_serial}`}
             >
               <div
