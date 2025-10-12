@@ -20,6 +20,8 @@ import {
   Plus,
   Loader
 } from 'lucide-react';
+// Add left arrow for navigating pH chart windows
+import { ChevronLeft } from 'lucide-react';
 import { MdScience } from 'react-icons/md';
 import { getUserDevices } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
@@ -95,23 +97,59 @@ const getPHHistory = (sensorDataMap, phSensorId) => {
   }
 
   const phData = sensorDataMap[phSensorId] || [];
-  // Defensive: sort by created_at ascending (oldest first)
-  const sorted = phData
-    .slice()
-    .sort((a, b) => {
-      const ta = a && a.created_at ? new Date(a.created_at).getTime() : 0;
-      const tb = b && b.created_at ? new Date(b.created_at).getTime() : 0;
-      return ta - tb;
-    })
-    .map(d => (typeof d.value !== 'undefined' ? d.value : 6.3));
 
-  // Now ensure length is 60: if more than 60, take the last 60 (most recent 60)
-  if (sorted.length >= 60) {
-    return sorted.slice(sorted.length - 60);
+  // Create a date-based map for the last 10 days
+  const endDate = new Date();
+  const dateMap = {};
+
+  // Initialize last 10 days with null values
+  for (let i = 9; i >= 0; i--) {
+    const date = new Date(endDate);
+    date.setDate(date.getDate() - i);
+    const dateKey = date.toDateString();
+    dateMap[dateKey] = null;
   }
 
-  // If fewer than 60 and you want fixed-width charts, you could pad; here we avoid mock padding.
-  return sorted;
+  // Fill in actual data where it exists
+  phData.forEach(d => {
+    if (d && d.created_at) {
+      try {
+        const dataDate = new Date(d.created_at);
+        const dateKey = dataDate.toDateString();
+
+        // Only include if within our 10-day window
+        if (dateMap.hasOwnProperty(dateKey)) {
+          const value = Number(d.value);
+          if (Number.isFinite(value)) {
+            // If multiple readings per day, take the latest/average
+            dateMap[dateKey] = value;
+          }
+        }
+      } catch (e) {
+        // Invalid date, skip
+      }
+    }
+  });
+
+  // Convert map back to array in chronological order
+  return Object.values(dateMap);
+};
+
+// Helper function to get pH labels (e.g., day numbers or short dates) aligned with getPHHistory ordering
+const getPHLabels = (sensorDataMap, phSensorId) => {
+  if (!phSensorId || !sensorDataMap[phSensorId]) return null;
+
+  // Create labels for the last 10 days
+  const endDate = new Date();
+  const labels = [];
+
+  for (let i = 9; i >= 0; i--) {
+    const date = new Date(endDate);
+    date.setDate(date.getDate() - i);
+    labels.push(date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+  }
+
+  return labels;
 };
 
 // Helper function to determine connectivity status
@@ -175,14 +213,23 @@ const isAlertRead = (readingId) => {
   return readAlerts.has(readingId);
 };
 
-function PHBar({ v, i }) {
-  const min = 6.0;
-  const max = 6.6;
-  const clamped = Math.min(max, Math.max(min, v));
+function PHBar({ v, i, min, max }) {
+  // Handle null/undefined values (no data for this date)
+  if (v === null || v === undefined) {
+    return (
+      <div className="ph-bar-wrapper" aria-label="No data">
+        {/* No bar rendered for dates without data */}
+      </div>
+    );
+  }
+
+  const vv = Number(v);
+  const isValid = Number.isFinite(vv);
+  const clamped = isValid ? Math.min(max, Math.max(min, vv)) : min;
   const pct = ((clamped - min) / (max - min)) * 100;
   return (
-    <div className="ph-bar-wrapper" aria-label={`pH ${v.toFixed(1)}`}>
-      <div className="ph-bar" style={{ height: `${pct}%`, animationDelay: `${Math.min(i * 20, 800)}ms` }} />
+    <div className="ph-bar-wrapper" aria-label={`pH ${isValid ? vv.toFixed(1) : 'N/A'}`}>
+      <div className="ph-bar" style={{ height: `${pct}%`, minHeight: '2px', animationDelay: `${Math.min(i * 20, 800)}ms` }} />
     </div>
   );
 }
@@ -193,6 +240,10 @@ export default function Dashboard() {
   const [activeIdx, setActiveIdx] = useState(0);
   const scrollTimeoutRef = useRef(null);
   const isAdjustingRef = useRef(false);
+  // Window size for pH chart navigation
+  const PH_WINDOW_SIZE = 10;
+  // Keep per-device pH window start index so users can navigate dates
+  const [phWindows, setPhWindows] = useState({}); // { [deviceId]: startIndex }
 
   // State for real data
   const [devices, setDevices] = useState([]);
@@ -316,6 +367,7 @@ export default function Dashboard() {
           // Find pH sensor for history
           const phSensor = sensors?.find(s => s.sensor_type === 'ph');
           const phHistory = getPHHistory(sensorDataMap, phSensor?.id);
+          const phLabels = getPHLabels(sensorDataMap, phSensor?.id);
 
           // Get latest sensor update time across all sensors. Arrays may not be ordered,
           // so scan each array for the max created_at value.
@@ -348,6 +400,7 @@ export default function Dashboard() {
               lastSyncLabel: lastSync,
               nutrientText,
               phHistory,
+              phLabels,
               sensors: {
                 ...(typeof transformedSensors.ec === 'number' ? { ec: transformedSensors.ec } : {}),
                 ...(typeof transformedSensors.tds === 'number' ? { tds: transformedSensors.tds } : {}),
@@ -538,8 +591,9 @@ export default function Dashboard() {
         sensorDataResults.forEach(({ sensorId, data }) => { sensorDataMap[sensorId] = data; });
       }
       const transformedSensors = transformSensorData(sensors || [], sensorDataMap);
-      const phSensor = Array.isArray(sensors) ? sensors.find(s => s.sensor_type === 'ph') : null;
-      const phHistory = getPHHistory(sensorDataMap, phSensor?.id);
+  const phSensor = Array.isArray(sensors) ? sensors.find(s => s.sensor_type === 'ph') : null;
+  const phHistory = getPHHistory(sensorDataMap, phSensor?.id);
+  const phLabels = getPHLabels(sensorDataMap, phSensor?.id);
       let lastSensorUpdate = null;
       Object.values(sensorDataMap).forEach(arr => {
         if (Array.isArray(arr)) {
@@ -562,6 +616,7 @@ export default function Dashboard() {
         lastSyncLabel: lastSync,
         nutrientText,
         phHistory,
+        phLabels,
         sensors: {
           ...(typeof transformedSensors.ec === 'number' ? { ec: transformedSensors.ec } : {}),
           ...(typeof transformedSensors.tds === 'number' ? { tds: transformedSensors.tds } : {}),
@@ -795,6 +850,73 @@ export default function Dashboard() {
 
   const currentDevice = devices[activeIdx];
   const data = currentDevice ? devicesData[currentDevice.id] : null;
+  const phTotal = data && Array.isArray(data.phHistory) ? data.phHistory.length : 0;
+  const maxStart = Math.max(0, phTotal - PH_WINDOW_SIZE);
+  const currentStart = useMemo(() => {
+    if (!currentDevice) return 0;
+    const saved = phWindows[currentDevice.id];
+    // Default to last window; clamp if total changed
+    const base = typeof saved === 'number' ? saved : maxStart;
+    return Math.min(Math.max(0, base), maxStart);
+  }, [currentDevice, phWindows, maxStart]);
+  const phHistoryDisplay = useMemo(() => {
+    if (!data || !Array.isArray(data.phHistory)) return [];
+    // Show all 10 days of data (no windowing needed since we have fixed 10-day range)
+    return data.phHistory;
+  }, [data]);
+  const phLabelsDisplay = useMemo(() => {
+    if (!data || !Array.isArray(data.phLabels)) return [];
+    // Show all 10 days of labels
+    return data.phLabels;
+  }, [data]);
+
+  // Dynamic scale for pH bars based on displayed data (excluding null values)
+  const phNumbers = useMemo(() =>
+    phHistoryDisplay
+      .filter(n => n !== null && n !== undefined)
+      .map(n => Number(n))
+      .filter(Number.isFinite),
+    [phHistoryDisplay]
+  );
+  const phScale = useMemo(() => {
+    if (!phNumbers.length) return { min: 6.0, max: 6.6 };
+    let min = Math.min(...phNumbers);
+    let max = Math.max(...phNumbers);
+    if (max - min < 0.05) { // ensure some range
+      min = min - 0.1;
+      max = max + 0.1;
+    }
+    // Round to nearest 0.1
+    min = Math.floor(min * 10) / 10;
+    max = Math.ceil(max * 10) / 10;
+    return { min, max };
+  }, [phNumbers]);
+  const phYTicks = useMemo(() => {
+    const N = 7;
+    const range = phScale.max - phScale.min || 0.6;
+    const step = range / (N - 1);
+    return Array.from({ length: N }, (_, i) => (phScale.max - i * step)).map(v => `${v.toFixed(1)} pH`);
+  }, [phScale]);
+
+  // Update default window when device changes or total increases and nothing saved
+  useEffect(() => {
+    if (!currentDevice || phTotal === 0) return;
+    setPhWindows(prev => {
+      if (typeof prev[currentDevice.id] === 'number') return prev; // keep user's position
+      return { ...prev, [currentDevice.id]: maxStart };
+    });
+  }, [currentDevice, phTotal, maxStart]);
+
+  const canPrev = currentStart > 0;
+  const canNext = currentStart < maxStart;
+  const onPrev = () => {
+    if (!currentDevice) return;
+    setPhWindows(prev => ({ ...prev, [currentDevice.id]: Math.max(0, (prev[currentDevice.id] ?? maxStart) - 1) }));
+  };
+  const onNext = () => {
+    if (!currentDevice) return;
+    setPhWindows(prev => ({ ...prev, [currentDevice.id]: Math.min(maxStart, (prev[currentDevice.id] ?? maxStart) + 1) }));
+  };
   // Robust label for pH legend: prefer device_name, then plant_name, then serial
   const legendLabel = useMemo(() => {
     if (!currentDevice) return 'Device';
@@ -804,7 +926,9 @@ export default function Dashboard() {
   }, [currentDevice]);
   const currentPH = useMemo(() => {
     if (!data?.phHistory) return '6.3';
-    return data.phHistory[data.phHistory.length - 1].toFixed(1);
+    // Find the most recent non-null pH value
+    const lastValue = [...data.phHistory].reverse().find(value => value !== null && value !== undefined);
+    return lastValue ? Number(lastValue).toFixed(1) : '6.3';
   }, [activeIdx, data]);
 
   // When devices list changes (e.g., after fetch), reset to the first device
@@ -1103,30 +1227,33 @@ export default function Dashboard() {
             <span className="ph-card-title">pH Levels over time</span>
             <button className="range-switch" aria-label="Change range">Days ▾</button>
           </div>
-          <div className="ph-legend">
+          <div className="ph-legend" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="ph-legend-dot"></span>
             <span className="ph-legend-label">{legendLabel}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+              <span style={{ fontSize: 12, color: '#666', fontWeight: '500' }}>Last 10 Days</span>
+            </div>
           </div>
           <div className="ph-chart-container">
             <div className="ph-y-axis">
-              <span className="ph-y-label">6.6 pH</span>
-              <span className="ph-y-label">6.5 pH</span>
-              <span className="ph-y-label">6.4 pH</span>
-              <span className="ph-y-label">6.3 pH</span>
-              <span className="ph-y-label">6.2 pH</span>
-              <span className="ph-y-label">6.1 pH</span>
-              <span className="ph-y-label">6.0 pH</span>
+              {phYTicks.map((label, i) => (
+                <span key={i} className="ph-y-label">{label}</span>
+              ))}
             </div>
             <div className="ph-bars" role="img" aria-label="pH chart">
-              {data && Array.isArray(data.phHistory) && data.phHistory.length > 0
-                ? data.phHistory.map((v, i) => <PHBar key={i} v={v} i={i} />)
+              {phHistoryDisplay && phHistoryDisplay.length > 0
+                ? phHistoryDisplay.map((v, i) => <PHBar key={i} v={v} i={i} min={phScale.min} max={phScale.max} />)
                 : <div style={{ color: '#999', fontSize: 12 }}>Loading...</div>}
             </div>
           </div>
           <div className="ph-x-axis">
-            {[0, 0, 0, 0, 0, 0, 0].map((_, i) => (
-              <span key={i} className="ph-x-label">0</span>
-            ))}
+            {phLabelsDisplay && phLabelsDisplay.length > 0
+              ? phLabelsDisplay.map((label, i) => (
+                  <span key={i} className="ph-x-label">{label}</span>
+                ))
+              : [0, 0, 0, 0, 0, 0, 0].map((_, i) => (
+                  <span key={i} className="ph-x-label">0</span>
+                ))}
           </div>
         </section>
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.utils import timezone
+from datetime import timedelta
 
 from apps.devices.models import Device
 from apps.sensors.models import Sensor, SensorData
@@ -32,6 +34,15 @@ class Command(BaseCommand):
                             help="Air temperature (°C). Default 30 triggers temp alert.")
         parser.add_argument("--update-existing", action="store_true",
                             help="If set, update the value of an existing reading for each sensor instead of skipping.")
+        parser.add_argument(
+            "--ph-history-add",
+            type=int,
+            default=0,
+            help=(
+                "Append this many additional pH readings per specified device "
+                "(spaced by days for charting). Default 0."
+            ),
+        )
 
     def handle(self, *args, **options):
         serials = options.get("serials") or ["SMRT-AO3-OGN", "SMRT-YYL-G11"]
@@ -40,6 +51,7 @@ class Command(BaseCommand):
         wl_value = options.get("water_level_value", 10.0)
         air_temp_value = options.get("air_temp_value", 30.0)
         update_existing = bool(options.get("update_existing", False))
+        ph_history_add = int(options.get("ph_history_add", 0) or 0)
 
         created_sensors = 0
         created_readings = 0
@@ -99,6 +111,23 @@ class Command(BaseCommand):
                     # Create first reading if none exist
                     SensorData.objects.create(sensor=s, value=value)
                     created_readings += 1
+
+                # Optionally append additional pH history for charting
+                if ph_history_add > 0:
+                    ph_sensor = Sensor.objects.filter(device=device, sensor_type=Sensor.SensorType.PH).first()
+                    if ph_sensor:
+                        # Generate a gentle upward trend, differing per device via offset
+                        now = timezone.now()
+                        for i in range(ph_history_add):
+                            # Oldest first: further in the past for lower indices
+                            when = now - timedelta(days=(ph_history_add - i))
+                            base = 6.0 + 0.1 * i  # 6.0, 6.1, ...
+                            adj = 0.2 * float(idx or 0)  # device-based adjustment
+                            val = round(base + adj, 2)
+                            obj = SensorData.objects.create(sensor=ph_sensor, value=val)
+                            # Backdate created_at for chart grouping by days
+                            SensorData.objects.filter(pk=obj.pk).update(created_at=when)
+                            created_readings += 1
 
         if missing_devices:
             self.stdout.write(self.style.WARNING(

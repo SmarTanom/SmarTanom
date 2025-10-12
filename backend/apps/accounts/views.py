@@ -5,14 +5,14 @@ from django.utils import timezone
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from .models import OTPCode, LoginAttempt
 from .serializers import (
-    OTPRequestSerializer, 
-    OTPVerifySerializer, 
+    OTPRequestSerializer,
+    OTPVerifySerializer,
     UserSerializer,
     UserProfileSerializer
 )
@@ -184,24 +184,24 @@ def verify_google_account(email: str) -> bool:
 def request_otp(request):
     """Request OTP code for authentication."""
     serializer = OTPRequestSerializer(data=request.data)
-    
+
     if not serializer.is_valid():
         return Response(
             {'error': 'Invalid data', 'details': serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     email = serializer.validated_data['email']
     purpose = serializer.validated_data.get('purpose', 'login')
     ip_address = get_client_ip(request)
-    
+
     # Check rate limiting
     if LoginAttempt.is_rate_limited(email, ip_address):
         return Response(
             {'error': 'Too many attempts. Please try again later.'},
             status=status.HTTP_429_TOO_MANY_REQUESTS
         )
-    
+
     try:
         # Determine whether the email already exists. We now enforce explicit flows:
         #  - If user selects signup (register) but email exists -> still send a code tied to *login* purpose but include flag so frontend can prompt login instead of continuing signup.
@@ -284,25 +284,25 @@ def request_otp(request):
 def verify_otp(request):
     """Verify OTP code and authenticate user."""
     serializer = OTPVerifySerializer(data=request.data)
-    
+
     if not serializer.is_valid():
         return Response(
             {'error': 'Invalid data', 'details': serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     email = serializer.validated_data['email']
     code = serializer.validated_data['code']
     purpose = serializer.validated_data.get('purpose', 'login')
     ip_address = get_client_ip(request)
-    
+
     # Check rate limiting
     if LoginAttempt.is_rate_limited(email, ip_address):
         return Response(
             {'error': 'Too many attempts. Please try again later.'},
             status=status.HTTP_429_TOO_MANY_REQUESTS
         )
-    
+
     try:
         # Verify OTP validity (generic failure message to avoid enumeration)
         if not OTPCode.verify_otp(email, code, purpose):
@@ -393,12 +393,12 @@ def logout(request):
     try:
         # Delete the user's token
         Token.objects.filter(user=request.user).delete()
-        
+
         return Response(
             {'message': 'Logout successful'},
             status=status.HTTP_200_OK
         )
-    
+
     except Exception as e:
         logger.error(f"Error in logout: {str(e)}")
         return Response(
@@ -409,12 +409,13 @@ def logout(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@throttle_classes([])  # Disable throttling for profile endpoint
 def profile(request):
     """Get current user profile."""
     try:
         serializer = UserProfileSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     except Exception as e:
         logger.error(f"Error in profile: {str(e)}")
         return Response(
@@ -429,20 +430,20 @@ def update_profile(request):
     """Update current user profile."""
     try:
         serializer = UserProfileSerializer(
-            request.user, 
-            data=request.data, 
+            request.user,
+            data=request.data,
             partial=request.method == 'PATCH'
         )
-        
+
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
-        
+
         return Response(
             {'error': 'Invalid data', 'details': serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     except Exception as e:
         logger.error(f"Error in update_profile: {str(e)}")
         return Response(
@@ -460,12 +461,12 @@ def user_list(request):
             {'error': 'Admin access required'},
             status=status.HTTP_403_FORBIDDEN
         )
-    
+
     try:
         users = User.objects.all().order_by('-date_joined')
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     except Exception as e:
         logger.error(f"Error in user_list: {str(e)}")
         return Response(
@@ -483,7 +484,7 @@ def promote_user(request):
             {'error': 'Admin access required'},
             status=status.HTTP_403_FORBIDDEN
         )
-    
+
     try:
         email = request.data.get('email')
         if not email:
@@ -491,17 +492,17 @@ def promote_user(request):
                 {'error': 'Email is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         user = User.objects.get(email=email)
         user.role = User.ADMIN
         user.is_staff = True
         user.save()
-        
+
         return Response(
             {'message': f'User {email} promoted to admin'},
             status=status.HTTP_200_OK
         )
-    
+
     except User.DoesNotExist:
         return Response(
             {'error': 'User not found'},
@@ -537,27 +538,27 @@ def auth_status(request):
 def check_username_availability(request):
     """Check if a username is available."""
     username = request.query_params.get('username', '').strip()
-    
+
     if not username:
         return Response(
             {'error': 'Username parameter is required'},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     # Check minimum length
     if len(username) < 3:
         return Response({
             'available': False,
             'message': 'Username must be at least 3 characters'
         })
-    
+
     # Check maximum length
     if len(username) > 30:
         return Response({
             'available': False,
             'message': 'Username must be less than 30 characters'
         })
-    
+
     # Check if username contains only valid characters (alphanumeric, underscore, hyphen)
     import re
     if not re.match(r'^[a-zA-Z0-9_-]+$', username):
@@ -565,10 +566,10 @@ def check_username_availability(request):
             'available': False,
             'message': 'Username can only contain letters, numbers, underscores, and hyphens'
         })
-    
+
     # Check if username is taken
     exists = User.objects.filter(username__iexact=username).exists()
-    
+
     if exists:
         return Response({
             'available': False,
@@ -591,14 +592,14 @@ def cleanup_expired_otps(request):
             {'error': 'Admin access required'},
             status=status.HTTP_403_FORBIDDEN
         )
-    
+
     try:
         count = OTPCode.cleanup_expired()
         return Response(
             {'message': f'Cleaned up {count} expired OTP codes'},
             status=status.HTTP_200_OK
         )
-    
+
     except Exception as e:
         logger.error(f"Error in cleanup_expired_otps: {str(e)}")
         return Response(

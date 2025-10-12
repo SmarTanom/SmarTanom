@@ -233,12 +233,12 @@ REST_FRAMEWORK = {
 		"rest_framework.throttling.AnonRateThrottle",
 	],
 	"DEFAULT_THROTTLE_RATES": {
-		"user": os.getenv("DRF_USER_THROTTLE", "5000/day"),
-		"anon": os.getenv("DRF_ANON_THROTTLE", "1000/day"),
+		"user": os.getenv("DRF_USER_THROTTLE", "100000/day"),  # Increased for development
+		"anon": os.getenv("DRF_ANON_THROTTLE", "10000/day"),   # Increased for development
 		# OTP-specific throttling
-		"otp_request": os.getenv("OTP_REQUEST_THROTTLE", "10/hour"),
-		"otp_verify": os.getenv("OTP_VERIFY_THROTTLE", "20/hour"),
-		"login_attempt": os.getenv("LOGIN_ATTEMPT_THROTTLE", "30/hour"),
+		"otp_request": os.getenv("OTP_REQUEST_THROTTLE", "100/hour"),  # Increased for development
+		"otp_verify": os.getenv("OTP_VERIFY_THROTTLE", "200/hour"),    # Increased for development
+		"login_attempt": os.getenv("LOGIN_ATTEMPT_THROTTLE", "300/hour"), # Increased for development
 	},
 }
 
@@ -292,9 +292,9 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@smartanom.com')
 
 # OTP Configuration
 OTP_EXPIRE_MINUTES = int(os.getenv('OTP_EXPIRE_MINUTES', '5'))
-OTP_MAX_ATTEMPTS = int(os.getenv('OTP_MAX_ATTEMPTS', '3'))
+OTP_MAX_ATTEMPTS = int(os.getenv('OTP_MAX_ATTEMPTS', '10'))  # Increased for development
 OTP_RATE_LIMIT_MINUTES = int(os.getenv('OTP_RATE_LIMIT_MINUTES', '15'))
-OTP_RATE_LIMIT_ATTEMPTS = int(os.getenv('OTP_RATE_LIMIT_ATTEMPTS', '5'))
+OTP_RATE_LIMIT_ATTEMPTS = int(os.getenv('OTP_RATE_LIMIT_ATTEMPTS', '50'))  # Increased for development
 
 # Logging Configuration
 LOGGING = {
