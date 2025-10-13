@@ -57,8 +57,12 @@ export function usePWAInstall() {
     window.addEventListener('appinstalled', handleAppInstalled);
 
     // For development: simulate install support if needed
+    // Immediately set install support for manual instructions
+    if (!isIOSDevice) {
+      setIsInstallSupported(true);
+    }
+
     setTimeout(() => {
-      setIsInstallSupported(true); // Always allow showing install instructions
       if (!installPrompt && !isIOSDevice) {
         console.log('No install prompt received after 2 seconds - showing manual instructions');
       }

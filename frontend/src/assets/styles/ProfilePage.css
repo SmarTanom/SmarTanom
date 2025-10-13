@@ -916,4 +916,69 @@
   background: rgba(225, 85, 74, 0.2);
 }
 
+/* PWA Install Button Styles */
+.btn-install-app {
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  width: 100%;
+  max-width: 300px;
+  justify-content: center;
+}
+
+.btn-install-app:hover {
+  background: var(--color-secondary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.btn-install-app:active {
+  transform: translateY(0);
+}
+
+.btn-install-app:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.app-installed-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 12px 16px;
+  background: rgba(51, 148, 50, 0.1);
+  color: var(--color-primary-solid);
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  border: 2px solid var(--color-primary);
+  max-width: 300px;
+  justify-content: center;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* Dev notice styles removed (feature live) */

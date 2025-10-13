@@ -11,7 +11,6 @@ import { getUserDevices } from '../services/api/devices.js';
 import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation, getSentInvitations } from '../services/api/sharing.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import PWAInstallButton from '../components/pwa/PWAInstallButton.jsx';
-import NotificationSettings from '../components/pwa/NotificationSettings.jsx';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -578,16 +577,10 @@ export default function ProfilePage() {
           </div>
           <div className="info-card">
             <div style={{ marginBottom: '20px' }}>
-              <h4 style={{ margin: '0 0 8px 0', color: '#2F3E46', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📱 Install as App
-              </h4>
-              <p style={{ margin: '0 0 16px 0', color: '#666', fontSize: '14px', lineHeight: 1.5 }}>
-                Install SmarTanom on your device for a native app experience with offline access and faster loading.
-              </p>
               <PWAInstallButton />
             </div>
 
-            <NotificationSettings />
+
           </div>
         </section>
 
