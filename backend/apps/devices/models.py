@@ -349,13 +349,31 @@ class DeviceInvitation(TimeStampedModel):
         if accepting_user_email != self.invite_email:
             raise ValueError("Only the invited user can accept this invitation")
 
-        # Create the collaboration
-        collaboration = DeviceCollaboration.objects.create(
+        # If a collaboration already exists for this device and collaborator,
+        # reuse it (reactivate/update) instead of creating a duplicate to honor
+        # the unique constraint on (device, collaborator_email).
+        existing = DeviceCollaboration.objects.filter(
             device=self.device,
             collaborator_email=self.invite_email,
-            permissions=self.permissions,
-            shared_by_email=self.invited_by_email
-        )
+        ).first()
+
+        if existing:
+            # Reactivate and align permissions to the invitation
+            existing.permissions = self.permissions
+            existing.shared_by_email = self.invited_by_email
+            existing.status = DeviceCollaboration.Status.ACTIVE
+            existing.save(update_fields=[
+                'permissions', 'shared_by_email', 'status', 'updated_at' if hasattr(existing, 'updated_at') else None
+            ])
+            collaboration = existing
+        else:
+            # Create a fresh collaboration
+            collaboration = DeviceCollaboration.objects.create(
+                device=self.device,
+                collaborator_email=self.invite_email,
+                permissions=self.permissions,
+                shared_by_email=self.invited_by_email
+            )
 
         # Update invitation status
         self.status = self.Status.ACCEPTED

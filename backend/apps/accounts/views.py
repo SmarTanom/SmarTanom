@@ -23,7 +23,7 @@ import requests
 import dns.resolver
 import asyncio
 from asgiref.sync import sync_to_async  # (May remain for future async tasks, not used now)
-from apps.devices.models import DeviceInvitation
+from apps.devices.models import DeviceInvitation, DeviceCollaboration, Device
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -99,6 +99,22 @@ def send_otp_email(email, code, purpose='login'):
     except Exception as e:
         logger.error(f"Failed to send OTP email to {email}: {str(e)}")
         return False
+
+
+def _user_has_active_access(email: str) -> bool:
+    """Return True if the user has any owned devices or active collaborations."""
+    try:
+        owns = Device.objects.filter(bound_email=email).exists()
+        if owns:
+            return True
+        collab = DeviceCollaboration.objects.filter(
+            collaborator_email=email,
+            status=DeviceCollaboration.Status.ACTIVE,
+        ).exists()
+        return collab
+    except Exception:
+        # Fail-safe: don't block due to DB error
+        return True
 
 
 def _has_google_mx_records(domain: str) -> bool:
@@ -228,6 +244,15 @@ def request_otp(request):
         # Enforce invitation-or-existing-user policy
         if original_purpose == OTPCode.PURPOSE_LOGIN:
             if email_exists:
+                # Allow login for existing users if they have active access OR a pending invitation
+                try:
+                    user_obj = User.objects.get(email=email)
+                except User.DoesNotExist:
+                    user_obj = None
+                if user_obj and not user_obj.is_staff and not _user_has_active_access(email):
+                    if not invited_exists:
+                        LoginAttempt.record_attempt(email, ip_address, successful=False)
+                        return Response({'error': 'No active device access for this account.'}, status=status.HTTP_403_FORBIDDEN)
                 purpose = OTPCode.PURPOSE_LOGIN
             elif invited_exists:
                 # Allow login attempt to proceed as signup flow for invited emails
@@ -327,6 +352,19 @@ def verify_otp(request):
                 # Attempted login for non-existent account
                 LoginAttempt.record_attempt(email, ip_address, successful=False)
                 return Response({'error': 'Invalid code or authentication failed.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # If this is a login flow for an existing user, enforce active access gating
+        if user and purpose == OTPCode.PURPOSE_LOGIN and not user.is_staff:
+            if not _user_has_active_access(email):
+                # Permit login if the user has a pending, unexpired invitation to allow accepting it
+                invited_exists = DeviceInvitation.objects.filter(
+                    invite_email=email,
+                    status=DeviceInvitation.Status.PENDING,
+                    expires_at__gt=timezone.now()
+                ).exists()
+                if not invited_exists:
+                    LoginAttempt.record_attempt(email, ip_address, successful=False)
+                    return Response({'error': 'Login is restricted: no active device access for this account.'}, status=status.HTTP_403_FORBIDDEN)
 
         # Mark verified if needed
         if not user.is_verified:
