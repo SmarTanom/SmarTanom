@@ -88,6 +88,17 @@ export default function EmailPage({ mode = 'signin' }) {
     }
   }, [codeSent, code]);
 
+  // Helper function to go back to email input
+  const handleChangeEmail = () => {
+    setCodeSent(false);
+    setCode('');
+    setOtpError('');
+    setStatusMsg('Enter your email address to receive a new verification code');
+    setResendCooldown(0);
+    // Auto-focus email input when going back
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
   async function handleVerify(e){
     e.preventDefault();
     if (code.length !== 6){
@@ -124,8 +135,27 @@ export default function EmailPage({ mode = 'signin' }) {
       }
       navigate(target, { replace: true });
     } catch (err){
-      setStatusMsg('Verification failed.');
-      setOtpError(err?.message || 'Invalid or expired code.');
+      setStatusMsg('');
+      const errorMsg = err?.message || 'Invalid or expired code.';
+
+      // Provide helpful error message with guidance
+      if (errorMsg.toLowerCase().includes('invalid') || errorMsg.toLowerCase().includes('incorrect') || errorMsg.toLowerCase().includes('wrong')) {
+        setOtpError('Code is incorrect. Please check your email for the right code, or use "Change Email Address" below if you entered the wrong email.');
+      } else if (errorMsg.toLowerCase().includes('expired')) {
+        setOtpError('Code has expired. Please request a new code using "Resend" or change your email address if needed.');
+      } else {
+        setOtpError(`${errorMsg} Please check your email for the correct code, or use "Change Email Address" if needed.`);
+      }
+
+      // Clear the code to let user re-enter
+      setCode('');
+      // Focus first input for better UX
+      setTimeout(() => {
+        const firstInput = otpRefs.current[0];
+        if (firstInput && firstInput.focus) {
+          try { firstInput.focus(); } catch {}
+        }
+      }, 100);
     } finally {
       setVerifying(false);
     }
@@ -294,15 +324,27 @@ export default function EmailPage({ mode = 'signin' }) {
                   {verifying && <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />}
                   <span>{verifying ? 'Verifying...' : 'Verify Code'}</span>
                 </button>
-                <button
-                  type="button"
-                  className="auth-link"
-                  onClick={handleResend}
-                  disabled={resendCooldown > 0}
-                  style={{ alignSelf: 'center', opacity: resendCooldown > 0 ? 0.5 : 1 }}
-                >
-                  {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : "Didn't receive a code? Resend"}
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="auth-link"
+                    onClick={handleResend}
+                    disabled={resendCooldown > 0}
+                    style={{ opacity: resendCooldown > 0 ? 0.5 : 1 }}
+                    aria-label={resendCooldown > 0 ? `Resend code disabled, ${resendCooldown} seconds remaining` : 'Resend verification code to your email'}
+                  >
+                    {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : "Didn't receive a code? Resend"}
+                  </button>
+                  <button
+                    type="button"
+                    className="auth-link"
+                    onClick={handleChangeEmail}
+                    style={{ fontSize: '13px', opacity: 0.85, padding: '8px 16px' }}
+                    aria-label="Go back to change email address"
+                  >
+                    ← Change Email Address
+                  </button>
+                </div>
                 <div className="auth-helper auth-fade-item">Check your email inbox and spam folder for the code.</div>
               </form>
             )}
