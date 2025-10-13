@@ -23,37 +23,56 @@ export function initializePWA() {
     };
   }
 
-  // Register service worker with update handling
-  const updateSW = registerSW({
-    onNeedRefresh() {
-      updateAvailable = true;
-      console.log('PWA update available');
+  try {
+    // Register service worker with update handling
+    const updateSW = registerSW({
+      immediate: true,
+      onNeedRefresh() {
+        updateAvailable = true;
+        console.log('PWA update available');
 
-      // Show update notification to user
-      showUpdateNotification();
-    },
-    onOfflineReady() {
-      console.log('PWA ready to work offline');
+        // Show update notification to user
+        showUpdateNotification();
+      },
+      onOfflineReady() {
+        console.log('PWA ready to work offline');
 
-      // Show offline ready notification
-      showOfflineNotification();
-    },
-    onRegistered(registration) {
-      console.log('PWA service worker registered:', registration);
+        // Show offline ready notification
+        showOfflineNotification();
+      },
+      onRegistered(registration) {
+        console.log('PWA service worker registered:', registration);
 
-      // Initialize notification service
-      initializeNotifications(registration);
-    },
-    onRegisterError(error) {
-      console.error('PWA service worker registration failed:', error);
-    }
-  });
+        // Initialize notification service
+        initializeNotifications(registration);
+      },
+      onRegisterError(error) {
+        console.error('PWA service worker registration failed:', error);
+        // Clear potentially corrupted caches
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => {
+              console.log(`Clearing cache: ${name}`);
+              caches.delete(name);
+            });
+          });
+        }
+      }
+    });
 
-  // Return update function for manual updates
-  return {
-    updateSW,
-    isUpdateAvailable: () => updateAvailable
-  };
+    // Return update function for manual updates
+    return {
+      updateSW,
+      isUpdateAvailable: () => updateAvailable
+    };
+  } catch (error) {
+    console.error('❌ Failed to initialize PWA:', error);
+    // Return dummy functions to prevent crashes
+    return {
+      updateSW: () => console.warn('PWA not available'),
+      isUpdateAvailable: () => false
+    };
+  }
 }/**
  * Show update available notification
  */

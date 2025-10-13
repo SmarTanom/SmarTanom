@@ -96,19 +96,49 @@ export default function App() {
   useEffect(() => {
     console.log('Initializing PWA...');
 
-    // Initialize PWA service worker
-    const { updateSW } = initializePWA();
+    const initPWA = async () => {
+      try {
+        // Check if this is the first load after a build update
+        const buildVersion = import.meta.env.VITE_BUILD_VERSION || 'dev';
+        const lastBuildVersion = localStorage.getItem('lastBuildVersion');
 
-    // Setup network status handling
-    setupNetworkHandling();
+        if (lastBuildVersion && lastBuildVersion !== buildVersion) {
+          console.log('🔄 Build version changed, clearing caches...');
+          // Clear all caches when build version changes
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map(name => caches.delete(name)));
+          }
+          // Unregister old service workers
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map(reg => reg.unregister()));
+          }
+        }
 
-    // Setup install prompt handling
-    setupInstallPrompt();
+        // Update build version
+        localStorage.setItem('lastBuildVersion', buildVersion);
 
-    // Store update function globally for manual updates
-    window.pwaUpdateSW = updateSW;
+        // Initialize PWA service worker
+        const { updateSW } = initializePWA();
 
-    console.log('PWA initialized successfully');
+        // Setup network status handling
+        setupNetworkHandling();
+
+        // Setup install prompt handling
+        setupInstallPrompt();
+
+        // Store update function globally for manual updates
+        window.pwaUpdateSW = updateSW;
+
+        console.log('✅ PWA initialized successfully');
+      } catch (error) {
+        console.error('❌ PWA initialization error:', error);
+        // Don't throw - allow app to continue without PWA
+      }
+    };
+
+    initPWA();
   }, []);  return (
     <AuthProvider>
       <AuthFlowProvider>
