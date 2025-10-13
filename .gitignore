@@ -72,3 +72,21 @@ frontend/dist/
 # Ignore local SQLite database
 backend/db.sqlite3
 backend/db.sqlite3.local_backup
+
+# Generic database files (do not commit local DB data)
+db.sqlite3
+*.sqlite3
+*.sqlite
+*.db
+
+# SQLite journal/WAL/shared memory files
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.db-journal
+*-wal
+*-shm
+
+# Optional: local DB dumps (uncomment if you produce local dumps)
+# *.sql
+# *.dump

@@ -109,6 +109,8 @@ export default function ProfilePage() {
   // Load shared access and invitations when user is loaded
   useEffect(() => {
     if (user) {
+      // Also load devices so we can compute owned devices for Share button and stats
+      loadDevicesForSharing();
       loadSharedAccess();
       loadPendingInvitations();
       loadSentInvitations();
@@ -256,6 +258,7 @@ export default function ProfilePage() {
             const collaboratorList = collaborators.results || collaborators || [];
             if (Array.isArray(collaboratorList)) {
               collaboratorList.forEach(collaborator => {
+                const isOwnerFlag = !!(device?.is_owner || (device?.bound_email && user && device.bound_email === user.email));
                 allSharedAccess.push({
                   id: `${device.id}_${collaborator.id}`,
                   deviceId: device.id,
@@ -265,8 +268,8 @@ export default function ProfilePage() {
                   sharedDate: collaborator.shared_date || collaborator.created_at,
                   permissions: collaborator.permissions || { view_only: true },
                   status: collaborator.status || 'active',
-                  isOwner: !!device.is_owner,
-                  isCollaborator: !!device.is_collaborator,
+                  isOwner: isOwnerFlag,
+                  isCollaborator: !!(device?.is_collaborator && !isOwnerFlag),
                 });
               });
             }
@@ -648,7 +651,7 @@ export default function ProfilePage() {
         <section className="profile-section">
           <div className="section-header">
             <h2 className="section-title">Shared Monitoring</h2>
-            {devices.some(d => d.is_owner) && (
+            {Array.isArray(devices) && devices.some(d => d?.is_owner || (d?.bound_email && user && d.bound_email === user.email)) && (
               <button
                 className="btn-share-new"
                 onClick={openShareModal}
@@ -815,11 +818,14 @@ export default function ProfilePage() {
               {/* Device Selection */}
               <div className="form-group">
                 <label className="form-label">Select Device</label>
+                {(() => {
+                  const ownedDevices = Array.isArray(devices) ? devices.filter(d => d?.is_owner) : [];
+                  return (
                 <select
                   className="form-select"
                   value={selectedDevice?.id || ''}
                   onChange={(e) => {
-                    const device = devices.find(d => d.id.toString() === e.target.value);
+                    const device = ownedDevices.find(d => d.id.toString() === e.target.value);
                     setSelectedDevice(device);
                   }}
                   disabled={devicesLoading}
@@ -827,7 +833,7 @@ export default function ProfilePage() {
                   <option value="">
                     {devicesLoading ? 'Loading devices...' : 'Choose a device...'}
                   </option>
-                  {devices.map(device => {
+                  {ownedDevices.map(device => {
                     const deviceName = device.device_name || device.plant_name || `Device ${device.device_serial}`;
                     const deviceLabel = device.device_serial
                       ? `${deviceName} (${device.device_serial})`
@@ -838,11 +844,12 @@ export default function ProfilePage() {
                       </option>
                     );
                   })}
-                  {!devicesLoading && devices.length === 0 && (
+                  {!devicesLoading && ownedDevices.length === 0 && (
                     <option value="" disabled>No devices found</option>
                   )}
                 </select>
-                {!devicesLoading && devices.length === 0 && (
+                  );})()}
+                {!devicesLoading && (Array.isArray(devices) ? devices.filter(d => d?.is_owner).length === 0 : true) && (
                   <p className="form-help-text" style={{ color: '#e74c3c' }}>
                     You don't have any devices to share. Bind a device first.
                   </p>
