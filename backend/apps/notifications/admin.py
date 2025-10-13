@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import PushSubscription, NotificationLog
+from .models import PushSubscription, NotificationLog, NotificationPreferences
 
 
 @admin.register(PushSubscription)
@@ -48,6 +48,27 @@ class NotificationLogAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # Logs are created automatically
+
+
+@admin.register(NotificationPreferences)
+class NotificationPreferencesAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'critical_alerts', 'warnings', 'info', 'updated_at')
+    list_filter = ('critical_alerts', 'warnings', 'info')
+    search_fields = ('user__email',)
+    readonly_fields = ('created_at', 'updated_at')
+
+    fieldsets = (
+        ('User', {
+            'fields': ('user',)
+        }),
+        ('Alert Severity Preferences', {
+            'fields': ('critical_alerts', 'warnings', 'info')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
     def has_change_permission(self, request, obj=None):
         return False  # Logs are read-only

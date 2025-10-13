@@ -136,3 +136,55 @@ class NotificationLog(models.Model):
 
     def __str__(self):
         return f"{self.notification_type.upper()}: {self.title} to {self.user.email}"
+
+
+class NotificationPreferences(models.Model):
+    """Store user notification preferences for filtering."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notification_preferences',
+        help_text="User who owns these preferences"
+    )
+
+    # Alert severity preferences
+    critical_alerts = models.BooleanField(
+        default=True,
+        help_text="Receive critical alerts (urgent issues)"
+    )
+
+    warnings = models.BooleanField(
+        default=True,
+        help_text="Receive warning notifications"
+    )
+
+    info = models.BooleanField(
+        default=True,
+        help_text="Receive informational updates"
+    )
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user"], name="idx_notif_pref_user"),
+        ]
+        verbose_name = "Notification Preference"
+        verbose_name_plural = "Notification Preferences"
+
+    def __str__(self):
+        return f"Preferences for {self.user.email}"
+
+    def allows_notification_type(self, notification_type):
+        """Check if user wants to receive this type of notification."""
+        type_mapping = {
+            'critical': self.critical_alerts,
+            'alert': self.critical_alerts,
+            'warning': self.warnings,
+            'info': self.info,
+            'success': self.info,  # Success treated as info
+        }
+        return type_mapping.get(notification_type, True)

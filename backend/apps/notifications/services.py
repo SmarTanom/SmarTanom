@@ -8,7 +8,7 @@ import logging
 from typing import List, Dict, Optional
 from django.conf import settings
 from pywebpush import webpush, WebPushException
-from .models import PushSubscription, NotificationLog
+from .models import PushSubscription, NotificationLog, NotificationPreferences
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,16 @@ class PushNotificationService:
         Returns:
             Dictionary with success and failure counts
         """
+        # Check user preferences - skip if user disabled this notification type
+        try:
+            preferences = NotificationPreferences.objects.get(user=user)
+            if not preferences.allows_notification_type(notification_type):
+                logger.info(f"User {user.email} has disabled {notification_type} notifications")
+                return {'sent': 0, 'failed': 0, 'skipped': True}
+        except NotificationPreferences.DoesNotExist:
+            # No preferences set, allow all notifications by default
+            pass
+
         # Get all active subscriptions for this user
         subscriptions = PushSubscription.objects.filter(
             user=user,

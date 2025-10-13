@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PushSubscription, NotificationLog
+from .models import PushSubscription, NotificationLog, NotificationPreferences
 
 
 class PushSubscriptionSerializer(serializers.ModelSerializer):
@@ -53,3 +53,30 @@ class SendNotificationSerializer(serializers.Serializer):
         default='info'
     )
     url = serializers.URLField(required=False, allow_blank=True)
+
+
+class NotificationPreferencesSerializer(serializers.ModelSerializer):
+    """Serializer for user notification preferences."""
+
+    class Meta:
+        model = NotificationPreferences
+        fields = ['id', 'critical_alerts', 'warnings', 'info', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        # Set user from request context
+        validated_data['user'] = self.context['request'].user
+
+        # Get or create preferences
+        preferences, created = NotificationPreferences.objects.get_or_create(
+            user=validated_data['user'],
+            defaults=validated_data
+        )
+
+        if not created:
+            # Update existing preferences
+            for key, value in validated_data.items():
+                setattr(preferences, key, value)
+            preferences.save()
+
+        return preferences

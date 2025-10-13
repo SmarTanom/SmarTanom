@@ -3,11 +3,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
-from .models import PushSubscription, NotificationLog
+from .models import PushSubscription, NotificationLog, NotificationPreferences
 from .serializers import (
     PushSubscriptionSerializer,
     NotificationLogSerializer,
-    SendNotificationSerializer
+    SendNotificationSerializer,
+    NotificationPreferencesSerializer
 )
 from .services import PushNotificationService
 import logging
@@ -141,3 +142,63 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         """Users can only see their own notification logs."""
         return NotificationLog.objects.filter(user=self.request.user)
+
+
+class NotificationPreferencesViewSet(viewsets.ModelViewSet):
+    """API endpoints for managing notification preferences."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = NotificationPreferencesSerializer
+    http_method_names = ['get', 'post', 'put', 'patch']
+
+    def get_queryset(self):
+        """Users can only see their own preferences."""
+        return NotificationPreferences.objects.filter(user=self.request.user)
+
+    def get_object(self):
+        """Get or create user preferences."""
+        preferences, created = NotificationPreferences.objects.get_or_create(
+            user=self.request.user,
+            defaults={
+                'critical_alerts': True,
+                'warnings': True,
+                'info': True
+            }
+        )
+        return preferences
+
+    def list(self, request, *args, **kwargs):
+        """Get user preferences."""
+        preferences = self.get_object()
+        serializer = self.get_serializer(preferences)
+        return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        """Create or update preferences."""
+        preferences = self.get_object()
+        serializer = self.get_serializer(preferences, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        logger.info(f"[OK] User {request.user.email} updated notification preferences")
+
+        return Response({
+            'success': True,
+            'message': 'Notification preferences updated',
+            'preferences': serializer.data
+        })
+
+    def update(self, request, *args, **kwargs):
+        """Update preferences."""
+        preferences = self.get_object()
+        serializer = self.get_serializer(preferences, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        logger.info(f"[OK] User {request.user.email} updated notification preferences")
+
+        return Response({
+            'success': True,
+            'message': 'Notification preferences updated',
+            'preferences': serializer.data
+        })

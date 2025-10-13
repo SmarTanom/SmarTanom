@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Bell, AlertCircle, Activity, Droplets, Zap, AlertTriangle, CheckCircle, Loader } from 'lucide-react';
 import usePushNotifications from '../hooks/usePushNotifications';
+import { getNotificationPreferences, updateNotificationPreferences } from '../services/api/notificationPreferences';
 import '../assets/styles/NotificationsPage.css';
 
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -49,6 +50,31 @@ const NotificationsPage = () => {
 
   // Toast notification state
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
+
+  // Loading state for preference updates
+  const [preferencesLoading, setPreferencesLoading] = useState({});
+
+  // Fetch notification preferences on mount
+  useEffect(() => {
+    const fetchPreferences = async () => {
+      try {
+        const prefs = await getNotificationPreferences();
+        setNotifications(prev => ({
+          ...prev,
+          alerts: {
+            critical: prefs.critical_alerts ?? true,
+            warnings: prefs.warnings ?? true,
+            info: prefs.info ?? true
+          }
+        }));
+      } catch (error) {
+        console.error('Failed to fetch preferences:', error);
+        // Use defaults if fetch fails
+      }
+    };
+
+    fetchPreferences();
+  }, []);
 
   // Sync push notification state with hook - always keep in sync
   // Note: Push notification state is persisted in the backend via PushSubscription model
@@ -105,18 +131,54 @@ const NotificationsPage = () => {
     }
   };
 
-  const handleToggle = (category, key) => {
+  const handleToggle = async (category, key) => {
     if (category === 'main') {
       setNotifications(prev => ({
         ...prev,
         [key]: !prev[key]
       }));
-    } else if (category === 'alerts' || category === 'categories') {
+    } else if (category === 'alerts') {
+      // Update local state immediately for responsive UI
+      const newValue = !notifications.alerts[key];
       setNotifications(prev => ({
         ...prev,
-        [category]: {
-          ...prev[category],
-          [key]: !prev[category][key]
+        alerts: {
+          ...prev.alerts,
+          [key]: newValue
+        }
+      }));
+
+      // Save to backend
+      setPreferencesLoading(prev => ({ ...prev, [key]: true }));
+      try {
+        const preferences = {
+          critical_alerts: key === 'critical' ? newValue : notifications.alerts.critical,
+          warnings: key === 'warnings' ? newValue : notifications.alerts.warnings,
+          info: key === 'info' ? newValue : notifications.alerts.info
+        };
+
+        await updateNotificationPreferences(preferences);
+        showToast(`${key === 'critical' ? 'Critical alerts' : key.charAt(0).toUpperCase() + key.slice(1)} ${newValue ? 'enabled' : 'disabled'}`, 'success');
+      } catch (error) {
+        console.error('Failed to update preferences:', error);
+        // Revert on error
+        setNotifications(prev => ({
+          ...prev,
+          alerts: {
+            ...prev.alerts,
+            [key]: !newValue
+          }
+        }));
+        showToast('Failed to update preferences', 'error');
+      } finally {
+        setPreferencesLoading(prev => ({ ...prev, [key]: false }));
+      }
+    } else if (category === 'categories') {
+      setNotifications(prev => ({
+        ...prev,
+        categories: {
+          ...prev.categories,
+          [key]: !prev.categories[key]
         }
       }));
     } else if (category === 'quietHours') {
@@ -251,8 +313,11 @@ const NotificationsPage = () => {
                 type="checkbox"
                 checked={notifications.alerts.critical}
                 onChange={() => handleToggle('alerts', 'critical')}
+                disabled={preferencesLoading.critical}
               />
-              <span className="toggle-slider"></span>
+              <span className="toggle-slider">
+                {preferencesLoading.critical && <Loader size={12} className="spinner" />}
+              </span>
             </label>
           </div>
 
@@ -269,8 +334,11 @@ const NotificationsPage = () => {
                 type="checkbox"
                 checked={notifications.alerts.warnings}
                 onChange={() => handleToggle('alerts', 'warnings')}
+                disabled={preferencesLoading.warnings}
               />
-              <span className="toggle-slider"></span>
+              <span className="toggle-slider">
+                {preferencesLoading.warnings && <Loader size={12} className="spinner" />}
+              </span>
             </label>
           </div>
 
@@ -287,8 +355,11 @@ const NotificationsPage = () => {
                 type="checkbox"
                 checked={notifications.alerts.info}
                 onChange={() => handleToggle('alerts', 'info')}
+                disabled={preferencesLoading.info}
               />
-              <span className="toggle-slider"></span>
+              <span className="toggle-slider">
+                {preferencesLoading.info && <Loader size={12} className="spinner" />}
+              </span>
             </label>
           </div>
         </section>
