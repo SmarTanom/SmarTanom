@@ -1088,12 +1088,16 @@ export default function Dashboard() {
     if (!currentDevice || !canNext) return;
     setPhWindows(prev => ({ ...prev, [currentDevice.id]: Math.min(maxStart, (prev[currentDevice.id] ?? maxStart) + 1) }));
   };
-  // Robust label for pH legend: prefer device_name, then plant_name, then serial
+  // Robust label for pH legend: prefer device_name, then plant_name, then fallback
   const legendLabel = useMemo(() => {
     if (!currentDevice) return 'Device';
     const name = (currentDevice.device_name || '').trim();
     const plant = (currentDevice.plant_name || '').trim();
-    return name || plant || currentDevice.device_serial || 'Device';
+    // For shared devices, don't show serial number
+    const fallback = (currentDevice.is_collaborator && !currentDevice.is_owner) ?
+      'Shared Device' :
+      currentDevice.device_serial;
+    return name || plant || fallback || 'Device';
   }, [currentDevice]);
   const currentPH = useMemo(() => {
     if (!data?.phHistory) return '6.3';
@@ -1286,7 +1290,7 @@ export default function Dashboard() {
             <article
               className="device-card tap"
               key={`${d.id}-${d._cloneType || 'original'}-${i}`}
-              aria-label={`${d.device_name} ${d.device_serial}`}
+              aria-label={`${d.device_name} ${(d.is_collaborator && !d.is_owner) ? 'Shared Device' : d.device_serial}`}
             >
               <div
                 className="device-card-media"
@@ -1335,7 +1339,9 @@ export default function Dashboard() {
                 <div>
                   <h3 className="device-name">{d.device_name}</h3>
                   <p className="device-id">
-                    {d.plant_name ? `Growing: ${d.plant_name}` : `Serial: ${d.device_serial}`}
+                    {d.plant_name ? `Growing: ${d.plant_name}` :
+                     (d.is_collaborator && !d.is_owner) ? 'Shared Device' :
+                     `Serial: ${d.device_serial}`}
                   </p>
                   {d.location ? (
                     <p className="device-location">{d.location}</p>

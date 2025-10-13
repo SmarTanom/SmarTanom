@@ -1,14 +1,20 @@
-SmarTanom - Device Share Invitation
+SmarTanom - Device Monitoring Invitation
 
-You've been invited by {{ invited_by }} to access a device.
+Dear Valued User,
+
+You have been invited by {{ invited_by }} to collaborate on monitoring a smart agriculture device through the SmarTanom platform.
 
 Device: {{ device_name }}
-Serial: {{ device_serial }}
-Permissions: {{ permissions }}
+Access Level: {{ permissions|default:"View-Only" }}
 
-Accept: {{ accept_url }}
-Decline: {{ decline_url }}
+This invitation grants you secure access to view real-time sensor data, monitoring dashboards, and system alerts for this device.
 
-If links don't work, copy this token and use it in the app: {{ token }}
+To accept this invitation and begin monitoring:
+{{ accept_url }}
+
+If you did not request this access or do not wish to participate:
+{{ decline_url }}
+
+For security reasons, this invitation will expire in 24 hours. Please respond within this timeframe to maintain access.
 
 This is an automated message from SmarTanom. Please do not reply.

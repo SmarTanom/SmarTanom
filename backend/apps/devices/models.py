@@ -329,7 +329,7 @@ class DeviceInvitation(TimeStampedModel):
         if not self.token:
             self.token = secrets.token_urlsafe(32)
         if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(days=7)  # 7 days to accept
+            self.expires_at = timezone.now() + timedelta(hours=24)  # 24 hours to accept
         super().save(*args, **kwargs)
 
     def is_expired(self) -> bool:
