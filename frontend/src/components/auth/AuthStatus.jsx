@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { User, LogOut, Shield } from 'lucide-react';
 import './auth.css';
+import ConfirmModal from '../ui/ConfirmModal.jsx';
 
 /**
  * AuthStatus component that displays current authentication state
@@ -11,14 +12,16 @@ import './auth.css';
 export function AuthStatus({ className = '', showUserInfo = true, showLogoutButton = true }) {
   const { isAuthenticated, user, logout, loading } = useAuth();
   const navigate = useNavigate();
-
-  const handleLogout = async () => {
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const openLogoutModal = () => setShowLogoutModal(true);
+  const closeLogoutModal = () => setShowLogoutModal(false);
+  const confirmLogout = async () => {
     try {
       await logout();
-      navigate('/');
-    } catch (error) {
-      console.error('Logout failed:', error);
-      // Force navigation even on error
+    } catch (e) {
+      console.error('Logout failed:', e);
+    } finally {
+      setShowLogoutModal(false);
       navigate('/');
     }
   };
@@ -60,13 +63,23 @@ export function AuthStatus({ className = '', showUserInfo = true, showLogoutButt
 
       {showLogoutButton && (
         <button
-          onClick={handleLogout}
+          onClick={openLogoutModal}
           className="auth-logout-btn"
           title="Sign Out"
         >
           <LogOut size={16} />
         </button>
       )}
+      <ConfirmModal
+        isOpen={showLogoutModal}
+        title="Sign out"
+        description="Are you sure you want to sign out?"
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        onConfirm={confirmLogout}
+        onCancel={closeLogoutModal}
+        confirmVariant="danger"
+      />
     </div>
   );
 }

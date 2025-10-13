@@ -14,6 +14,7 @@ import PWAInstallButton from '../components/pwa/PWAInstallButton.jsx';
 import OtpInput from '../components/auth/OtpInput.jsx';
 
 import { Toast } from '../components/ui/Toast.jsx';
+import ConfirmModal from '../components/ui/ConfirmModal.jsx';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -68,6 +69,8 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState('');
   const [newPhotoFile, setNewPhotoFile] = useState(null);
   const [newPhotoPreview, setNewPhotoPreview] = useState('');
+  // Logout confirmation modal
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
 
   // Load current user profile from backend
@@ -129,19 +132,20 @@ export default function ProfilePage() {
     }
   }, [user]);
 
-  const handleLogout = async () => {
+  const openLogoutModal = () => setShowLogoutModal(true);
+  const closeLogoutModal = () => setShowLogoutModal(false);
+  const confirmLogout = async () => {
     try {
       const result = await logout();
-      if (result.success) {
+      setShowLogoutModal(false);
+      if (result?.success !== false) {
         navigate('/');
       } else {
-        // Even if logout fails, clear local state and navigate
         console.error('Logout error:', result.error);
         navigate('/');
       }
     } catch (error) {
       console.error('Logout failed:', error);
-      // Force navigation even on error
       navigate('/');
     }
   };
@@ -893,7 +897,7 @@ export default function ProfilePage() {
 
         {/* Logout Button */}
         <section className="profile-section">
-          <button className="btn-logout" onClick={handleLogout}>
+          <button className="btn-logout" onClick={openLogoutModal}>
             <LogOut size={20} />
             Sign Out
           </button>
@@ -1176,6 +1180,23 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showLogoutModal}
+        title="Sign out"
+        description={
+          <div>
+            <p style={{ margin: 0, color: '#2F3E46' }}>Are you sure you want to sign out?</p>
+            <p style={{ margin: '6px 0 0', color: '#6B7D75', fontSize: 14 }}>You can sign back in anytime using your email.</p>
+          </div>
+        }
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        onConfirm={confirmLogout}
+        onCancel={closeLogoutModal}
+        confirmVariant="danger"
+      />
     </div>
   );
 }
