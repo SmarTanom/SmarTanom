@@ -46,8 +46,8 @@ def send_otp_email(email, code, purpose='login'):
     now it sends directly and returns a real success boolean.
     """
     if settings.DEBUG:
+        # Log debug OTP to file/console; avoid printing to stdout
         logger.info(f"DEBUG MODE - OTP Code for {email}: {code}")
-        print(f"DEBUG MODE - OTP Code for {email}: {code}")
 
     subject_map = {
         'login': 'Your Login Code',

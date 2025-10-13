@@ -48,6 +48,19 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Django collected static and media uploads (generated)
+backend/staticfiles/
+backend/media/
+backend/logs/
+backend/logs/*.log
+
+# Keep directories with placeholders
+!backend/staticfiles/.gitkeep
+!backend/media/.gitkeep
+!backend/media/device_photos/.gitkeep
+!backend/media/user_photos/.gitkeep
+!backend/logs/.gitkeep
+
 
 
 # Environment variables (sensitive)
@@ -90,3 +103,10 @@ db.sqlite3
 # Optional: local DB dumps (uncomment if you produce local dumps)
 # *.sql
 # *.dump
+
+# Backend temp/debug helpers
+backend/debug_*.py
+backend/tmp_*.py
+backend/tmp_*.json
+backend/tmp*.json
+backend/tmp*.py
