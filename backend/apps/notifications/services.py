@@ -236,7 +236,8 @@ class PushNotificationService:
         # Build URL to alert page
         url = f"/alerts?device={device_id}" if device_id else "/alerts"
 
-        return PushNotificationService.send_notification(
+        # Send push notification
+        push_result = PushNotificationService.send_notification(
             user=user,
             title=f"🌱 {alert_title}",
             message=alert_message,
@@ -247,3 +248,62 @@ class PushNotificationService:
                 'alert_type': alert_type
             }
         )
+
+        # Send email if enabled in preferences
+        try:
+            preferences = NotificationPreferences.objects.get(user=user)
+            if preferences.email_enabled and user.email:
+                from django.core.mail import EmailMultiAlternatives
+                from django.template.loader import render_to_string
+                from django.utils import timezone
+
+                # Get device name if device_id provided
+                device_name = None
+                if device_id:
+                    try:
+                        from apps.devices.models import Device
+                        device = Device.objects.get(id=device_id)
+                        device_name = device.device_name or f"Device {device_id}"
+                    except:
+                        device_name = f"Device {device_id}"
+
+                # Prepare context for email templates
+                frontend_url = getattr(settings, 'FRONTEND_URL', 'https://smartanom.com')
+                alert_url = f"{frontend_url}/alerts{'?device=' + str(device_id) if device_id else ''}"
+
+                context = {
+                    'user_name': user.full_name or user.email.split('@')[0],
+                    'alert_title': alert_title,
+                    'alert_message': alert_message,
+                    'alert_type': alert_type,
+                    'device_name': device_name,
+                    'timestamp': timezone.now().strftime('%B %d, %Y at %I:%M %p'),
+                    'alert_url': alert_url,
+                    'settings_url': f"{frontend_url}/profile/notifications",
+                    'website_url': frontend_url,
+                    'support_url': f"{frontend_url}/support",
+                    'unsubscribe_url': f"{frontend_url}/profile/notifications",
+                }
+
+                # Render email templates
+                subject = f"[SmarTanom Alert] {alert_title}"
+                text_content = render_to_string('emails/alert_notification.txt', context)
+                html_content = render_to_string('emails/alert_notification.html', context)
+
+                # Create email with both text and HTML versions
+                email = EmailMultiAlternatives(
+                    subject=subject,
+                    body=text_content,
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@smartanom.com'),
+                    to=[user.email]
+                )
+                email.attach_alternative(html_content, "text/html")
+                email.send(fail_silently=False)
+
+                logger.info(f"Alert email sent to {user.email}: {alert_title}")
+        except NotificationPreferences.DoesNotExist:
+            pass
+        except Exception as e:
+            logger.error(f"Failed to send alert email to {user.email}: {e}")
+
+        return push_result

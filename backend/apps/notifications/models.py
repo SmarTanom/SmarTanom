@@ -164,6 +164,12 @@ class NotificationPreferences(models.Model):
         help_text="Receive informational updates"
     )
 
+    # Email notification preference
+    email_enabled = models.BooleanField(
+        default=False,
+        help_text="Receive alerts via email"
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

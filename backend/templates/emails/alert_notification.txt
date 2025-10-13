@@ -1,0 +1,57 @@
+============================================================
+🌱 SMARTANOM ALERT
+============================================================
+
+Hello {{ user_name }},
+
+You have received a new alert from your hydroponic monitoring system.
+
+------------------------------------------------------------
+{{ alert_type|upper }} ALERT
+------------------------------------------------------------
+
+{{ alert_title }}
+
+{{ alert_message }}
+
+ALERT DETAILS:
+  • Alert Type: {{ alert_type|upper }}
+{% if device_name %}  • Device: {{ device_name }}
+{% endif %}  • Time: {{ timestamp }}
+
+VIEW DETAILS: {{ alert_url }}
+
+{% if alert_type == 'critical' %}------------------------------------------------------------
+⚠️ IMMEDIATE ACTIONS REQUIRED:
+------------------------------------------------------------
+
+  • Check your device connectivity and sensor readings
+  • Verify water quality parameters (pH, EC, temperature)
+  • Inspect nutrient solution levels and composition
+  • Monitor plant health indicators
+
+{% elif alert_type == 'warning' %}------------------------------------------------------------
+💡 RECOMMENDED ACTIONS:
+------------------------------------------------------------
+
+  • Review recent system changes and adjustments
+  • Check sensor calibration and accuracy
+  • Monitor the situation for the next few hours
+
+{% endif %}============================================================
+
+This is an automated alert from your SmarTanom hydroponic
+monitoring system.
+
+To manage your notification preferences:
+{{ settings_url }}
+
+------------------------------------------------------------
+🌱 SmarTanom - Smart Hydroponic Monitoring System
+
+Visit Website: {{ website_url }}
+Get Support: {{ support_url }}
+Unsubscribe: {{ unsubscribe_url }}
+
+© 2025 SmarTanom. All rights reserved.
+============================================================

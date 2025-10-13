@@ -28,7 +28,7 @@ const NotificationsPage = () => {
   // Notification preferences state
   const [notifications, setNotifications] = useState({
     pushEnabled: false, // Will be updated once initialization completes
-    emailEnabled: true,
+    emailEnabled: false, // Default false, will be set from backend
     alerts: {
       critical: true,
       warnings: true,
@@ -61,6 +61,7 @@ const NotificationsPage = () => {
         const prefs = await getNotificationPreferences();
         setNotifications(prev => ({
           ...prev,
+          emailEnabled: prefs.email_enabled ?? false,
           alerts: {
             critical: prefs.critical_alerts ?? true,
             warnings: prefs.warnings ?? true,
@@ -133,10 +134,30 @@ const NotificationsPage = () => {
 
   const handleToggle = async (category, key) => {
     if (category === 'main') {
-      setNotifications(prev => ({
-        ...prev,
-        [key]: !prev[key]
-      }));
+      // Only emailEnabled supported in 'main' for now
+      if (key === 'emailEnabled') {
+        const newValue = !notifications.emailEnabled;
+        setNotifications(prev => ({
+          ...prev,
+          emailEnabled: newValue
+        }));
+        setPreferencesLoading(prev => ({ ...prev, emailEnabled: true }));
+        try {
+          const preferences = {
+            email_enabled: newValue,
+            critical_alerts: notifications.alerts.critical,
+            warnings: notifications.alerts.warnings,
+            info: notifications.alerts.info
+          };
+          await updateNotificationPreferences(preferences);
+          showToast(`Email notifications ${newValue ? 'enabled' : 'disabled'}`, 'success');
+        } catch (error) {
+          setNotifications(prev => ({ ...prev, emailEnabled: !newValue }));
+          showToast('Failed to update email notification preference', 'error');
+        } finally {
+          setPreferencesLoading(prev => ({ ...prev, emailEnabled: false }));
+        }
+      }
     } else if (category === 'alerts') {
       // Update local state immediately for responsive UI
       const newValue = !notifications.alerts[key];
@@ -289,8 +310,11 @@ const NotificationsPage = () => {
                 type="checkbox"
                 checked={notifications.emailEnabled}
                 onChange={() => handleToggle('main', 'emailEnabled')}
+                disabled={preferencesLoading.emailEnabled}
               />
-              <span className="toggle-slider"></span>
+              <span className="toggle-slider">
+                {preferencesLoading.emailEnabled && <Loader size={12} className="spinner" />}
+              </span>
             </label>
           </div>
         </section>

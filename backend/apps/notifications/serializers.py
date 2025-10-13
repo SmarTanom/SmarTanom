@@ -60,7 +60,7 @@ class NotificationPreferencesSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NotificationPreferences
-        fields = ['id', 'critical_alerts', 'warnings', 'info', 'created_at', 'updated_at']
+        fields = ['id', 'critical_alerts', 'warnings', 'info', 'email_enabled', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def create(self, validated_data):
