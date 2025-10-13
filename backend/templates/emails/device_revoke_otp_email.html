@@ -3,57 +3,62 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Device Access Revocation Code</title>
+    <title>Device Access Revocation</title>
     <style>
-      :root { --bg:#0c1712; --card:#14231c; --accent:#dc2626; --success:#15c975; --muted:#9fb5aa; --border:#1f3329; }
+      :root { --bg:#0c1712; --card:#14231c; --primary:#15c975; --warning:#f59e0b; --muted:#9fb5aa; --border:#1f3329; }
       body { margin:0; background:var(--bg); color:#f5fdf9; }
       .wrapper { max-width:560px; margin:0 auto; padding:32px 24px; }
       .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:32px 40px; }
-      h1 { font-size:22px; margin:0 0 16px; font-weight:600; letter-spacing:.5px; color:var(--accent); }
-      p { line-height:1.5; margin:0 0 16px; font-size:15px; }
-      .code-box { letter-spacing:10px; font-size:34px; font-weight:700; background:#1f1414; border:2px solid var(--accent); padding:18px 12px; text-align:center; border-radius:12px; font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace; color:#fecaca; }
-      .warning-box { background:#1f1414; border:1px solid var(--accent); border-radius:8px; padding:16px; margin:20px 0; }
-      .warning-icon { font-size:20px; margin-right:8px; }
-      .device-info { background:#0f1f16; border:1px solid var(--success); border-radius:8px; padding:16px; margin:16px 0; color:#dcfce7; }
-      .meta { font-size:12px; color:var(--muted); margin-top:24px; line-height:1.4; }
+      h1 { font-size:24px; margin:0 0 20px; font-weight:600; letter-spacing:.5px; color:#f5fdf9; display:flex; align-items:center; gap:10px; }
+      .icon { font-size:28px; }
+      p { line-height:1.6; margin:0 0 18px; font-size:15px; color:#e8f3ed; }
+      .code-box { letter-spacing:12px; font-size:36px; font-weight:700; background:#0a1f14; border:2px solid #15c975; padding:20px 12px; text-align:center; border-radius:12px; font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace; color:#15c975; margin:24px 0; }
+      .warning-box { background:rgba(245,158,11,0.1); border-left:4px solid var(--warning); padding:14px 16px; margin:20px 0; border-radius:6px; }
+      .warning-box strong { color:var(--warning); display:block; margin-bottom:4px; }
+      .device-info { background:#0f1f16; border:1px solid var(--primary); border-radius:8px; padding:14px 16px; margin:20px 0; }
+      .device-info strong { color:var(--primary); }
+      .label { font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; }
+      .meta { font-size:12px; color:var(--muted); margin-top:30px; padding-top:20px; border-top:1px solid var(--border); }
       .footer { margin-top:40px; text-align:center; font-size:12px; color:var(--muted); }
-      a { color:var(--accent); text-decoration:none; }
-      .security-note { font-size:13px; color:var(--muted); background:#0f1419; padding:12px; border-radius:6px; margin-top:16px; }
-      @media (max-width:560px) { .card { padding:28px 22px; } h1 { font-size:20px; } .code-box { font-size:30px; letter-spacing:8px; } }
+      @media (max-width:560px) { .card { padding:24px 20px; } h1 { font-size:22px; } .code-box { font-size:32px; letter-spacing:10px; } }
     </style>
   </head>
   <body>
     <div class="wrapper">
-      <div class="card">
-        <h1>🔒 Device Access Revocation</h1>
-        <p>Someone has requested to revoke device access on your <strong>{{ site_name|default:"SmarTanom" }}</strong> account.</p>
+      <div class="card" style="background:#14231c;border:1px solid #1f3329;border-radius:14px;padding:32px 40px;">
+        <h1 style="font-size:24px;margin:0 0 20px;font-weight:600;letter-spacing:0.5px;color:#f5fdf9;display:flex;align-items:center;gap:10px;"><span class="icon" style="font-size:28px;">🔒</span> Device Access Revocation</h1>
+
+        <p style="line-height:1.6;margin:0 0 18px;font-size:15px;color:#e8f3ed;">A device access revocation request has been initiated for your <strong>{{ site_name|default:"SmarTanom" }}</strong> account.</p>
 
         {% if device_name %}
-        <div class="device-info">
-          <strong>📱 Device to be removed:</strong><br/>
-          {{ device_name }}
+        <div class="device-info" style="background:#0f1f16;border:1px solid #15c975;border-radius:8px;padding:14px 16px;margin:20px 0;color:#dcfce7;">
+          <strong style="color:#15c975;">Device to be removed:</strong><br/>
+          <span style="color:#dcfce7;font-size:14px;">{{ device_name }}</span>
+        </div>
+        {% else %}
+        <div class="device-info" style="background:#0f1f16;border:1px solid #15c975;border-radius:8px;padding:14px 16px;margin:20px 0;color:#dcfce7;">
+          <strong style="color:#15c975;">Device to be removed:</strong><br/>
+          <span style="color:#dcfce7;font-size:14px;">Unknown Device</span>
         </div>
         {% endif %}
 
-        <div class="warning-box">
-          <span class="warning-icon">⚠️</span>
-          <strong>Security Confirmation Required</strong><br/>
-          <small>This action will permanently remove access to your monitoring data for this device.</small>
+        <div class="warning-box" style="background:rgba(245,158,11,0.1);border-left:4px solid #f59e0b;padding:14px 16px;margin:20px 0;border-radius:6px;">
+          <strong style="color:#f59e0b;display:block;margin-bottom:4px;">⚠️ Security Confirmation Required</strong>
+          <span style="font-size:13px;color:#e8f3ed;">Verify this action to permanently revoke device access.</span>
         </div>
 
-        <p>Use this verification code to confirm the revocation:</p>
-        <div class="code-box">{{ code }}</div>
+        <p class="label" style="font-size:13px;color:#9fb5aa;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Use this verification code to confirm the revocation:</p>
+        <div class="code-box" style="letter-spacing:12px;font-size:36px;font-weight:700;background:#0a1f14;border:2px solid #15c975;padding:20px 12px;text-align:center;border-radius:12px;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;color:#15c975;margin:24px 0;">{{ code }}</div>
 
-        <p style="margin-top:24px;">This code expires in <strong>{{ expiry_minutes|default:10 }} minutes</strong>.</p>
+        <p style="text-align:center;font-size:13px;color:#9fb5aa;margin:16px 0;">This code expires in <strong style="color:#f5fdf9;">{{ expiry_minutes|default:10 }} minutes</strong>.</p>
 
-        <div class="security-note">
-          <strong>🛡️ Security Notice:</strong><br/>
-          If you did not request this action, someone may have unauthorized access to your account. Please contact support immediately and consider changing your account security settings.
+        <div class="meta" style="font-size:13px;color:#c9ddd3;margin-top:30px;padding-top:20px;border-top:1px solid #1f3329;">
+          <strong style="color:#f5fdf9;">🛡️ Security Notice:</strong> <span style="color:#e8f3ed;">If you did not request this action, contact support immediately.</span><br/><br/>
+          <span style="color:#9fb5aa;">Requested from IP:</span> <span style="color:#e8f3ed;font-weight:600;">{{ request_ip|default:"system" }}</span><br/>
+          <span style="color:#9fb5aa;">Time:</span> <span style="color:#e8f3ed;font-weight:600;">{{ timestamp|default:"unknown" }}</span>
         </div>
-
-        <p class="meta">Requested from IP: {{ request_ip|default:"unknown" }}<br/>Time: {{ timestamp|default:"unknown" }}</p>
       </div>
-      <div class="footer">&copy; {{ year }} SmarTanom. All rights reserved.</div>
+      <div class="footer" style="margin-top:40px;text-align:center;font-size:12px;color:#9fb5aa;">&copy; {{ year }} SmarTanom. All rights reserved.</div>
     </div>
   </body>
 </html>

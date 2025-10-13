@@ -172,3 +172,24 @@ export const getSentInvitations = async (deviceId) => {
     throw error;
   }
 };
+
+// Cancel a sent invitation (owner-initiated)
+export const cancelSentInvitation = async (invitationId) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    // Allow POST for environments where DELETE payloads are blocked
+    const response = await apiClient.post(
+      `/api/devices/invitations/sent/${encodeURIComponent(invitationId)}/cancel/`,
+      {},
+      { authToken: token }
+    );
+    return response;
+  } catch (error) {
+    console.error('Failed to cancel invitation:', error);
+    throw error;
+  }
+};

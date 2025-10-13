@@ -731,3 +731,50 @@ def subscribe_notifications(request):
             {'error': 'Failed to process subscription'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def cancel_sent_invitation(request, invitation_id: int):
+    """Allow the device owner (inviter) to cancel a pending invitation they sent.
+
+    Transitions the invitation status from PENDING to DECLINED.
+    """
+    try:
+        invitation = DeviceInvitation.objects.get(id=invitation_id)
+    except DeviceInvitation.DoesNotExist:
+        return Response(
+            {'error': 'Invitation not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Only the inviter can cancel their own pending invitations (or staff)
+    if not request.user.is_staff and invitation.invited_by_email != request.user.email:
+        return Response(
+            {'error': 'Permission denied. You can only cancel invitations you sent.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if invitation.status != DeviceInvitation.Status.PENDING:
+        return Response(
+            {'error': f'Cannot cancel invitation with status: {invitation.status}.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Mark as declined to free up the ability to invite again
+    invitation.status = DeviceInvitation.Status.DECLINED
+    invitation.save(update_fields=['status'])
+
+    logger.info(
+        "Invitation %s canceled by %s for device %s",
+        invitation.id,
+        request.user.email,
+        invitation.device.device_serial,
+    )
+
+    return Response({
+        'success': True,
+        'message': 'Invitation canceled.',
+        'invitation_id': invitation.id,
+        'status': invitation.status,
+    }, status=status.HTTP_200_OK)

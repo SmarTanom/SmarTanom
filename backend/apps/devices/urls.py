@@ -13,6 +13,7 @@ from .views import (
     get_shared_devices,
     get_sent_invitations,
     subscribe_notifications
+    , cancel_sent_invitation
 )
 
 app_name = 'devices'
@@ -30,6 +31,7 @@ urlpatterns = [
     path("invitations/pending/", get_pending_invitations, name="get_pending_invitations"),
     path("invitations/respond/", respond_to_invitation, name="respond_to_invitation"),
     path("invitations/sent/", get_sent_invitations, name="get_sent_invitations"),
+    path("invitations/sent/<int:invitation_id>/cancel/", cancel_sent_invitation, name="cancel_sent_invitation"),
     path("shared/", get_shared_devices, name="get_shared_devices"),
     # PWA notifications
     path("notifications/subscribe/", subscribe_notifications, name="subscribe_notifications"),

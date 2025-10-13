@@ -8,7 +8,7 @@ import {
 import '../assets/styles/ProfilePage.css';
 import { authApi, apiClient } from '../services/apiClient';
 import { getUserDevices } from '../services/api/devices.js';
-import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation, getSentInvitations } from '../services/api/sharing.js';
+import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation, getSentInvitations, cancelSentInvitation } from '../services/api/sharing.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import PWAInstallButton from '../components/pwa/PWAInstallButton.jsx';
 import OtpInput from '../components/auth/OtpInput.jsx';
@@ -53,6 +53,7 @@ export default function ProfilePage() {
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [sentInvitations, setSentInvitations] = useState([]);
   const [loadingSentInvites, setLoadingSentInvites] = useState(false);
+  const [cancelInviteId, setCancelInviteId] = useState(null);
   // Revoke access states
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
   const [revokeShare, setRevokeShare] = useState(null);
@@ -351,6 +352,30 @@ export default function ProfilePage() {
     }
   };
 
+  const handleCancelInvitation = async (invitation) => {
+    setCancelInviteId(invitation.id);
+  };
+
+  const confirmCancelInvitation = async () => {
+    if (!cancelInviteId) return;
+    try {
+      await cancelSentInvitation(cancelInviteId);
+      setSentInvitations(prev => prev.filter(inv => inv.id !== cancelInviteId));
+      setToast({ type: 'success', message: 'Invitation canceled' });
+    } catch (error) {
+      console.error('Failed to cancel invitation:', error);
+      const msg = error?.response?.data?.error || error?.message || 'Failed to cancel invitation';
+      setToast({ type: 'error', message: msg });
+    } finally {
+      setCancelInviteId(null);
+      // Refresh shared access list and invitations after a short delay
+      setTimeout(() => {
+        loadSharedAccess();
+        loadSentInvitations();
+      }, 500);
+    }
+  };
+
   // Accept device invitation
   const handleAcceptInvitation = async (invitation) => {
     try {
@@ -569,6 +594,40 @@ export default function ProfilePage() {
     setShareEmail('');
   };
 
+  // Reusable renderer for the "Pending invitations you sent" list
+  const renderPendingSentInvites = () => {
+    if (loadingSentInvites) return null;
+    const pending = (sentInvitations || []).filter(inv => inv.status === 'pending');
+    if (pending.length === 0) return null;
+    return (
+      <div style={{ marginTop: 16, width: '100%', maxWidth: 640 }}>
+        <div style={{ fontWeight: 600, color: '#2F3E46', marginBottom: 8 }}>Pending invitations you sent</div>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+          {pending.map(inv => (
+            <li key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F5F9F6', border: '1px solid #E0EBE5', borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Mail size={16} />
+                <span style={{ color: '#2F3E46' }}>{inv.invite_email}</span>
+                <span style={{ color: '#6B7D75' }}>→</span>
+                <span style={{ color: '#2F3E46', fontWeight: 500 }}>{inv.device_name || 'Shared Device'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, color: '#8a8d90' }}>Pending</span>
+                <button
+                  className="btn-cancel"
+                  onClick={() => handleCancelInvitation(inv)}
+                  style={{ padding: '6px 10px' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
   if (!user) return <div className="loading">Loading...</div>;
 
   return (
@@ -666,7 +725,7 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        {/* PWA App Installation & Notifications */}
+        {/* Mobile App */}
         <section className="profile-section">
           <div className="section-header">
             <h2 className="section-title">Mobile App</h2>
@@ -675,12 +734,9 @@ export default function ProfilePage() {
             <div style={{ marginBottom: '20px' }}>
               <PWAInstallButton />
             </div>
-
-
           </div>
         </section>
 
-        {/* Device Statistics */}
         {(() => {
           const devicesOwnedCount = Array.isArray(devices)
             ? devices.filter(d => d?.is_owner).length
@@ -797,28 +853,7 @@ export default function ProfilePage() {
               <span>Share your devices with other users to collaborate</span>
               {loadingSentInvites ? (
                 <p style={{ marginTop: 8, color: '#6B7D75' }}>Loading invitations you sent…</p>
-              ) : (
-                sentInvitations && sentInvitations.length > 0 && (
-                  <div style={{ marginTop: 16, width: '100%', maxWidth: 640 }}>
-                    <div style={{ fontWeight: 600, color: '#2F3E46', marginBottom: 8 }}>Pending invitations you sent</div>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
-                      {sentInvitations
-                        .filter(inv => inv.status === 'pending')
-                        .map(inv => (
-                        <li key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F5F9F6', border: '1px solid #E0EBE5', borderRadius: 8, padding: '10px 12px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Mail size={16} />
-                            <span style={{ color: '#2F3E46' }}>{inv.invite_email}</span>
-                            <span style={{ color: '#6B7D75' }}>→</span>
-                            <span style={{ color: '#2F3E46', fontWeight: 500 }}>{inv.device_name || 'Shared Device'}</span>
-                          </div>
-                          <span style={{ fontSize: 12, color: '#8a8d90' }}>Pending</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )
-              )}
+              ) : renderPendingSentInvites()}
             </div>
           ) : (
             <div className="shared-list">
@@ -861,6 +896,7 @@ export default function ProfilePage() {
                   )}
                 </div>
               ))}
+              {loadingSentInvites ? null : renderPendingSentInvites()}
             </div>
           )}
         </section>
@@ -1195,6 +1231,18 @@ export default function ProfilePage() {
         cancelText="Cancel"
         onConfirm={confirmLogout}
         onCancel={closeLogoutModal}
+        confirmVariant="danger"
+      />
+
+      {/* Cancel Invitation Modal */}
+      <ConfirmModal
+        isOpen={!!cancelInviteId}
+        title="Cancel invitation"
+        description="Are you sure you want to cancel this pending invitation? The invited user will no longer be able to accept it."
+        confirmText="Cancel Invitation"
+        cancelText="Keep"
+        onConfirm={confirmCancelInvitation}
+        onCancel={() => setCancelInviteId(null)}
         confirmVariant="danger"
       />
     </div>
