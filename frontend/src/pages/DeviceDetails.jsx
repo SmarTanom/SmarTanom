@@ -17,10 +17,13 @@ import {
   Wifi,
   Gauge,
   RefreshCw,
-  Database
+  Database,
+  Camera,
+  Upload,
+  X
 } from 'lucide-react';
 
-import { getDeviceById } from '../services/api/devices.js';
+import { getDeviceById, uploadPlantPhoto } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 import { getDeviceReservoirs } from '../services/api/reservoirs.js';
 
@@ -101,6 +104,13 @@ export default function DeviceDetails() {
   const [error, setError] = useState(null);
   const [logEntries, setLogEntries] = useState([]);
   const [reservoir, setReservoir] = useState(null);
+
+  // Plant photo change states
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -338,6 +348,102 @@ export default function DeviceDetails() {
     navigate('/dashboard');
   };
 
+  // Photo change handlers
+  const handleOpenPhotoModal = () => {
+    setShowPhotoModal(true);
+    setPhotoError(null);
+  };
+
+  const handleClosePhotoModal = () => {
+    setShowPhotoModal(false);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setPhotoError(null);
+  };
+
+  const handleCameraCapture = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setPhotoError('Image size must be less than 5MB');
+        return;
+      }
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+      setPhotoError(null);
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setPhotoError('Please select a valid image file');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setPhotoError('Image size must be less than 5MB');
+        return;
+      }
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+      setPhotoError(null);
+    }
+  };
+
+  const handleUploadPhoto = async () => {
+    if (!photoFile) {
+      setPhotoError('Please select a photo first');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    setPhotoError(null);
+
+    try {
+      const deviceIdToUse = device?.id || deviceId;
+      console.log('📸 Uploading photo for device:', deviceIdToUse);
+      console.log('📄 File details:', {
+        name: photoFile.name,
+        type: photoFile.type,
+        size: photoFile.size
+      });
+
+      const response = await uploadPlantPhoto(deviceIdToUse, photoFile);
+      console.log('✅ Upload successful:', response);
+
+      // Update device with new photo URL
+      setDevice(prev => ({
+        ...prev,
+        plant_photo_url: response.plant_photo_url || response.data?.plant_photo_url
+      }));
+
+      // Clean up and close modal
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+      handleClosePhotoModal();
+
+    } catch (error) {
+      console.error('❌ Failed to upload photo:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        data: error.data
+      });
+
+      // Show more specific error messages
+      let errorMessage = 'Failed to upload photo. Please try again.';
+      if (error.status === 403) {
+        errorMessage = 'Permission denied. Only the device owner can upload photos.';
+      } else if (error.status === 400) {
+        errorMessage = error.data?.error || 'Invalid photo file. Please try a different image.';
+      }
+
+      setPhotoError(errorMessage);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const resolvedDevice = device || (mockDevices[deviceId] || mockDevices['D000000001']);
 
   // Derive display values and only render when truthy to avoid placeholder dashes
@@ -369,9 +475,19 @@ export default function DeviceDetails() {
             <ChevronLeft size={20} />
             <span>Go back</span>
           </button>
-          <button className="more-button" aria-label="More options">
-            <MoreVertical size={24} />
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              className="edit-photo-button"
+              onClick={handleOpenPhotoModal}
+              aria-label="Change plant photo"
+              title="Change plant photo"
+            >
+              <Camera size={20} />
+            </button>
+            <button className="more-button" aria-label="More options">
+              <MoreVertical size={24} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -577,6 +693,146 @@ export default function DeviceDetails() {
           <span>Profile</span>
         </button>
       </nav>
+
+      {/* Plant Photo Change Modal */}
+      {showPhotoModal && (
+        <div className="modal-overlay" onClick={handleClosePhotoModal}>
+          <div className="modal-content photo-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Change Plant Photo</h3>
+              <button className="modal-close" onClick={handleClosePhotoModal}>
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {!photoPreview ? (
+                <div className="photo-options">
+                  <p style={{ textAlign: 'center', marginBottom: '24px', color: '#6B7D75', fontSize: '14px' }}>
+                    Choose how you'd like to add a photo
+                  </p>
+
+                  <label className="photo-option-button">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleCameraCapture}
+                      style={{ display: 'none' }}
+                    />
+                    <div className="photo-option-icon">
+                      <Camera size={32} color="#339432" />
+                    </div>
+                    <div className="photo-option-text">
+                      <strong>Take Photo</strong>
+                      <span>Use your camera</span>
+                    </div>
+                  </label>
+
+                  <label className="photo-option-button">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <div className="photo-option-icon">
+                      <Upload size={32} color="#339432" />
+                    </div>
+                    <div className="photo-option-text">
+                      <strong>Upload Photo</strong>
+                      <span>Choose from your device</span>
+                    </div>
+                  </label>
+
+                  {photoError && (
+                    <div style={{
+                      marginTop: '16px',
+                      padding: '12px',
+                      backgroundColor: '#FEE2E2',
+                      borderRadius: '8px',
+                      color: '#DC2626',
+                      fontSize: '14px',
+                      textAlign: 'center'
+                    }}>
+                      {photoError}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="photo-preview-container">
+                  <img
+                    src={photoPreview}
+                    alt="Photo preview"
+                    style={{
+                      width: '100%',
+                      maxHeight: '400px',
+                      objectFit: 'contain',
+                      borderRadius: '12px',
+                      marginBottom: '16px'
+                    }}
+                  />
+
+                  {photoError && (
+                    <div style={{
+                      marginBottom: '16px',
+                      padding: '12px',
+                      backgroundColor: '#FEE2E2',
+                      borderRadius: '8px',
+                      color: '#DC2626',
+                      fontSize: '14px',
+                      textAlign: 'center'
+                    }}>
+                      {photoError}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                      onClick={() => {
+                        if (photoPreview) URL.revokeObjectURL(photoPreview);
+                        setPhotoFile(null);
+                        setPhotoPreview(null);
+                        setPhotoError(null);
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        background: 'transparent',
+                        border: '1px solid #D1D5DB',
+                        borderRadius: '8px',
+                        color: '#6B7D75',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Choose Different Photo
+                    </button>
+                    <button
+                      onClick={handleUploadPhoto}
+                      disabled={uploadingPhoto}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        background: uploadingPhoto ? '#9fb5aa' : '#339432',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: 'white',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        cursor: uploadingPhoto ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -56,6 +56,7 @@ export default function ProfilePage() {
   const [cancelInviteId, setCancelInviteId] = useState(null);
   // Revoke access states
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+  const [showRevokeOtpModal, setShowRevokeOtpModal] = useState(false);
   const [revokeShare, setRevokeShare] = useState(null);
   const [revokeOtp, setRevokeOtp] = useState('');
   const [revokeLoading, setRevokeLoading] = useState(false);
@@ -494,9 +495,16 @@ export default function ProfilePage() {
     if (!share) return;
 
     setRevokeShare(share);
+    setShowRevokeConfirm(true);
+  };
+
+  const confirmRevokeRequest = async () => {
+    setShowRevokeConfirm(false);
+    // Reset OTP state
     setRevokeOtp('');
     setOtpSent(false);
-    setShowRevokeConfirm(true);
+    // Show OTP modal
+    setShowRevokeOtpModal(true);
   };
 
   const confirmRevokeAccess = async () => {
@@ -526,7 +534,7 @@ export default function ProfilePage() {
       setSharedAccess(prev => prev.filter(s => s.id !== revokeShare.id));
 
       // Reset modal state
-      setShowRevokeConfirm(false);
+      setShowRevokeOtpModal(false);
       setRevokeShare(null);
       setRevokeOtp('');
       setOtpSent(false);
@@ -541,8 +549,13 @@ export default function ProfilePage() {
     }
   };
 
-  const cancelRevokeAccess = () => {
+  const cancelRevokeConfirm = () => {
     setShowRevokeConfirm(false);
+    setRevokeShare(null);
+  };
+
+  const cancelRevokeOtp = () => {
+    setShowRevokeOtpModal(false);
     setRevokeShare(null);
     setRevokeOtp('');
     setOtpSent(false);
@@ -1052,67 +1065,81 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Revoke Access Confirmation Modal */}
-      {showRevokeConfirm && revokeShare && (
-        <div className="modal-overlay" onClick={cancelRevokeAccess}>
+      {/* Revoke Access Initial Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showRevokeConfirm}
+        title="Revoke Device Access"
+        description={
+          revokeShare && (
+            <div>
+              <p style={{ margin: 0, color: '#2F3E46' }}>
+                Are you sure you want to revoke access for <strong>{revokeShare.sharedWith}</strong>?
+              </p>
+              <p style={{ margin: '8px 0 0', color: '#6B7D75', fontSize: 14 }}>
+                They will no longer be able to view monitoring data or alerts for <strong>{revokeShare.deviceName}</strong>.
+              </p>
+            </div>
+          )
+        }
+        confirmText="Continue"
+        cancelText="Cancel"
+        onConfirm={confirmRevokeRequest}
+        onCancel={cancelRevokeConfirm}
+        confirmVariant="danger"
+      />
+
+      {/* Revoke Access OTP Modal */}
+      {showRevokeOtpModal && revokeShare && (
+        <div className="modal-overlay" onClick={cancelRevokeOtp}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Revoke Device Access</h3>
-              <button className="modal-close" onClick={cancelRevokeAccess}>
+              <h3>Security Verification Required</h3>
+              <button className="modal-close" onClick={cancelRevokeOtp}>
                 <X size={24} />
               </button>
             </div>
 
             <div className="modal-body">
-              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                <AlertCircle size={48} color="#dc2626" style={{ margin: '0 auto 16px' }} />
-                <p style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600', color: '#2F3E46' }}>
-                  Are you sure you want to revoke access?
-                </p>
-                <p style={{ margin: 0, color: '#666', lineHeight: 1.5 }}>
-                  This will remove <strong>{revokeShare.sharedWith}</strong>'s access to <strong>{revokeShare.deviceName}</strong>.
-                  They will no longer be able to view monitoring data or alerts for this device.
-                </p>
-              </div>
-
               <div className="form-group">
-                <label className="form-label" style={{ textAlign: 'center', display: 'block' }}>
-                  Enter OTP Code for Confirmation
-                </label>
-
                 {!otpSent ? (
                   <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                    <AlertCircle size={48} color="#f59e0b" style={{ margin: '0 auto 16px' }} />
+                    <p style={{ margin: '0 0 8px 0', fontSize: '15px', fontWeight: '500', color: '#2F3E46' }}>
+                      Confirm revocation for:
+                    </p>
+                    <p style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '600', color: '#339432' }}>
+                      {revokeShare.deviceName}
+                    </p>
                     <button
                       onClick={sendRevokeOtp}
                       disabled={sendingOtp}
                       style={{
-                        padding: '10px 20px',
+                        padding: '12px 24px',
                         background: '#339432',
                         color: 'white',
                         border: 'none',
                         borderRadius: '8px',
-                        fontSize: '14px',
+                        fontSize: '15px',
                         fontWeight: '600',
                         cursor: sendingOtp ? 'not-allowed' : 'pointer',
                         opacity: sendingOtp ? 0.7 : 1,
                         transition: 'all 0.2s ease'
                       }}
                     >
-                      {sendingOtp ? 'Sending...' : 'Send OTP Code'}
+                      {sendingOtp ? 'Sending...' : 'Send Verification Code'}
                     </button>
-                    <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#666' }}>
-                      Click to receive OTP code via email
+                    <p style={{ margin: '12px 0 0 0', fontSize: '13px', color: '#666' }}>
+                      We'll send a verification code to <strong>{user.email}</strong>
                     </p>
                   </div>
                 ) : (
                   <>
-                    {/* Single, clean OTP input section */}
                     <div className="revoke-otp-container">
                       <div className="otp-header">
                         <div className="otp-icon">🔐</div>
-                        <h4 className="otp-title">Security Confirmation Required</h4>
+                        <h4 className="otp-title">Enter Verification Code</h4>
                         <p className="otp-subtitle">
-                          Enter the verification code we sent to <strong>{user.email}</strong>
+                          Code sent to <strong>{user.email}</strong>
                         </p>
                       </div>
 
@@ -1142,35 +1169,12 @@ export default function ProfilePage() {
 
                         <div className="otp-status">
                           <div className={`otp-length-indicator ${revokeOtp.length === 6 ? 'complete' : ''}`}>
-                            {revokeOtp.length}/6 digits entered
+                            {revokeOtp.length}/6 digits
                           </div>
                         </div>
                       </div>
                     </div>
-                    <div style={{
-                      textAlign: 'center',
-                      marginBottom: '16px',
-                      padding: '14px',
-                      backgroundColor: '#fff3e7',
-                      borderRadius: '8px',
-                      border: '1px solid #ffcc99',
-                      fontSize: '14px',
-                      lineHeight: '1.5'
-                    }}>
-                      <div style={{ color: '#cc6600', fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-                        Security Verification Required
-                      </div>
-                      <div style={{ color: '#d63384', fontSize: '14px', fontWeight: '600', marginBottom: '6px' }}>
-                        Revoking access to: {selectedDevice?.name}
-                      </div>
-                      <div style={{ color: '#555', fontSize: '13px', marginBottom: '4px' }}>
-                        Enter the security code sent to your email to confirm device revocation
-                      </div>
-                      <div style={{ color: '#666', fontSize: '12px', fontStyle: 'italic' }}>
-                        This action will permanently remove access to this device
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                    <div style={{ textAlign: 'center', marginTop: '16px' }}>
                       <button
                         onClick={sendRevokeOtp}
                         disabled={sendingOtp}
@@ -1188,7 +1192,7 @@ export default function ProfilePage() {
                           minWidth: '120px'
                         }}
                       >
-                        {sendingOtp ? 'Sending...' : 'Resend OTP'}
+                        {sendingOtp ? 'Sending...' : 'Resend Code'}
                       </button>
                     </div>
                   </>
@@ -1197,17 +1201,17 @@ export default function ProfilePage() {
             </div>
 
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={cancelRevokeAccess}>
+              <button className="btn-cancel" onClick={cancelRevokeOtp}>
                 Cancel
               </button>
               <button
                 className="btn-confirm"
                 onClick={confirmRevokeAccess}
-                disabled={revokeLoading || !otpSent || !revokeOtp.trim()}
+                disabled={revokeLoading || !otpSent || !revokeOtp.trim() || revokeOtp.length !== 6}
                 style={{
                   background: '#dc2626',
-                  opacity: (revokeLoading || !otpSent || !revokeOtp.trim()) ? 0.7 : 1,
-                  cursor: (revokeLoading || !otpSent || !revokeOtp.trim()) ? 'not-allowed' : 'pointer'
+                  opacity: (revokeLoading || !otpSent || !revokeOtp.trim() || revokeOtp.length !== 6) ? 0.7 : 1,
+                  cursor: (revokeLoading || !otpSent || !revokeOtp.trim() || revokeOtp.length !== 6) ? 'not-allowed' : 'pointer'
                 }}
               >
                 {revokeLoading ? 'Revoking...' : 'Revoke Access'}

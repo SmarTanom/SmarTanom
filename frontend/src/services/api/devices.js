@@ -62,11 +62,34 @@ export async function getDeviceById(deviceId) {
   });
 }
 
+/**
+ * Upload or update plant photo for a device
+ */
+export async function uploadPlantPhoto(deviceId, photoFile, plantName = '') {
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  const formData = new FormData();
+  formData.append('plant_photo', photoFile);
+  if (plantName) {
+    formData.append('plant_name', plantName);
+  }
+
+  // Don't set Content-Type header - browser will set it automatically with boundary
+  return apiClient.post(`/api/devices/devices/${deviceId}/upload-photo/`, formData, {
+    authToken: token,
+    json: false // Important: tells apiClient not to set JSON headers
+  });
+}
+
 // Export as default object for consistency with auth.js
 export default {
   checkDevice,
   requestDeviceOTP,
   verifyDeviceOTP,
   getUserDevices,
-  getDeviceById
+  getDeviceById,
+  uploadPlantPhoto
 };
