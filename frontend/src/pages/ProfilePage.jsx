@@ -567,29 +567,44 @@ export default function ProfilePage() {
         </section>
 
         {/* Device Statistics */}
-        <section className="profile-section">
-          <h2 className="section-title">Device Overview</h2>
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-icon">
-                <Leaf size={24} color={PRIMARY_GREEN} />
+        {(() => {
+          const devicesOwnedCount = Array.isArray(devices)
+            ? devices.filter(d => d?.is_owner).length
+            : 0;
+          // Count distinct devices that the owner has shared (>=1 collaborator)
+          const sharedDeviceIds = new Set(
+            (Array.isArray(sharedAccess) ? sharedAccess : [])
+              .filter(s => s?.isOwner && (s?.status === 'active' || !s?.status))
+              .map(s => s.deviceId)
+          );
+          const sharedWithOthersCount = sharedDeviceIds.size;
+
+          return (
+            <section className="profile-section">
+              <h2 className="section-title">Device Overview</h2>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-icon">
+                    <Leaf size={24} color={PRIMARY_GREEN} />
+                  </div>
+                  <div className="stat-content">
+                    <span className="stat-value">{devicesOwnedCount}</span>
+                    <span className="stat-label">Devices Owned</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon">
+                    <Share2 size={24} color={PRIMARY_GREEN} />
+                  </div>
+                  <div className="stat-content">
+                    <span className="stat-value">{sharedWithOthersCount}</span>
+                    <span className="stat-label">Shared With Others</span>
+                  </div>
+                </div>
               </div>
-              <div className="stat-content">
-                <span className="stat-value">{user.devicesOwned}</span>
-                <span className="stat-label">Devices Owned</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon">
-                <Share2 size={24} color={PRIMARY_GREEN} />
-              </div>
-              <div className="stat-content">
-                <span className="stat-value">{user.sharedWith}</span>
-                <span className="stat-label">Shared With Others</span>
-              </div>
-            </div>
-          </div>
-        </section>
+            </section>
+          );
+        })()}
 
         {/* Pending Invitations */}
         {pendingInvitations.length > 0 && (
