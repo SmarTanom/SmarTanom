@@ -633,13 +633,15 @@ export default function ProfilePage() {
         <section className="profile-section">
           <div className="section-header">
             <h2 className="section-title">Shared Monitoring</h2>
-            <button
-              className="btn-share-new"
-              onClick={openShareModal}
-            >
-              <Plus size={16} />
-              Share Device
-            </button>
+            {devices.some(d => d.is_owner) && (
+              <button
+                className="btn-share-new"
+                onClick={openShareModal}
+              >
+                <Plus size={16} />
+                Share Device
+              </button>
+            )}
           </div>
 
           <div className="share-info-banner">
