@@ -14,6 +14,10 @@ import SignupSetup from './pages/SignupSetup.jsx';
 import AddDevicePage from './pages/AddDevicePage.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
+import AdminDevices from './pages/AdminDevices.jsx';
+import AdminCreate from './pages/AdminCreate.jsx';
+import AdminUsers from './pages/AdminUsers.jsx';
+import AdminSettings from './pages/AdminSettings.jsx';
 import DeviceDetails from './pages/DeviceDetails.jsx';
 import AlertsPage from './pages/AlertsPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
@@ -249,6 +253,38 @@ export default function App() {
             element={
               <ProtectedRoute requireAdmin={true}>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/devices"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminDevices />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/create"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminCreate />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminUsers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminSettings />
               </ProtectedRoute>
             }
           />

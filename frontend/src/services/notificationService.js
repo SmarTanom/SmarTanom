@@ -22,13 +22,17 @@ class PWANotificationService {
     }
 
     try {
-      // Register service worker if not already registered
-      if (!navigator.serviceWorker.controller) {
-        await navigator.serviceWorker.register('/sw.js');
+      // Skip explicit SW registration in Vite dev to avoid 404 on /sw.js
+      const isDev = typeof window !== 'undefined' && window.location && /localhost|127\.0\.0\.1/.test(window.location.host);
+      if (!isDev) {
+        // Register service worker if not already registered (production build)
+        if (!navigator.serviceWorker.controller) {
+          await navigator.serviceWorker.register('/sw.js');
+        }
       }
 
       // Wait for service worker to be ready
-      this.registration = await navigator.serviceWorker.ready;
+  this.registration = isDev ? null : await navigator.serviceWorker.ready;
       console.log('Notification service initialized with registration:', this.registration);
       return true;
     } catch (error) {
@@ -60,6 +64,7 @@ class PWANotificationService {
   async subscribe(vapidPublicKey) {
     if (!this.registration) {
       await this.initialize();
+      if (!this.registration) return null; // dev mode: no-op
     }
 
     try {
@@ -87,7 +92,7 @@ class PWANotificationService {
    */
   async unsubscribe() {
     if (!this.registration) {
-      return true;
+      return true; // dev mode: no-op
     }
 
     try {
@@ -112,6 +117,7 @@ class PWANotificationService {
   async getSubscription() {
     if (!this.registration) {
       await this.initialize();
+      if (!this.registration) return null; // dev mode: no-op
     }
 
     try {
@@ -130,6 +136,7 @@ class PWANotificationService {
   async showNotification(title, options = {}) {
     if (!this.registration) {
       await this.initialize();
+      if (!this.registration) return; // dev mode: no-op
     }
 
     const defaultOptions = {
