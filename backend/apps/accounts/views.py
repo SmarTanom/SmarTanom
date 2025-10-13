@@ -23,6 +23,7 @@ import requests
 import dns.resolver
 import asyncio
 from asgiref.sync import sync_to_async  # (May remain for future async tasks, not used now)
+from apps.devices.models import DeviceInvitation
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -204,19 +205,15 @@ def request_otp(request):
         )
 
     try:
-        # Determine whether the email already exists. We now enforce explicit flows:
-        #  - If user selects signup (register) but email exists -> still send a code tied to *login* purpose but include flag so frontend can prompt login instead of continuing signup.
-        #  - If user selects login but email does not exist -> send code for *register* purpose but include flag so frontend can prompt them to create an account after verification.
-        # This preserves security (no direct disclosure) while preventing an existing account from proceeding down the signup completion path.
+        # Determine whether the email already exists or has an active invitation
         email_exists = User.objects.filter(email=email).exists()
+        invited_exists = DeviceInvitation.objects.filter(
+            invite_email=email,
+            status=DeviceInvitation.Status.PENDING,
+            expires_at__gt=timezone.now()
+        ).exists()
         original_purpose = purpose
-        existence_mismatch = False
-        if purpose == OTPCode.PURPOSE_LOGIN and not email_exists:
-            purpose = OTPCode.PURPOSE_REGISTER
-            existence_mismatch = True  # attempting login for new email
-        elif purpose == OTPCode.PURPOSE_REGISTER and email_exists:
-            purpose = OTPCode.PURPOSE_LOGIN
-            existence_mismatch = True  # attempting register for existing email
+        flow_hint = None
 
         # Verify email is a Google account based on configured policy
         if not verify_google_account(email):
@@ -228,25 +225,26 @@ def request_otp(request):
                 'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60
             }, status=status.HTTP_200_OK)
 
-        # If a login was attempted for a non-existent email, do NOT generate an OTP.
-        # Frontend should redirect user to signup instead.
-        if original_purpose == OTPCode.PURPOSE_LOGIN and not email_exists:
-            response_data = {
-                'message': 'If the account exists, a code was sent.',
-                'email': email,
-                'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60,
-                'flow_hint': 'should_signup'
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
-        if original_purpose == OTPCode.PURPOSE_REGISTER and email_exists:
-            # Do not send OTP for existing account trying to re-register.
-            response_data = {
-                'message': 'If the account exists, a code was sent.',
-                'email': email,
-                'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60,
-                'flow_hint': 'should_login'
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
+        # Enforce invitation-or-existing-user policy
+        if original_purpose == OTPCode.PURPOSE_LOGIN:
+            if email_exists:
+                purpose = OTPCode.PURPOSE_LOGIN
+            elif invited_exists:
+                # Allow login attempt to proceed as signup flow for invited emails
+                purpose = OTPCode.PURPOSE_REGISTER
+                flow_hint = 'should_signup'
+            else:
+                LoginAttempt.record_attempt(email, ip_address, successful=False)
+                return Response({'error': 'Email not recognized or not invited.'}, status=status.HTTP_400_BAD_REQUEST)
+        elif original_purpose == OTPCode.PURPOSE_REGISTER:
+            if email_exists:
+                # Existing users should login instead
+                LoginAttempt.record_attempt(email, ip_address, successful=False)
+                return Response({'error': 'Email already registered. Please log in.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not invited_exists:
+                LoginAttempt.record_attempt(email, ip_address, successful=False)
+                return Response({'error': 'Email is not invited.'}, status=status.HTTP_400_BAD_REQUEST)
+            purpose = OTPCode.PURPOSE_REGISTER
 
         # Otherwise create OTP (covers normal login for existing account, or register/create flow, or register attempt for existing which we coerce to login)
         otp = OTPCode.create_otp(email, purpose)
@@ -256,18 +254,11 @@ def request_otp(request):
             LoginAttempt.record_attempt(email, ip_address, successful=True)
         # Always return generic message regardless of underlying send failure to avoid probing
         response_data = {
-            'message': 'If the account exists, a code was sent.',
+            'message': 'Verification code sent.',
             'email': email,
             'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60,
-            'flow_hint': None,
+            'flow_hint': flow_hint,
         }
-        # flow_hint communicates to frontend that user intent and existence mismatch.
-        # Values: 'should_login' (user tried register but exists), 'should_signup' (user tried login but new), or null.
-        if existence_mismatch:
-            if original_purpose == OTPCode.PURPOSE_REGISTER and email_exists:
-                response_data['flow_hint'] = 'should_login'
-            elif original_purpose == OTPCode.PURPOSE_LOGIN and not email_exists:
-                response_data['flow_hint'] = 'should_signup'
         if settings.DEBUG:
             response_data['debug_code'] = otp.code
         return Response(response_data, status=status.HTTP_200_OK)
@@ -320,6 +311,15 @@ def verify_otp(request):
             flow_hint = 'should_login' if purpose == OTPCode.PURPOSE_REGISTER else None
         else:
             if purpose == OTPCode.PURPOSE_REGISTER:
+                # Only allow creating accounts for invited emails (pending & unexpired)
+                invited_exists = DeviceInvitation.objects.filter(
+                    invite_email=email,
+                    status=DeviceInvitation.Status.PENDING,
+                    expires_at__gt=timezone.now()
+                ).exists()
+                if not invited_exists:
+                    LoginAttempt.record_attempt(email, ip_address, successful=False)
+                    return Response({'error': 'Registration is limited to invited emails.'}, status=status.HTTP_400_BAD_REQUEST)
                 user = User.objects.create_user(email=email)
                 creation_flow = True
                 flow_hint = None

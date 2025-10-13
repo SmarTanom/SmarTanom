@@ -581,6 +581,11 @@ export default function ProfilePage() {
               .map(s => s.deviceId)
           );
           const sharedWithOthersCount = sharedDeviceIds.size;
+          // Count devices that are shared with the current user (collaborator view)
+          const sharedWithMeCount = Array.isArray(devices)
+            ? devices.filter(d => d?.is_collaborator && !d?.is_owner).length
+            : 0;
+          const showSharedWithMe = devicesOwnedCount === 0 && sharedWithMeCount > 0;
 
           return (
             <section className="profile-section">
@@ -600,8 +605,8 @@ export default function ProfilePage() {
                     <Share2 size={24} color={PRIMARY_GREEN} />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-value">{sharedWithOthersCount}</span>
-                    <span className="stat-label">Shared With Others</span>
+                    <span className="stat-value">{showSharedWithMe ? sharedWithMeCount : sharedWithOthersCount}</span>
+                    <span className="stat-label">{showSharedWithMe ? 'Shared With Me' : 'Shared With Others'}</span>
                   </div>
                 </div>
               </div>
