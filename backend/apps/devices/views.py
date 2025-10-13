@@ -493,9 +493,9 @@ class DeviceViewSet(BaseAuthViewSet):
             'count': len(serializer.data)
         })
 
-    @action(detail=True, methods=['delete'], url_path='collaborators/(?P<collaborator_id>[^/.]+)')
+    @action(detail=True, methods=['post'], url_path='collaborators/(?P<collaborator_id>[^/.]+)/revoke')
     def revoke_access(self, request, pk=None, collaborator_id=None):
-        """Revoke device access for a collaborator."""
+        """Revoke device access for a collaborator with OTP verification."""
         device = self.get_object()
 
         # Check if user owns this device (unless staff)
@@ -515,6 +515,29 @@ class DeviceViewSet(BaseAuthViewSet):
             return Response(
                 {'error': 'Collaboration not found.'},
                 status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get and sanitize OTP code from request data
+        raw_otp = request.data.get('otp_code')
+        otp_code = ''.join(ch for ch in str(raw_otp).strip() if ch.isdigit()) if raw_otp is not None else ''
+        if not otp_code:
+            return Response(
+                {'error': 'OTP code is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if len(otp_code) != 6:
+            return Response(
+                {'error': 'Invalid or expired OTP code.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify OTP using the revoke purpose to match issuance
+        from apps.accounts.models import OTPCode
+        email_norm = (request.user.email or '').lower()
+        if not OTPCode.verify_otp(email_norm, otp_code, OTPCode.PURPOSE_REVOKE):
+            return Response(
+                {'error': 'Invalid or expired OTP code.'},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         collaboration.status = DeviceCollaboration.Status.REVOKED

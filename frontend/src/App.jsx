@@ -20,6 +20,7 @@ import ProfilePage from './pages/ProfilePage.jsx';
 import StartCyclePage from './pages/StartCyclePage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
 import PrivacySecurityPage from './pages/PrivacySecurityPage.jsx';
+import DevCacheHelper from './components/dev/DevCacheHelper.jsx';
 
 function useKeyboardViewport() {
   useEffect(() => {
@@ -104,9 +105,7 @@ export default function App() {
     window.pwaUpdateSW = updateSW;
 
     console.log('PWA initialized successfully');
-  }, []);
-
-  return (
+  }, []);  return (
     <AuthProvider>
       <AuthFlowProvider>
         <Routes>
@@ -257,6 +256,9 @@ export default function App() {
           {/* Catch-all route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+
+        {/* Development cache helper - only shows in dev mode */}
+        {/* <DevCacheHelper /> */}
       </AuthFlowProvider>
     </AuthProvider>
   );

@@ -117,11 +117,13 @@ class OTPCode(models.Model):
     PURPOSE_LOGIN = 'login'
     PURPOSE_REGISTER = 'register'
     PURPOSE_RESET = 'reset'
+    PURPOSE_REVOKE = 'revoke'
 
     PURPOSE_CHOICES = [
         (PURPOSE_LOGIN, 'Login'),
         (PURPOSE_REGISTER, 'Registration'),
         (PURPOSE_RESET, 'Password Reset'),
+        (PURPOSE_REVOKE, 'Device Access Revocation'),
     ]
 
     email = models.EmailField()
@@ -194,9 +196,9 @@ class OTPCode(models.Model):
     @classmethod
     def create_otp(cls, email, purpose=PURPOSE_LOGIN):
         """Create a new OTP code for the given email and purpose."""
-        # Invalidate existing unused OTPs for this email/purpose
+        # Invalidate existing unused OTPs for this email/purpose (case-insensitive email match)
         cls.objects.filter(
-            email=email,
+            email__iexact=email,
             purpose=purpose,
             is_used=False
         ).update(is_used=True)
@@ -212,7 +214,7 @@ class OTPCode(models.Model):
         """Verify OTP code for given email and purpose."""
         try:
             otp = cls.objects.filter(
-                email=email,
+                email__iexact=email,
                 purpose=purpose,
                 is_used=False
             ).order_by('-created_at').first()

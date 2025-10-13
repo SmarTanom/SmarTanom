@@ -1,0 +1,29 @@
+SMARTANOM - DEVICE ACCESS REVOCATION
+=====================================
+
+🔒 SECURITY CONFIRMATION REQUIRED
+
+Someone has requested to revoke device access on your SmarTanom account.
+
+{% if device_name %}Device to be removed: {{ device_name }}{% endif %}
+
+⚠️  WARNING: This action will permanently remove access to your monitoring
+data for this device.
+
+Your verification code is:
+
+    {{ code }}
+
+This code expires in {{ expiry_minutes|default:10 }} minutes.
+
+🛡️  SECURITY NOTICE:
+If you did not request this action, someone may have unauthorized access
+to your account. Please contact support immediately.
+
+Request details:
+- IP Address: {{ request_ip|default:"unknown" }}
+- Time: {{ timestamp|default:"unknown" }}
+
+--
+SmarTanom Team
+© {{ year }} SmarTanom. All rights reserved.

@@ -8,65 +8,66 @@ User = get_user_model()
 
 class OTPRequestSerializer(serializers.Serializer):
     """Serializer for OTP request."""
-    
+
     email = serializers.EmailField()
     purpose = serializers.ChoiceField(
         choices=OTPCode.PURPOSE_CHOICES,
         default=OTPCode.PURPOSE_LOGIN
     )
-    
+    device_name = serializers.CharField(required=False, allow_blank=True, max_length=100)
+
     def validate_email(self, value):
         """Validate email format and normalize."""
         if not value:
             raise serializers.ValidationError("Email is required.")
-        
+
         # Basic email validation (Django's EmailField handles most of this)
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(email_pattern, value):
             raise serializers.ValidationError("Please enter a valid email address.")
-        
+
         return value.lower().strip()
 
 
 class OTPVerifySerializer(serializers.Serializer):
     """Serializer for OTP verification."""
-    
+
     email = serializers.EmailField()
     code = serializers.CharField(max_length=6, min_length=6)
     purpose = serializers.ChoiceField(
         choices=OTPCode.PURPOSE_CHOICES,
         default=OTPCode.PURPOSE_LOGIN
     )
-    
+
     def validate_email(self, value):
         """Validate and normalize email."""
         return value.lower().strip()
-    
+
     def validate_code(self, value):
         """Validate OTP code format."""
         if not value:
             raise serializers.ValidationError("OTP code is required.")
-        
+
         # Remove any spaces or special characters
         code = re.sub(r'[^0-9]', '', value)
-        
+
         if len(code) != 6:
             raise serializers.ValidationError("OTP code must be exactly 6 digits.")
-        
+
         if not code.isdigit():
             raise serializers.ValidationError("OTP code must contain only numbers.")
-        
+
         return code
 
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for User model (public view)."""
-    
+
     full_name = serializers.ReadOnlyField()
     is_admin = serializers.ReadOnlyField()
     user_photo = serializers.ImageField(read_only=True)
     user_photo_url = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = User
         fields = [
@@ -111,12 +112,12 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer for User profile (editable view)."""
-    
+
     full_name = serializers.ReadOnlyField()
     is_admin = serializers.ReadOnlyField()
     user_photo = serializers.ImageField(required=False, allow_null=True)
     user_photo_url = serializers.SerializerMethodField(read_only=True)
-    
+
     class Meta:
         model = User
         fields = [
@@ -145,13 +146,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'date_joined',
             'last_login'
         ]
-    
+
     def validate_first_name(self, value):
         """Validate first name."""
         if value and len(value.strip()) < 1:
             raise serializers.ValidationError("First name cannot be empty.")
         return value.strip() if value else value
-    
+
     def validate_last_name(self, value):
         """Validate last name."""
         if value and len(value.strip()) < 1:
@@ -173,12 +174,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class UserAdminSerializer(serializers.ModelSerializer):
     """Serializer for User model (admin view with more fields)."""
-    
+
     full_name = serializers.ReadOnlyField()
     is_admin = serializers.ReadOnlyField()
     user_photo = serializers.ImageField(required=False, allow_null=True)
     user_photo_url = serializers.SerializerMethodField(read_only=True)
-    
+
     class Meta:
         model = User
         fields = [
@@ -205,17 +206,17 @@ class UserAdminSerializer(serializers.ModelSerializer):
             'last_login',
             'is_admin'
         ]
-    
+
     def validate_role(self, value):
         """Validate role changes."""
         if not self.instance:
             return value
-        
+
         # Only admins can change roles
         request = self.context.get('request')
         if request and not request.user.is_admin:
             raise serializers.ValidationError("Only admins can change user roles.")
-        
+
         return value
 
     def get_user_photo_url(self, obj):
@@ -233,10 +234,10 @@ class UserAdminSerializer(serializers.ModelSerializer):
 
 class OTPCodeSerializer(serializers.ModelSerializer):
     """Serializer for OTP Code model (admin view)."""
-    
+
     is_expired = serializers.ReadOnlyField()
     is_valid = serializers.ReadOnlyField()
-    
+
     class Meta:
         model = OTPCode
         fields = [
@@ -264,10 +265,10 @@ class OTPCodeSerializer(serializers.ModelSerializer):
 
 class ChangeRoleSerializer(serializers.Serializer):
     """Serializer for changing user role."""
-    
+
     email = serializers.EmailField()
     role = serializers.ChoiceField(choices=User.ROLE_CHOICES)
-    
+
     def validate_email(self, value):
         """Validate email and check if user exists."""
         try:
@@ -279,19 +280,19 @@ class ChangeRoleSerializer(serializers.Serializer):
 
 class AuthStatusSerializer(serializers.Serializer):
     """Serializer for authentication status response."""
-    
+
     authenticated = serializers.BooleanField()
     user = UserSerializer(allow_null=True)
 
 
 class MessageSerializer(serializers.Serializer):
     """Generic message response serializer."""
-    
+
     message = serializers.CharField()
 
 
 class ErrorSerializer(serializers.Serializer):
     """Generic error response serializer."""
-    
+
     error = serializers.CharField()
     details = serializers.DictField(required=False)

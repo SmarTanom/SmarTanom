@@ -13,6 +13,16 @@ let updateAvailable = false;
  * Initialize PWA features
  */
 export function initializePWA() {
+
+  // Skip actual registration in development to prevent white screen issues
+  if (import.meta.env.DEV) {
+    console.log('🚫 PWA registration skipped in development mode');
+    return {
+      updateSW: () => console.log('PWA update skipped in development'),
+      isUpdateAvailable: () => false
+    };
+  }
+
   // Register service worker with update handling
   const updateSW = registerSW({
     onNeedRefresh() {
@@ -44,9 +54,7 @@ export function initializePWA() {
     updateSW,
     isUpdateAvailable: () => updateAvailable
   };
-}
-
-/**
+}/**
  * Show update available notification
  */
 function showUpdateNotification() {

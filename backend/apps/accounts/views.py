@@ -39,7 +39,7 @@ def get_client_ip(request):
     return ip
 
 
-def send_otp_email(email, code, purpose='login'):
+def send_otp_email(email, code, purpose='login', device_name=None):
     """Send OTP email (synchronous & reliable).
 
     Previously this used asyncio + sync_to_async which could mask failures;
@@ -47,43 +47,64 @@ def send_otp_email(email, code, purpose='login'):
     """
     if settings.DEBUG:
         # Log debug OTP to file/console; avoid printing to stdout
-        logger.info(f"DEBUG MODE - OTP Code for {email}: {code}")
+        logger.info(f"DEBUG MODE - OTP Code for {email}: {code} (Purpose: {purpose})")
 
     subject_map = {
         'login': 'Your Login Code',
         'register': 'Welcome! Your Verification Code',
-        'reset': 'Password Reset Code'
+        'reset': 'Password Reset Code',
+        'revoke': '🔒 Device Access Revocation Confirmation'
     }
     subject = subject_map.get(purpose, 'Your Verification Code')
 
     expire_minutes = getattr(settings, 'OTP_EXPIRE_MINUTES', 5)
 
-    html_message = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-            <h2 style="color: #333; text-align: center;">SmarTanom</h2>
-            <h3 style="color: #666;">Your verification code</h3>
-            <div style="background-color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                <h1 style="color: #007bff; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
-            </div>
-            <p style="color: #666;">This code will expire in {expire_minutes} minute(s).</p>
-            <p style="color: #666;">If you didn't request this code, please ignore this email.</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-            <p style="color: #999; font-size: 12px; text-align: center;">
-                This is an automated message from SmarTanom. Please do not reply.
-            </p>
-        </div>
-    </body>
-    </html>
-    """
+    # Use custom templates for device revocation
+    if purpose == 'revoke':
+        from django.template.loader import render_to_string
+        from django.utils import timezone
+        import socket
 
-    plain_message = (
-        "SmarTanom - Your verification code\n\n"
-        f"Your verification code is: {code}\n\n"
-        f"This code will expire in {expire_minutes} minute(s).\n\n"
-        "If you didn't request this code, please ignore this email."
-    )
+        context = {
+            'code': code,
+            'device_name': device_name,
+            'expiry_minutes': expire_minutes,
+            'site_name': 'SmarTanom',
+            'request_ip': 'system',
+            'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC'),
+            'year': timezone.now().year,
+        }
+
+        html_message = render_to_string('emails/device_revoke_otp_email.html', context)
+        plain_message = render_to_string('emails/device_revoke_otp_email.txt', context)
+    else:
+        # Default template for other purposes
+        html_message = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #333; text-align: center;">SmarTanom</h2>
+                <h3 style="color: #666;">Your verification code</h3>
+                <div style="background-color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                    <h1 style="color: #007bff; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
+                </div>
+                <p style="color: #666;">This code will expire in {expire_minutes} minute(s).</p>
+                <p style="color: #666;">If you didn't request this code, please ignore this email.</p>
+                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="color: #999; font-size: 12px; text-align: center;">
+                    This is an automated message from SmarTanom. Please do not reply.
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+
+        plain_message = (
+            "SmarTanom - Your verification code\n\n"
+            f"Your verification code is: {code}\n\n"
+            f"This code will expire in {expire_minutes} minute(s).\n\n"
+            "If you didn't request this code, please ignore this email."
+        )
 
     try:
         send_mail(
@@ -241,8 +262,14 @@ def request_otp(request):
                 'expires_in': getattr(settings, 'OTP_EXPIRE_MINUTES', 5) * 60
             }, status=status.HTTP_200_OK)
 
-        # Enforce invitation-or-existing-user policy
-        if original_purpose == OTPCode.PURPOSE_LOGIN:
+        # Handle different OTP purposes
+        if original_purpose == OTPCode.PURPOSE_REVOKE:
+            # For device revocation, user must be authenticated and exist
+            if not email_exists:
+                LoginAttempt.record_attempt(email, ip_address, successful=False)
+                return Response({'error': 'Account not found.'}, status=status.HTTP_400_BAD_REQUEST)
+            purpose = OTPCode.PURPOSE_REVOKE
+        elif original_purpose == OTPCode.PURPOSE_LOGIN:
             if email_exists:
                 # Allow login for existing users if they have active access OR a pending invitation
                 try:
@@ -274,8 +301,14 @@ def request_otp(request):
         # Otherwise create OTP (covers normal login for existing account, or register/create flow, or register attempt for existing which we coerce to login)
         otp = OTPCode.create_otp(email, purpose)
 
-        # Send email
-        if send_otp_email(email, otp.code, purpose):
+        # Send email with device info for revoke purpose
+        device_name = None
+        if purpose == OTPCode.PURPOSE_REVOKE:
+            # For revoke purpose, we don't need specific device name in OTP request
+            # It will be used in the actual revoke operation
+            device_name = request.data.get('device_name', 'Unknown Device')
+
+        if send_otp_email(email, otp.code, purpose, device_name):
             LoginAttempt.record_attempt(email, ip_address, successful=True)
         # Always return generic message regardless of underlying send failure to avoid probing
         response_data = {

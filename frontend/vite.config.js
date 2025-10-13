@@ -2,39 +2,60 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
-  plugins: [
-    react(),
-    VitePWA({
+export default defineConfig(({ mode }) => {
+  const isDev = mode === 'development';
+
+  const plugins = [react()];
+
+  // Add PWA plugin with different settings for dev/prod
+  if (isDev) {
+    // Development mode - minimal PWA setup to provide the virtual module
+    plugins.push(VitePWA({
       registerType: 'autoUpdate',
       devOptions: {
-        enabled: true,
+        enabled: false, // Don't actually register SW in dev
         type: 'module'
       },
       workbox: {
+        // Minimal workbox config for dev
+        skipWaiting: false,
+        clientsClaim: false,
+      },
+      includeAssets: [],
+      manifest: false // Don't generate manifest in dev
+    }));
+  } else {
+    // Production mode - full PWA setup
+    plugins.push(VitePWA({
+        registerType: 'autoUpdate',
+        devOptions: {
+          enabled: false,
+          type: 'module'
+        },
+      workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/healthz/, /^\/static\//, /^\/media\//],
+        // Disable API caching in development to prevent conflicts between different backends
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^\/api\//,
-            handler: 'NetworkFirst',
+            handler: 'NetworkOnly', // Changed from NetworkFirst to NetworkOnly to disable caching
             options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
-              },
+              cacheName: 'api-cache-dev',
+              networkTimeoutSeconds: 10,
             },
           },
           {
             urlPattern: /^\/media\//,
-            handler: 'CacheFirst',
+            handler: 'NetworkFirst', // Keep media caching but with shorter duration
             options: {
-              cacheName: 'media-cache',
+              cacheName: 'media-cache-dev',
               expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60, // 1 hour only in dev
               },
             },
           },
@@ -94,35 +115,39 @@ export default defineConfig({
           }
         ]
       }
-    })
-  ],
-  server: {
-    host: true,
-    port: 5173,
-    proxy: {
-      // Forward API calls to Django dev server (backend runs on 8000)
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
-      },
-      // Health (if directly referenced outside /api)
-      '/healthz': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
-      },
-      // Optionally expose static/media if you later reference them directly from frontend dev
-      '/static': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/media': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
+    }));
+  }
+
+  return {
+    plugins,
+    server: {
+      host: true,
+      port: 5173,
+      proxy: {
+        // Forward API calls to Django dev server (backend runs on 8000)
+        '/api': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          secure: false,
+        },
+        // Health (if directly referenced outside /api)
+        '/healthz': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          secure: false,
+        },
+        // Optionally expose static/media if you later reference them directly from frontend dev
+        '/static': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          secure: false,
+        },
+        '/media': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
-  },
+  };
 });

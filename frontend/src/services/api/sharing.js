@@ -66,16 +66,19 @@ export const getSharedDevices = async () => {
 };
 
 // Revoke device access from a collaborator
-export const revokeDeviceAccess = async (deviceId, collaboratorId) => {
+export const revokeDeviceAccess = async (deviceId, collaboratorId, otpCode) => {
   try {
     const token = localStorage.getItem('authToken');
     if (!token) {
       throw new Error('No authentication token found');
     }
 
-    const response = await apiClient.request(
-      `/api/devices/devices/${deviceId}/collaborators/${collaboratorId}/`,
-      { method: 'DELETE', authToken: token }
+    const response = await apiClient.post(
+      `/api/devices/devices/${deviceId}/collaborators/${collaboratorId}/revoke/`,
+      {
+        otp_code: otpCode
+      },
+      { authToken: token }
     );
 
     return response;

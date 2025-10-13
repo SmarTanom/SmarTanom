@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+	import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, LogOut, Bell, Share2, Shield,
@@ -6,11 +6,14 @@ import {
   Users, Plus, X, Check
 } from 'lucide-react';
 import '../assets/styles/ProfilePage.css';
-import { authApi } from '../services/apiClient';
+import { authApi, apiClient } from '../services/apiClient';
 import { getUserDevices } from '../services/api/devices.js';
 import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation, getSentInvitations } from '../services/api/sharing.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import PWAInstallButton from '../components/pwa/PWAInstallButton.jsx';
+import OtpInput from '../components/auth/OtpInput.jsx';
+
+import { Toast } from '../components/ui/Toast.jsx';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -49,6 +52,14 @@ export default function ProfilePage() {
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [sentInvitations, setSentInvitations] = useState([]);
   const [loadingSentInvites, setLoadingSentInvites] = useState(false);
+  // Revoke access states
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+  const [revokeShare, setRevokeShare] = useState(null);
+  const [revokeOtp, setRevokeOtp] = useState('');
+  const [revokeLoading, setRevokeLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [toast, setToast] = useState(null);
   // Inline edit states
   const [isEditing, setIsEditing] = useState(false);
   const [editFirst, setEditFirst] = useState('');
@@ -453,22 +464,94 @@ export default function ProfilePage() {
     const share = sharedAccess.find(s => s.id === shareId);
     if (!share) return;
 
-    if (!confirm(`Are you sure you want to revoke ${share.sharedWith}'s access to ${share.deviceName}?`)) {
+    setRevokeShare(share);
+    setRevokeOtp('');
+    setOtpSent(false);
+    setShowRevokeConfirm(true);
+  };
+
+  const confirmRevokeAccess = async () => {
+    if (!revokeShare || !revokeOtp.trim()) {
+      setToast({ type: 'error', message: 'Please enter the OTP code' });
       return;
     }
 
+    console.log('🔄 Confirming revoke access with OTP:', revokeOtp);
+    setRevokeLoading(true);
     try {
-      // Call API to revoke access
-      await revokeDeviceAccess(share.deviceId, share.collaboratorId);
+      // Call API to revoke access with OTP
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await apiClient.post(
+        `/api/devices/devices/${revokeShare.deviceId}/collaborators/${revokeShare.collaboratorId}/revoke/`,
+        { otp_code: revokeOtp },
+        { authToken: token }
+      );
 
       console.log('✅ Access revoked successfully');
 
       // Remove from local state
-      setSharedAccess(prev => prev.filter(s => s.id !== shareId));
+      setSharedAccess(prev => prev.filter(s => s.id !== revokeShare.id));
+
+      // Reset modal state
+      setShowRevokeConfirm(false);
+      setRevokeShare(null);
+      setRevokeOtp('');
+      setOtpSent(false);
+
+      setToast({ type: 'success', message: `Access revoked for ${revokeShare.sharedWith}` });
 
     } catch (error) {
       console.error('❌ Failed to revoke access:', error);
-      alert('Failed to revoke access. Please try again.');
+      setToast({ type: 'error', message: error.message || 'Failed to revoke access. Please try again.' });
+    } finally {
+      setRevokeLoading(false);
+    }
+  };
+
+  const cancelRevokeAccess = () => {
+    setShowRevokeConfirm(false);
+    setRevokeShare(null);
+    setRevokeOtp('');
+    setOtpSent(false);
+  };
+
+  const sendRevokeOtp = async () => {
+    if (!revokeShare) return;
+
+    console.log('🔑 Sending OTP for device revocation to:', user.email);
+    setSendingOtp(true);
+    try {
+      // Call API to send OTP for revoke confirmation
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Send OTP via the auth endpoint for device revocation
+      const deviceName = revokeShare.device_name || revokeShare.device?.name || 'Unknown Device';
+      const response = await apiClient.post(
+        `/api/auth/request-otp/`,
+        {
+          email: user.email,
+          purpose: 'revoke',
+          device_name: deviceName
+        },
+        { authToken: token }
+      );
+
+      console.log('✅ OTP sent successfully, switching to input mode');
+      setOtpSent(true);
+      setToast({ type: 'success', message: 'OTP sent to your email. Check your inbox and enter the 6-digit code below.' });
+
+    } catch (error) {
+      console.error('❌ Failed to send OTP:', error);
+      setToast({ type: 'error', message: error.message || 'Failed to send OTP. Please try again.' });
+    } finally {
+      setSendingOtp(false);
     }
   };
 
@@ -486,6 +569,15 @@ export default function ProfilePage() {
 
   return (
     <div className="profile-root">
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       {/* Header */}
       <header className="profile-header">
         <div className="profile-avatar" style={{ overflow: 'hidden', position: 'relative' }}>
@@ -757,6 +849,7 @@ export default function ProfilePage() {
                     <button
                       className="btn-revoke"
                       onClick={() => handleRevokeAccess(share.id)}
+                      title={`Revoke ${share.sharedWith}'s access to ${share.deviceName}`}
                     >
                       <X size={16} />
                       Revoke Access
@@ -913,6 +1006,171 @@ export default function ProfilePage() {
               >
                 <Check size={16} />
                 {sharingLoading ? 'Sharing...' : devicesLoading ? 'Loading...' : 'Share Device'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revoke Access Confirmation Modal */}
+      {showRevokeConfirm && revokeShare && (
+        <div className="modal-overlay" onClick={cancelRevokeAccess}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Revoke Device Access</h3>
+              <button className="modal-close" onClick={cancelRevokeAccess}>
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <AlertCircle size={48} color="#dc2626" style={{ margin: '0 auto 16px' }} />
+                <p style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600', color: '#2F3E46' }}>
+                  Are you sure you want to revoke access?
+                </p>
+                <p style={{ margin: 0, color: '#666', lineHeight: 1.5 }}>
+                  This will remove <strong>{revokeShare.sharedWith}</strong>'s access to <strong>{revokeShare.deviceName}</strong>.
+                  They will no longer be able to view monitoring data or alerts for this device.
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ textAlign: 'center', display: 'block' }}>
+                  Enter OTP Code for Confirmation
+                </label>
+
+                {!otpSent ? (
+                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                    <button
+                      onClick={sendRevokeOtp}
+                      disabled={sendingOtp}
+                      style={{
+                        padding: '10px 20px',
+                        background: '#339432',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        cursor: sendingOtp ? 'not-allowed' : 'pointer',
+                        opacity: sendingOtp ? 0.7 : 1,
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {sendingOtp ? 'Sending...' : 'Send OTP Code'}
+                    </button>
+                    <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#666' }}>
+                      Click to receive OTP code via email
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Single, clean OTP input section */}
+                    <div className="revoke-otp-container">
+                      <div className="otp-header">
+                        <div className="otp-icon">🔐</div>
+                        <h4 className="otp-title">Security Confirmation Required</h4>
+                        <p className="otp-subtitle">
+                          Enter the verification code we sent to <strong>{user.email}</strong>
+                        </p>
+                      </div>
+
+                      <div className="otp-input-section">
+                        <div className="otp-input-wrapper">
+                          <input
+                            type="text"
+                            value={revokeOtp}
+                            onChange={(e) => setRevokeOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="000000"
+                            maxLength={6}
+                            className="otp-revoke-input"
+                            autoComplete="off"
+                            autoFocus={true}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                          />
+                          <div className="otp-input-dots" aria-hidden="true">
+                            {[0, 1, 2, 3, 4, 5].map((i) => (
+                              <span
+                                key={i}
+                                className={`otp-dot ${i < revokeOtp.length ? 'filled' : ''}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="otp-status">
+                          <div className={`otp-length-indicator ${revokeOtp.length === 6 ? 'complete' : ''}`}>
+                            {revokeOtp.length}/6 digits entered
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{
+                      textAlign: 'center',
+                      marginBottom: '16px',
+                      padding: '14px',
+                      backgroundColor: '#fff3e7',
+                      borderRadius: '8px',
+                      border: '1px solid #ffcc99',
+                      fontSize: '14px',
+                      lineHeight: '1.5'
+                    }}>
+                      <div style={{ color: '#cc6600', fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
+                        Security Verification Required
+                      </div>
+                      <div style={{ color: '#d63384', fontSize: '14px', fontWeight: '600', marginBottom: '6px' }}>
+                        Revoking access to: {selectedDevice?.name}
+                      </div>
+                      <div style={{ color: '#555', fontSize: '13px', marginBottom: '4px' }}>
+                        Enter the security code sent to your email to confirm device revocation
+                      </div>
+                      <div style={{ color: '#666', fontSize: '12px', fontStyle: 'italic' }}>
+                        This action will permanently remove access to this device
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                      <button
+                        onClick={sendRevokeOtp}
+                        disabled={sendingOtp}
+                        style={{
+                          padding: '8px 16px',
+                          background: 'transparent',
+                          color: '#339432',
+                          border: '1px solid #339432',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          cursor: sendingOtp ? 'not-allowed' : 'pointer',
+                          opacity: sendingOtp ? 0.7 : 1,
+                          transition: 'all 0.2s ease',
+                          minWidth: '120px'
+                        }}
+                      >
+                        {sendingOtp ? 'Sending...' : 'Resend OTP'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={cancelRevokeAccess}>
+                Cancel
+              </button>
+              <button
+                className="btn-confirm"
+                onClick={confirmRevokeAccess}
+                disabled={revokeLoading || !otpSent || !revokeOtp.trim()}
+                style={{
+                  background: '#dc2626',
+                  opacity: (revokeLoading || !otpSent || !revokeOtp.trim()) ? 0.7 : 1,
+                  cursor: (revokeLoading || !otpSent || !revokeOtp.trim()) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {revokeLoading ? 'Revoking...' : 'Revoke Access'}
               </button>
             </div>
           </div>
