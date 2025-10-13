@@ -1697,7 +1697,8 @@ export default function Dashboard() {
                   const ph = Number(currentPH);
                   if (!hasData || Number.isNaN(ph)) return '--';
                   if (ph < 5.5) return ph.toFixed(1);
-                  return '5.5';
+                  // otherwise show the lowest monitored pH (dynamic scale min)
+                  return (typeof phScale?.min === 'number' && Number.isFinite(phScale.min)) ? phScale.min.toFixed(1) : '5.5';
                 })()}</span>
                 <span style={{ fontWeight: '600', color: PRIMARY_GREEN }}>5.5-6.5</span>
                 <span>{(() => {
