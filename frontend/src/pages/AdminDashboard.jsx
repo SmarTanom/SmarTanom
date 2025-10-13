@@ -1,7 +1,8 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../assets/styles/AdminDashboard.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
+import { getAdminStats } from '../services/api/admin';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -18,7 +19,8 @@ import {
 	Activity,
 	BarChart2,
 	Smartphone,
-	Clock
+	Clock,
+	Loader2
 } from 'lucide-react';
 import {
 	Chart as ChartJS,
@@ -89,19 +91,130 @@ function Progress({ value = 0, label }) {
 
 export default function AdminDashboard() {
 	const navigate = useNavigate();
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
+	const [stats, setStats] = useState(null);
 
-	// Mock summary data (can be wired to API later)
+	useEffect(() => {
+		const fetchAdminData = async () => {
+			try {
+				setLoading(true);
+				setError(null);
+				const data = await getAdminStats();
+				setStats(data);
+			} catch (err) {
+				console.error('Failed to fetch admin stats:', err);
+				setError(err.response?.data?.message || 'Failed to load dashboard data');
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchAdminData();
+	}, []);
+
+	// Show loading state
+	if (loading) {
+		return (
+			<div className="admin-root">
+				<aside className="admin-sidebar" aria-label="Admin navigation">
+					<div className="brand">
+						<div className="brand-logo">
+							<img src={logoMarkWhite} alt="SmarTanom" />
+						</div>
+						<div className="brand-text">
+							<div className="brand-name">SmarTanom</div>
+							<div className="brand-subtitle">Dashboard</div>
+						</div>
+					</div>
+				</aside>
+				<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+					<div style={{ textAlign: 'center' }}>
+						<Loader2 size={48} className="spinner" style={{ color: '#339432', animation: 'spin 1s linear infinite' }} />
+						<p style={{ marginTop: '16px', color: '#6f8876' }}>Loading dashboard data...</p>
+					</div>
+				</main>
+			</div>
+		);
+	}
+
+	// Show error state
+	if (error) {
+		return (
+			<div className="admin-root">
+				<aside className="admin-sidebar" aria-label="Admin navigation">
+					<div className="brand">
+						<div className="brand-logo">
+							<img src={logoMarkWhite} alt="SmarTanom" />
+						</div>
+						<div className="brand-text">
+							<div className="brand-name">SmarTanom</div>
+							<div className="brand-subtitle">Dashboard</div>
+						</div>
+					</div>
+				</aside>
+				<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+					<div style={{ textAlign: 'center', maxWidth: '400px' }}>
+						<AlertTriangle size={48} style={{ color: '#ef4444' }} />
+						<p style={{ marginTop: '16px', color: '#dc2626', fontWeight: 600 }}>{error}</p>
+						<button
+							onClick={() => window.location.reload()}
+							style={{
+								marginTop: '16px',
+								padding: '8px 16px',
+								background: '#339432',
+								color: 'white',
+								border: 'none',
+								borderRadius: '8px',
+								cursor: 'pointer'
+							}}
+						>
+							Retry
+						</button>
+					</div>
+				</main>
+			</div>
+		);
+	}
+
+	// Extract data from stats
 	const summary = {
-		totalDevices: 127,
-		activeDevices: 89,
-		availableUnits: 38,
-		activeUsers: 64,
-		growth: { devices: 8, units: 5, users: 15, total: 12 }
+		totalDevices: stats?.summary?.devices?.total || 0,
+		activeDevices: stats?.summary?.devices?.active || 0,
+		availableUnits: stats?.summary?.devices?.available || 0,
+		activeUsers: stats?.summary?.users?.active || 0,
+		growth: {
+			devices: stats?.summary?.growth?.devices || 0,
+			units: stats?.summary?.growth?.devices || 0,
+			users: stats?.summary?.growth?.users || 0,
+			total: stats?.summary?.growth?.devices || 0
+		}
 	};
 
-		const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-		const trendData = [15, 22, 34, 44, 40, 46, 45, 60, 58, 70, 65, 85];
-		const errorData = [2, 1, 3, 1, 3, 5, 0, 0, 0, 0, 0, 0];
+	const trendLabels = stats?.device_trend?.map(d => d.month) || [];
+	const trendData = stats?.device_trend?.map(d => d.count) || [];
+
+	const errorLabels = stats?.error_trend?.map(d => d.month) || [];
+	const errorData = stats?.error_trend?.map(d => d.count) || [];
+
+	const alerts = stats?.alerts || { critical: 0, warning: 0, info: 0 };
+	const performance = stats?.performance || { cpu_usage: 0, memory_usage: 0, disk_usage: 0 };
+	const errors = stats?.errors || { total: 0, notification_failures: 0, device_errors: 0 };
+
+	// Calculate utilization percentages
+	const capacityUtilization = summary.totalDevices > 0
+		? ((summary.totalDevices - summary.availableUnits) / summary.totalDevices * 100).toFixed(0)
+		: 0;
+
+	const assignedPercentage = summary.totalDevices > 0
+		? (summary.activeDevices / summary.totalDevices * 100).toFixed(0)
+		: 0;
+
+	const availablePercentage = summary.totalDevices > 0
+		? (summary.availableUnits / summary.totalDevices * 100).toFixed(0)
+		: 0;
+
+	const userEngagement = summary.activeUsers > 0 ? 55 : 0; // Placeholder calculation
 
 	return (
 		<div className="admin-root">
@@ -163,9 +276,9 @@ export default function AdminDashboard() {
 						<h3 className="summary-title">Total Devices</h3>
 						<div className="summary-value">{summary.totalDevices}</div>
 						<div className="summary-progress">
-							<div className="fill" style={{ width: '85%' }} />
+							<div className="fill" style={{ width: `${capacityUtilization}%` }} />
 						</div>
-						<div className="summary-caption">85% capacity utilization</div>
+						<div className="summary-caption">{capacityUtilization}% capacity utilization</div>
 					</article>
 
 					<article className="summary-card">
@@ -174,9 +287,9 @@ export default function AdminDashboard() {
 						<h3 className="summary-title">Active Devices</h3>
 						<div className="summary-value">{summary.activeDevices}</div>
 						<div className="summary-progress">
-							<div className="fill" style={{ width: '70%' }} />
+							<div className="fill" style={{ width: `${assignedPercentage}%` }} />
 						</div>
-						<div className="summary-caption">70% currently assigned</div>
+						<div className="summary-caption">{assignedPercentage}% currently assigned</div>
 					</article>
 
 					<article className="summary-card">
@@ -185,7 +298,7 @@ export default function AdminDashboard() {
 						<h3 className="summary-title">Available Units</h3>
 						<div className="summary-value">{summary.availableUnits}</div>
 						<div className="summary-progress">
-							<div className="fill" style={{ width: '20%' }} />
+							<div className="fill" style={{ width: `${availablePercentage}%` }} />
 						</div>
 						<div className="summary-caption">Ready for deployment</div>
 					</article>
@@ -196,7 +309,7 @@ export default function AdminDashboard() {
 						<h3 className="summary-title">Active Users</h3>
 						<div className="summary-value">{summary.activeUsers}</div>
 						<div className="summary-progress">
-							<div className="fill" style={{ width: '55%' }} />
+							<div className="fill" style={{ width: `${userEngagement}%` }} />
 						</div>
 						<div className="summary-caption">Growing user base</div>
 					</article>
@@ -217,7 +330,7 @@ export default function AdminDashboard() {
 						</header>
 						<div className="panel-body">
 									<div style={{ height: 260 }}>
-										<DeviceTrendChart labels={months} series={trendData} />
+										<DeviceTrendChart labels={trendLabels} series={trendData} />
 									</div>
 						</div>
 					</article>
@@ -254,24 +367,36 @@ export default function AdminDashboard() {
 							<button className="view-all" onClick={() => navigate('/admin/devices')}>View All</button>
 						</header>
 						<div className="alerts-list">
-							<div className="alert-card critical">
-											<div className="alert-meta"><Clock size={14} /> 2 hours ago</div>
-								<div className="alert-title">Device HYD-SPN-012-2025 offline</div>
-								<div className="alert-desc">Connection lost during routine monitoring cycle</div>
-								<span className="alert-badge">Critical</span>
-							</div>
-							<div className="alert-card warning">
-											<div className="alert-meta"><Clock size={14} /> 45 minutes ago</div>
-								<div className="alert-title">High pH level detected</div>
-								<div className="alert-desc">Device HYD-SPN-034-2025 readings above threshold</div>
-								<span className="alert-badge">Warning</span>
-							</div>
-							<div className="alert-card info">
-											<div className="alert-meta"><Clock size={14} /> 1 hour ago</div>
-								<div className="alert-title">New device registration</div>
-								<div className="alert-desc">HYD-SPN-045-2025 registered by farmer@hydro.com</div>
-								<span className="alert-badge">Info</span>
-							</div>
+							{alerts.critical > 0 && (
+								<div className="alert-card critical">
+									<div className="alert-meta"><Clock size={14} /> Recent</div>
+									<div className="alert-title">Critical Alerts</div>
+									<div className="alert-desc">{alerts.critical} critical {alerts.critical === 1 ? 'alert' : 'alerts'} requiring immediate attention</div>
+									<span className="alert-badge">Critical</span>
+								</div>
+							)}
+							{alerts.warning > 0 && (
+								<div className="alert-card warning">
+									<div className="alert-meta"><Clock size={14} /> Recent</div>
+									<div className="alert-title">Warning Alerts</div>
+									<div className="alert-desc">{alerts.warning} warning {alerts.warning === 1 ? 'alert' : 'alerts'} detected in the system</div>
+									<span className="alert-badge">Warning</span>
+								</div>
+							)}
+							{alerts.info > 0 && (
+								<div className="alert-card info">
+									<div className="alert-meta"><Clock size={14} /> Recent</div>
+									<div className="alert-title">Info Alerts</div>
+									<div className="alert-desc">{alerts.info} informational {alerts.info === 1 ? 'alert' : 'alerts'} for your review</div>
+									<span className="alert-badge">Info</span>
+								</div>
+							)}
+							{alerts.critical === 0 && alerts.warning === 0 && alerts.info === 0 && (
+								<div style={{ padding: '32px', textAlign: 'center', color: '#6f8876' }}>
+									<CheckCircle2 size={32} style={{ color: '#339432', margin: '0 auto 8px' }} />
+									<p>No active alerts</p>
+								</div>
+							)}
 						</div>
 					</article>
 
@@ -285,24 +410,36 @@ export default function AdminDashboard() {
 						<div className="panel-body">
 							<div className="perf-rows">
 								<div className="perf-row">
-									<span>System Uptime</span>
-									<Progress value={99.8} label="Uptime" />
+									<span>CPU Usage</span>
+									<Progress value={performance.cpu_usage} label="CPU Usage" />
 								</div>
 								<div className="perf-row">
-									<span>Data Accuracy</span>
-									<Progress value={97.2} label="Accuracy" />
+									<span>Memory Usage</span>
+									<Progress value={performance.memory_usage} label="Memory Usage" />
 								</div>
 								<div className="perf-row">
-									<span>Device Health</span>
-									<Progress value={94.5} label="Device Health" />
+									<span>Disk Usage</span>
+									<Progress value={performance.disk_usage} label="Disk Usage" />
 								</div>
 							</div>
 							<div className="grade-card">
 								<div>
 									<div className="grade-title">Overall Health Score</div>
-									<div className="grade-sub">Excellent system performance</div>
+									<div className="grade-sub">
+										{performance.cpu_usage < 70 && performance.memory_usage < 70 && performance.disk_usage < 70
+											? 'Excellent system performance'
+											: performance.cpu_usage < 85 && performance.memory_usage < 85 && performance.disk_usage < 85
+											? 'Good system performance'
+											: 'System needs attention'}
+									</div>
 								</div>
-								<div className="grade-badge">A+</div>
+								<div className="grade-badge">
+									{performance.cpu_usage < 70 && performance.memory_usage < 70 && performance.disk_usage < 70
+										? 'A+'
+										: performance.cpu_usage < 85 && performance.memory_usage < 85 && performance.disk_usage < 85
+										? 'B'
+										: 'C'}
+								</div>
 							</div>
 						</div>
 					</article>
@@ -317,7 +454,7 @@ export default function AdminDashboard() {
 									<div className="panel-body" style={{ height: 240 }}>
 														<Bar
 															data={{
-																labels: Array.isArray(months) ? months : [],
+																labels: Array.isArray(errorLabels) ? errorLabels : [],
 																datasets: [
 																	{
 																		label: 'Errors',

@@ -12,6 +12,15 @@
   --shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
 html { font-family: 'Montserrat', 'Inter', system-ui, sans-serif; }
 .admin-root { display:flex; min-height:100vh; background:var(--color-bg); color:#111; }
 

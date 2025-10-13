@@ -6,8 +6,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework.routers import DefaultRouter
 from apps.common.views import healthz
+from apps.common.views_admin import AdminDashboardViewSet
 
+# Router for admin dashboard API
+admin_router = DefaultRouter()
+admin_router.register(r'dashboard', AdminDashboardViewSet, basename='admin-dashboard')
 
 urlpatterns = [
 	path("admin/", admin.site.urls),
@@ -16,6 +21,7 @@ urlpatterns = [
 	path("api/reservoirs/", include("apps.reservoirs.urls")),
 	path("api/auth/", include("apps.accounts.urls")),  # Using original auth URL
 	path("api/notifications/", include("apps.notifications.urls")),  # Push notifications
+	path("api/admin/", include(admin_router.urls)),  # Admin dashboard API
 	path("api/health/", include("apps.common.urls")),
 	path("healthz", healthz, name="healthz"),
 	path("api-auth/", include("rest_framework.urls")),  # browsable API login/logout
