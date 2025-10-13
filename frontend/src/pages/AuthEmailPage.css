@@ -695,7 +695,7 @@
 /* Remove outdated large screen grid - replaced with two-column layout */
 
 /* Motion & entrance */
-.auth-fade-item { opacity: 0; animation: authFade .8s ease forwards; }
+.auth-fade-item { animation: authFade .8s ease forwards; }
 .auth-fade-item:nth-child(1) { animation-delay: .05s; }
 .auth-fade-item:nth-child(2) { animation-delay: .15s; }
 .auth-fade-item:nth-child(3) { animation-delay: .25s; }
@@ -743,6 +743,11 @@
 @media (min-width:1400px) and (max-height:760px) {
   .auth-title { font-size: clamp(40px, 4.2vw, 60px); }
   .auth-content { gap: clamp(20px, 3vh, 32px); }
+}
+
+/* --- Reduced motion consideration (keep text visible when animations are disabled) --- */
+@media (prefers-reduced-motion: reduce) {
+  .auth-fade-item { animation: none; }
 }
 
 /* --- Reduced motion consideration (keep existing fade minimal) --- */

@@ -1,9 +1,4 @@
-/* Landi  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: rgba(51, 148, 50, 0.9);
-  color: #fff;
-  padding: 32px clamp(16px,4vw,48px); dedicated styles
+/* Landing Page dedicated styles
    - Responsive logo & wordmark sizing
    - Decorative arcs layering (faint radial/conic gradients)
    - Hero layout & spacing adjustments
@@ -98,7 +93,13 @@
 /* Decorative arcs & faint layers */
 /* Decorative minimalist blurred ellipses (no rings, no repetition) */
 .landing-arcs::before,
-.landing-arcs::after { content: ""; position: absolute; pointer-events: none; filter: blur(70px); }
+.landing-arcs::after { 
+  content: ""; 
+  position: absolute; 
+  pointer-events: none; 
+  filter: blur(70px); 
+  z-index: 0; /* Keep visuals behind content */
+}
 
 /* Ellipse 1: light tint, partially off top-left */
 .landing-arcs::before {
@@ -122,6 +123,15 @@
   mix-blend-mode: overlay;
 }
 
+/* Ensure content sits above decorative layers */
+.landing-content,
+.landing-header,
+.landing-main,
+.landing-hero {
+  position: relative;
+  z-index: 1;
+}
+
 /* Optional third subtle shape for ultra-wide screens */
 @media (min-width: 1400px) {
   .landing-arcs::before { opacity: .6; }
@@ -134,11 +144,18 @@
 }
 
 /* Entrance animation */
-.hero-fade-item { opacity: 0; animation: heroFade .9s ease forwards; }
+.hero-fade-item { /* removed opacity:0 to avoid hidden content when animations are disabled */
+  animation: heroFade .9s ease forwards;
+}
 .hero-fade-item:nth-child(1) { animation-delay: .05s; }
 .hero-fade-item:nth-child(2) { animation-delay: .2s; }
 .hero-fade-item:nth-child(3) { animation-delay: .35s; }
 @keyframes heroFade { from { opacity:0; transform: translateY(14px);} to { opacity:1; transform: translateY(0);} }
+
+/* Respect Reduced Motion: disable animations but keep content visible */
+@media (prefers-reduced-motion: reduce) {
+  .hero-fade-item { animation: none; }
+}
 
 /* Wide desktop adaptations - updated for two-column layout */
 @media (min-width: 1200px) {
