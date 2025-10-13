@@ -664,3 +664,47 @@ def get_sent_invitations(request):
         'results': serializer.data,
         'count': len(serializer.data)
     })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def subscribe_notifications(request):
+    """
+    Subscribe to push notifications.
+
+    This is a simple endpoint for PWA push notification subscriptions.
+    In a production app, you would store the subscription data and use it
+    to send push notifications via a service like Firebase or Web Push Protocol.
+    """
+    try:
+        subscription_data = request.data
+
+        # Validate required fields
+        required_fields = ['endpoint', 'keys']
+        if not all(field in subscription_data for field in required_fields):
+            return Response(
+                {'error': 'Missing required subscription data'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # In a real implementation, you would:
+        # 1. Store the subscription data in the database linked to the user
+        # 2. Use a service like py-vapid to send push notifications
+        # 3. Handle subscription updates and cleanup
+
+        logger.info(f"Push notification subscription for user {request.user.email}")
+        logger.debug(f"Subscription data: {subscription_data}")
+
+        # For now, just acknowledge the subscription
+        return Response({
+            'message': 'Push notification subscription successful',
+            'user': request.user.email,
+            'subscribed_at': timezone.now().isoformat()
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        logger.error(f"Push notification subscription failed: {str(e)}")
+        return Response(
+            {'error': 'Failed to process subscription'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

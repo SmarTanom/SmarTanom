@@ -4,6 +4,7 @@ import { AuthFlowProvider } from './features/auth/AuthFlowContext.jsx';
 import { AuthProvider } from './contexts/AuthContext.jsx';
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
 import PublicRoute from './components/auth/PublicRoute.jsx';
+import { initializePWA, setupNetworkHandling, setupInstallPrompt } from './utils/pwaInit.js';
 import LandingPage from './pages/LandingPage.jsx';
 import EmailPage from './pages/EmailPage.jsx';
 import CodePage from './pages/CodePage.jsx';
@@ -85,6 +86,26 @@ function useKeyboardViewport() {
 
 export default function App() {
   useKeyboardViewport();
+
+  // Initialize PWA features
+  useEffect(() => {
+    console.log('Initializing PWA...');
+
+    // Initialize PWA service worker
+    const { updateSW } = initializePWA();
+
+    // Setup network status handling
+    setupNetworkHandling();
+
+    // Setup install prompt handling
+    setupInstallPrompt();
+
+    // Store update function globally for manual updates
+    window.pwaUpdateSW = updateSW;
+
+    console.log('PWA initialized successfully');
+  }, []);
+
   return (
     <AuthProvider>
       <AuthFlowProvider>
