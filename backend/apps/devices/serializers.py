@@ -116,6 +116,8 @@ class DeviceSerializer(serializers.ModelSerializer):
     """Serializer for Device model."""
 
     plant_photo_url = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
+    is_collaborator = serializers.SerializerMethodField()
 
     class Meta:
         model = Device
@@ -129,6 +131,8 @@ class DeviceSerializer(serializers.ModelSerializer):
             "bound_email",
             "plant_photo",
             "plant_photo_url",
+            "is_owner",
+            "is_collaborator",
             "created_at",
             "updated_at",
         ]
@@ -142,6 +146,24 @@ class DeviceSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.plant_photo.url)
             return obj.plant_photo.url
         return None
+
+    def get_is_owner(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        return obj.bound_email == request.user.email
+
+    def get_is_collaborator(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        if obj.bound_email == request.user.email:
+            return False
+        return DeviceCollaboration.objects.filter(
+            device=obj,
+            collaborator_email=request.user.email,
+            status=DeviceCollaboration.Status.ACTIVE,
+        ).exists()
 
 
 class DeviceOTPCodeSerializer(serializers.ModelSerializer):

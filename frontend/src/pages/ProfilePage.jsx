@@ -264,7 +264,9 @@ export default function ProfilePage() {
                   sharedWith: collaborator.email,
                   sharedDate: collaborator.shared_date || collaborator.created_at,
                   permissions: collaborator.permissions || { view_only: true },
-                  status: collaborator.status || 'active'
+                  status: collaborator.status || 'active',
+                  isOwner: !!device.is_owner,
+                  isCollaborator: !!device.is_collaborator,
                 });
               });
             }
@@ -711,13 +713,15 @@ export default function ProfilePage() {
                       </span>
                     </div>
                   </div>
-                  <button
-                    className="btn-revoke"
-                    onClick={() => handleRevokeAccess(share.id)}
-                  >
-                    <X size={16} />
-                    Revoke Access
-                  </button>
+                  {share.isOwner && (
+                    <button
+                      className="btn-revoke"
+                      onClick={() => handleRevokeAccess(share.id)}
+                    >
+                      <X size={16} />
+                      Revoke Access
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

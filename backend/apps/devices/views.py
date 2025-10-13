@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import filters, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
@@ -335,22 +336,12 @@ class DeviceViewSet(BaseAuthViewSet):
         """Upload plant photo for a device."""
         device = self.get_object()
 
-        # Check if user owns this device or has manage permissions (unless staff)
-        if not request.user.is_staff:
-            if device.bound_email != request.user.email:
-                # Check if user is a collaborator with manage permissions
-                collaboration = DeviceCollaboration.objects.filter(
-                    device=device,
-                    collaborator_email=request.user.email,
-                    status=DeviceCollaboration.Status.ACTIVE,
-                    permissions=DeviceCollaboration.Permission.MANAGE
-                ).first()
-
-                if not collaboration:
-                    return Response(
-                        {'error': 'Permission denied. You need manage permissions to upload photos.'},
-                        status=status.HTTP_403_FORBIDDEN
-                    )
+        # Owner-only (or staff) can modify device photo
+        if not request.user.is_staff and device.bound_email != request.user.email:
+            return Response(
+                {'error': 'Permission denied. Only the device owner can upload photos.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         photo = request.FILES.get('plant_photo')
         if not photo:
@@ -419,7 +410,8 @@ class DeviceViewSet(BaseAuthViewSet):
             )
 
         invite_email = serializer.validated_data['invite_email']
-        permissions = serializer.validated_data.get('permissions', 'view_only')
+        # Force all invitations to be view_only regardless of client input
+        permissions = DeviceCollaboration.Permission.VIEW_ONLY
         message = serializer.validated_data.get('message', '')
 
         # Check if device is already shared with this user
@@ -534,6 +526,26 @@ class DeviceViewSet(BaseAuthViewSet):
             'success': True,
             'message': f'Access revoked for {collaboration.collaborator_email}'
         })
+
+    # Enforce owner-only for device-level writes via standard endpoints
+    def perform_update(self, serializer):
+        device = self.get_object()
+        user = self.request.user
+        if not user.is_staff and device.bound_email != user.email:
+            raise PermissionDenied("Permission denied. Only the device owner can modify device details.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        if not user.is_staff and instance.bound_email != user.email:
+            raise PermissionDenied("Permission denied. Only the device owner can delete a device.")
+        instance.delete()
+
+    def create(self, request, *args, **kwargs):
+        # Devices are created via binding flow; block generic creation for non-staff
+        if not request.user.is_staff:
+            raise PermissionDenied("Device creation is not allowed via this endpoint.")
+        return super().create(request, *args, **kwargs)
 
 
 # Device Invitation Management Views
