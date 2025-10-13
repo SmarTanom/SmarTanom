@@ -111,8 +111,12 @@ export default function AdminDashboard() {
 					<div className="brand-logo">
 						<img src={logoMarkWhite} alt="SmarTanom" />
 					</div>
-					<div className="brand-name">SmarTanom</div>
+					<div className="brand-text">
+						<div className="brand-name">SmarTanom</div>
+						<div className="brand-subtitle">Dashboard</div>
+					</div>
 				</div>
+				<div className="side-nav-label">MENU</div>
 				<nav className="side-nav">
 					<button className="side-link active" onClick={() => navigate('/admin')}>
 						<LayoutDashboard size={18} />
