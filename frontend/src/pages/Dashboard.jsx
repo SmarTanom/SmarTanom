@@ -1692,9 +1692,21 @@ export default function Dashboard() {
                 ></div>
               </div>
               <div className="range-labels">
-                <span>5.5</span>
+                <span>{(() => {
+                  const hasData = data && data.phHistory && data.phHistory.length > 0;
+                  const ph = Number(currentPH);
+                  if (!hasData || Number.isNaN(ph)) return '--';
+                  if (ph < 5.5) return ph.toFixed(1);
+                  return '5.5';
+                })()}</span>
                 <span style={{ fontWeight: '600', color: PRIMARY_GREEN }}>5.5-6.5</span>
-                <span>8.5</span>
+                <span>{(() => {
+                  const hasData = data && data.phHistory && data.phHistory.length > 0;
+                  const ph = Number(currentPH);
+                  if (!hasData || Number.isNaN(ph)) return '--';
+                  if (ph > 6.5) return ph.toFixed(1);
+                  return '8.5';
+                })()}</span>
               </div>
             </div>
           </div>
