@@ -19,6 +19,8 @@ psycopg[binary]==3.2.10
 gunicorn==22.0.0
 requests==2.32.3
 dnspython==2.6.1
+pywebpush==1.14.1                # Web Push notifications with VAPID
+cryptography>=46.0.0             # Required for VAPID key generation and cryptographic operations
 
 ############################################################
 # (Optional) Add-ons you might install later:

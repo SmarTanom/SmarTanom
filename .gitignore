@@ -101,8 +101,8 @@ db.sqlite3
 *-shm
 
 # Optional: local DB dumps (uncomment if you produce local dumps)
-# *.sql
-# *.dump
+*.sql
+*.dump
 
 # Backend temp/debug helpers
 backend/debug_*.py

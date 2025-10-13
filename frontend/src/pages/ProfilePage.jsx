@@ -12,6 +12,7 @@ import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvi
 import { useAuth } from '../contexts/AuthContext.jsx';
 import PWAInstallButton from '../components/pwa/PWAInstallButton.jsx';
 import OtpInput from '../components/auth/OtpInput.jsx';
+import NotificationPermission from '../components/notifications/NotificationPermission.jsx';
 
 import { Toast } from '../components/ui/Toast.jsx';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
@@ -748,6 +749,14 @@ export default function ProfilePage() {
               <PWAInstallButton />
             </div>
           </div>
+        </section>
+
+        {/* Push Notifications */}
+        <section className="profile-section">
+          <div className="section-header">
+            <h2 className="section-title">Push Notifications</h2>
+          </div>
+          <NotificationPermission />
         </section>
 
         {(() => {

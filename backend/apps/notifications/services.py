@@ -1,0 +1,239 @@
+"""
+Push Notification Service for SmarTanom
+Uses pywebpush to send Web Push notifications with VAPID authentication
+"""
+
+import json
+import logging
+from typing import List, Dict, Optional
+from django.conf import settings
+from pywebpush import webpush, WebPushException
+from .models import PushSubscription, NotificationLog
+
+logger = logging.getLogger(__name__)
+
+
+class PushNotificationService:
+    """Service for sending push notifications to subscribed users."""
+
+    @staticmethod
+    def send_notification(
+        user,
+        title: str,
+        message: str,
+        notification_type: str = 'info',
+        icon: Optional[str] = None,
+        badge: Optional[str] = None,
+        url: Optional[str] = None,
+        data: Optional[Dict] = None
+    ) -> Dict[str, int]:
+        """
+        Send push notification to all active subscriptions for a user.
+
+        Args:
+            user: User instance
+            title: Notification title
+            message: Notification body text
+            notification_type: Type of notification (alert, warning, critical, info, success)
+            icon: URL to notification icon
+            badge: URL to notification badge
+            url: URL to open when notification is clicked
+            data: Additional data to pass to notification
+
+        Returns:
+            Dictionary with success and failure counts
+        """
+        # Get all active subscriptions for this user
+        subscriptions = PushSubscription.objects.filter(
+            user=user,
+            is_active=True
+        )
+
+        if not subscriptions.exists():
+            logger.info(f"No active push subscriptions for user {user.email}")
+            return {'sent': 0, 'failed': 0}
+
+        # Get VAPID keys from settings
+        vapid_private_key = getattr(settings, 'VAPID_PRIVATE_KEY', None)
+        vapid_public_key = getattr(settings, 'VAPID_PUBLIC_KEY', None)
+        vapid_claims = getattr(settings, 'VAPID_CLAIMS', {
+            "sub": f"mailto:{getattr(settings, 'VAPID_ADMIN_EMAIL', 'admin@smartanom.com')}"
+        })
+
+        if not vapid_private_key or not vapid_public_key:
+            logger.error("VAPID keys not configured in settings")
+            return {'sent': 0, 'failed': 0}
+
+        # Default icon and badge
+        if not icon:
+            icon = '/icon-192x192.png'  # PWA icon
+        if not badge:
+            badge = '/favicon.ico'
+
+        # Prepare notification payload
+        payload = {
+            'title': title,
+            'body': message,
+            'icon': icon,
+            'badge': badge,
+            'tag': f"{notification_type}-{user.id}",  # Replaces same-tag notifications
+            'requireInteraction': notification_type in ['critical', 'alert'],
+            'data': {
+                'url': url or '/alerts',
+                'type': notification_type,
+                'timestamp': None,  # Will be set by service worker
+                **(data or {})
+            }
+        }
+
+        success_count = 0
+        failure_count = 0
+
+        for subscription in subscriptions:
+            try:
+                # Prepare subscription info for pywebpush
+                subscription_info = {
+                    "endpoint": subscription.endpoint,
+                    "keys": {
+                        "p256dh": subscription.p256dh,
+                        "auth": subscription.auth
+                    }
+                }
+
+                # Send push notification
+                response = webpush(
+                    subscription_info=subscription_info,
+                    data=json.dumps(payload),
+                    vapid_private_key=vapid_private_key,
+                    vapid_claims=vapid_claims
+                )
+
+                if response.status_code in [200, 201]:
+                    success_count += 1
+                    # Log success
+                    NotificationLog.objects.create(
+                        user=user,
+                        subscription=subscription,
+                        notification_type=notification_type,
+                        title=title,
+                        message=message,
+                        status='sent',
+                        metadata={'payload': payload}
+                    )
+                    logger.info(f"[OK] Notification sent to {user.email} (subscription {subscription.id})")
+                else:
+                    failure_count += 1
+                    NotificationLog.objects.create(
+                        user=user,
+                        subscription=subscription,
+                        notification_type=notification_type,
+                        title=title,
+                        message=message,
+                        status='failed',
+                        error_message=f"HTTP {response.status_code}"
+                    )
+                    logger.warning(f"[WARNING] Notification failed with status {response.status_code}")
+
+            except WebPushException as e:
+                failure_count += 1
+                error_message = str(e)
+
+                # Check if subscription expired (410 Gone)
+                if hasattr(e, 'response') and e.response and e.response.status_code == 410:
+                    subscription.is_active = False
+                    subscription.save()
+                    logger.info(f"[EXPIRED] Subscription {subscription.id} marked as inactive (410 Gone)")
+                    status = 'expired'
+                else:
+                    status = 'failed'
+
+                NotificationLog.objects.create(
+                    user=user,
+                    subscription=subscription,
+                    notification_type=notification_type,
+                    title=title,
+                    message=message,
+                    status=status,
+                    error_message=error_message
+                )
+                logger.error(f"[ERROR] WebPush error for {user.email}: {error_message}")
+
+            except Exception as e:
+                failure_count += 1
+                NotificationLog.objects.create(
+                    user=user,
+                    subscription=subscription,
+                    notification_type=notification_type,
+                    title=title,
+                    message=message,
+                    status='failed',
+                    error_message=str(e)
+                )
+                logger.error(f"[ERROR] Unexpected error sending notification: {e}")
+
+        logger.info(f"[SUMMARY] Notification sent to {user.email}: {success_count} succeeded, {failure_count} failed")
+        return {'sent': success_count, 'failed': failure_count}
+
+    @staticmethod
+    def send_to_multiple_users(
+        user_ids: List[int],
+        title: str,
+        message: str,
+        **kwargs
+    ) -> Dict[str, int]:
+        """Send notification to multiple users."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        total_sent = 0
+        total_failed = 0
+
+        users = User.objects.filter(id__in=user_ids)
+        for user in users:
+            result = PushNotificationService.send_notification(
+                user=user,
+                title=title,
+                message=message,
+                **kwargs
+            )
+            total_sent += result['sent']
+            total_failed += result['failed']
+
+        return {'sent': total_sent, 'failed': total_failed}
+
+    @staticmethod
+    def send_alert_notification(user, alert_title: str, alert_message: str, alert_type: str = 'warning', device_id: Optional[int] = None):
+        """
+        Convenience method for sending device alert notifications.
+
+        Args:
+            user: User instance
+            alert_title: Alert title (e.g., "Low pH Detected")
+            alert_message: Alert message
+            alert_type: Type (warning, critical, info)
+            device_id: Optional device ID to link to
+        """
+        # Map alert types to notification types
+        type_mapping = {
+            'critical': 'critical',
+            'warning': 'warning',
+            'info': 'info',
+            'success': 'success'
+        }
+
+        notification_type = type_mapping.get(alert_type, 'alert')
+
+        # Build URL to alert page
+        url = f"/alerts?device={device_id}" if device_id else "/alerts"
+
+        return PushNotificationService.send_notification(
+            user=user,
+            title=f"🌱 {alert_title}",
+            message=alert_message,
+            notification_type=notification_type,
+            url=url,
+            data={
+                'device_id': device_id,
+                'alert_type': alert_type
+            }
+        )

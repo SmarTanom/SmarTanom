@@ -58,6 +58,7 @@ INSTALLED_APPS = [
 	"apps.accounts",
 	"apps.common",
 	"apps.devices",
+	"apps.notifications",
 	"apps.sensors",
 	"apps.reservoirs",
 ]
@@ -347,6 +348,22 @@ LOGGING = {
             'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
+        'apps.notifications': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
     },
+}
+
+# =============================================
+# Web Push Notifications (VAPID)
+# =============================================
+# Generate keys with: python manage.py generate_vapid_keys
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+VAPID_ADMIN_EMAIL = os.getenv('VAPID_ADMIN_EMAIL', 'admin@smartanom.com')
+VAPID_CLAIMS = {
+    'sub': f'mailto:{VAPID_ADMIN_EMAIL}'
 }
 

@@ -25,18 +25,20 @@ export default defineConfig(({ mode }) => {
       manifest: false // Don't generate manifest in dev
     }));
   } else {
-    // Production mode - full PWA setup
+    // Production mode - full PWA setup with custom service worker for push notifications
     plugins.push(VitePWA({
         registerType: 'autoUpdate',
         devOptions: {
           enabled: false,
           type: 'module'
         },
+      strategies: 'injectManifest',  // Use custom service worker
+      srcDir: 'src',
+      filename: 'sw.js',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/healthz/, /^\/static\//, /^\/media\//],
-        // Disable API caching in development to prevent conflicts between different backends
         skipWaiting: true,
         clientsClaim: true,
         runtimeCaching: [
