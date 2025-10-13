@@ -149,3 +149,23 @@ export const getPendingInvitations = async () => {
     throw error;
   }
 };
+
+// Get invitations the current user has sent (optionally for a specific device)
+export const getSentInvitations = async (deviceId) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const url = deviceId
+      ? `/api/devices/invitations/sent/?device_id=${encodeURIComponent(deviceId)}`
+      : '/api/devices/invitations/sent/';
+
+    const response = await apiClient.get(url, { authToken: token });
+    return response;
+  } catch (error) {
+    console.error('Failed to fetch sent invitations:', error);
+    throw error;
+  }
+};

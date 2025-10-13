@@ -4,7 +4,6 @@ import { useAuthFlow } from '../features/auth/AuthFlowContext.jsx';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthEmailPage.css';
 import { Mail as MailIcon, ChevronLeftFilled } from '../components/ui/Icon.jsx';
-import { requestCode, verifyCode } from '../services/api/auth.js';
 import { authApi } from '../services/apiClient.js';
 // OtpInput removed per request; inlining digit inputs locally
 
@@ -52,24 +51,17 @@ export default function EmailPage({ mode = 'signin' }) {
     }
     setLoading(true);
     try {
-      const data = await requestCode({ email: trimmed, mode });
-      if (data.flow_hint === 'should_login' && mode === 'signup') {
-        // Existing account trying to sign up: do NOT show OTP; instruct to sign in.
-        setStatusMsg('Account already exists. Please sign in instead.');
-        setCodeSent(false);
-        setShowSwitchToSignin(true);
-        // keep current input so user can just submit in signin mode
+      const purpose = mode === 'signup' ? 'register' : 'login';
+      const data = await authApi.requestOtp(trimmed, purpose);
+      // Align UI mode with used purpose so verify step stays consistent
+      const used = data?.used_purpose || purpose;
+      if (used === 'register' && mode !== 'signup') {
+        setMode('signup');
+      } else if (used === 'login' && mode !== 'signin') {
         setMode('signin');
-        return;
-      } else if (data.flow_hint === 'should_signup' && mode === 'signin') {
-        // Block moving to OTP in login flow; instruct user to switch to signup
-        setStatusMsg('No account found. Please choose Sign Up to create one.');
-        setCodeSent(false);
-        return; // exit early
-      } else {
-        setCodeSent(true);
-        setStatusMsg('Code sent! Check your email.');
       }
+      setCodeSent(true);
+      setStatusMsg('Code sent! Check your email.');
       setResendCooldown(30);
     } catch (err) {
       setError(err?.message || 'Could not send code. Please retry.');
@@ -106,7 +98,7 @@ export default function EmailPage({ mode = 'signin' }) {
     setVerifying(true);
     setStatusMsg('Verifying…');
     try {
-      const resp = await verifyCode({ email, code, mode });
+      const resp = await authApi.verifyOtp(email, code);
       setStatusMsg('Verification successful!');
       // Persist token if provided (login or register)
       if (resp?.token) {
@@ -142,7 +134,8 @@ export default function EmailPage({ mode = 'signin' }) {
   async function handleResend(){
     if (resendCooldown>0) return;
     try {
-      await requestCode({ email, mode });
+      const purpose = mode === 'signup' ? 'register' : 'login';
+      await authApi.requestOtp(email, purpose);
       setStatusMsg('Code resent!');
       setResendCooldown(30);
       setOtpError('');

@@ -1,0 +1,14 @@
+SmarTanom - Device Share Invitation
+
+You've been invited by {{ invited_by }} to access a device.
+
+Device: {{ device_name }}
+Serial: {{ device_serial }}
+Permissions: {{ permissions }}
+
+Accept: {{ accept_url }}
+Decline: {{ decline_url }}
+
+If links don't work, copy this token and use it in the app: {{ token }}
+
+This is an automated message from SmarTanom. Please do not reply.

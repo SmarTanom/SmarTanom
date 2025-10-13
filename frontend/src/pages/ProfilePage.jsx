@@ -8,7 +8,7 @@ import {
 import '../assets/styles/ProfilePage.css';
 import { authApi } from '../services/apiClient';
 import { getUserDevices } from '../services/api/devices.js';
-import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation } from '../services/api/sharing.js';
+import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation, getSentInvitations } from '../services/api/sharing.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
 // Brand color constant
@@ -46,6 +46,8 @@ export default function ProfilePage() {
   const [loadingSharedAccess, setLoadingSharedAccess] = useState(false);
   const [pendingInvitations, setPendingInvitations] = useState([]);
   const [loadingInvitations, setLoadingInvitations] = useState(false);
+  const [sentInvitations, setSentInvitations] = useState([]);
+  const [loadingSentInvites, setLoadingSentInvites] = useState(false);
   // Inline edit states
   const [isEditing, setIsEditing] = useState(false);
   const [editFirst, setEditFirst] = useState('');
@@ -109,6 +111,7 @@ export default function ProfilePage() {
     if (user) {
       loadSharedAccess();
       loadPendingInvitations();
+      loadSentInvitations();
     }
   }, [user]);
 
@@ -304,6 +307,26 @@ export default function ProfilePage() {
       setPendingInvitations([]);
     } finally {
       setLoadingInvitations(false);
+    }
+  };
+
+  // Load invitations sent by current user
+  const loadSentInvitations = async () => {
+    setLoadingSentInvites(true);
+    try {
+      const sent = (await getSentInvitations()) || { results: [] };
+      const list = sent.results || sent || [];
+      setSentInvitations(Array.isArray(list) ? list : []);
+      console.log(`📤 Loaded ${Array.isArray(list) ? list.length : 0} sent invitations`);
+    } catch (error) {
+      if (error.message?.includes('404')) {
+        console.log('Sent invitations endpoint not available');
+      } else {
+        console.error('Failed to load sent invitations:', error);
+      }
+      setSentInvitations([]);
+    } finally {
+      setLoadingSentInvites(false);
     }
   };
 
@@ -634,6 +657,30 @@ export default function ProfilePage() {
               <Users size={48} color="#C5D4CB" />
               <p>No shared access yet</p>
               <span>Share your devices with other users to collaborate</span>
+              {loadingSentInvites ? (
+                <p style={{ marginTop: 8, color: '#6B7D75' }}>Loading invitations you sent…</p>
+              ) : (
+                sentInvitations && sentInvitations.length > 0 && (
+                  <div style={{ marginTop: 16, width: '100%', maxWidth: 640 }}>
+                    <div style={{ fontWeight: 600, color: '#2F3E46', marginBottom: 8 }}>Pending invitations you sent</div>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+                      {sentInvitations
+                        .filter(inv => inv.status === 'pending')
+                        .map(inv => (
+                        <li key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F5F9F6', border: '1px solid #E0EBE5', borderRadius: 8, padding: '10px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Mail size={16} />
+                            <span style={{ color: '#2F3E46' }}>{inv.invite_email}</span>
+                            <span style={{ color: '#6B7D75' }}>→</span>
+                            <span style={{ color: '#2F3E46', fontWeight: 500 }}>{inv.device_name || `Device ${inv.device_serial}`}</span>
+                          </div>
+                          <span style={{ fontSize: 12, color: '#8a8d90' }}>Pending</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )
+              )}
             </div>
           ) : (
             <div className="shared-list">

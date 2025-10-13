@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from django.conf import settings
+import os
 from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import filters, status
@@ -81,6 +83,42 @@ def send_device_otp_email(device_serial, email, code):
         return True
     except Exception as e:
         logger.error(f"Failed to send device OTP email for {device_serial} to {email}: {str(e)}")
+        return False
+
+
+def send_device_invitation_email(invitation):
+    """Send an email invitation for device sharing to the invited user."""
+    try:
+        frontend_base = getattr(settings, 'FRONTEND_URL', None) or os.getenv('FRONTEND_URL') or os.getenv('FRONTEND_BASE_URL') or 'http://localhost:5173'
+        accept_url = f"{frontend_base}/invitations/accept?token={invitation.token}"
+        decline_url = f"{frontend_base}/invitations/decline?token={invitation.token}"
+
+        context = {
+            'device_name': invitation.device.device_name,
+            'device_serial': invitation.device.device_serial,
+            'invited_by': invitation.invited_by_email,
+            'permissions': invitation.permissions,
+            'accept_url': accept_url,
+            'decline_url': decline_url,
+            'token': invitation.token,
+        }
+
+        subject = f"SmarTanom - Invitation to view {invitation.device.device_name}"
+        html_message = render_to_string('emails/device_invitation_email.html', context)
+        plain_message = render_to_string('emails/device_invitation_email.txt', context)
+
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[invitation.invite_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        logger.info("Invitation email sent to %s for device %s", invitation.invite_email, invitation.device.device_serial)
+        return True
+    except Exception as e:
+        logger.exception("Failed to send device invitation email: %s", e)
         return False
 
 
@@ -418,9 +456,8 @@ class DeviceViewSet(BaseAuthViewSet):
             message=message,
             permissions=permissions
         )
-
-        # TODO: Send email notification (implement later)
-        # send_invitation_email(invitation)
+        # Send email notification
+        email_sent = send_device_invitation_email(invitation)
 
         logger.info(f"Device {device.device_serial} shared with {invite_email} by {request.user.email}")
 
@@ -428,7 +465,8 @@ class DeviceViewSet(BaseAuthViewSet):
             'success': True,
             'message': f'Invitation sent to {invite_email}',
             'invitation_id': invitation.id,
-            'token': invitation.token  # For development/testing
+            'token': invitation.token,  # For development/testing
+            'email_sent': email_sent
         }, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['get'], url_path='collaborators')
@@ -588,6 +626,28 @@ def get_shared_devices(request):
     ).select_related('device').order_by('-created_at')
 
     serializer = DeviceCollaborationSerializer(collaborations, many=True)
+    return Response({
+        'results': serializer.data,
+        'count': len(serializer.data)
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_sent_invitations(request):
+    """Get invitations sent by the current user (owner/sharer)."""
+    sender_email = request.user.email
+
+    qs = DeviceInvitation.objects.filter(
+        invited_by_email=sender_email,
+    ).select_related('device').order_by('-created_at')
+
+    # Optional filtering by device id
+    device_id = request.query_params.get('device_id')
+    if device_id:
+        qs = qs.filter(device_id=device_id)
+
+    serializer = DeviceInvitationSerializer(qs, many=True)
     return Response({
         'results': serializer.data,
         'count': len(serializer.data)

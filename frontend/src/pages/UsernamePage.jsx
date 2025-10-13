@@ -71,19 +71,25 @@ export default function UsernamePage() {
         return;
       }
 
-      // Finalize account with username
+      // Finalize account with username (backend returns updated user; token remains the same)
       const result = await authApi.finalizeAccount(username, tempToken);
 
-      // Login with the final token
-      if (result.token) {
-        const loginResult = await login(result.token, result.user);
-        if (loginResult.success) {
-          navigate('/dashboard');
-        } else {
-          setError(loginResult.error || 'Account setup failed');
+      // Use the existing token; if backend ever returns a new token, prefer it
+      const finalToken = result.token || tempToken;
+      let userObj = result.user;
+      if (!userObj) {
+        try {
+          userObj = await authApi.getProfile(finalToken);
+        } catch (_) {
+          // leave undefined; login() may still accept just the token
         }
+      }
+
+      const loginResult = await login(finalToken, userObj);
+      if (loginResult.success) {
+        navigate('/dashboard');
       } else {
-        setError('Account setup incomplete. Please try again.');
+        setError(loginResult.error || 'Account setup failed');
       }
     } catch (err) {
       setError(err.message || 'Could not complete account setup. Please try again.');

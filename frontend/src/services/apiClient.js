@@ -74,8 +74,31 @@ export const apiClient = {
 
 // Auth-specific convenience wrappers
 export const authApi = {
-  requestOtp: (email, purpose = 'login') => apiClient.post('/api/auth/request-otp/', { email, purpose }),
-  verifyOtp: (email, code, purpose = 'login') => apiClient.post('/api/auth/verify-otp/', { email, code, purpose }),
+  // Smart OTP request that retries with the appropriate purpose based on backend flow_hint
+  requestOtp: async (email, purpose = 'login') => {
+    const first = await apiClient.post('/api/auth/request-otp/', { email, purpose });
+    // If backend hints a different flow, retry once with the corrected purpose
+    if (first && first.flow_hint === 'should_signup' && purpose === 'login') {
+      const second = await apiClient.post('/api/auth/request-otp/', { email, purpose: 'register' });
+      try { localStorage.setItem('otpPurpose', 'register'); } catch (_) {}
+      return { ...second, used_purpose: 'register' };
+    }
+    if (first && first.flow_hint === 'should_login' && purpose === 'register') {
+      const second = await apiClient.post('/api/auth/request-otp/', { email, purpose: 'login' });
+      try { localStorage.setItem('otpPurpose', 'login'); } catch (_) {}
+      return { ...second, used_purpose: 'login' };
+    }
+    try { localStorage.setItem('otpPurpose', purpose); } catch (_) {}
+    return { ...first, used_purpose: purpose };
+  },
+  // Verify OTP: default to the last used purpose to avoid mismatch (login vs register)
+  verifyOtp: (email, code, purpose = undefined) => {
+    let finalPurpose = purpose;
+    if (!finalPurpose) {
+      try { finalPurpose = localStorage.getItem('otpPurpose') || 'login'; } catch (_) { finalPurpose = 'login'; }
+    }
+    return apiClient.post('/api/auth/verify-otp/', { email, code, purpose: finalPurpose });
+  },
   finalizeAccount: (username, token, extra = {}) => {
     const body = { username };
     if (extra.first_name) body.first_name = extra.first_name;

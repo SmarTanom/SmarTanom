@@ -10,7 +10,8 @@ from .views import (
     verify_device_otp,
     get_pending_invitations,
     respond_to_invitation,
-    get_shared_devices
+    get_shared_devices,
+    get_sent_invitations
 )
 
 app_name = 'devices'
@@ -27,5 +28,6 @@ urlpatterns = [
     # Device sharing endpoints
     path("invitations/pending/", get_pending_invitations, name="get_pending_invitations"),
     path("invitations/respond/", respond_to_invitation, name="respond_to_invitation"),
+    path("invitations/sent/", get_sent_invitations, name="get_sent_invitations"),
     path("shared/", get_shared_devices, name="get_shared_devices"),
 ]
