@@ -53,6 +53,9 @@ function persistMarkRead(alert) {
   const s = loadIdSet(READ_STORAGE_KEY);
   s.add(alert.readingId);
   saveIdSet(READ_STORAGE_KEY, s);
+  try {
+    window.dispatchEvent(new Event('alerts-read-updated'));
+  } catch (_e) {}
 }
 
 // Helper: format a ISO date string to a relative time (minutes/hours/days ago)
@@ -437,6 +440,7 @@ export default function AlertsPage() {
     setAlerts(prev => {
       // persist all alerts currently present
       prev.forEach(a => persistMarkRead(a));
+      try { window.dispatchEvent(new Event('alerts-read-updated')); } catch (_e) {}
       return prev.map(alert => ({ ...alert, read: true }));
     });
   };
@@ -444,6 +448,7 @@ export default function AlertsPage() {
   const handleAlertClick = (alert) => {
     // Persist and update state immediately before navigating
     try { persistMarkRead(alert); } catch (_e) { }
+    try { window.dispatchEvent(new Event('alerts-read-updated')); } catch (_e) {}
     setAlerts(prev => prev.map(a => (a.id === alert.id ? { ...a, read: true } : a)));
     navigate(`/device/${alert.deviceId}`, { state: { deviceId: alert.deviceId, deviceName: alert.device, deviceSerial: alert.deviceSerial } });
   };

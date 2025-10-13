@@ -397,6 +397,12 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [displayName, setDisplayName] = useState('User');
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
+  const [perDeviceUnreadCounts, setPerDeviceUnreadCounts] = useState({});
+
+  // Shared helper to compute a stable reading key (match AlertsPage logic)
+  const readingKeyOf = (reading) => {
+    return (reading && (reading.id || reading.created_at || reading.timestamp)) || JSON.stringify(reading || {});
+  };
 
   // Fetch user devices and their data
   const fetchDevicesData = async () => {
@@ -593,9 +599,10 @@ export default function Dashboard() {
     try {
       const devicesResponse = await getUserDevices();
       const userDevices = devicesResponse.results || devicesResponse;
-      if (!userDevices || userDevices.length === 0) return 0;
+      if (!userDevices || userDevices.length === 0) return { total: 0, perDevice: {} };
 
       let unreadCount = 0;
+      const perDevice = {};
 
       // Check each device for out-of-range sensor readings
       await Promise.all(userDevices.map(async (device) => {
@@ -628,7 +635,7 @@ export default function Dashboard() {
               });
 
               recentReadings.forEach(reading => {
-                const readingKey = reading.id || reading.created_at || JSON.stringify(reading);
+                const readingKey = readingKeyOf(reading);
                 if (isAlertRead(readingKey)) return; // Skip if already read
 
                 const value = reading.value;
@@ -647,6 +654,7 @@ export default function Dashboard() {
 
                 if (hasAlert) {
                   unreadCount++;
+                  perDevice[device.id] = (perDevice[device.id] || 0) + 1;
                 }
               });
             } catch (err) {
@@ -658,10 +666,10 @@ export default function Dashboard() {
         }
       }));
 
-      return unreadCount;
+      return { total: unreadCount, perDevice };
     } catch (err) {
       console.warn('Error counting unread alerts:', err);
-      return 0;
+      return { total: 0, perDevice: {} };
     }
   };
 
@@ -674,8 +682,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (!loading && devices.length > 0) {
       const fetchAlertCount = async () => {
-        const count = await countUnreadAlerts();
-        setUnreadAlertsCount(count);
+        const result = await countUnreadAlerts();
+        setUnreadAlertsCount(result.total);
+        setPerDeviceUnreadCounts(result.perDevice || {});
       };
       fetchAlertCount();
     }
@@ -685,13 +694,26 @@ export default function Dashboard() {
   useEffect(() => {
     const handleWindowFocus = async () => {
       if (!loading && devices.length > 0) {
-        const count = await countUnreadAlerts();
-        setUnreadAlertsCount(count);
+        const result = await countUnreadAlerts();
+        setUnreadAlertsCount(result.total);
+        setPerDeviceUnreadCounts(result.perDevice || {});
+      }
+    };
+    const handleAlertsReadUpdated = async () => {
+      // Recompute when AlertsPage marks items as read
+      if (!loading && devices.length > 0) {
+        const result = await countUnreadAlerts();
+        setUnreadAlertsCount(result.total);
+        setPerDeviceUnreadCounts(result.perDevice || {});
       }
     };
 
     window.addEventListener('focus', handleWindowFocus);
-    return () => window.removeEventListener('focus', handleWindowFocus);
+    window.addEventListener('alerts-read-updated', handleAlertsReadUpdated);
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('alerts-read-updated', handleAlertsReadUpdated);
+    };
   }, [loading, devices]);
 
   // Floating Action Button (FAB) draggable state
@@ -1339,7 +1361,7 @@ export default function Dashboard() {
           <div className="alert-card-top">
             <div className="icon-circle" style={{ position: 'relative' }}>
               <AlertCircle size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              {unreadAlertsCount > 0 && (
+              {(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && (
                 <span className="alert-notification-badge" style={{
                   position: 'absolute',
                   top: '-4px',
@@ -1357,7 +1379,7 @@ export default function Dashboard() {
                   border: '2px solid white',
                   minWidth: '16px',
                 }}>
-                  {unreadAlertsCount > 9 ? '9+' : unreadAlertsCount}
+                  {(() => { const c = perDeviceUnreadCounts[currentDevice?.id] || 0; return c > 9 ? '9+' : c; })()}
                 </span>
               )}
             </div>
@@ -1367,13 +1389,13 @@ export default function Dashboard() {
           </div>
           <h3 className="alert-card-title">
             {currentDevice ? `${currentDevice.device_name || currentDevice.plant_name || 'Device'} Alerts` : 'Alert Summary'}
-            {unreadAlertsCount > 0 && (
+            {(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && (
               <span style={{ color: '#e74c3c', fontWeight: 'bold', marginLeft: '8px' }}>
-                ({unreadAlertsCount} new)
+                ({perDeviceUnreadCounts[currentDevice?.id]} new)
               </span>
             )}
           </h3>
-          <div className="alert-card-message">{data?.alertText || 'Loading...'}</div>
+          <div className="alert-card-message">{(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 ? (data?.alertText || 'Loading...') : 'All systems normal'}</div>
           {currentDevice && (
             <p style={{
               fontSize: '11px',
