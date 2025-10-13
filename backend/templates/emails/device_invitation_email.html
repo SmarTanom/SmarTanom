@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SmarTanom Device Invitation</title>
   <style>
-    .btn { display: inline-block; padding: 10px 16px; border-radius: 6px; text-decoration: none; }
-    .btn-primary { background: #2563eb; color: #fff; }
-    .btn-muted { background: #eee; color: #333; }
+    .btn { display: inline-block; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; }
+    .btn-primary { background: #339432; color: #fff; }
+    .btn-muted { background: #6B7D75; color: #fff; }
     .box { background: #f8fafc; padding: 12px 16px; border-radius: 8px; }
     .muted { color: #64748b; font-size: 12px; }
   </style>
@@ -15,28 +15,31 @@
 <body style="margin:0;padding:20px;font-family:Arial,sans-serif;background:#f5f5f5;">
   <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:10px;padding:24px;">
     <h2 style="margin:0 0 8px;color:#111827">SmarTanom</h2>
-    <h3 style="margin:0 0 16px;color:#374151">Device Share Invitation</h3>
+    <h3 style="margin:0 0 16px;color:#374151">Device Monitoring Invitation</h3>
 
-    <p style="color:#374151">You've been invited by <strong>{{ invited_by }}</strong> to access a device.</p>
+    <p style="color:#374151">Dear Valued User,</p>
+
+    <p style="color:#374151">You have been invited by <strong>{{ invited_by }}</strong> to collaborate on monitoring a smart agriculture device through the SmarTanom platform.</p>
 
     <div class="box" style="margin:16px 0;">
-      <p style="margin:0;color:#111827"><strong>{{ device_name }}</strong></p>
-      <p style="margin:4px 0 0;color:#6b7280">Serial: {{ device_serial }}</p>
-      <p style="margin:8px 0 0;color:#6b7280">Permissions: {{ permissions }}</p>
+      <p style="margin:0;color:#111827"><strong>Device: {{ device_name }}</strong></p>
+      <p style="margin:8px 0 0;color:#6b7280">Access Level: {{ permissions|default:"View-Only" }}</p>
     </div>
 
-    <p style="color:#374151">To accept the invitation, click the button below:</p>
+    <p style="color:#374151">This invitation grants you secure access to view real-time sensor data, monitoring dashboards, and system alerts for this device.</p>
+
+    <p style="color:#374151">To accept this invitation and begin monitoring, please click the button below:</p>
 
     <p>
-      <a href="{{ accept_url }}" class="btn btn-primary">Accept Invitation</a>
+      <a href="{{ accept_url }}" class="btn btn-primary" style="display: inline-block; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; background: #339432; color: #ffffff; border: none;">Accept Invitation</a>
     </p>
 
-    <p style="margin-top:12px;">If you did not expect this, you can decline here:</p>
+    <p style="margin-top:12px;">If you did not request this access or do not wish to participate, you may decline:</p>
     <p>
-      <a href="{{ decline_url }}" class="btn btn-muted">Decline Invitation</a>
+      <a href="{{ decline_url }}" class="btn btn-muted" style="display: inline-block; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; background: #6B7D75; color: #ffffff; border: none;">Decline Invitation</a>
     </p>
 
-    <p class="muted" style="margin-top:24px;color:#6b7280;font-size:12px;">If the buttons don't work, copy this token and use it in the app: <code>{{ token }}</code></p>
+    <p class="muted" style="margin-top:24px;color:#6b7280;font-size:12px;">For security reasons, this invitation will expire in 24 hours. Please respond within this timeframe to maintain access.</p>
 
     <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
     <p class="muted" style="color:#6b7280;font-size:12px;">This is an automated message from SmarTanom. Please do not reply.</p>

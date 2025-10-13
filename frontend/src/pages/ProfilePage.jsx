@@ -262,7 +262,7 @@ export default function ProfilePage() {
                 allSharedAccess.push({
                   id: `${device.id}_${collaborator.id}`,
                   deviceId: device.id,
-                  deviceName: device.device_name || device.plant_name || `Device ${device.device_serial}`,
+                  deviceName: device.device_name || device.plant_name || 'Shared Device',
                   collaboratorId: collaborator.id,
                   sharedWith: collaborator.email,
                   sharedDate: collaborator.shared_date || collaborator.created_at,
@@ -393,7 +393,7 @@ export default function ProfilePage() {
       const newShare = {
         id: `${selectedDevice.id}_invite_${Date.now()}`,
         deviceId: selectedDevice.id,
-        deviceName: selectedDevice.device_name || selectedDevice.plant_name || selectedDevice.device_serial,
+        deviceName: selectedDevice.device_name || selectedDevice.plant_name || 'Shared Device',
         collaboratorId: result.collaboration_id || result.invitation_id || result.id || undefined,
         sharedWith: shareEmail.trim(),
         sharedDate: new Date().toISOString().split('T')[0],
@@ -699,7 +699,7 @@ export default function ProfilePage() {
                             <Mail size={16} />
                             <span style={{ color: '#2F3E46' }}>{inv.invite_email}</span>
                             <span style={{ color: '#6B7D75' }}>→</span>
-                            <span style={{ color: '#2F3E46', fontWeight: 500 }}>{inv.device_name || `Device ${inv.device_serial}`}</span>
+                            <span style={{ color: '#2F3E46', fontWeight: 500 }}>{inv.device_name || 'Shared Device'}</span>
                           </div>
                           <span style={{ fontSize: 12, color: '#8a8d90' }}>Pending</span>
                         </li>
@@ -716,7 +716,7 @@ export default function ProfilePage() {
                   <div className="shared-item-header">
                     <div className="shared-device-info">
                       <h4 className="shared-device-name">{share.deviceName}</h4>
-                      <span className="shared-device-id">{share.deviceId}</span>
+                      <span className="shared-device-id" style={{ display: 'none' }}>{share.deviceId}</span>
                     </div>
                   </div>
                   <div className="shared-item-body">
