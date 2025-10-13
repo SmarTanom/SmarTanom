@@ -9,19 +9,19 @@
   --color-text: rgba(17, 17, 17, 0.86);
   --color-muted: #6B7280;
   --color-border: #E5E7EB;
-  
+
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
-  
+
   --font-display: 'Playfair Display', serif;
   --font-body: 'Montserrat', sans-serif;
-  
+
   --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
   --shadow-md: 0 4px 6px rgba(0,0,0,.05);
-  
+
   --transition-fast: 160ms cubic-bezier(.4,0,.2,1);
 }
 
@@ -181,7 +181,7 @@
   right: 0;
   bottom: 0;
   background-color: #D1D5DB;
-  transition: var(--transition-fast);
+  transition: background-color 0.3s ease;
   border-radius: 34px;
 }
 
@@ -193,7 +193,7 @@
   left: 4px;
   bottom: 4px;
   background-color: white;
-  transition: var(--transition-fast);
+  transition: transform 0.3s ease;
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -273,6 +273,118 @@
   }
 }
 
-.toggle-switch input:checked + .toggle-slider {
-  animation: togglePulse 0.4s;
+/* Remove duplicate animation rule - keeping only smooth transitions */
+
+/* Toast Notifications */
+.toast-notification {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-radius: 12px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: slideDown 0.3s ease-out;
+  max-width: 90vw;
 }
+
+@keyframes slideDown {
+  from {
+    transform: translateX(-50%) translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+.toast-success {
+  background: #10B981;
+  color: white;
+}
+
+.toast-error {
+  background: #EF4444;
+  color: white;
+}
+
+.toast-info {
+  background: #3B82F6;
+  color: white;
+}
+
+/* Warning Banners */
+.notification-warning {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: #FEF3C7;
+  border: 1px solid #F59E0B;
+  border-radius: 12px;
+  margin-bottom: var(--space-4);
+  font-family: var(--font-body);
+}
+
+.notification-warning strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400E;
+  margin-bottom: 4px;
+}
+
+.notification-warning p {
+  font-size: 13px;
+  color: #78350F;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Loading State */
+.loading-indicator {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  color: white;
+}
+
+@keyframes spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.toggle-switch input:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Ensure spinner is visible on both checked and unchecked states */
+.toggle-switch input:checked + .toggle-slider .spinner {
+  color: white;
+}
+
+.toggle-switch input:not(:checked) + .toggle-slider .spinner {
+  color: var(--color-muted);
+}
+

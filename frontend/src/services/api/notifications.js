@@ -86,8 +86,22 @@ export const subscribeToPush = async () => {
       throw new Error('Notification permission denied');
     }
 
-    // Register service worker
-    const registration = await navigator.serviceWorker.ready;
+    // Register service worker if not already registered
+    let registration;
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      registration = registrations[0];
+
+      if (!registration) {
+        console.log('Registering service worker...');
+        registration = await navigator.serviceWorker.register('/sw.js');
+        await registration.update();
+        console.log('Service worker registered successfully');
+      }
+    } catch (swError) {
+      console.error('Service worker registration failed:', swError);
+      throw new Error('Service worker is not available. Please refresh the page.');
+    }
 
     // Get existing subscription or create new one
     let subscription = await registration.pushManager.getSubscription();
@@ -136,7 +150,15 @@ export const unsubscribeFromPush = async () => {
   }
 
   try {
-    const registration = await navigator.serviceWorker.ready;
+    // Get registration
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    const registration = registrations[0];
+
+    if (!registration) {
+      console.warn('No service worker registration found');
+      return;
+    }
+
     const subscription = await registration.pushManager.getSubscription();
 
     if (subscription) {
@@ -169,16 +191,41 @@ export const isSubscribed = async () => {
   }
 
   try {
-    const registration = await navigator.serviceWorker.ready;
+    // Check if service worker is available
+    if (!navigator.serviceWorker.controller && !navigator.serviceWorker.ready) {
+      console.warn('Service worker not available');
+      return false;
+    }
+
+    // Try to get registration without waiting indefinitely
+    let registration;
+    try {
+      // First try to get existing registration
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      registration = registrations[0];
+
+      if (!registration) {
+        // No registration exists, try to register
+        try {
+          registration = await navigator.serviceWorker.register('/sw.js');
+          console.log('Service worker registered successfully');
+        } catch (regError) {
+          console.warn('Could not register service worker:', regError);
+          return false;
+        }
+      }
+    } catch (getError) {
+      console.warn('Could not get service worker registration:', getError);
+      return false;
+    }
+
     const subscription = await registration.pushManager.getSubscription();
     return subscription !== null;
   } catch (error) {
-    console.error('Failed to check subscription status:', error);
+    console.warn('Failed to check subscription status:', error);
     return false;
   }
-};
-
-/**
+};/**
  * Get current subscription
  * @returns {Promise<PushSubscription|null>}
  */
@@ -188,10 +235,22 @@ export const getCurrentSubscription = async () => {
   }
 
   try {
-    const registration = await navigator.serviceWorker.ready;
+    // Check if service worker is available
+    if (!navigator.serviceWorker.controller && !navigator.serviceWorker.ready) {
+      return null;
+    }
+
+    // Get registration
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    const registration = registrations[0];
+
+    if (!registration) {
+      return null;
+    }
+
     return await registration.pushManager.getSubscription();
   } catch (error) {
-    console.error('Failed to get current subscription:', error);
+    console.warn('Failed to get current subscription:', error);
     return null;
   }
 };

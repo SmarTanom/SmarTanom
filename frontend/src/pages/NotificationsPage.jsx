@@ -1,16 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Bell, AlertCircle, Activity, Droplets, Zap } from 'lucide-react';
+import { ChevronLeft, Bell, AlertCircle, Activity, Droplets, Zap, AlertTriangle, CheckCircle, Loader } from 'lucide-react';
+import usePushNotifications from '../hooks/usePushNotifications';
 import '../assets/styles/NotificationsPage.css';
 
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
 const NotificationsPage = () => {
   const navigate = useNavigate();
-  
+
+  // Push notification hook
+  const {
+    isSupported,
+    permission,
+    isSubscribed,
+    isLoading,
+    isInitializing,
+    error: pushError,
+    enableNotifications,
+    disableNotifications,
+    clearError,
+    isDenied,
+    refreshStatus,
+  } = usePushNotifications();
+
   // Notification preferences state
   const [notifications, setNotifications] = useState({
-    pushEnabled: true,
+    pushEnabled: false, // Will be updated once initialization completes
     emailEnabled: true,
     alerts: {
       critical: true,
@@ -30,6 +46,64 @@ const NotificationsPage = () => {
       end: '07:00'
     }
   });
+
+  // Toast notification state
+  const [toast, setToast] = useState({ show: false, message: '', type: '' });
+
+  // Sync push notification state with hook - always keep in sync
+  // Note: Push notification state is persisted in the backend via PushSubscription model
+  // and in the browser via PushManager. The hook checks both on initialization.
+  // This ensures the toggle state persists across page refreshes and sessions.
+  useEffect(() => {
+    // Always sync the pushEnabled state with the actual subscription status
+    setNotifications(prev => ({
+      ...prev,
+      pushEnabled: isSubscribed
+    }));
+  }, [isSubscribed]);
+
+  // Refresh subscription status on mount to ensure we have the latest state
+  useEffect(() => {
+    if (!isInitializing && isSupported) {
+      refreshStatus();
+    }
+  }, [isInitializing, isSupported, refreshStatus]);
+
+  // Show toast notification
+  const showToast = (message, type = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: '', type: '' });
+    }, 4000);
+  };
+
+  // Clear error notification
+  useEffect(() => {
+    if (pushError) {
+      showToast(pushError, 'error');
+      clearError();
+    }
+  }, [pushError, clearError]);
+
+  // Handle push notification toggle
+  const handlePushNotificationToggle = async () => {
+    if (isLoading) return;
+
+    try {
+      if (isSubscribed) {
+        // Disable notifications
+        await disableNotifications();
+        showToast('Push notifications disabled', 'success');
+      } else {
+        // Enable notifications
+        await enableNotifications();
+        showToast('Push notifications enabled successfully!', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to toggle push notifications:', error);
+      // Error toast will be shown by useEffect watching pushError
+    }
+  };
 
   const handleToggle = (category, key) => {
     if (category === 'main') {
@@ -70,7 +144,7 @@ const NotificationsPage = () => {
     <div className="notifications-root">
       {/* Header */}
       <div className="notifications-header">
-        <button 
+        <button
           className="back-button"
           onClick={() => navigate('/profile')}
           aria-label="Go back"
@@ -81,9 +155,40 @@ const NotificationsPage = () => {
         <div style={{ width: '24px' }}></div> {/* Spacer for centering */}
       </div>
 
+      {/* Toast Notification */}
+      {toast.show && (
+        <div className={`toast-notification toast-${toast.type}`}>
+          {toast.type === 'success' && <CheckCircle size={20} />}
+          {toast.type === 'error' && <AlertTriangle size={20} />}
+          <span>{toast.message}</span>
+        </div>
+      )}
+
       {/* Content */}
       <div className="notifications-content">
-        
+
+        {/* Browser Support Warning */}
+        {!isSupported && (
+          <div className="notification-warning">
+            <AlertTriangle size={20} color="#F59E0B" />
+            <div>
+              <strong>Push notifications not supported</strong>
+              <p>Your browser doesn't support push notifications. Please use Chrome, Firefox, Edge, or Safari.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Permission Denied Warning */}
+        {isSupported && isDenied && (
+          <div className="notification-warning">
+            <AlertCircle size={20} color="#DC2626" />
+            <div>
+              <strong>Notification permission denied</strong>
+              <p>Please enable notifications in your browser settings to receive alerts.</p>
+            </div>
+          </div>
+        )}
+
         {/* Main Toggle Section */}
         <section className="notification-section">
           <div className="notification-item">
@@ -91,16 +196,21 @@ const NotificationsPage = () => {
               <Bell size={20} color={PRIMARY_GREEN} />
               <div className="notification-item-text">
                 <span className="notification-label">Push Notifications</span>
-                <span className="notification-description">Receive push notifications on this device</span>
+                <span className="notification-description">
+                  Receive push notifications on this device
+                </span>
               </div>
             </div>
             <label className="toggle-switch">
               <input
                 type="checkbox"
-                checked={notifications.pushEnabled}
-                onChange={() => handleToggle('main', 'pushEnabled')}
+                checked={isSubscribed}
+                onChange={handlePushNotificationToggle}
+                disabled={!isSupported || isLoading || isDenied}
               />
-              <span className="toggle-slider"></span>
+              <span className="toggle-slider">
+                {isLoading && <Loader size={12} className="spinner" />}
+              </span>
             </label>
           </div>
 
@@ -127,7 +237,7 @@ const NotificationsPage = () => {
         <section className="notification-section">
           <h2 className="section-title">Alert Severity</h2>
           <p className="section-description">Choose which alert types you want to receive</p>
-          
+
           <div className="notification-item">
             <div className="notification-item-left">
               <AlertCircle size={20} color="#DC2626" />
@@ -187,7 +297,7 @@ const NotificationsPage = () => {
         <section className="notification-section">
           <h2 className="section-title">Notification Categories</h2>
           <p className="section-description">Select which types of updates you want to receive</p>
-          
+
           <div className="notification-item">
             <div className="notification-item-left">
               <AlertCircle size={20} color={PRIMARY_GREEN} />
@@ -283,7 +393,7 @@ const NotificationsPage = () => {
         <section className="notification-section">
           <h2 className="section-title">Quiet Hours</h2>
           <p className="section-description">Silence notifications during specific hours</p>
-          
+
           <div className="notification-item">
             <div className="notification-item-left">
               <div className="notification-item-text">
