@@ -289,19 +289,17 @@ export default function AdminDevices() {
 				<section className="devices-list">
 					{filteredDevices.map((device) => (
 						<article key={device.id} className="device-card">
-							<div className="device-icon">
-								<Leaf size={20} />
+							<div className={`device-icon ${device.status.toLowerCase()}`}>
+								<Leaf size={24} />
 							</div>
 							<div className="device-info">
 								<h3 className="device-serial">{device.serial}</h3>
-								<div className="device-meta">
-									{device.owner && (
-										<>
-											<User size={14} />
-											<span>{device.owner}</span>
-										</>
-									)}
-								</div>
+								{device.owner && (
+									<div className="device-meta">
+										<User size={14} />
+										<span>{device.owner}</span>
+									</div>
+								)}
 								<div className="device-status-row">
 									<span className={`device-status ${device.status.toLowerCase()}`}>
 										{device.status}
