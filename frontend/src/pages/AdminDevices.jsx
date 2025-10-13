@@ -290,7 +290,7 @@ export default function AdminDevices() {
 					{filteredDevices.map((device) => (
 						<article key={device.id} className="device-card">
 							<div className={`device-icon ${device.status.toLowerCase()}`}>
-								<Leaf size={24} />
+								<Leaf size={24} strokeWidth={2} />
 							</div>
 							<div className="device-info">
 								<h3 className="device-serial">{device.serial}</h3>

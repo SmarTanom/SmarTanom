@@ -147,7 +147,7 @@
 	background: #fff;
 	border: 1px solid #E8F1EA;
 	border-radius: 16px;
-	padding: 20px 24px;
+	padding: 18px 24px;
 	display: flex;
 	align-items: center;
 	gap: 18px;
@@ -164,7 +164,7 @@
 	width: 56px;
 	height: 56px;
 	border-radius: 14px;
-	background: rgba(46, 183, 46, 0.08);
+	background: #F5F9F5;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -173,7 +173,7 @@
 }
 
 .device-icon.available {
-	background: rgba(245, 158, 11, 0.08);
+	background: #FFF8ED;
 	color: #f59e0b;
 }
 
@@ -188,30 +188,33 @@
 .device-serial {
 	font-size: 18px;
 	font-weight: 700;
-	color: #111;
+	color: #1a1a1a;
 	margin: 0;
+	line-height: 1.2;
 }
 
 .device-meta {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	color: #6b7280;
+	color: #9ca3af;
 	font-size: 14px;
+	line-height: 1;
 }
 
 .device-status-row {
 	display: flex;
 	align-items: center;
-	gap: 14px;
-	flex-wrap: wrap;
+	gap: 12px;
+	flex-wrap: nowrap;
 }
 
 .device-status {
 	padding: 4px 12px;
-	border-radius: 999px;
+	border-radius: 6px;
 	font-size: 13px;
-	font-weight: 700;
+	font-weight: 600;
+	white-space: nowrap;
 }
 
 .device-status.assigned {
@@ -225,8 +228,9 @@
 }
 
 .device-last-seen {
-	color: #8BA797;
+	color: #9ca3af;
 	font-size: 14px;
+	white-space: nowrap;
 }
 
 .btn-view-details {
