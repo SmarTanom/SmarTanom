@@ -431,7 +431,13 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [displayName, setDisplayName] = useState('User');
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
-  const [perDeviceUnreadCounts, setPerDeviceUnreadCounts] = useState({});
+  const [perDeviceUnreadCounts, setPerDeviceUnreadCounts] = useState(() => {
+    try {
+      const raw = localStorage.getItem('dashboard.perDeviceUnread');
+      if (raw) return JSON.parse(raw) || {};
+    } catch (_) {}
+    return {};
+  });
   // Store the latest alert metadata per device for realtime display
   // Persist latest alerts across refresh using localStorage (lightweight cache)
   const [latestAlerts, setLatestAlerts] = useState(() => {
@@ -455,6 +461,14 @@ export default function Dashboard() {
       // Ignore quota / serialization errors
     }
   }, [latestAlerts]);
+
+  // Persist unread counts when they change
+  useEffect(() => {
+    try { localStorage.setItem('dashboard.perDeviceUnread', JSON.stringify(perDeviceUnreadCounts)); } catch (_) {}
+  }, [perDeviceUnreadCounts]);
+  useEffect(() => {
+    try { localStorage.setItem('dashboard.totalUnread', String(unreadAlertsCount)); } catch (_) {}
+  }, [unreadAlertsCount]);
 
   // Shared helper to compute a stable reading key (match AlertsPage logic)
   const readingKeyOf = (reading) => {
@@ -949,29 +963,13 @@ export default function Dashboard() {
             });
           }
 
-          // Recompute alert counts & nutrient after this device's update (without full loops)
-          try {
-            if (device_id) {
-              const sensorSnapshot = devicesData?.[device_id]?.sensors || {};
-              const merged = { ...sensorSnapshot, ...sensors };
-              // Quick alert detection replicating generateAlertText logic
-              let hasAlert = false;
-              if (typeof merged.tds === 'number' && (merged.tds < 300 || merged.tds > 1500)) hasAlert = true;
-              if (typeof merged.ph === 'number' && (merged.ph < 5.5 || merged.ph > 6.5)) hasAlert = true;
-              if (typeof merged.waterLevel === 'number' && merged.waterLevel < 20) hasAlert = true;
-              if (typeof merged.temperature === 'number' && (merged.temperature < 18 || merged.temperature > 28)) hasAlert = true;
-              setPerDeviceUnreadCounts(prev => ({
-                ...prev,
-                [device_id]: hasAlert ? Math.max(1, prev[device_id] || 0) : 0
-              }));
-              // Recompute total unread
-              setUnreadAlertsCount(prev => {
-                const nextMap = { ...perDeviceUnreadCounts, [device_id]: hasAlert ? Math.max(1, perDeviceUnreadCounts[device_id] || 0) : 0 };
-                return Object.values(nextMap).reduce((a, b) => a + (b || 0), 0);
-              });
-            }
-          } catch (e) {
-            console.warn('Realtime alert count recompute failed:', e);
+          // Increment unread counts only when a NEW alert meta was generated for this device
+          if (device_id && computedAlertMeta) {
+            setPerDeviceUnreadCounts(prev => {
+              const current = prev[device_id] || 0;
+              return { ...prev, [device_id]: current + 1 };
+            });
+            setUnreadAlertsCount(prev => prev + 1);
           }
 
           // Fallback: if pH exists in backend reading meta but not updatedSensors OR huge discrepancy (>2 pH units) vs existing, trigger targeted refetch

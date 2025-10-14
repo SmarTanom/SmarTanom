@@ -877,7 +877,7 @@ export default function AlertsPage() {
     return tb - ta; // newest first
   });
 
-  const unreadCount = alerts.filter(a => !a.read).length;
+  const unreadCount = React.useMemo(() => alerts.filter(a => !a.read).length, [alerts]);
 
   const markAsRead = (alertId) => {
     setAlerts(prev => prev.map(alert => {
