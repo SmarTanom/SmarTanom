@@ -93,6 +93,42 @@ class DeviceConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps(payload))
         print(f"[WebSocket] Broadcasted sensor.update for device {payload.get('device_id')}")
 
+    async def alert_update(self, event):
+        """
+        Broadcast alert updates to all connected clients.
+
+        Called via:
+            channel_layer.group_send("devices", {
+                "type": "alert_update",
+                "payload": {
+                    "type": "alert.new",
+                    "device_id": 1,
+                    "alert": {...}
+                }
+            })
+        """
+        payload = event.get("payload", {})
+        await self.send(text_data=json.dumps(payload))
+        print(f"[WebSocket] Broadcasted alert.new for device {payload.get('device_id')}")
+
+    async def admin_update(self, event):
+        """
+        Broadcast admin-specific updates (device/user CRUD operations).
+
+        Called via:
+            channel_layer.group_send("devices", {
+                "type": "admin_update",
+                "payload": {
+                    "type": "admin.device_created" | "admin.device_updated" | "admin.device_deleted" |
+                           "admin.user_created" | "admin.user_updated" | "admin.user_deleted",
+                    "data": {...}
+                }
+            })
+        """
+        payload = event.get("payload", {})
+        await self.send(text_data=json.dumps(payload))
+        print(f"[WebSocket] Broadcasted admin update: {payload.get('type')}")
+
 
 class UserConsumer(AsyncWebsocketConsumer):
     """
@@ -152,3 +188,21 @@ class UserConsumer(AsyncWebsocketConsumer):
         payload = event.get("payload", {})
         await self.send(text_data=json.dumps(payload))
         print(f"[WebSocket] Sent sensor.update to user {self.user_id} for device {payload.get('device_id')}")
+
+    async def alert_update(self, event):
+        """
+        Send alert updates to user-specific channels.
+
+        Event structure:
+        {
+            "type": "alert_update",
+            "payload": {
+                "type": "alert.new",
+                "device_id": 1,
+                "alert": {...}
+            }
+        }
+        """
+        payload = event.get("payload", {})
+        await self.send(text_data=json.dumps(payload))
+        print(f"[WebSocket] Sent alert to user {self.user_id} for device {payload.get('device_id')}")

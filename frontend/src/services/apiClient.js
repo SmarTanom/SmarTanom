@@ -97,6 +97,7 @@ export const apiClient = {
   post: (p, body, opts) => request(p, { ...opts, method: 'POST', body }),
   put: (p, body, opts) => request(p, { ...opts, method: 'PUT', body }),
   patch: (p, body, opts) => request(p, { ...opts, method: 'PATCH', body }),
+  delete: (p, opts) => request(p, { ...opts, method: 'DELETE' }),
 };
 
 // Auth-specific convenience wrappers

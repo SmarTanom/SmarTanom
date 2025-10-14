@@ -12,10 +12,56 @@ class WebSocketClient {
   constructor() {
     this.ws = null;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
-    this.reconnectDelay = 3000;
+    this.maxReconnectAttempts = 10;
+    this.baseReconnectDelay = 3000; // Base delay: 3 seconds
+    this.maxReconnectDelay = 60000; // Max delay: 60 seconds
     this.listeners = new Set();
     this.isConnecting = false;
+    this.status = 'disconnected'; // 'connecting' | 'connected' | 'disconnected'
+    this.statusCallbacks = new Set();
+  }
+
+  /**
+   * Get current connection status
+   * @returns {string} 'connecting' | 'connected' | 'disconnected'
+   */
+  getStatus() {
+    return this.status;
+  }
+
+  /**
+   * Update status and notify callbacks
+   */
+  setStatus(newStatus) {
+    if (this.status !== newStatus) {
+      this.status = newStatus;
+      console.log(`[WebSocket] Status changed to: ${newStatus}`);
+      this.statusCallbacks.forEach(callback => {
+        try {
+          callback(newStatus);
+        } catch (error) {
+          console.error('[WebSocket] Status callback error:', error);
+        }
+      });
+    }
+  }
+
+  /**
+   * Subscribe to status changes
+   * @param {Function} callback - Called with new status: 'connecting' | 'connected' | 'disconnected'
+   * @returns {Function} Unsubscribe function
+   */
+  onStatusChange(callback) {
+    if (typeof callback !== 'function') {
+      console.error('[WebSocket] onStatusChange requires a function callback');
+      return () => {};
+    }
+    this.statusCallbacks.add(callback);
+    // Immediately call with current status
+    callback(this.status);
+    return () => {
+      this.statusCallbacks.delete(callback);
+    };
   }
 
   connect() {
@@ -25,6 +71,7 @@ class WebSocketClient {
     }
 
     this.isConnecting = true;
+    this.setStatus('connecting');
     const wsUrl = `${WS_BASE_URL}/ws/devices/`;
     console.log('[WebSocket] Connecting to:', wsUrl);
 
@@ -35,6 +82,7 @@ class WebSocketClient {
         console.log('[WebSocket] Connected successfully');
         this.reconnectAttempts = 0;
         this.isConnecting = false;
+        this.setStatus('connected');
       };
 
       this.ws.onmessage = (event) => {
@@ -57,27 +105,46 @@ class WebSocketClient {
       this.ws.onerror = (error) => {
         console.error('[WebSocket] Error:', error);
         this.isConnecting = false;
+        this.setStatus('disconnected');
       };
 
       this.ws.onclose = () => {
         console.log('[WebSocket] Disconnected');
         this.isConnecting = false;
+        this.setStatus('disconnected');
         this.attemptReconnect();
       };
     } catch (error) {
       console.error('[WebSocket] Connection error:', error);
       this.isConnecting = false;
+      this.setStatus('disconnected');
       this.attemptReconnect();
     }
+  }
+
+  /**
+   * Calculate exponential backoff delay
+   * Formula: min(baseDelay * 2^attempt, maxDelay)
+   */
+  getReconnectDelay() {
+    const delay = Math.min(
+      this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts),
+      this.maxReconnectDelay
+    );
+    return delay;
   }
 
   attemptReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`[WebSocket] Reconnecting in ${this.reconnectDelay / 1000}s... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      setTimeout(() => this.connect(), this.reconnectDelay);
+      const delay = this.getReconnectDelay();
+      console.log(
+        `[WebSocket] Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+      );
+      setTimeout(() => this.connect(), delay);
     } else {
       console.error('[WebSocket] Max reconnection attempts reached');
+      this.setStatus('disconnected');
     }
   }
 

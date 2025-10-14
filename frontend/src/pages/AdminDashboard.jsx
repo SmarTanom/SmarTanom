@@ -2,7 +2,8 @@ import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../assets/styles/AdminDashboard.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
-import { getAdminStats } from '../services/api/admin';
+import useAdminRealtimeStore from '../store/adminRealtimeStore';
+import { wsClient } from '../services/websocketClient';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -91,34 +92,34 @@ function Progress({ value = 0, label }) {
 
 export default function AdminDashboard() {
 	const navigate = useNavigate();
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null);
-	const [stats, setStats] = useState(null);
+
+	// Use admin realtime store
+	const stats = useAdminRealtimeStore(state => state.adminStats);
+	const loading = useAdminRealtimeStore(state => state.loadingStats);
+	const error = useAdminRealtimeStore(state => state.errorStats);
+	const fetchAdminStats = useAdminRealtimeStore(state => state.fetchAdminStats);
+	const connectAdminWS = useAdminRealtimeStore(state => state.connectAdminWS);
+	const setWsStatus = useAdminRealtimeStore(state => state.setWsStatus);
 
 	useEffect(() => {
-		const fetchAdminData = async () => {
-			try {
-				setLoading(true);
-				setError(null);
-				const data = await getAdminStats();
-				console.log('📊 Admin Stats received:', data);
-				console.log('📦 Device counts:', {
-					total: data?.summary?.devices?.total,
-					active: data?.summary?.devices?.active,
-					available: data?.summary?.devices?.available,
-					bound: data?.summary?.devices?.bound
-				});
-				setStats(data);
-			} catch (err) {
-				console.error('Failed to fetch admin stats:', err);
-				setError(err.response?.data?.message || 'Failed to load dashboard data');
-			} finally {
-				setLoading(false);
-			}
-		};
+		// Fetch initial data
+		fetchAdminStats();
 
-		fetchAdminData();
-	}, []);
+		// Connect to WebSocket
+		wsClient.connect();
+		const unsubscribeWS = connectAdminWS();
+
+		// Subscribe to WebSocket status changes
+		const unsubscribeStatus = wsClient.onStatusChange((status) => {
+			setWsStatus(status);
+		});
+
+		// Cleanup on unmount
+		return () => {
+			unsubscribeWS();
+			unsubscribeStatus();
+		};
+	}, [fetchAdminStats, connectAdminWS, setWsStatus]);
 
 	// Show loading state
 	if (loading) {
@@ -165,7 +166,7 @@ export default function AdminDashboard() {
 						<AlertTriangle size={48} style={{ color: '#ef4444' }} />
 						<p style={{ marginTop: '16px', color: '#dc2626', fontWeight: 600 }}>{error}</p>
 						<button
-							onClick={() => window.location.reload()}
+							onClick={() => fetchAdminStats()}
 							style={{
 								marginTop: '16px',
 								padding: '8px 16px',

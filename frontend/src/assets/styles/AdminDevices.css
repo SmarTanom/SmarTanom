@@ -233,6 +233,12 @@
 	white-space: nowrap;
 }
 
+.device-actions {
+	display: flex;
+	gap: 8px;
+	flex-shrink: 0;
+}
+
 .btn-view-details {
 	display: flex;
 	align-items: center;
@@ -247,13 +253,34 @@
 	cursor: pointer;
 	transition: all 0.2s;
 	white-space: nowrap;
-	flex-shrink: 0;
 }
 
 .btn-view-details:hover {
 	background: #F5FDF6;
 	border-color: #2eb72e;
 	color: #2eb72e;
+}
+
+.btn-delete-device {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 20px;
+	border: 1px solid #E8F1EA;
+	border-radius: 10px;
+	background: #fff;
+	color: #dc2626;
+	font-weight: 600;
+	font-size: 14px;
+	cursor: pointer;
+	transition: all 0.2s;
+	white-space: nowrap;
+}
+
+.btn-delete-device:hover {
+	background: #fef2f2;
+	border-color: #fecaca;
+	color: #b91c1c;
 }
 
 /* Modal */
@@ -564,7 +591,14 @@
 		padding: 16px;
 	}
 
-	.btn-view-details {
+	.device-actions {
+		width: 100%;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.btn-view-details,
+	.btn-delete-device {
 		width: 100%;
 		justify-content: center;
 	}

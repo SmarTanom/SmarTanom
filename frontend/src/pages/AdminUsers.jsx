@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../assets/styles/AdminUsers.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
-import { getAdminUsers } from '../services/api/admin';
+import useAdminRealtimeStore from '../store/adminRealtimeStore';
+import { wsClient } from '../services/websocketClient';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -20,40 +21,27 @@ import {
 function AdminUsers() {
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = useState('');
-	const [users, setUsers] = useState([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null);
+
+	// Use admin realtime store
+	const users = useAdminRealtimeStore(state => state.allUsers);
+	const loading = useAdminRealtimeStore(state => state.loadingUsers);
+	const error = useAdminRealtimeStore(state => state.errorUsers);
+	const fetchAdminUsers = useAdminRealtimeStore(state => state.fetchAdminUsers);
+	const connectAdminWS = useAdminRealtimeStore(state => state.connectAdminWS);
 
 	useEffect(() => {
-		const fetchUsers = async () => {
-			try {
-				setLoading(true);
-				setError(null);
-				const data = await getAdminUsers();
-				console.log('Users data received:', data); // Debug log
+		// Fetch initial user data
+		fetchAdminUsers();
 
-				// Handle different response structures
-				if (Array.isArray(data)) {
-					setUsers(data);
-				} else if (data && Array.isArray(data.results)) {
-					setUsers(data.results);
-				} else if (data && typeof data === 'object') {
-					setUsers(Object.values(data));
-				} else {
-					console.error('Unexpected users data structure:', data);
-					setUsers([]);
-				}
-			} catch (err) {
-				console.error('Failed to fetch users:', err);
-				setError('Failed to load users');
-				setUsers([]); // Ensure users is always an array
-			} finally {
-				setLoading(false);
-			}
+		// Connect to WebSocket for real-time updates
+		wsClient.connect();
+		const unsubscribeWS = connectAdminWS();
+
+		// Cleanup on unmount
+		return () => {
+			unsubscribeWS();
 		};
-
-		fetchUsers();
-	}, []);
+	}, [fetchAdminUsers, connectAdminWS]);
 
 	// Helper function to get initials
 	const getInitials = (name) => {
@@ -141,13 +129,13 @@ function AdminUsers() {
 						<AlertTriangle size={48} style={{ color: '#ef4444' }} />
 						<p style={{ marginTop: '16px', color: '#dc2626', fontWeight: 600 }}>{error}</p>
 						<button
-							onClick={() => window.location.reload()}
+							onClick={() => fetchAdminUsers()}
 							style={{
 								marginTop: '16px',
 								padding: '8px 16px',
 								background: '#339432',
 								color: 'white',
-								border: 'none',
+				border: 'none',
 								borderRadius: '8px',
 								cursor: 'pointer'
 							}}

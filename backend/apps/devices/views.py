@@ -130,6 +130,69 @@ def send_bind_otp_email(device, email, code):
         return False
 
 
+def send_ownership_removal_otp_email(device, admin_email, code):
+    """Send OTP email for admin-initiated ownership removal."""
+    expire_minutes = 10  # 10 minutes for ownership removal OTP
+    subject = "OTP to confirm device ownership removal (Admin Action)"
+
+    device_name = device.device_name or f"Device {device.device_serial}"
+
+    html_message = f"""
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 20px; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 30px;">
+            <h2 style="color: #333; text-align: center;">SmarTanom</h2>
+            <h3 style="color: #666;">Device Ownership Removal Confirmation</h3>
+            <p style="color: #666;">An administrator ({admin_email}) is requesting to remove ownership of device <strong>{device_name}</strong> (serial: <strong>{device.device_serial}</strong>) from your account.</p>
+            <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="color: #856404; margin: 0; font-weight: bold;">⚠️ Important Notice:</p>
+                <p style="color: #856404; margin: 5px 0 0 0;">This action will permanently remove your ownership of this device. You will lose access to all associated data, sensors, and reservoirs. This action cannot be undone.</p>
+            </div>
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                <p style="color: #666; margin: 0 0 10px 0;">Your OTP is:</p>
+                <h1 style="color: #dc3545; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
+            </div>
+            <p style="color: #666;">This code expires in {expire_minutes} minutes.</p>
+            <p style="color: #e74c3c; font-weight: bold;">If you did not authorize this action, please contact support immediately.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #999; font-size: 12px; text-align: center;">
+                This is an automated message from SmarTanom. Please do not reply.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    plain_message = (
+        "OTP to confirm device ownership removal (Admin Action)\n\n"
+        f"An administrator ({admin_email}) is requesting to remove ownership of device {device_name} (serial: {device.device_serial}) from your account.\n\n"
+        "⚠️ IMPORTANT NOTICE:\n"
+        "This action will permanently remove your ownership of this device. You will lose access to all associated data, sensors, and reservoirs. This action cannot be undone.\n\n"
+        f"OTP: {code}\n\n"
+        f"This code expires in {expire_minutes} minutes.\n\n"
+        "If you did not authorize this action, contact support immediately."
+    )
+
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[device.bound_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        logger.info(f"Ownership removal OTP email sent for device {device.device_serial} to {device.bound_email} (admin: {admin_email})")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send ownership removal OTP email: {str(e)}")
+        return False
+
+
 def send_collaborator_invite_email(device, collaborator_email):
     """Send welcome email to new collaborator."""
     subject = f"SmarTanom - Device Collaboration Invitation"
@@ -1184,6 +1247,114 @@ class DeviceViewSet(BaseAuthViewSet):
             logger.error(f"Error adding collaborator: {str(e)}")
             return Response(
                 {'detail': 'Failed to add collaborator. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'], url_path='admin-remove-ownership', permission_classes=[IsAuthenticated])
+    def admin_remove_ownership(self, request, pk=None):
+        """Admin endpoint to initiate ownership removal with OTP verification."""
+        if not request.user.is_staff:
+            return Response(
+                {'detail': 'Permission denied. Admin access required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        device = self.get_object()
+
+        if not device.is_bound:
+            return Response(
+                {'detail': 'Device is not currently bound to any user.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Invalidate any previous unused OTPs for this device ownership removal
+            from apps.accounts.models import OTPCode
+            OTPCode.objects.filter(
+                email=device.bound_email,
+                purpose=OTPCode.PURPOSE_REMOVE_OWNERSHIP,
+                is_verified=False
+            ).delete()
+
+            # Create new OTP for ownership removal
+            otp = OTPCode.objects.create(
+                email=device.bound_email,
+                purpose=OTPCode.PURPOSE_REMOVE_OWNERSHIP
+            )
+
+            # Send OTP email
+            email_sent = send_ownership_removal_otp_email(device, request.user.email, otp.code)
+
+            logger.info(f"Admin {request.user.email} initiated ownership removal OTP for device {device.device_serial} owned by {device.bound_email}")
+
+            return Response({
+                'detail': 'OTP sent to current owner for ownership removal confirmation.',
+                'debug_otp': otp.code if settings.DEBUG else None  # Only in debug mode
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error sending ownership removal OTP: {str(e)}")
+            return Response(
+                {'detail': 'Failed to send OTP. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'], url_path='confirm-remove-ownership', permission_classes=[IsAuthenticated])
+    def confirm_remove_ownership(self, request, pk=None):
+        """Confirm ownership removal with OTP verification."""
+        if not request.user.is_staff:
+            return Response(
+                {'detail': 'Permission denied. Admin access required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        device = self.get_object()
+        otp_code = request.data.get('otp')
+
+        if not otp_code:
+            return Response(
+                {'detail': 'OTP code is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        otp_code = otp_code.strip()
+
+        try:
+            # Verify OTP
+            from apps.accounts.models import OTPCode
+            if not OTPCode.verify_otp(device.bound_email, otp_code, OTPCode.PURPOSE_REMOVE_OWNERSHIP):
+                return Response(
+                    {'detail': 'Invalid or expired OTP'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Proceed with ownership removal
+            old_owner_email = device.bound_email
+
+            # Revoke all collaborations for this device
+            DeviceCollaboration.objects.filter(
+                device=device,
+                status=DeviceCollaboration.Status.ACTIVE
+            ).update(status=DeviceCollaboration.Status.REVOKED)
+
+            # Unbind the device
+            device.is_bound = False
+            device.bound_email = None
+            device.save()
+
+            logger.info(f"Admin {request.user.email} removed ownership of device {device.device_serial} from {old_owner_email}")
+
+            # Broadcast WebSocket update
+            broadcast_device_update("ownership_removed", device, old_owner_email=old_owner_email, removed_by_admin=request.user.email)
+
+            return Response({
+                'detail': f'Ownership successfully removed from {old_owner_email}. Device is now unbound.'
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error confirming ownership removal: {str(e)}")
+            return Response(
+                {'detail': 'Failed to remove ownership. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

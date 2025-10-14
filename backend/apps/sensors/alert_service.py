@@ -77,6 +77,49 @@ class SensorAlertService:
             f"severity={severity}"
         )
 
+        # Broadcast alert via WebSocket to all connected clients
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        from django.utils import timezone
+
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            alert_payload = {
+                "type": "alert.new",
+                "device_id": device.id,
+                "device_serial": device.device_serial,
+                "device_name": device.device_name,
+                "timestamp": timezone.now().isoformat(),
+                "alert": {
+                    "sensor_type": sensor_type,
+                    "value": float(value),
+                    "severity": severity,
+                    "title": title,
+                    "body": body,
+                    "reading_id": sensor_data.id,
+                    "is_read": False,
+                }
+            }
+
+            # Broadcast to global devices group
+            async_to_sync(channel_layer.group_send)(
+                "devices",
+                {
+                    "type": "alert_update",
+                    "payload": alert_payload
+                }
+            )
+
+            # Broadcast to user-specific channel if device is bound
+            if user:
+                async_to_sync(channel_layer.group_send)(
+                    f"user_{user.id}",
+                    {
+                        "type": "alert_update",
+                        "payload": alert_payload
+                    }
+                )
+
         # Send push/email notification to device owner
         result = PushNotificationService.send_alert_notification(
             user=user,

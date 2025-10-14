@@ -41,6 +41,7 @@ const getNutrientStatus = (tdsValue) => {
 export const useRealtimeStore = create(persist((set, get) => ({
   devices: [], // list of device meta
   deviceData: {}, // per-device structured data
+  deviceAlerts: {}, // { [deviceId]: [alert objects] } - recent alerts per device
   unreadCounts: {},
   totalUnread: 0,
   latestAlerts: {}, // { [deviceId]: { title, body, severity, at } }
@@ -207,16 +208,118 @@ export const useRealtimeStore = create(persist((set, get) => ({
     set({ wsStatus: 'connecting', wsLastError: null });
     wsClient.connect();
     const unsub = wsClient.subscribe(msg => {
-      if (msg?.type === 'sensor.update') get().applyRealtime(msg);
+      if (msg?.type === 'sensor.update') {
+        get().applyRealtime(msg);
+      } else if (msg?.type === 'alert.new') {
+        get().handleNewAlert(msg);
+      }
     });
     // naive: rely on existing client logs; no direct status callbacks exposed currently
     return unsub;
+  },
+
+  handleNewAlert: (payload) => {
+    const { device_id, alert, timestamp } = payload || {};
+    if (!device_id || !alert) return;
+
+    set(state => {
+      const deviceAlerts = { ...state.deviceAlerts };
+      const currentAlerts = deviceAlerts[device_id] || [];
+
+      // Add new alert to the beginning (most recent first)
+      // Prevent duplicates by checking reading_id
+      const isDuplicate = alert.reading_id && currentAlerts.some(a => a.reading_id === alert.reading_id);
+      if (!isDuplicate) {
+        const newAlert = {
+          ...alert,
+          timestamp: timestamp || new Date().toISOString(),
+          device_id,
+          is_read: false,
+        };
+
+        // Keep only last 50 alerts per device to avoid memory bloat
+        const updatedAlerts = [newAlert, ...currentAlerts].slice(0, 50);
+        deviceAlerts[device_id] = updatedAlerts;
+
+        // Update latest alert for badge
+        const latestAlerts = { ...state.latestAlerts };
+        latestAlerts[device_id] = {
+          title: alert.title,
+          body: alert.body,
+          severity: alert.severity,
+          at: timestamp || new Date().toISOString(),
+        };
+
+        // Update unread count
+        const unreadCounts = { ...state.unreadCounts };
+        unreadCounts[device_id] = (unreadCounts[device_id] || 0) + 1;
+
+        return {
+          deviceAlerts,
+          latestAlerts,
+          unreadCounts,
+          totalUnread: state.totalUnread + 1,
+        };
+      }
+
+      return state;
+    });
+  },
+
+  markAlertAsRead: (deviceId, readingId) => {
+    set(state => {
+      const deviceAlerts = { ...state.deviceAlerts };
+      const alerts = deviceAlerts[deviceId] || [];
+
+      const updatedAlerts = alerts.map(alert => {
+        if (alert.reading_id === readingId && !alert.is_read) {
+          return { ...alert, is_read: true };
+        }
+        return alert;
+      });
+
+      deviceAlerts[deviceId] = updatedAlerts;
+
+      // Update unread count
+      const unreadCounts = { ...state.unreadCounts };
+      if (unreadCounts[deviceId] > 0) {
+        unreadCounts[deviceId] -= 1;
+      }
+
+      return {
+        deviceAlerts,
+        unreadCounts,
+        totalUnread: Math.max(0, state.totalUnread - 1),
+      };
+    });
+  },
+
+  markAllDeviceAlertsRead: (deviceId) => {
+    set(state => {
+      const deviceAlerts = { ...state.deviceAlerts };
+      const alerts = deviceAlerts[deviceId] || [];
+
+      const unreadCount = alerts.filter(a => !a.is_read).length;
+
+      const updatedAlerts = alerts.map(alert => ({ ...alert, is_read: true }));
+      deviceAlerts[deviceId] = updatedAlerts;
+
+      const unreadCounts = { ...state.unreadCounts };
+      unreadCounts[deviceId] = 0;
+
+      return {
+        deviceAlerts,
+        unreadCounts,
+        totalUnread: Math.max(0, state.totalUnread - unreadCount),
+      };
+    });
   },
 }), {
   name: 'realtime-store',
   partialize: (state) => ({
     devices: state.devices,
     deviceData: state.deviceData,
+    deviceAlerts: state.deviceAlerts,
     latestAlerts: state.latestAlerts,
     unreadCounts: state.unreadCounts,
     totalUnread: state.totalUnread,

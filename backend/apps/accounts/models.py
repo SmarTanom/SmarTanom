@@ -157,12 +157,14 @@ class OTPCode(models.Model):
     PURPOSE_REGISTER = 'register'
     PURPOSE_RESET = 'reset'
     PURPOSE_REVOKE = 'revoke'
+    PURPOSE_REMOVE_OWNERSHIP = 'remove_ownership'
 
     PURPOSE_CHOICES = [
         (PURPOSE_LOGIN, 'Login'),
         (PURPOSE_REGISTER, 'Registration'),
         (PURPOSE_RESET, 'Password Reset'),
         (PURPOSE_REVOKE, 'Device Access Revocation'),
+        (PURPOSE_REMOVE_OWNERSHIP, 'Device Ownership Removal'),
     ]
 
     email = models.EmailField()

@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import ConfirmationModal from '../components/ConfirmationModal';
 import '../assets/styles/AdminDevices.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
-import { getAdminDevices } from '../services/api/admin';
+import useAdminRealtimeStore from '../store/adminRealtimeStore';
 import { apiClient } from '../services/apiClient';
 import { wsClient } from '../services/websocketClient';
 import {
@@ -26,7 +26,8 @@ import {
 	UserMinus,
 	Share2,
 	Mail,
-	CheckCircle
+	CheckCircle,
+	Trash2
 } from 'lucide-react';
 
 function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
@@ -628,114 +629,35 @@ export default function AdminDevices() {
 	const [searchQuery, setSearchQuery] = useState('');
 	const [activeFilter, setActiveFilter] = useState('all');
 	const [selectedDevice, setSelectedDevice] = useState(null);
-	const [devices, setDevices] = useState([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null);
+
+	// Delete confirmation modal state
+	const [deleteModal, setDeleteModal] = useState({
+		isOpen: false,
+		device: null
+	});
+
+	// Use admin realtime store
+	const devices = useAdminRealtimeStore(state => state.allDevices);
+	const loading = useAdminRealtimeStore(state => state.loadingDevices);
+	const error = useAdminRealtimeStore(state => state.errorDevices);
+	const fetchAdminDevices = useAdminRealtimeStore(state => state.fetchAdminDevices);
+	const connectAdminWS = useAdminRealtimeStore(state => state.connectAdminWS);
 
 	useEffect(() => {
-		fetchDevices();
+		// Fetch initial device data
+		fetchAdminDevices();
 
-		// Connect to WebSocket for real-time updates
+		// Connect to WebSocket and subscribe to updates
 		console.log('[AdminDevices] Connecting to WebSocket...');
 		wsClient.connect();
-
-		// Subscribe to device updates
-		const unsubscribe = wsClient.subscribe((update) => {
-			console.log('[AdminDevices] WebSocket update received:', update);
-			const { action, data } = update;
-
-			switch (action) {
-				case 'bind':
-					// Update device when bound
-					toast.success(`Device ${data.device_serial} bound to ${data.bound_email}`);
-					fetchDevices(); // Refresh device list
-					break;
-
-				case 'unbind':
-					// Update device when unbound
-					toast.info(`Device ${data.device_serial} unbound from ${data.old_email}`);
-					fetchDevices(); // Refresh device list
-					break;
-
-				case 'collaborator_added':
-					// Refresh collaborators if we're viewing this device
-					toast.success(`Collaborator ${data.collaborator_email} added to device ${data.device_serial}`);
-					if (selectedDevice?.id === data.device_id) {
-						// If details modal is open, it will auto-refresh via its own effect
-						fetchDevices(); // Also refresh main list to update counts
-					}
-					break;
-
-				case 'collaborator_revoked':
-					// Refresh collaborators if we're viewing this device
-					toast.warning(`Access revoked for ${data.collaborator_email} on device ${data.device_serial}`);
-					if (selectedDevice?.id === data.device_id) {
-						// If details modal is open, it will auto-refresh via its own effect
-						fetchDevices(); // Also refresh main list to update counts
-					}
-					break;
-
-				case 'sensor_data':
-					// New sensor reading received
-					console.log('[AdminDevices] New sensor data:', data);
-					toast.info(`New ${data.sensor_type} reading: ${data.value} ${data.unit || ''}`, {
-						autoClose: 2000
-					});
-					// Refresh device list to show updated last seen time
-					fetchDevices();
-					break;
-
-				case 'reservoir_update':
-					// Reservoir water level updated
-					console.log('[AdminDevices] Reservoir update:', data);
-					toast.info(`Reservoir water level updated for device ${data.device_serial}`, {
-						autoClose: 2000
-					});
-					// Refresh device list
-					fetchDevices();
-					break;
-
-				default:
-					console.log('[AdminDevices] Unknown WebSocket action:', action);
-			}
-		});
+		const unsubscribeWS = connectAdminWS();
 
 		// Cleanup on unmount
 		return () => {
 			console.log('[AdminDevices] Unsubscribing from WebSocket');
-			unsubscribe();
-			// Note: Don't disconnect here if other components might use WebSocket
-			// wsClient.disconnect();
+			unsubscribeWS();
 		};
-	}, [selectedDevice]);
-
-	const fetchDevices = async () => {
-		try {
-			setLoading(true);
-			setError(null);
-			const data = await getAdminDevices();
-			console.log('Devices data received:', data); // Debug log
-
-			// Handle different response structures
-			if (Array.isArray(data)) {
-				setDevices(data);
-			} else if (data && Array.isArray(data.results)) {
-				setDevices(data.results);
-			} else if (data && typeof data === 'object') {
-				// If data is an object, convert to array
-				setDevices(Object.values(data));
-			} else {
-				console.error('Unexpected data structure:', data);
-				setDevices([]);
-			}
-		} catch (err) {
-			console.error('Failed to fetch devices:', err);
-			setError('Failed to load devices');
-			setDevices([]); // Ensure devices is always an array
-		} finally {
-			setLoading(false);
-		}
-	};
+	}, [fetchAdminDevices, connectAdminWS]);
 
 	// Helper function to format last seen time
 	const formatLastSeen = (lastSeenStr) => {
@@ -759,6 +681,33 @@ export default function AdminDevices() {
 		if (!email) return null;
 		const [name, domain] = email.split('@');
 		return `${name.slice(0, 3)}***@${domain}`;
+	};
+
+	// Handle device deletion
+	const handleDeleteDevice = (device) => {
+		setDeleteModal({
+			isOpen: true,
+			device: device
+		});
+	};
+
+	const executeDeleteDevice = async () => {
+		const device = deleteModal.device;
+		if (!device) return;
+
+		try {
+			const authToken = localStorage.getItem('authToken');
+			await apiClient.delete(`/api/devices/${device.id}/`, { authToken });
+
+			toast.success(`Device ${device.serial} deleted successfully`);
+			fetchAdminDevices(); // Refresh the device list
+		} catch (error) {
+			console.error('Failed to delete device:', error);
+			const errorMsg = error.data?.detail || error.message || 'Failed to delete device';
+			toast.error(errorMsg);
+		} finally {
+			setDeleteModal({ isOpen: false, device: null });
+		}
 	};
 
 	// Ensure devices is always an array before mapping
@@ -996,13 +945,23 @@ export default function AdminDevices() {
 									<span className="device-last-seen">Last seen: {device.lastSeen}</span>
 								</div>
 							</div>
-							<button
-								className="btn-view-details"
-								onClick={() => setSelectedDevice(device)}
-							>
-								<Boxes size={16} />
-								View Details
-							</button>
+							<div className="device-actions">
+								<button
+									className="btn-view-details"
+									onClick={() => setSelectedDevice(device)}
+								>
+									<Boxes size={16} />
+									View Details
+								</button>
+								<button
+									className="btn-delete-device"
+									onClick={() => handleDeleteDevice(device)}
+									title="Delete Device"
+								>
+									<Trash2 size={16} />
+									Delete
+								</button>
+							</div>
 						</article>
 					))}
 				</section>
@@ -1032,15 +991,26 @@ export default function AdminDevices() {
 				</button>
 			</nav>
 
-			{/* Device Details Modal */}
-			{selectedDevice && (
-				<DeviceDetailsModal
-					device={selectedDevice}
-					onClose={() => setSelectedDevice(null)}
-					onDeviceUpdate={fetchDevices}
-				/>
-			)}
-		</div>
-	);
-}
+		{/* Device Details Modal */}
+		{selectedDevice && (
+			<DeviceDetailsModal
+				device={selectedDevice}
+				onClose={() => setSelectedDevice(null)}
+				onDeviceUpdate={fetchAdminDevices}
+			/>
+		)}
 
+		{/* Delete Confirmation Modal */}
+		<ConfirmationModal
+			isOpen={deleteModal.isOpen}
+			onClose={() => setDeleteModal({ isOpen: false, device: null })}
+			onConfirm={executeDeleteDevice}
+			title="Delete Device"
+			message={`Are you sure you want to delete device "${deleteModal.device?.serial}"? This action cannot be undone and will permanently remove the device and all associated data.`}
+			variant="danger"
+			confirmText="Delete Device"
+			cancelText="Cancel"
+		/>
+	</div>
+);
+}
