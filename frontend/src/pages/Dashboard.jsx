@@ -543,6 +543,8 @@ export default function Dashboard() {
               phHistory,
               phLabels,
               sensors: {
+                // Include pH so current pH card has initial value before realtime websocket update
+                ...(typeof transformedSensors.ph === 'number' ? { ph: transformedSensors.ph } : {}),
                 ...(typeof transformedSensors.ec === 'number' ? { ec: transformedSensors.ec } : {}),
                 ...(typeof transformedSensors.tds === 'number' ? { tds: transformedSensors.tds } : {}),
                 ...(typeof transformedSensors.waterLevel === 'number' ? { waterLevel: transformedSensors.waterLevel } : {}),
@@ -689,6 +691,7 @@ export default function Dashboard() {
           // Update the device data directly in state without full API refetch
           setDevicesData(prev => {
             const existing = prev[device_id] || {};
+            const oldPhHistory = existing.phHistory ? [...existing.phHistory] : null;
 
             // Update sensors with new values
             const updatedSensors = {
@@ -719,7 +722,8 @@ export default function Dashboard() {
 
             // Regenerate alert text with new sensor values
             const combinedSensors = {
-              ph: sensors.ph,
+              // Use new pH if provided, else retain existing
+              ph: sensors.ph !== undefined ? sensors.ph : existing.sensors?.ph,
               tds: sensors.tds,
               ec: sensors.ec,
               waterLevel: sensors.water_level,
@@ -780,6 +784,23 @@ export default function Dashboard() {
           });
 
           console.log(`[Dashboard] Updated device ${device_id} data in real-time`);
+
+          // Auto-advance pH window if user was viewing the latest window and a new value arrived
+          if (reading && reading.sensor_type === 'ph' && timeRange === 'days') {
+            setPhWindows(prev => {
+              const existingWindowStart = prev[device_id];
+              const phHist = (devicesData[device_id]?.phHistory) || [];
+              const oldLength = phHist.length; // before adding new one
+              const newLength = Math.min(oldLength + 1, 30); // after trim logic
+              const oldMaxStart = Math.max(0, oldLength - PH_WINDOW_SIZE);
+              const newMaxStart = Math.max(0, newLength - PH_WINDOW_SIZE);
+              // If user was at the end (oldMaxStart) move to new end
+              if (typeof existingWindowStart === 'number' && existingWindowStart === oldMaxStart) {
+                return { ...prev, [device_id]: newMaxStart };
+              }
+              return prev;
+            });
+          }
 
           // Recompute alert counts & nutrient after this device's update (without full loops)
           try {
@@ -880,6 +901,44 @@ export default function Dashboard() {
     }
   }, [loading, devices]);
 
+  // Recompute alert card text & nav unread count reactively when devicesData updates (realtime pH / sensor changes)
+  useEffect(() => {
+    if (!devices || devices.length === 0) return;
+    // Build per-device quick alert evaluation using current devicesData snapshot
+    const nextPerDevice = {};
+    devices.forEach(d => {
+      const dd = devicesData[d.id];
+      if (!dd) return;
+      const s = { ...(dd.sensors || {}), ...(dd.environment || {}) };
+      let hasAlert = false;
+      if (typeof s.tds === 'number' && s.tds < 300) hasAlert = true;
+      if (typeof s.ph === 'number' && s.ph > 6.5) hasAlert = true;
+      if (typeof s.waterLevel === 'number' && s.waterLevel < 20) hasAlert = true;
+      if (typeof s.temperature === 'number' && (s.temperature < 18 || s.temperature > 28)) hasAlert = true;
+      if (hasAlert) nextPerDevice[d.id] = 1; // treat presence as one unread
+      // Also ensure alertText regenerated if sensors changed
+      if (dd && Object.keys(dd.sensors || {}).length) {
+        const alertText = generateAlertText({
+          ph: dd.sensors.ph,
+            tds: dd.sensors.tds,
+            waterLevel: dd.sensors.waterLevel,
+            temperature: dd.environment?.temperature,
+            humidity: dd.environment?.humidity,
+            light: dd.environment?.light,
+            turbidity: dd.sensors.turbidity
+        });
+        if (alertText && dd.alertText !== alertText) {
+          setDevicesData(prev => ({
+            ...prev,
+            [d.id]: { ...dd, alertText }
+          }));
+        }
+      }
+    });
+    setPerDeviceUnreadCounts(nextPerDevice);
+    setUnreadAlertsCount(Object.values(nextPerDevice).reduce((a,b)=>a+(b||0),0));
+  }, [devicesData, devices]);
+
   // Refresh alert count when returning to dashboard (window focus)
   useEffect(() => {
     const handleWindowFocus = async () => {
@@ -971,6 +1030,8 @@ export default function Dashboard() {
         phHistory,
         phLabels,
         sensors: {
+          // Include pH on targeted refresh as well
+          ...(typeof transformedSensors.ph === 'number' ? { ph: transformedSensors.ph } : {}),
           ...(typeof transformedSensors.ec === 'number' ? { ec: transformedSensors.ec } : {}),
           ...(typeof transformedSensors.tds === 'number' ? { tds: transformedSensors.tds } : {}),
           ...(typeof transformedSensors.waterLevel === 'number' ? { waterLevel: transformedSensors.waterLevel } : {}),
