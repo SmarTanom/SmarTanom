@@ -3,8 +3,11 @@ services:
     name: smartanom-backend
     runtime: python3
     plan: free
+    # rootDir tells Render to run build/start commands from this folder
     rootDir: backend
+    # Commands are run relative to rootDir, so don't `cd backend` here.
     buildCommand: "pip install -r requirements.txt"
+    # Run migrations, collectstatic, then start gunicorn. Keep paths relative to backend/.
     startCommand: "python manage.py migrate --noinput && python manage.py collectstatic --noinput --clear && gunicorn smartanom.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 30"
     envVars:
       - key: DJANGO_SETTINGS_MODULE
