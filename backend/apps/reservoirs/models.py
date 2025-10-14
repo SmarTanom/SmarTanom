@@ -19,6 +19,8 @@ class Plant(TimeStampedModel):
     - ph_min / ph_max
     - water_temp_min / water_temp_max
     - light_min / light_max
+    - environment_temp_min / environment_temp_max
+    - humidity_min / humidity_max
     """
 
     plant_name = models.CharField(max_length=100, unique=True)
@@ -34,6 +36,12 @@ class Plant(TimeStampedModel):
 
     light_min = models.FloatField()
     light_max = models.FloatField()
+
+    # New: recommended ambient environment ranges for this plant
+    environment_temp_min = models.FloatField(default=18.0)
+    environment_temp_max = models.FloatField(default=28.0)
+    humidity_min = models.FloatField(default=40.0)
+    humidity_max = models.FloatField(default=70.0)
 
     class Meta:
         verbose_name = "Plant"
@@ -52,6 +60,10 @@ class Plant(TimeStampedModel):
             errors["water_temp_min"] = "water_temp_min cannot be greater than water_temp_max"
         if self.light_min > self.light_max:
             errors["light_min"] = "light_min cannot be greater than light_max"
+        if self.environment_temp_min > self.environment_temp_max:
+            errors["environment_temp_min"] = "environment_temp_min cannot be greater than environment_temp_max"
+        if self.humidity_min > self.humidity_max:
+            errors["humidity_min"] = "humidity_min cannot be greater than humidity_max"
         if errors:
             raise ValidationError(errors)
 
