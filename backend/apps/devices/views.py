@@ -1769,3 +1769,50 @@ def cancel_sent_invitation(request, invitation_id: int):
         'invitation_id': invitation.id,
         'status': invitation.status,
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_devices(request, user_id: int):
+    """Get all devices for a specific user (admin only)."""
+    if not request.user.is_staff:
+        return Response(
+            {'error': 'Admin access required'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        # Get the user
+        from apps.accounts.models import User
+        user = User.objects.get(id=user_id)
+
+        # Get devices bound to this user's email
+        devices = Device.objects.filter(
+            is_bound=True,
+            bound_email=user.email
+        ).order_by('-created_at')
+
+        # Serialize devices
+        serializer = DeviceSerializer(devices, many=True, context={'request': request})
+
+        return Response({
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'name': user.full_name or user.username or user.email.split('@')[0]
+            },
+            'devices': serializer.data,
+            'count': len(serializer.data)
+        })
+
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error fetching user devices: {str(e)}")
+        return Response(
+            {'error': 'Internal server error'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

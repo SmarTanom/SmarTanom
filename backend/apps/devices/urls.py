@@ -12,8 +12,9 @@ from .views import (
     respond_to_invitation,
     get_shared_devices,
     get_sent_invitations,
-    subscribe_notifications
-    , cancel_sent_invitation
+    subscribe_notifications,
+    cancel_sent_invitation,
+    get_user_devices
 )
 
 app_name = 'devices'
@@ -36,6 +37,8 @@ urlpatterns = [
     path("shared/", get_shared_devices, name="get_shared_devices"),
     # PWA notifications
     path("notifications/subscribe/", subscribe_notifications, name="subscribe_notifications"),
+    # Admin user devices endpoint
+    path("users/<int:user_id>/devices/", get_user_devices, name="get_user_devices"),
     # Finally include CRUD router
     path("", include(router.urls)),
 ]

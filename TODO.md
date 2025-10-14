@@ -1,10 +1,18 @@
+# User Devices Modal Implementation
 
-# TODO: Add Delete Button to Admin Devices Page
+## Backend Tasks
+- [ ] Add API endpoint `/api/admin/users/{user_id}/devices/` in backend/apps/devices/views.py
+- [ ] Add URL pattern in backend/apps/devices/urls.py
 
-## Tasks
-- [ ] Add delete button to device cards in AdminDevices.jsx
-- [ ] Add state for delete confirmation modal
-- [ ] Implement handleDeleteDevice function with API call and error handling
-- [ ] Import Trash2 icon for delete button
-- [ ] Style delete button to match existing design
-- [ ] Test delete functionality and verify no errors
+## Frontend Tasks
+- [ ] Add API function `getUserDevices(userId)` in frontend/src/services/api/admin.js
+- [ ] Create UserDevicesModal component in frontend/src/components/ui/UserDevicesModal.jsx
+- [ ] Add modal state management in AdminUsers.jsx (isModalOpen, selectedUser, userDevices, loadingDevices)
+- [ ] Add onClick handler to device button in AdminUsers.jsx
+- [ ] Import and use UserDevicesModal in AdminUsers.jsx
+
+## Testing
+- [ ] Test modal opening and device fetching
+- [ ] Ensure proper loading/error states
+- [ ] Verify responsive design for mobile
+- [ ] Match existing design patterns

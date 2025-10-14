@@ -160,6 +160,24 @@ export const updateAdminPreferences = async (preferences) => {
   }
 };
 
+/**
+ * Fetch devices for a specific user (admin only)
+ * @param {number} userId - User ID
+ * @returns {Promise<Object>} User devices data
+ */
+export const getUserDevices = async (userId) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await apiClient.get(`/api/devices/users/${userId}/devices/`, {
+      authToken: token
+    });
+    return response;
+  } catch (error) {
+    console.error('Error fetching user devices:', error);
+    throw error;
+  }
+};
+
 export default {
   getAdminStats,
   getRecentActivity,
@@ -168,5 +186,6 @@ export default {
   createDevice,
   getAdminProfile,
   updateAdminProfile,
-  updateAdminPreferences
+  updateAdminPreferences,
+  getUserDevices
 };

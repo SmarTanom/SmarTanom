@@ -4,6 +4,8 @@ import '../assets/styles/AdminUsers.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
 import { wsClient } from '../services/websocketClient';
+import { getUserDevices } from '../services/api/admin';
+import UserDevicesModal from '../components/ui/UserDevicesModal';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -21,6 +23,12 @@ import {
 function AdminUsers() {
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = useState('');
+
+	// Modal state
+	const [isModalOpen, setIsModalOpen] = useState(false);
+	const [selectedUser, setSelectedUser] = useState(null);
+	const [userDevices, setUserDevices] = useState([]);
+	const [loadingDevices, setLoadingDevices] = useState(false);
 
 	// Use admin realtime store
 	const users = useAdminRealtimeStore(state => state.allUsers);
@@ -83,6 +91,31 @@ function AdminUsers() {
 		user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 		user.email.toLowerCase().includes(searchQuery.toLowerCase())
 	);
+
+	// Handle device button click
+	const handleViewDevices = async (user) => {
+		setSelectedUser(user);
+		setIsModalOpen(true);
+		setLoadingDevices(true);
+
+		try {
+			const response = await getUserDevices(user.id);
+			setUserDevices(response.devices || []);
+		} catch (error) {
+			console.error('Error fetching user devices:', error);
+			setUserDevices([]);
+		} finally {
+			setLoadingDevices(false);
+		}
+	};
+
+	// Handle modal close
+	const handleCloseModal = () => {
+		setIsModalOpen(false);
+		setSelectedUser(null);
+		setUserDevices([]);
+		setLoadingDevices(false);
+	};
 
 	// Loading state
 	if (loading) {
@@ -253,7 +286,7 @@ function AdminUsers() {
 									</span>
 								</div>
 							</div>
-							<button className="btn-view-user">
+							<button className="btn-view-user" onClick={() => handleViewDevices(user)}>
 								<span className="user-device-count">{user.deviceCount} {user.deviceCount === 1 ? 'device' : 'devices'}</span>
 								<ChevronRight size={20} />
 							</button>
@@ -285,6 +318,16 @@ function AdminUsers() {
 					<span>Settings</span>
 				</button>
 			</nav>
+
+			{/* User Devices Modal */}
+			{isModalOpen && (
+				<UserDevicesModal
+					user={selectedUser}
+					devices={userDevices}
+					loading={loadingDevices}
+					onClose={handleCloseModal}
+				/>
+			)}
 		</div>
 	);
 }
