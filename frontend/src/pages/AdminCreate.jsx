@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
 import '../assets/styles/AdminCreate.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
+import { createDevice, getAdminDevices } from '../services/api/admin';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -14,38 +15,9 @@ import {
 	CheckCircle2,
 	X,
 	Download,
-	Clock
+	Clock,
+	Loader2
 } from 'lucide-react';
-
-// Mock recent devices data
-const mockRecentDevices = [
-	{
-		id: 1,
-		serial: 'HYD-SPN-127-2025',
-		status: 'Available',
-		createdAt: '5 minutes ago'
-	},
-	{
-		id: 2,
-		serial: 'HYD-SPN-126-2025',
-		status: 'Assigned',
-		createdAt: '1 hour ago',
-		owner: 'far***@example.com'
-	},
-	{
-		id: 3,
-		serial: 'HYD-SPN-125-2025',
-		status: 'Assigned',
-		createdAt: '2 hours ago',
-		owner: 'urb***@example.com'
-	},
-	{
-		id: 4,
-		serial: 'HYD-SPN-124-2025',
-		status: 'Available',
-		createdAt: '1 day ago'
-	}
-];
 
 function SuccessModal({ device, qrCodeUrl, onClose }) {
 	const handleDownloadQR = () => {
@@ -100,32 +72,52 @@ function SuccessModal({ device, qrCodeUrl, onClose }) {
 
 function AdminCreate() {
 	const navigate = useNavigate();
-	const [deviceId, setDeviceId] = useState('');
-	const [isGenerating, setIsGenerating] = useState(false);
+	const [deviceName, setDeviceName] = useState('');
+	const [location, setLocation] = useState('');
+	const [status, setStatus] = useState('active');
+	const [isCreating, setIsCreating] = useState(false);
 	const [createdDevice, setCreatedDevice] = useState(null);
 	const [qrCodeUrl, setQrCodeUrl] = useState('');
+	const [recentDevices, setRecentDevices] = useState([]);
+	const [loadingRecent, setLoadingRecent] = useState(true);
 
-	const generateDeviceId = () => {
-		setIsGenerating(true);
-		// Simulate ID generation
-		setTimeout(() => {
-			const year = new Date().getFullYear();
-			const randomNum = Math.floor(Math.random() * 900) + 100;
-			const generatedId = `HYD-SPN-${randomNum}-${year}`;
-			setDeviceId(generatedId);
-			setIsGenerating(false);
-		}, 500);
-	};
+	// Fetch recent devices on mount
+	useEffect(() => {
+		const fetchRecentDevices = async () => {
+			try {
+				const devices = await getAdminDevices();
+				// Get the 5 most recent devices
+				const recent = Array.isArray(devices) ? devices.slice(0, 5) : [];
+				setRecentDevices(recent);
+			} catch (error) {
+				console.error('Failed to fetch recent devices:', error);
+			} finally {
+				setLoadingRecent(false);
+			}
+		};
+
+		fetchRecentDevices();
+	}, []);
 
 	const handleCreateDevice = async () => {
-		if (!deviceId.trim()) {
-			alert('Please enter or generate a device ID');
+		if (!deviceName.trim()) {
+			alert('Please enter a device name');
 			return;
 		}
 
+		setIsCreating(true);
 		try {
-			// Generate QR code
-			const qrUrl = await QRCode.toDataURL(deviceId, {
+			// Call backend API to create device
+			const response = await createDevice({
+				device_name: deviceName.trim(),
+				location: location.trim() || undefined,
+				status: status
+			});
+
+			const newDevice = response.device;
+
+			// Generate QR code with the device serial
+			const qrUrl = await QRCode.toDataURL(newDevice.serial, {
 				width: 300,
 				margin: 2,
 				color: {
@@ -134,25 +126,27 @@ function AdminCreate() {
 				}
 			});
 
-			// Create device object
-			const newDevice = {
-				serial: deviceId,
-				createdAt: new Date().toISOString(),
-				status: 'Available'
-			};
-
 			setCreatedDevice(newDevice);
 			setQrCodeUrl(qrUrl);
-			
-			// Clear the input for next device
-			setDeviceId('');
+
+			// Clear the form for next device
+			setDeviceName('');
+			setLocation('');
+			setStatus('active');
+
+			// Refresh recent devices list
+			const devices = await getAdminDevices();
+			const recent = Array.isArray(devices) ? devices.slice(0, 5) : [];
+			setRecentDevices(recent);
+
 		} catch (error) {
 			console.error('Error creating device:', error);
-			alert('Failed to create device. Please try again.');
+			const errorMsg = error.response?.data?.error || error.message || 'Failed to create device';
+			alert(errorMsg);
+		} finally {
+			setIsCreating(false);
 		}
-	};
-
-	const closeSuccessModal = () => {
+	};	const closeSuccessModal = () => {
 		setCreatedDevice(null);
 		setQrCodeUrl('');
 	};
@@ -220,30 +214,62 @@ function AdminCreate() {
 						</div>
 
 						<div className="form-group">
-							<label className="form-label">Device ID</label>
-							<div className="input-with-button">
-								<input
-									type="text"
-									className="form-input"
-									placeholder="Enter device ID or generate one"
-									value={deviceId}
-									onChange={(e) => setDeviceId(e.target.value)}
-								/>
-								<button
-									className="btn-generate"
-									onClick={generateDeviceId}
-									disabled={isGenerating}
-								>
-									<Sparkles size={16} />
-									{isGenerating ? 'Generating...' : 'Generate'}
-								</button>
-							</div>
-							<p className="form-help">Format: HYD-SPN-XXX-YYYY (e.g., HYD-SPN-001-2025)</p>
+							<label className="form-label">Device Name *</label>
+							<input
+								type="text"
+								className="form-input"
+								placeholder="e.g., Hydroponic System 1"
+								value={deviceName}
+								onChange={(e) => setDeviceName(e.target.value)}
+								disabled={isCreating}
+							/>
+							<p className="form-help">A descriptive name for the device</p>
 						</div>
 
-						<button className="btn-create-device" onClick={handleCreateDevice}>
-							<Smartphone size={18} />
-							Create Device
+						<div className="form-group">
+							<label className="form-label">Location (Optional)</label>
+							<input
+								type="text"
+								className="form-input"
+								placeholder="e.g., Greenhouse A, Room 101"
+								value={location}
+								onChange={(e) => setLocation(e.target.value)}
+								disabled={isCreating}
+							/>
+							<p className="form-help">Physical location of the device</p>
+						</div>
+
+						<div className="form-group">
+							<label className="form-label">Status</label>
+							<select
+								className="form-input"
+								value={status}
+								onChange={(e) => setStatus(e.target.value)}
+								disabled={isCreating}
+							>
+								<option value="active">Active</option>
+								<option value="inactive">Inactive</option>
+								<option value="maintenance">Maintenance</option>
+							</select>
+							<p className="form-help">Initial operational status</p>
+						</div>
+
+						<button
+							className="btn-create-device"
+							onClick={handleCreateDevice}
+							disabled={isCreating}
+						>
+							{isCreating ? (
+								<>
+									<Loader2 size={18} className="spinner" />
+									Creating Device...
+								</>
+							) : (
+								<>
+									<Smartphone size={18} />
+									Create Device
+								</>
+							)}
 						</button>
 
 						<div className="info-section">
@@ -251,7 +277,7 @@ function AdminCreate() {
 							<ul className="info-list">
 								<li className="info-item">
 									<CheckCircle2 size={16} className="check-icon" />
-									<span>Device will be created with "Available" status</span>
+									<span>Device serial will be auto-generated (SMRT-XXX-XXX)</span>
 								</li>
 								<li className="info-item">
 									<CheckCircle2 size={16} className="check-icon" />
@@ -259,11 +285,11 @@ function AdminCreate() {
 								</li>
 								<li className="info-item">
 									<CheckCircle2 size={16} className="check-icon" />
-									<span>Device appears in the Devices list</span>
+									<span>Device appears in the Devices list as "Available"</span>
 								</li>
 								<li className="info-item">
 									<CheckCircle2 size={16} className="check-icon" />
-									<span>Ready for user assignment via QR scan</span>
+									<span>Ready for user binding via QR scan or email</span>
 								</li>
 							</ul>
 						</div>
@@ -276,25 +302,38 @@ function AdminCreate() {
 							<h2 className="sidebar-title">Recent Devices</h2>
 						</div>
 
-						<div className="recent-devices-list">
-							{mockRecentDevices.map((device) => (
-								<div key={device.id} className="recent-device-card">
-									<div className="recent-device-header">
-										<h3 className="recent-device-serial">{device.serial}</h3>
-										<span className={`recent-device-status ${device.status.toLowerCase()}`}>
-											{device.status}
-										</span>
-									</div>
-									<p className="recent-device-time">Created {device.createdAt}</p>
-									{device.owner && (
-										<p className="recent-device-owner">
-											<Users size={12} />
-											{device.owner}
+						{loadingRecent ? (
+							<div style={{ textAlign: 'center', padding: '20px' }}>
+								<Loader2 size={24} className="spinner" style={{ color: '#339432' }} />
+								<p style={{ color: '#6f8876', marginTop: '8px' }}>Loading...</p>
+							</div>
+						) : recentDevices.length === 0 ? (
+							<div style={{ textAlign: 'center', padding: '20px' }}>
+								<p style={{ color: '#6f8876' }}>No devices yet</p>
+							</div>
+						) : (
+							<div className="recent-devices-list">
+								{recentDevices.map((device) => (
+									<div key={device.id} className="recent-device-card">
+										<div className="recent-device-header">
+											<h3 className="recent-device-serial">{device.serial}</h3>
+											<span className={`recent-device-status ${device.is_bound ? 'assigned' : 'available'}`}>
+												{device.is_bound ? 'Assigned' : 'Available'}
+											</span>
+										</div>
+										<p className="recent-device-time">
+											{device.name || device.serial}
 										</p>
-									)}
-								</div>
-							))}
-						</div>
+										{device.owner && (
+											<p className="recent-device-owner">
+												<Users size={12} />
+												{device.owner}
+											</p>
+										)}
+									</div>
+								))}
+							</div>
+						)}
 					</aside>
 				</div>
 			</main>

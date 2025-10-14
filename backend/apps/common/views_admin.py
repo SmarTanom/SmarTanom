@@ -237,39 +237,35 @@ class AdminDashboardViewSet(viewsets.ViewSet):
         Get all users with their device counts for admin user management
         """
         try:
-            users = User.objects.annotate(
-                device_count=Count('devices')
-            ).values(
-                'id',
-                'email',
-                'full_name',
-                'username',
-                'date_joined',
-                'last_login',
-                'is_active',
-                'is_staff',
-                'device_count'
-            ).order_by('-date_joined')
+            from django.utils.timesince import timesince
+
+            # Get all users
+            users = User.objects.all().order_by('-date_joined')
 
             # Format the response
             users_list = []
             for user in users:
+                # Count devices bound to this user's email
+                device_count = Device.objects.filter(
+                    is_bound=True,
+                    bound_email=user.email
+                ).count()
+
                 # Calculate last active time
                 last_active = 'Never'
-                if user['last_login']:
-                    from django.utils.timesince import timesince
-                    last_active = timesince(user['last_login']) + ' ago'
+                if user.last_login:
+                    last_active = timesince(user.last_login) + ' ago'
 
                 users_list.append({
-                    'id': user['id'],
-                    'email': user['email'],
-                    'name': user['full_name'] or user['username'] or user['email'].split('@')[0],
-                    'username': user['username'],
-                    'device_count': user['device_count'],
+                    'id': user.id,
+                    'email': user.email,
+                    'name': user.full_name or user.username or user.email.split('@')[0],
+                    'username': user.username,
+                    'device_count': device_count,
                     'last_active': last_active,
-                    'joined': user['date_joined'],
-                    'is_active': user['is_active'],
-                    'is_staff': user['is_staff']
+                    'joined': user.date_joined,
+                    'is_active': user.is_active,
+                    'is_staff': user.is_staff
                 })
 
             return Response(users_list)
@@ -329,5 +325,60 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             logger.error(f"Error fetching devices: {e}")
             return Response(
                 {'error': 'Failed to fetch devices'},
+                status=500
+            )
+
+    @action(detail=False, methods=['post'])
+    def create_device(self, request):
+        """
+        Create a new device (admin only)
+        """
+        try:
+            device_name = request.data.get('device_name', '').strip()
+            location = request.data.get('location', '').strip()
+            status = request.data.get('status', Device.Status.ACTIVE)
+
+            # Validate required fields
+            if not device_name:
+                return Response(
+                    {'error': 'Device name is required'},
+                    status=400
+                )
+
+            # Validate status
+            valid_statuses = [s[0] for s in Device.Status.choices]
+            if status not in valid_statuses:
+                return Response(
+                    {'error': f'Invalid status. Must be one of: {", ".join(valid_statuses)}'},
+                    status=400
+                )
+
+            # Create device (serial will be auto-generated)
+            device = Device.objects.create(
+                device_name=device_name,
+                location=location or None,
+                status=status,
+                is_bound=False
+            )
+
+            logger.info(f"Device created: {device.device_serial} by admin {request.user.email}")
+
+            return Response({
+                'message': 'Device created successfully',
+                'device': {
+                    'id': device.id,
+                    'serial': device.device_serial,
+                    'name': device.device_name,
+                    'location': device.location,
+                    'status': device.status,
+                    'is_bound': device.is_bound,
+                    'created_at': device.created_at
+                }
+            }, status=201)
+
+        except Exception as e:
+            logger.error(f"Error creating device: {e}")
+            return Response(
+                {'error': f'Failed to create device: {str(e)}'},
                 status=500
             )

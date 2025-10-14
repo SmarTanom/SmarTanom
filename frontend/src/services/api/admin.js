@@ -84,7 +84,28 @@ export const getAdminUsers = async () => {
   }
 };
 
+/**
+ * Create a new device (admin only)
+ * @param {Object} deviceData - Device data (device_name, location, status)
+ * @returns {Promise<Object>} Created device object
+ */
+export const createDevice = async (deviceData) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await apiClient.post('/api/admin/dashboard/create_device/', deviceData, {
+      authToken: token
+    });
+    return response;
+  } catch (error) {
+    console.error('Error creating device:', error);
+    throw error;
+  }
+};
+
 export default {
   getAdminStats,
   getRecentActivity,
+  getAdminDevices,
+  getAdminUsers,
+  createDevice
 };
