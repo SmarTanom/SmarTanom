@@ -845,3 +845,92 @@
 	padding: 20px;
 	margin: 0;
 }
+
+/* Add Collaborator Section */
+.add-collaborator-section {
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px solid #e5e7eb;
+}
+
+.btn-add-collaborator {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 10px 16px;
+	background: #f0fdf4;
+	color: #2eb72e;
+	border: 1px solid #bbf7d0;
+	border-radius: 8px;
+	font-weight: 600;
+	font-size: 14px;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.btn-add-collaborator:hover {
+	background: #dcfce7;
+	border-color: #86efac;
+}
+
+.add-collab-form {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.add-collab-form input {
+	padding: 10px 14px;
+	border: 1px solid #d1d5db;
+	border-radius: 8px;
+	font-size: 14px;
+	transition: all 0.2s;
+}
+
+.add-collab-form input:focus {
+	outline: none;
+	border-color: #2eb72e;
+	box-shadow: 0 0 0 3px rgba(46, 183, 46, 0.1);
+}
+
+.add-collab-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.add-collab-actions button {
+	flex: 1;
+	padding: 10px 16px;
+	border: none;
+	border-radius: 8px;
+	font-weight: 600;
+	font-size: 14px;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.add-collab-actions button[type="submit"] {
+	background: #2eb72e;
+	color: #fff;
+}
+
+.add-collab-actions button[type="submit"]:hover:not(:disabled) {
+	background: #27a027;
+}
+
+.add-collab-actions button[type="button"] {
+	background: #f3f4f6;
+	color: #6b7280;
+}
+
+.add-collab-actions button[type="button"]:hover:not(:disabled) {
+	background: #e5e7eb;
+	color: #374151;
+}
+
+.add-collab-actions button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
