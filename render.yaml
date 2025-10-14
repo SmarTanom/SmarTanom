@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: smartanom-backend
+    runtime: python3
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "cd backend && chmod +x render-entrypoint.sh && ./render-entrypoint.sh"
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: smartanom.settings
+      - key: DEBUG
+        value: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        fromService:
+          type: web
+          name: smartanom-backend
+          property: host
+      - key: DATABASE_URL
+        fromDatabase:
+          name: smartanom-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: smartanom-redis
+          property: connectionString
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://your-frontend-domain.com
+      - key: EMAIL_BACKEND
+        value: django.core.mail.backends.smtp.EmailBackend
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USE_TLS
+        value: true
+      - key: DEFAULT_FROM_EMAIL
+        value: SmarTanom <noreply@yourdomain.com>
+      - key: VAPID_ADMIN_EMAIL
+        value: admin@yourdomain.com
+
+databases:
+  - name: smartanom-db
+    databaseName: smartanom_prod
+    user: smartanom
+
+redis:
+  - name: smartanom-redis

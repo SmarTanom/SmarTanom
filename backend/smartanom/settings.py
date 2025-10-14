@@ -42,6 +42,15 @@ ALLOWED_HOSTS: list[str] = (
 # In development, allow all hosts to support LAN IP access (e.g., 192.168.x.x)
 if DEBUG:
 	ALLOWED_HOSTS = ["*"]
+else:
+	# In production (including Render), ensure proper host configuration
+	# Render provides the host via environment variable
+	render_host = os.getenv("RENDER_EXTERNAL_URL")
+	if render_host:
+		# Extract domain from Render URL (remove https://)
+		domain = render_host.replace("https://", "").split("/")[0]
+		if domain not in ALLOWED_HOSTS:
+			ALLOWED_HOSTS.append(domain)
 
 
 # Application definition
