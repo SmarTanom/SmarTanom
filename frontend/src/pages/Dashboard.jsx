@@ -1230,14 +1230,14 @@ export default function Dashboard() {
     return name || plant || fallback || 'Device';
   }, [currentDevice]);
   const currentPH = useMemo(() => {
-    // Prefer real-time latest sensor value if present
+    // Prefer real-time latest sensor value from store if present
     if (typeof data?.sensors?.ph === 'number') return data.sensors.ph.toFixed(1);
-    if (Array.isArray(data?.phHistory)) {
-      const lastValue = [...data.phHistory].reverse().find(v => v !== null && v !== undefined);
+    if (Array.isArray(mergedData?.phHistory)) {
+      const lastValue = [...mergedData.phHistory].reverse().find(v => v !== null && v !== undefined);
       if (Number.isFinite(Number(lastValue))) return Number(lastValue).toFixed(1);
     }
     return '--';
-  }, [activeIdx, data]);
+  }, [activeIdx, data, mergedData]);
 
   // Save activeIdx and device ID to localStorage whenever it changes
   useEffect(() => {
