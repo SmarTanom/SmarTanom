@@ -92,13 +92,20 @@ const transformSensorData = (sensors, sensorDataMap) => {
 };
 
 // Helper function to get pH history from sensor data based on time range
-// Uses the LAST reading in each period (day/week/month bucket) instead of averaging.
+// Uses the CHRONOLOGICALLY LAST reading in each period (day/week/month bucket). We sort ascending
+// by created_at so the overwrite logic always leaves the true latest value; prevents stale value after refresh.
 const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
   if (!phSensorId || !sensorDataMap[phSensorId]) {
     return null;
   }
 
-  const phData = sensorDataMap[phSensorId] || [];
+  const phDataRaw = sensorDataMap[phSensorId] || [];
+  // Sort ascending by created_at to ensure later overwrite wins are actual latest
+  const phData = [...phDataRaw].sort((a,b) => {
+    const ta = a?.created_at ? new Date(a.created_at).getTime() : 0;
+    const tb = b?.created_at ? new Date(b.created_at).getTime() : 0;
+    return ta - tb;
+  });
   const endDate = new Date();
   const dateMap = {};
 
@@ -229,23 +236,25 @@ const getConnectivityStatus = (lastSensorUpdate) => {
   }
 };
 
-// Helper function to generate alert text based on sensor values
+// Helper function to generate alert text based on sensor values (now includes low thresholds)
 const generateAlertText = (sensors) => {
+  if (!sensors) return 'All systems normal';
   const alerts = [];
 
-  if (sensors.tds < 300) {
-    alerts.push('TDS too low (Inadequate nutrients)');
+  if (typeof sensors.tds === 'number') {
+    if (sensors.tds < 300) alerts.push('TDS too low (Inadequate nutrients)');
+    else if (sensors.tds > 1500) alerts.push('TDS too high (Dilute solution)');
   }
-  if (sensors.ph > 6.5) {
-    alerts.push('pH trending high - check solution');
+  if (typeof sensors.ph === 'number') {
+    if (sensors.ph < 5.5) alerts.push('pH too low - adjust up');
+    else if (sensors.ph > 6.5) alerts.push('pH trending high - check solution');
   }
-  if (sensors.waterLevel < 20) {
-    alerts.push('Water level below threshold');
+  if (typeof sensors.waterLevel === 'number') {
+    if (sensors.waterLevel < 20) alerts.push('Water level below threshold');
   }
-  if (sensors.temperature < 18 || sensors.temperature > 28) {
-    alerts.push('Temperature outside optimal range');
+  if (typeof sensors.temperature === 'number') {
+    if (sensors.temperature < 18 || sensors.temperature > 28) alerts.push('Temperature outside optimal range');
   }
-
   return alerts.length > 0 ? alerts[0] : 'All systems normal';
 };
 
@@ -815,6 +824,10 @@ export default function Dashboard() {
             const nowIso = new Date(timestamp).toISOString();
             if (typeof combinedSensors.tds === 'number' && combinedSensors.tds < 300) {
               newAlertMeta = { title: 'TDS Too Low', body: `TDS is ${Math.round(combinedSensors.tds)} ppm (low)`, severity: 'warning', at: nowIso };
+            } else if (typeof combinedSensors.tds === 'number' && combinedSensors.tds > 1500) {
+              newAlertMeta = { title: 'TDS Too High', body: `TDS is ${Math.round(combinedSensors.tds)} ppm (high)`, severity: 'warning', at: nowIso };
+            } else if (typeof combinedSensors.ph === 'number' && combinedSensors.ph < 5.5) {
+              newAlertMeta = { title: 'pH Low', body: `pH is ${combinedSensors.ph.toFixed(1)} (low)`, severity: 'critical', at: nowIso };
             } else if (typeof combinedSensors.ph === 'number' && combinedSensors.ph > 6.5) {
               newAlertMeta = { title: 'pH High', body: `pH is ${combinedSensors.ph.toFixed(1)} (high)`, severity: 'critical', at: nowIso };
             } else if (typeof combinedSensors.waterLevel === 'number' && combinedSensors.waterLevel < 20) {
@@ -909,8 +922,8 @@ export default function Dashboard() {
               const merged = { ...sensorSnapshot, ...sensors };
               // Quick alert detection replicating generateAlertText logic
               let hasAlert = false;
-              if (typeof merged.tds === 'number' && merged.tds < 300) hasAlert = true;
-              if (typeof merged.ph === 'number' && merged.ph > 6.5) hasAlert = true;
+              if (typeof merged.tds === 'number' && (merged.tds < 300 || merged.tds > 1500)) hasAlert = true;
+              if (typeof merged.ph === 'number' && (merged.ph < 5.5 || merged.ph > 6.5)) hasAlert = true;
               if (typeof merged.waterLevel === 'number' && merged.waterLevel < 20) hasAlert = true;
               if (typeof merged.temperature === 'number' && (merged.temperature < 18 || merged.temperature > 28)) hasAlert = true;
               setPerDeviceUnreadCounts(prev => ({
@@ -1011,8 +1024,8 @@ export default function Dashboard() {
       if (!dd) return;
       const s = { ...(dd.sensors || {}), ...(dd.environment || {}) };
       let hasAlert = false;
-      if (typeof s.tds === 'number' && s.tds < 300) hasAlert = true;
-      if (typeof s.ph === 'number' && s.ph > 6.5) hasAlert = true;
+  if (typeof s.tds === 'number' && (s.tds < 300 || s.tds > 1500)) hasAlert = true;
+  if (typeof s.ph === 'number' && (s.ph < 5.5 || s.ph > 6.5)) hasAlert = true;
       if (typeof s.waterLevel === 'number' && s.waterLevel < 20) hasAlert = true;
       if (typeof s.temperature === 'number' && (s.temperature < 18 || s.temperature > 28)) hasAlert = true;
       if (hasAlert) nextPerDevice[d.id] = 1; // treat presence as one unread
