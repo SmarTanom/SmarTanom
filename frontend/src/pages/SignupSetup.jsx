@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
+import jsQR from 'jsqr';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthSetupPage.css';
@@ -200,6 +201,15 @@ export default function SignupSetup() {
   const [justVerified, setJustVerified] = useState(false); // transient inline confirmation
   const [checking, setChecking] = useState(false);
   const [modal, setModal] = useState({ open: false, message: '' });
+
+  // QR scanning state
+  const [qrScanOpen, setQrScanOpen] = useState(false);
+  const [qrError, setQrError] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const qrScanAnimRef = useRef(null);
 
   // Step 2 state (all optional)
   const [nickname, setNickname] = useState('');
@@ -438,13 +448,7 @@ export default function SignupSetup() {
         throw new Error('Device ID should be in format SMRT-XXX-XXX or upload a QR code photo.');
       }
 
-      // If we have a file upload, skip API check for now (QR code processing)
-      if (fileName) {
-        setVerified(true);
-        setJustVerified(true);
-        setTimeout(() => { setStep(2); setJustVerified(false); }, 600);
-        return;
-      }
+      // Do not auto-verify based on file upload; QR uploads should decode into deviceId then follow normal API check
 
       // Check if device exists in database
       console.log('Checking device:', deviceSerial);
@@ -480,11 +484,151 @@ export default function SignupSetup() {
     if (f) {
       setFileName(f.name);
       if (verified) setVerified(false);
+      // Try to decode QR from the selected image
+      decodeQrFromImageFile(f).then(text => {
+        const serial = extractSerialFromText(text);
+        if (serial) {
+          setDeviceId(serial);
+        } else {
+          setModal({ open: true, message: 'QR image loaded but no valid device ID found. Ensure it contains text like SMRT-XXX-XXX.' });
+        }
+      }).catch(() => {
+        setModal({ open: true, message: 'Could not read QR from this image. Please try another photo or use manual entry.' });
+      });
     } else {
       setFileName('');
       if (verified) setVerified(false);
     }
   }
+
+  function extractSerialFromText(text) {
+    if (!text) return '';
+    const m = /SMRT-[A-Z0-9]{3}-[A-Z0-9]{3}/i.exec(String(text));
+    return m ? m[0].toUpperCase() : '';
+  }
+
+  async function decodeQrFromImageFile(file) {
+    // Use an offscreen image + canvas to decode QR from a static image file
+    const imgUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = imgUrl;
+      });
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const maxDim = 1024; // scale down huge images for faster decode
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      const { data, width: w, height: h } = ctx.getImageData(0, 0, width, height);
+      const res = jsQR(data, w, h, { inversionAttempts: 'attemptBoth' });
+      if (res && res.data) return res.data;
+      throw new Error('QR not found');
+    } finally {
+      URL.revokeObjectURL(imgUrl);
+    }
+  }
+
+  async function openQrScanner() {
+    setQrError('');
+    setQrScanOpen(true);
+    setIsScanning(true);
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API not available.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        qrScanAnimRef.current = requestAnimationFrame(scanQrFrame);
+      }
+    } catch (e) {
+      setQrError('Unable to access camera. You can upload a QR photo or enter the ID manually.');
+      setIsScanning(false);
+    }
+  }
+
+  function stopQrScanner() {
+    if (qrScanAnimRef.current) {
+      try { cancelAnimationFrame(qrScanAnimRef.current); } catch { }
+      qrScanAnimRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      try { mediaStreamRef.current.getTracks().forEach(t => t.stop()); } catch { }
+      mediaStreamRef.current = null;
+    }
+    setIsScanning(false);
+  }
+
+  function closeQrScanner() {
+    stopQrScanner();
+    setQrScanOpen(false);
+  }
+
+  function handleQrText(text) {
+    const serial = extractSerialFromText(text);
+    if (serial) {
+      setDeviceId(serial);
+      setVerified(false);
+      closeQrScanner();
+      setModal({ open: true, message: `Device ID detected: ${serial}` });
+    }
+  }
+
+  function scanQrFrame() {
+    try {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas) {
+        qrScanAnimRef.current = requestAnimationFrame(scanQrFrame);
+        return;
+      }
+      if (video.readyState < 2) {
+        qrScanAnimRef.current = requestAnimationFrame(scanQrFrame);
+        return;
+      }
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      if (!w || !h) {
+        qrScanAnimRef.current = requestAnimationFrame(scanQrFrame);
+        return;
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, w, h);
+      const img = ctx.getImageData(0, 0, w, h);
+      const result = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+      if (result && result.data) {
+        handleQrText(result.data);
+        return;
+      }
+    } catch (_) {
+      // ignore frame errors
+    }
+    qrScanAnimRef.current = requestAnimationFrame(scanQrFrame);
+  }
+
+  // Stop camera when component unmounts
+  useEffect(() => {
+    return () => {
+      stopQrScanner();
+    };
+  }, []);
 
   function resendOtp() {
     if (resendCooldown > 0 || sendingCode) return;
@@ -949,6 +1093,7 @@ export default function SignupSetup() {
                                 type="button"
                                 className="setup-btn sm"
                                 aria-label="Open camera to scan device QR"
+                                onClick={openQrScanner}
                               >
                                 Open Camera
                               </button>
@@ -971,7 +1116,7 @@ export default function SignupSetup() {
                             </div>
                           </header>
                           <div className="setup-method-card-body">
-                            <input id="qrfile" type="file" accept="image/*" className="setup-file" onChange={onPickFile} />
+                            <input id="qrfile" type="file" accept="image/*" capture="environment" className="setup-file" onChange={onPickFile} />
                             <label htmlFor="qrfile" className="setup-btn sm" aria-label="Choose QR code image">
                               Choose Image
                             </label>
@@ -1537,6 +1682,28 @@ export default function SignupSetup() {
                 );
               })}
             </ul>
+          </div>
+        </div>
+      )}
+
+      {/* QR Scan Modal */}
+      {qrScanOpen && (
+        <div className="setup-modal" role="dialog" aria-modal="true" aria-label="Scan device QR" onClick={(e) => { if (e.target === e.currentTarget) closeQrScanner(); }}>
+          <div className="setup-modal-content" style={{ maxWidth: 520 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <h4 style={{ margin: 0 }}>Scan Device QR</h4>
+              <button type="button" className="modal-close-btn inline" onClick={closeQrScanner} aria-label="Close QR scanner">×</button>
+            </div>
+            <p className="setup-helper" style={{ marginTop: 8 }}>Point your camera at the QR label. We’ll read text like “SMRT-XXX-XXX”.</p>
+            {qrError && <p className="setup-error" role="alert" style={{ marginTop: 8 }}>{qrError}</p>}
+            <div style={{ position: 'relative', marginTop: 12 }}>
+              <video ref={videoRef} playsInline muted style={{ width: '100%', borderRadius: 8, background: '#000' }} />
+              {/* hidden canvas used for scanning */}
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+              {isScanning && (
+                <div aria-hidden="true" style={{ position: 'absolute', inset: 0, border: '2px dashed rgba(255,255,255,0.5)', borderRadius: 8 }} />
+              )}
+            </div>
           </div>
         </div>
       )}
