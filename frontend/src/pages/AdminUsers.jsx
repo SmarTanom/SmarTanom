@@ -92,11 +92,24 @@ function AdminUsers() {
 		is_staff: user.is_staff
 	}));
 
+	// Separate admins and regular users
+	const adminUsers = formattedUsers.filter(user => user.is_staff);
+	const regularUsers = formattedUsers.filter(user => !user.is_staff);
+
 	const totalUsers = formattedUsers.length;
 	const totalDevices = formattedUsers.reduce((sum, user) => sum + user.totalDeviceCount, 0);
 	const avgPerUser = totalUsers > 0 ? (totalDevices / totalUsers).toFixed(1) : '0.0';
 
-	const filteredUsers = formattedUsers.filter(user =>
+	const totalRegularUsers = regularUsers.length;
+	const totalRegularDevices = regularUsers.reduce((sum, user) => sum + user.totalDeviceCount, 0);
+	const avgPerRegularUser = totalRegularUsers > 0 ? (totalRegularDevices / totalRegularUsers).toFixed(1) : '0.0';
+
+	const filteredAdmins = adminUsers.filter(user =>
+		user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+		user.email.toLowerCase().includes(searchQuery.toLowerCase())
+	);
+
+	const filteredRegularUsers = regularUsers.filter(user =>
 		user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 		user.email.toLowerCase().includes(searchQuery.toLowerCase())
 	);
@@ -318,12 +331,20 @@ function AdminUsers() {
 						<div className="stat-value">{totalUsers}</div>
 					</div>
 					<div className="users-stat-card">
+						<div className="stat-label">REGULAR USERS</div>
+						<div className="stat-value">{totalRegularUsers}</div>
+					</div>
+					<div className="users-stat-card">
 						<div className="stat-label">TOTAL DEVICES</div>
 						<div className="stat-value stat-green">{totalDevices}</div>
 					</div>
 					<div className="users-stat-card">
 						<div className="stat-label">AVG PER USER</div>
 						<div className="stat-value">{avgPerUser}</div>
+					</div>
+					<div className="users-stat-card">
+						<div className="stat-label">AVG PER REGULAR USER</div>
+						<div className="stat-value">{avgPerRegularUser}</div>
 					</div>
 				</section>
 
@@ -341,48 +362,83 @@ function AdminUsers() {
 					</div>
 				</section>
 
-				{/* Users list */}
-				<section className="users-list">
-					{filteredUsers.map((user) => (
-						<article key={user.id} className="user-card">
-							<div className="user-avatar" style={{ backgroundColor: user.bgColor }}>
-								<span className="user-initials">{user.initials}</span>
-							</div>
-							<div className="user-info">
-								<h3 className="user-name">{user.name}</h3>
-								<p className="user-email">{user.email}</p>
-								<div className="user-meta">
-									<span className="user-devices">
-										<Smartphone size={14} />
-										{user.totalDeviceCount} {user.totalDeviceCount === 1 ? 'device' : 'devices'}
-										{user.sharedDeviceCount > 0 && (
-											<span className="shared-devices"> ({user.deviceCount} owned, {user.sharedDeviceCount} shared)</span>
-										)}
-									</span>
-									<span className="user-activity">
-										<Activity size={14} />
-										Last active: {user.lastActive}
-									</span>
+				{/* Admins section */}
+				{filteredAdmins.length > 0 && (
+					<section className="users-section">
+						<h2 className="section-title">Administrators</h2>
+						<div className="users-list">
+							{filteredAdmins.map((user) => (
+								<article key={user.id} className="user-card admin-card">
+									<div className="user-avatar" style={{ backgroundColor: user.bgColor }}>
+										<span className="user-initials">{user.initials}</span>
+										<span className="admin-badge">Admin</span>
+									</div>
+									<div className="user-info">
+										<h3 className="user-name">{user.name}</h3>
+										<p className="user-email">{user.email}</p>
+									<div className="user-meta">
+										<span className="admin-details">
+											<Settings size={14} />
+											Administrator - Full system access
+										</span>
+										<span className="user-activity">
+											<Activity size={14} />
+											Last active: {user.lastActive}
+										</span>
+									</div>
+									</div>
+								</article>
+							))}
+						</div>
+					</section>
+				)}
+
+				{/* Regular Users section */}
+				<section className="users-section">
+					<h2 className="section-title">Users</h2>
+					<div className="users-list">
+						{filteredRegularUsers.map((user) => (
+							<article key={user.id} className="user-card">
+								<div className="user-avatar" style={{ backgroundColor: user.bgColor }}>
+									<span className="user-initials">{user.initials}</span>
+									<span className="user-badge">User</span>
 								</div>
-							</div>
-							<div className="user-actions">
-								{!user.is_staff && (
-									<button
-										className="btn-delete-user"
-										onClick={() => handleDeleteClick(user)}
-										title="Delete user"
-										disabled={deletingUser}
-									>
-										<Trash2 size={16} />
+								<div className="user-info">
+									<h3 className="user-name">{user.name}</h3>
+									<p className="user-email">{user.email}</p>
+									<div className="user-meta">
+										<span className="user-devices">
+											<Smartphone size={14} />
+											{user.totalDeviceCount} {user.totalDeviceCount === 1 ? 'device' : 'devices'}
+											{user.sharedDeviceCount > 0 && (
+												<span className="shared-devices"> ({user.deviceCount} owned, {user.sharedDeviceCount} shared)</span>
+											)}
+										</span>
+										<span className="user-activity">
+											<Activity size={14} />
+											Last active: {user.lastActive}
+										</span>
+									</div>
+								</div>
+								<div className="user-actions">
+									{!user.is_staff && (
+										<button
+											className="btn-delete-user"
+											onClick={() => handleDeleteClick(user)}
+											title="Delete user"
+											disabled={deletingUser}
+										>
+											<Trash2 size={16} />
+										</button>
+									)}
+									<button className="btn-view-user" onClick={() => handleViewDevices(user)}>
+										<span className="user-device-count">{user.totalDeviceCount} {user.totalDeviceCount === 1 ? 'device' : 'devices'}</span>
+										<ChevronRight size={20} />
 									</button>
-								)}
-								<button className="btn-view-user" onClick={() => handleViewDevices(user)}>
-									<span className="user-device-count">{user.totalDeviceCount} {user.totalDeviceCount === 1 ? 'device' : 'devices'}</span>
-									<ChevronRight size={20} />
-								</button>
-							</div>
-						</article>
-					))}
+								</div>
+							</article>
+						))}
+					</div>
 				</section>
 			</main>
 

@@ -1,3 +1,10 @@
-# TODO: Edit Delete User Confirmation Modal Message
+# TODO: Categorize Admins in User List
 
-- [ ] Modify `getDeleteConfirmationMessage` function in `frontend/src/pages/AdminUsers.jsx` to include a warning about shared devices when `user.sharedDeviceCount > 0`.
+## Tasks
+- [x] Separate admin and regular users in AdminUsers.jsx
+- [x] Add sections for Administrators and Users
+- [x] Add visual indicators for admin users (badge, border)
+- [x] Update CSS styles for sections and admin cards
+- [x] Update summary statistics to include regular user stats
+- [x] Update responsive grid for summary cards
+- [ ] Test the changes by running the frontend and verifying segregation

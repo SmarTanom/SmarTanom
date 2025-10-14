@@ -59,8 +59,8 @@ const UserDevicesModal = ({ user, devices, loading, onClose }) => {
 
 	const totalDevices = devices?.length || 0;
 	const activeDevices = devices?.filter(d => d.status?.toLowerCase() === 'active').length || 0;
-	const ownedDevices = devices?.filter(d => d.owner_email === user?.email).length || 0;
-	const sharedDevices = totalDevices - ownedDevices;
+	const ownedDevices = user?.deviceCount || 0;
+	const sharedDevices = user?.sharedDeviceCount || 0;
 
 	return (
 		<div className="user-devices-modal-overlay" onClick={onClose}>
@@ -74,12 +74,7 @@ const UserDevicesModal = ({ user, devices, loading, onClose }) => {
 						<div className="modal-title-section">
 							<h2 className="modal-title">{user?.name || user?.email}</h2>
 							<p className="modal-subtitle">
-								{totalDevices} device{totalDevices !== 1 ? 's' : ''} • {activeDevices} active
-								{sharedDevices > 0 && (
-									<span className="modal-subtitle-shared">
-										({ownedDevices} owned, {sharedDevices} shared)
-									</span>
-								)}
+								{totalDevices} device{totalDevices !== 1 ? 's' : ''} • {activeDevices} active ({ownedDevices} owned, {sharedDevices} shared)
 							</p>
 						</div>
 					</div>

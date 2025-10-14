@@ -24,7 +24,7 @@
 /* Summary cards */
 .users-summary {
 	display: grid;
-	grid-template-columns: repeat(3, 1fr);
+	grid-template-columns: repeat(5, 1fr);
 	gap: 18px;
 	margin-bottom: 24px;
 }
@@ -102,6 +102,19 @@
 	color: #8BA797;
 }
 
+/* Users sections */
+.users-section {
+	margin-bottom: 32px;
+}
+
+.section-title {
+	font-family: 'Abril Fatface', serif;
+	font-size: 24px;
+	margin: 0 0 16px 0;
+	color: #2eb72e;
+	font-weight: 400;
+}
+
 /* Users list */
 .users-list {
 	display: flex;
@@ -126,6 +139,10 @@
 	border-color: #d0ead3;
 }
 
+.admin-card {
+	border-left: 4px solid #2eb72e;
+}
+
 .user-avatar {
 	width: 56px;
 	height: 56px;
@@ -134,12 +151,41 @@
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
+	position: relative;
 }
 
 .user-initials {
 	font-size: 18px;
 	font-weight: 700;
 	color: #065f46;
+}
+
+.admin-badge {
+	position: absolute;
+	bottom: -4px;
+	right: -4px;
+	background: #2eb72e;
+	color: white;
+	font-size: 10px;
+	font-weight: 700;
+	padding: 2px 6px;
+	border-radius: 8px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.user-badge {
+	position: absolute;
+	bottom: -4px;
+	right: -4px;
+	background: #6b7280;
+	color: white;
+	font-size: 10px;
+	font-weight: 700;
+	padding: 2px 6px;
+	border-radius: 8px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
 }
 
 .user-info {
@@ -268,7 +314,7 @@
 
 @media (min-width: 768px) and (max-width: 1023.98px) {
 	.users-summary {
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(2, 1fr);
 	}
 }
 
