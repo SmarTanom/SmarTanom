@@ -1,0 +1,325 @@
+/* Admin Layout Shared Styles - Common sidebar and layout components */
+:root {
+  --color-primary: rgba(51, 148, 50, 0.9);
+  --color-primary-solid: #339432;
+  --color-secondary: #1E3E28;
+  --color-bg: #F5FDF6;
+  --color-surface: #FFFFFF;
+  --color-border: #E8F1EA;
+  --color-muted: #8BA797;
+  --radius-lg: 16px;
+  --radius-2xl: 20px;
+  --shadow: 0 8px 24px rgba(0,0,0,0.08);
+  --sidebar-width: 260px;
+}
+
+/* Utility animations */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Root container */
+html {
+  font-family: 'Montserrat', 'Inter', system-ui, sans-serif;
+}
+
+.admin-root {
+  display: flex;
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: #111;
+  position: relative;
+}
+
+/* Sidebar - Fixed and consistent across all pages */
+.admin-sidebar {
+  display: none;
+  width: var(--sidebar-width);
+  background: linear-gradient(180deg, #2f8d2e 0%, #2bb35e 100%);
+  border-right: 1px solid rgba(255,255,255,0.08);
+  padding: 24px 16px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  box-shadow: 0 6px 30px rgba(0,0,0,0.12);
+  color: #ffffff;
+  overflow-y: auto;
+  flex-shrink: 0; /* Prevent sidebar from shrinking */
+}
+
+/* Brand container - Fixed height and alignment */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  color: #fff;
+  margin-bottom: 20px;
+  min-height: 64px; /* Fixed minimum height */
+}
+
+/* Brand logo - Fixed dimensions to prevent distortion */
+.brand-logo {
+  width: 48px;
+  height: 48px;
+  min-width: 48px; /* Prevent shrinking */
+  min-height: 48px; /* Prevent shrinking */
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0; /* Prevent logo from shrinking */
+  position: relative; /* For proper image positioning */
+}
+
+.brand-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Maintain aspect ratio */
+  object-position: center; /* Center the image */
+  display: block; /* Remove inline spacing */
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Brand text */
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0; /* Allow text to shrink if needed */
+}
+
+.brand-name {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #fff;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-subtitle {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Navigation */
+.side-nav-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin: 20px 14px 10px;
+}
+
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.side-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: rgba(255,255,255,0.9);
+  font-weight: 600;
+  font-size: 15px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.side-link:hover {
+  background: rgba(255,255,255,0.10);
+  transform: translateX(2px);
+}
+
+.side-link.active {
+  background: rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.15);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* System status */
+.system-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  margin-top: auto;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 12px;
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.online {
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.18);
+}
+
+.status-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.status-sub {
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+}
+
+/* Main content area */
+.admin-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  gap: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  min-width: 0; /* Allow content to shrink */
+}
+
+/* Bottom navigation (mobile) */
+.admin-bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, #2f8d2e 0%, #2bb35e 100%);
+  padding: 12px 16px 16px;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+  z-index: 100;
+  gap: 8px;
+}
+
+.bn-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 12px;
+  transition: all 0.2s;
+  flex: 1;
+  max-width: 80px;
+}
+
+.bn-item:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.95);
+}
+
+.bn-item.active {
+  background: rgba(255,255,255,0.2);
+  color: #ffffff;
+}
+
+.bn-item span {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Responsive breakpoints */
+@media (min-width: 1024px) {
+  .admin-sidebar {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .admin-bottom-nav {
+    display: none;
+  }
+
+  .admin-main {
+    padding: 32px 40px;
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .admin-main {
+    padding-bottom: 80px; /* Space for bottom nav */
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .admin-main {
+    padding: 24px 32px 96px;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 767.98px) {
+  .admin-main {
+    padding: 16px 16px 96px;
+  }
+
+  .brand {
+    min-height: 56px;
+  }
+
+  .brand-logo {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .brand-name {
+    font-size: 18px;
+  }
+
+  .brand-subtitle {
+    font-size: 12px;
+  }
+}
+
+/* Dark mode support (optional - for future implementation) */
+@media (prefers-color-scheme: dark) {
+  /* Keep the sidebar green gradient even in dark mode for brand consistency */
+  /* Individual pages can override content area colors if needed */
+}

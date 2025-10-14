@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
+import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminCreate.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import { createDevice, getAdminDevices } from '../services/api/admin';
@@ -152,19 +153,19 @@ function AdminCreate() {
 	};
 
 	return (
-		<div className="admin-root">
-			{/* Sidebar navigation (desktop) */}
-			<aside className="admin-sidebar" aria-label="Admin sidebar">
+	<div className="admin-root">
+		{/* Sidebar navigation (desktop) */}
+		<aside className="admin-sidebar" aria-label="Admin sidebar">
+			<div className="brand">
 				<div className="brand-logo">
-					<div className="logo-mark">
-						<img src={logoMarkWhite} alt="SmarTanom" />
-					</div>
-					<div className="brand-text">
-						<div className="brand-name">SmarTanom</div>
-						<div className="brand-subtitle">Dashboard</div>
-					</div>
+					<img src={logoMarkWhite} alt="SmarTanom" />
 				</div>
-				<div className="side-nav-label">MENU</div>
+				<div className="brand-text">
+					<div className="brand-name">SmarTanom</div>
+					<div className="brand-subtitle">Dashboard</div>
+				</div>
+			</div>
+			<div className="side-nav-label">MENU</div>
 				<nav className="side-nav">
 					<button className="side-link" onClick={() => navigate('/admin')}>
 						<LayoutDashboard size={18} />

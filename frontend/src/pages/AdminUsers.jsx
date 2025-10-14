@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminUsers.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
@@ -211,8 +212,8 @@ function AdminUsers() {
 		return (
 			<div className="admin-root">
 				<aside className="admin-sidebar" aria-label="Admin sidebar">
-					<div className="brand-logo">
-						<div className="logo-mark">
+					<div className="brand">
+						<div className="brand-logo">
 							<img src={logoMarkWhite} alt="SmarTanom" />
 						</div>
 						<div className="brand-text">
@@ -236,8 +237,8 @@ function AdminUsers() {
 		return (
 			<div className="admin-root">
 				<aside className="admin-sidebar" aria-label="Admin sidebar">
-					<div className="brand-logo">
-						<div className="logo-mark">
+					<div className="brand">
+						<div className="brand-logo">
 							<img src={logoMarkWhite} alt="SmarTanom" />
 						</div>
 						<div className="brand-text">
@@ -274,8 +275,8 @@ function AdminUsers() {
 		<div className="admin-root">
 			{/* Sidebar navigation (desktop) */}
 			<aside className="admin-sidebar" aria-label="Admin sidebar">
-				<div className="brand-logo">
-					<div className="logo-mark">
+				<div className="brand">
+					<div className="brand-logo">
 						<img src={logoMarkWhite} alt="SmarTanom" />
 					</div>
 					<div className="brand-text">

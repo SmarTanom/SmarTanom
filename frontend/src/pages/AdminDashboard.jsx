@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminDashboard.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';

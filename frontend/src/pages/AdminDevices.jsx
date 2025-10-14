@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'react-toastify';
 import ConfirmationModal from '../components/ConfirmationModal';
+import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminDevices.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
