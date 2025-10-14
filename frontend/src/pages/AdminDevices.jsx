@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../assets/styles/AdminDevices.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
+import { getAdminDevices } from '../services/api/admin';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -14,66 +15,14 @@ import {
 	X,
 	User,
 	Calendar,
-	Activity
+	Activity,
+	Loader2
 } from 'lucide-react';
-
-// Mock device data
-const mockDevices = [
-	{
-		id: 1,
-		serial: 'HYD-SPN-001-2025',
-		owner: 'far***@example.com',
-		status: 'Assigned',
-		lastSeen: '2 hours ago',
-		assignedDate: '1/15/2024'
-	},
-	{
-		id: 2,
-		serial: 'HYD-SPN-002-2025',
-		owner: 'urb***@example.com',
-		status: 'Assigned',
-		lastSeen: '5 minutes ago',
-		assignedDate: '2/1/2024'
-	},
-	{
-		id: 3,
-		serial: 'HYD-SPN-003-2025',
-		owner: null,
-		status: 'Available',
-		lastSeen: 'Never connected',
-		assignedDate: null
-	},
-	{
-		id: 4,
-		serial: 'HYD-SPN-004-2025',
-		owner: 'pla***@example.com',
-		status: 'Assigned',
-		lastSeen: '1 day ago',
-		assignedDate: '3/10/2024'
-	},
-	{
-		id: 5,
-		serial: 'HYD-SPN-005-2025',
-		owner: null,
-		status: 'Available',
-		lastSeen: 'Never connected',
-		assignedDate: null
-	},
-	{
-		id: 6,
-		serial: 'HYD-SPN-006-2025',
-		owner: 'hyd***@example.com',
-		status: 'Assigned',
-		lastSeen: '30 minutes ago',
-		assignedDate: '4/5/2024'
-	}
-];
 
 function DeviceDetailsModal({ device, onClose }) {
 	if (!device) return null;
 
 	const handleDownloadQR = () => {
-		// Placeholder for QR code download functionality
 		alert(`Downloading QR code for ${device.serial}`);
 	};
 
@@ -163,23 +112,174 @@ export default function AdminDevices() {
 	const [searchQuery, setSearchQuery] = useState('');
 	const [activeFilter, setActiveFilter] = useState('all');
 	const [selectedDevice, setSelectedDevice] = useState(null);
+	const [devices, setDevices] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 
-	const totalDevices = mockDevices.length;
-	const assignedCount = mockDevices.filter((d) => d.status === 'Assigned').length;
-	const availableCount = mockDevices.filter((d) => d.status === 'Available').length;
+	useEffect(() => {
+		const fetchDevices = async () => {
+			try {
+				setLoading(true);
+				setError(null);
+				const data = await getAdminDevices();
+				console.log('Devices data received:', data); // Debug log
 
-	const filteredDevices = mockDevices.filter((device) => {
+				// Handle different response structures
+				if (Array.isArray(data)) {
+					setDevices(data);
+				} else if (data && Array.isArray(data.results)) {
+					setDevices(data.results);
+				} else if (data && typeof data === 'object') {
+					// If data is an object, convert to array
+					setDevices(Object.values(data));
+				} else {
+					console.error('Unexpected data structure:', data);
+					setDevices([]);
+				}
+			} catch (err) {
+				console.error('Failed to fetch devices:', err);
+				setError('Failed to load devices');
+				setDevices([]); // Ensure devices is always an array
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchDevices();
+	}, []);
+
+	// Helper function to format last seen time
+	const formatLastSeen = (lastSeenStr) => {
+		// Backend already returns formatted string like "2 hours ago" or "Never"
+		if (!lastSeenStr || lastSeenStr === 'Never') return 'Never connected';
+		return lastSeenStr;
+	};
+
+	// Helper function to get device status for assignment (not operational status)
+	const getDeviceStatus = (device) => {
+		// Priority 1: Check if device is bound/has owner (regardless of operational status)
+		if (device.is_bound === true || device.owner) return 'Assigned';
+		// Priority 2: Device is not bound and has no owner
+		if (device.is_bound === false && !device.owner) return 'Available';
+		// Fallback: if is_bound is undefined/null, check for owner
+		return device.owner ? 'Assigned' : 'Available';
+	};
+
+	// Helper function to mask email
+	const maskEmail = (email) => {
+		if (!email) return null;
+		const [name, domain] = email.split('@');
+		return `${name.slice(0, 3)}***@${domain}`;
+	};
+
+	// Ensure devices is always an array before mapping
+	const safeDevices = Array.isArray(devices) ? devices : [];
+
+	// Format devices for display
+	const formattedDevices = safeDevices.map(device => ({
+		id: device.id,
+		serial: device.serial || device.device_serial || device.serial_number || 'Unknown',
+		owner: device.owner || (device.owner_email ? maskEmail(device.owner_email) : null),
+		status: getDeviceStatus(device),
+		lastSeen: formatLastSeen(device.last_seen),
+		assignedDate: device.assigned_date ? new Date(device.assigned_date).toLocaleDateString() : null,
+		device_name: device.name || device.device_name || device.serial,
+		is_bound: device.is_bound // Keep for debugging
+	}));
+
+	console.log('📦 Device Status Breakdown:', {
+		total: formattedDevices.length,
+		assigned: formattedDevices.filter(d => d.status === 'Assigned').length,
+		available: formattedDevices.filter(d => d.status === 'Available').length,
+		devices: formattedDevices.map(d => ({
+			serial: d.serial,
+			is_bound: d.is_bound,
+			owner: d.owner,
+			status: d.status
+		}))
+	});
+
+	const totalDevices = formattedDevices.length;
+	const assignedCount = formattedDevices.filter((d) => d.status === 'Assigned').length;
+	const availableCount = formattedDevices.filter((d) => d.status === 'Available').length;
+
+	const filteredDevices = formattedDevices.filter((device) => {
 		const matchesSearch =
 			device.serial.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			(device.owner && device.owner.toLowerCase().includes(searchQuery.toLowerCase()));
+			(device.owner && device.owner.toLowerCase().includes(searchQuery.toLowerCase())) ||
+			(device.device_name && device.device_name.toLowerCase().includes(searchQuery.toLowerCase()));
 
 		const matchesFilter =
 			activeFilter === 'all' ||
-			(activeFilter === 'assigned' && device.status === 'Assigned') ||
+			(activeFilter === 'assigned' && (device.status === 'Assigned' || device.status === 'Active')) ||
 			(activeFilter === 'available' && device.status === 'Available');
 
 		return matchesSearch && matchesFilter;
 	});
+
+	// Loading state
+	if (loading) {
+		return (
+			<div className="admin-root">
+				<aside className="admin-sidebar" aria-label="Admin navigation">
+					<div className="brand">
+						<div className="brand-logo">
+							<img src={logoMarkWhite} alt="SmarTanom" />
+						</div>
+						<div className="brand-text">
+							<div className="brand-name">SmarTanom</div>
+							<div className="brand-subtitle">Dashboard</div>
+						</div>
+					</div>
+				</aside>
+				<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+					<div style={{ textAlign: 'center' }}>
+						<Loader2 size={48} className="spinner" style={{ color: '#339432' }} />
+						<p style={{ marginTop: '16px', color: '#6f8876' }}>Loading devices...</p>
+					</div>
+				</main>
+			</div>
+		);
+	}
+
+	// Error state
+	if (error) {
+		return (
+			<div className="admin-root">
+				<aside className="admin-sidebar" aria-label="Admin navigation">
+					<div className="brand">
+						<div className="brand-logo">
+							<img src={logoMarkWhite} alt="SmarTanom" />
+						</div>
+						<div className="brand-text">
+							<div className="brand-name">SmarTanom</div>
+							<div className="brand-subtitle">Dashboard</div>
+						</div>
+					</div>
+				</aside>
+				<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+					<div style={{ textAlign: 'center', maxWidth: '400px' }}>
+						<X size={48} style={{ color: '#ef4444' }} />
+						<p style={{ marginTop: '16px', color: '#dc2626', fontWeight: 600 }}>{error}</p>
+						<button
+							onClick={() => window.location.reload()}
+							style={{
+								marginTop: '16px',
+								padding: '8px 16px',
+								background: '#339432',
+								color: 'white',
+								border: 'none',
+								borderRadius: '8px',
+								cursor: 'pointer'
+							}}
+						>
+							Retry
+						</button>
+					</div>
+				</main>
+			</div>
+		);
+	}
 
 	return (
 		<div className="admin-root">

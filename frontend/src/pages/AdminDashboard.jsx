@@ -101,6 +101,13 @@ export default function AdminDashboard() {
 				setLoading(true);
 				setError(null);
 				const data = await getAdminStats();
+				console.log('📊 Admin Stats received:', data);
+				console.log('📦 Device counts:', {
+					total: data?.summary?.devices?.total,
+					active: data?.summary?.devices?.active,
+					available: data?.summary?.devices?.available,
+					bound: data?.summary?.devices?.bound
+				});
 				setStats(data);
 			} catch (err) {
 				console.error('Failed to fetch admin stats:', err);

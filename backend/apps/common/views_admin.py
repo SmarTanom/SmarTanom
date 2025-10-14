@@ -49,7 +49,10 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             inactive_devices = Device.objects.filter(status=Device.Status.INACTIVE).count()
             maintenance_devices = Device.objects.filter(status=Device.Status.MAINTENANCE).count()
             bound_devices = Device.objects.filter(is_bound=True).count()
+            # Available units: devices that are NOT bound
             available_units = Device.objects.filter(is_bound=False).count()
+
+            logger.info(f"Device Stats - Total: {total_devices}, Active: {active_devices}, Bound: {bound_devices}, Available: {available_units}")
 
             # User Statistics
             total_users = User.objects.count()
@@ -225,5 +228,106 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             logger.error(f"Error fetching recent activity: {e}")
             return Response(
                 {'error': 'Failed to fetch recent activity'},
+                status=500
+            )
+
+    @action(detail=False, methods=['get'])
+    def users(self, request):
+        """
+        Get all users with their device counts for admin user management
+        """
+        try:
+            users = User.objects.annotate(
+                device_count=Count('devices')
+            ).values(
+                'id',
+                'email',
+                'full_name',
+                'username',
+                'date_joined',
+                'last_login',
+                'is_active',
+                'is_staff',
+                'device_count'
+            ).order_by('-date_joined')
+
+            # Format the response
+            users_list = []
+            for user in users:
+                # Calculate last active time
+                last_active = 'Never'
+                if user['last_login']:
+                    from django.utils.timesince import timesince
+                    last_active = timesince(user['last_login']) + ' ago'
+
+                users_list.append({
+                    'id': user['id'],
+                    'email': user['email'],
+                    'name': user['full_name'] or user['username'] or user['email'].split('@')[0],
+                    'username': user['username'],
+                    'device_count': user['device_count'],
+                    'last_active': last_active,
+                    'joined': user['date_joined'],
+                    'is_active': user['is_active'],
+                    'is_staff': user['is_staff']
+                })
+
+            return Response(users_list)
+
+        except Exception as e:
+            logger.error(f"Error fetching users: {e}")
+            return Response(
+                {'error': 'Failed to fetch users'},
+                status=500
+            )
+
+    @action(detail=False, methods=['get'])
+    def devices(self, request):
+        """
+        Get all devices for admin device management
+        """
+        try:
+            from django.utils.timesince import timesince
+
+            # Don't use select_related since Device doesn't have a user FK
+            devices = Device.objects.all().order_by('-created_at')
+
+            # Format the response
+            devices_list = []
+            for device in devices:
+                # Determine owner name
+                owner_name = None
+                if device.is_bound and device.bound_email:
+                    try:
+                        owner_user = User.objects.get(email=device.bound_email)
+                        owner_name = owner_user.full_name or owner_user.username or owner_user.email.split('@')[0]
+                    except User.DoesNotExist:
+                        owner_name = device.bound_email.split('@')[0]
+
+                # Calculate last seen using updated_at (last modification time)
+                last_seen = 'Never'
+                if device.updated_at:
+                    last_seen = timesince(device.updated_at) + ' ago'
+
+                devices_list.append({
+                    'id': device.id,
+                    'serial': device.device_serial,
+                    'name': device.device_name or device.device_serial,
+                    'status': device.status,
+                    'is_bound': device.is_bound,
+                    'owner': owner_name,
+                    'owner_email': device.bound_email if device.is_bound else None,
+                    'location': device.location,
+                    'last_seen': last_seen,
+                    'created_at': device.created_at,
+                    'assigned_date': device.created_at if device.is_bound else None,
+                })
+
+            return Response(devices_list)
+
+        except Exception as e:
+            logger.error(f"Error fetching devices: {e}")
+            return Response(
+                {'error': 'Failed to fetch devices'},
                 status=500
             )

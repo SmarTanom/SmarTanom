@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../assets/styles/AdminUsers.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
+import { getAdminUsers } from '../services/api/admin';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -11,70 +12,153 @@ import {
 	Search,
 	Smartphone,
 	Activity,
-	ChevronRight
+	ChevronRight,
+	Loader2,
+	AlertTriangle
 } from 'lucide-react';
-
-// Mock users data
-const mockUsers = [
-	{
-		id: 1,
-		name: 'John Farmer',
-		email: 'far***@example.com',
-		initials: 'JF',
-		deviceCount: 3,
-		lastActive: '2 hours ago',
-		bgColor: '#d1fae5'
-	},
-	{
-		id: 2,
-		name: 'Maria Santos',
-		email: 'urb***@example.com',
-		initials: 'MS',
-		deviceCount: 1,
-		lastActive: '1 day ago',
-		bgColor: '#d1fae5'
-	},
-	{
-		id: 3,
-		name: 'Carlos Rivera',
-		email: 'riv***@example.com',
-		initials: 'CR',
-		deviceCount: 2,
-		lastActive: '3 hours ago',
-		bgColor: '#e0e7ff'
-	},
-	{
-		id: 4,
-		name: 'Ana Martinez',
-		email: 'ana***@example.com',
-		initials: 'AM',
-		deviceCount: 4,
-		lastActive: '5 minutes ago',
-		bgColor: '#fce7f3'
-	},
-	{
-		id: 5,
-		name: 'David Chen',
-		email: 'che***@example.com',
-		initials: 'DC',
-		deviceCount: 2,
-		lastActive: '2 days ago',
-		bgColor: '#fef3c7'
-	}
-];
 
 function AdminUsers() {
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = useState('');
+	const [users, setUsers] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 
-	const totalUsers = mockUsers.length;
-	const totalDevices = mockUsers.reduce((sum, user) => sum + user.deviceCount, 0);
-	const avgPerUser = (totalDevices / totalUsers).toFixed(1);
+	useEffect(() => {
+		const fetchUsers = async () => {
+			try {
+				setLoading(true);
+				setError(null);
+				const data = await getAdminUsers();
+				console.log('Users data received:', data); // Debug log
 
-	const filteredUsers = mockUsers.filter(user =>
+				// Handle different response structures
+				if (Array.isArray(data)) {
+					setUsers(data);
+				} else if (data && Array.isArray(data.results)) {
+					setUsers(data.results);
+				} else if (data && typeof data === 'object') {
+					setUsers(Object.values(data));
+				} else {
+					console.error('Unexpected users data structure:', data);
+					setUsers([]);
+				}
+			} catch (err) {
+				console.error('Failed to fetch users:', err);
+				setError('Failed to load users');
+				setUsers([]); // Ensure users is always an array
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchUsers();
+	}, []);
+
+	// Helper function to get initials
+	const getInitials = (name) => {
+		if (!name) return '??';
+		const parts = name.split(' ');
+		if (parts.length >= 2) {
+			return (parts[0][0] + parts[1][0]).toUpperCase();
+		}
+		return name.slice(0, 2).toUpperCase();
+	};
+
+	// Helper function to get background color
+	const getBgColor = (index) => {
+		const colors = ['#d1fae5', '#e0e7ff', '#fce7f3', '#fef3c7', '#dbeafe'];
+		return colors[index % colors.length];
+	};
+
+	// Ensure users is always an array before mapping
+	const safeUsers = Array.isArray(users) ? users : [];
+
+	// Format users for display
+	const formattedUsers = safeUsers.map((user, index) => ({
+		id: user.id,
+		name: user.name,
+		email: user.email,
+		initials: getInitials(user.name),
+		deviceCount: user.device_count || 0,
+		lastActive: user.last_active || 'Never',
+		bgColor: getBgColor(index),
+		is_active: user.is_active,
+		is_staff: user.is_staff
+	}));
+
+	const totalUsers = formattedUsers.length;
+	const totalDevices = formattedUsers.reduce((sum, user) => sum + user.deviceCount, 0);
+	const avgPerUser = totalUsers > 0 ? (totalDevices / totalUsers).toFixed(1) : '0.0';
+
+	const filteredUsers = formattedUsers.filter(user =>
 		user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 		user.email.toLowerCase().includes(searchQuery.toLowerCase())
 	);
+
+	// Loading state
+	if (loading) {
+		return (
+			<div className="admin-root">
+				<aside className="admin-sidebar" aria-label="Admin sidebar">
+					<div className="brand-logo">
+						<div className="logo-mark">
+							<img src={logoMarkWhite} alt="SmarTanom" />
+						</div>
+						<div className="brand-text">
+							<div className="brand-name">SmarTanom</div>
+							<div className="brand-subtitle">Dashboard</div>
+						</div>
+					</div>
+				</aside>
+				<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+					<div style={{ textAlign: 'center' }}>
+						<Loader2 size={48} className="spinner" style={{ color: '#339432' }} />
+						<p style={{ marginTop: '16px', color: '#6f8876' }}>Loading users...</p>
+					</div>
+				</main>
+			</div>
+		);
+	}
+
+	// Error state
+	if (error) {
+		return (
+			<div className="admin-root">
+				<aside className="admin-sidebar" aria-label="Admin sidebar">
+					<div className="brand-logo">
+						<div className="logo-mark">
+							<img src={logoMarkWhite} alt="SmarTanom" />
+						</div>
+						<div className="brand-text">
+							<div className="brand-name">SmarTanom</div>
+							<div className="brand-subtitle">Dashboard</div>
+						</div>
+					</div>
+				</aside>
+				<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+					<div style={{ textAlign: 'center', maxWidth: '400px' }}>
+						<AlertTriangle size={48} style={{ color: '#ef4444' }} />
+						<p style={{ marginTop: '16px', color: '#dc2626', fontWeight: 600 }}>{error}</p>
+						<button
+							onClick={() => window.location.reload()}
+							style={{
+								marginTop: '16px',
+								padding: '8px 16px',
+								background: '#339432',
+								color: 'white',
+								border: 'none',
+								borderRadius: '8px',
+								cursor: 'pointer'
+							}}
+						>
+							Retry
+						</button>
+					</div>
+				</main>
+			</div>
+		);
+	}
 
 	return (
 		<div className="admin-root">
