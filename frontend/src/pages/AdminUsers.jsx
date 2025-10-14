@@ -122,7 +122,7 @@ function AdminUsers() {
 
 		try {
 			const response = await getUserDevices(user.id);
-			setUserDevices(response.devices || []);
+			setUserDevices(response.results || []);
 		} catch (error) {
 			console.error('Error fetching user devices:', error);
 			setUserDevices([]);

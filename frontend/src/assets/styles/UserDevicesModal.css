@@ -324,6 +324,20 @@
 	border: 1px solid #fbbf24;
 }
 
+.device-owner-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 8px;
+	background: #d1fae5;
+	color: #065f46;
+	border-radius: 12px;
+	font-size: 0.6875rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.025em;
+	border: 1px solid #34d399;
+}
+
 .device-serial {
 	margin: 0;
 	font-size: 0.8125rem;

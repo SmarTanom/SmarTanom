@@ -59,8 +59,9 @@ const UserDevicesModal = ({ user, devices, loading, onClose }) => {
 
 	const totalDevices = devices?.length || 0;
 	const activeDevices = devices?.filter(d => d.status?.toLowerCase() === 'active').length || 0;
-	const ownedDevices = user?.deviceCount || 0;
-	const sharedDevices = user?.sharedDeviceCount || 0;
+	// Calculate owned and shared from the actual devices array
+	const ownedDevices = devices?.filter(d => d.is_owner || d.bound_email === user?.email).length || 0;
+	const sharedDevices = devices?.filter(d => d.is_collaborator || (d.bound_email && d.bound_email !== user?.email)).length || 0;
 
 	return (
 		<div className="user-devices-modal-overlay" onClick={onClose}>
@@ -116,19 +117,19 @@ const UserDevicesModal = ({ user, devices, loading, onClose }) => {
 											</div>
 										</div>
 
-										<div className="device-card-body">
-											<h3 className="device-title">
-												{device.device_name || device.name || device.serial}
-												{device.owner_email !== user?.email && (
-													<span className="device-shared-badge">Shared</span>
-												)}
-											</h3>
-											<p className="device-serial">
-												<Smartphone size={14} />
-												{device.device_serial || device.serial}
-											</p>
-
-											{device.plant_name && (
+									<div className="device-card-body">
+										<h3 className="device-title">
+											{device.device_name || device.name || device.serial || device.device_serial}
+											{device.is_owner || device.bound_email === user?.email ? (
+												<span className="device-owner-badge">Owner</span>
+											) : device.is_collaborator || device.bound_email !== user?.email ? (
+												<span className="device-shared-badge">Shared Device</span>
+											) : null}
+										</h3>
+										<p className="device-serial">
+											<Smartphone size={14} />
+											{device.device_serial || device.serial}
+										</p>											{device.plant_name && (
 												<div className="device-plant-tag">
 													<Leaf size={12} />
 													{device.plant_name}

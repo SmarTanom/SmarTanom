@@ -1807,7 +1807,7 @@ def get_user_devices(request, user_id: int):
                 'email': user.email,
                 'name': user.full_name or user.username or user.email.split('@')[0]
             },
-            'devices': serializer.data,
+            'results': serializer.data,
             'count': len(serializer.data)
         })
 
