@@ -433,7 +433,28 @@ export default function Dashboard() {
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [perDeviceUnreadCounts, setPerDeviceUnreadCounts] = useState({});
   // Store the latest alert metadata per device for realtime display
-  const [latestAlerts, setLatestAlerts] = useState({}); // { [deviceId]: { title, body, severity, at } }
+  // Persist latest alerts across refresh using localStorage (lightweight cache)
+  const [latestAlerts, setLatestAlerts] = useState(() => {
+    try {
+      const raw = localStorage.getItem('dashboard.latestAlerts');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to load persisted latestAlerts:', e);
+    }
+    return {};
+  }); // { [deviceId]: { title, body, severity, at } }
+
+  // Persist latestAlerts whenever it changes (debounced minimal)
+  useEffect(() => {
+    try {
+      localStorage.setItem('dashboard.latestAlerts', JSON.stringify(latestAlerts));
+    } catch (e) {
+      // Ignore quota / serialization errors
+    }
+  }, [latestAlerts]);
 
   // Shared helper to compute a stable reading key (match AlertsPage logic)
   const readingKeyOf = (reading) => {
@@ -773,6 +794,33 @@ export default function Dashboard() {
         const { device_id, sensors, timestamp, reading, created } = update;
 
         if (device_id && sensors) {
+          // Pre-compute potential alert meta (outside state setter so it's in scope later)
+          let computedAlertMeta = null;
+          const nowIso = new Date(timestamp || Date.now()).toISOString();
+
+          // We'll compute combined sensors after merge; provisional logic uses incoming sensors first
+          const tempCombined = {
+            ...(devicesData[device_id]?.sensors || {}),
+            ...(devicesData[device_id]?.environment || {}),
+            ...(sensors.ph !== undefined && { ph: sensors.ph }),
+            ...(sensors.tds !== undefined && { tds: sensors.tds }),
+            ...(sensors.water_level !== undefined && { waterLevel: sensors.water_level }),
+            ...(sensors.temperature !== undefined && { temperature: sensors.temperature }),
+          };
+          if (typeof tempCombined.tds === 'number' && tempCombined.tds < 300) {
+            computedAlertMeta = { title: 'TDS Too Low', body: `TDS is ${Math.round(tempCombined.tds)} ppm (low)`, severity: 'warning', at: nowIso };
+          } else if (typeof tempCombined.tds === 'number' && tempCombined.tds > 1500) {
+            computedAlertMeta = { title: 'TDS Too High', body: `TDS is ${Math.round(tempCombined.tds)} ppm (high)`, severity: 'warning', at: nowIso };
+          } else if (typeof tempCombined.ph === 'number' && tempCombined.ph < 5.5) {
+            computedAlertMeta = { title: 'pH Low', body: `pH is ${tempCombined.ph.toFixed(1)} (low)`, severity: 'critical', at: nowIso };
+          } else if (typeof tempCombined.ph === 'number' && tempCombined.ph > 6.5) {
+            computedAlertMeta = { title: 'pH High', body: `pH is ${tempCombined.ph.toFixed(1)} (high)`, severity: 'critical', at: nowIso };
+          } else if (typeof tempCombined.waterLevel === 'number' && tempCombined.waterLevel < 20) {
+            computedAlertMeta = { title: 'Water Level Low', body: `Water level ${Math.round(tempCombined.waterLevel)}% (low)`, severity: 'warning', at: nowIso };
+          } else if (typeof tempCombined.temperature === 'number' && (tempCombined.temperature < 18 || tempCombined.temperature > 28)) {
+            computedAlertMeta = { title: 'Temperature Out of Range', body: `Temp ${tempCombined.temperature.toFixed(1)}°C`, severity: 'warning', at: nowIso };
+          }
+
           // Update the device data directly in state without full API refetch
           setDevicesData(prev => {
             const existing = prev[device_id] || {};
@@ -820,21 +868,7 @@ export default function Dashboard() {
             const alertText = generateAlertText(combinedSensors);
 
             // Derive a structured latest alert (simple heuristics mirroring generateAlertText and thresholds)
-            let newAlertMeta = null;
-            const nowIso = new Date(timestamp).toISOString();
-            if (typeof combinedSensors.tds === 'number' && combinedSensors.tds < 300) {
-              newAlertMeta = { title: 'TDS Too Low', body: `TDS is ${Math.round(combinedSensors.tds)} ppm (low)`, severity: 'warning', at: nowIso };
-            } else if (typeof combinedSensors.tds === 'number' && combinedSensors.tds > 1500) {
-              newAlertMeta = { title: 'TDS Too High', body: `TDS is ${Math.round(combinedSensors.tds)} ppm (high)`, severity: 'warning', at: nowIso };
-            } else if (typeof combinedSensors.ph === 'number' && combinedSensors.ph < 5.5) {
-              newAlertMeta = { title: 'pH Low', body: `pH is ${combinedSensors.ph.toFixed(1)} (low)`, severity: 'critical', at: nowIso };
-            } else if (typeof combinedSensors.ph === 'number' && combinedSensors.ph > 6.5) {
-              newAlertMeta = { title: 'pH High', body: `pH is ${combinedSensors.ph.toFixed(1)} (high)`, severity: 'critical', at: nowIso };
-            } else if (typeof combinedSensors.waterLevel === 'number' && combinedSensors.waterLevel < 20) {
-              newAlertMeta = { title: 'Water Level Low', body: `Water level ${Math.round(combinedSensors.waterLevel)}% (low)`, severity: 'warning', at: nowIso };
-            } else if (typeof combinedSensors.temperature === 'number' && (combinedSensors.temperature < 18 || combinedSensors.temperature > 28)) {
-              newAlertMeta = { title: 'Temperature Out of Range', body: `Temp ${combinedSensors.temperature.toFixed(1)}°C`, severity: 'warning', at: nowIso };
-            }
+            // (Alert meta now computed earlier as computedAlertMeta)
 
             // Append to pH history when a new pH reading arrives (only for days range to avoid recomputation cost)
             let phHistory = existing.phHistory || null;
@@ -886,11 +920,11 @@ export default function Dashboard() {
           });
 
           // Update latest alert meta if a new one detected
-            if (newAlertMeta) {
+            if (computedAlertMeta) {
               setLatestAlerts(prev => {
                 const prevMeta = prev[device_id];
-                if (!prevMeta || prevMeta.at < newAlertMeta.at) {
-                  return { ...prev, [device_id]: newAlertMeta };
+                if (!prevMeta || prevMeta.at < computedAlertMeta.at) {
+                  return { ...prev, [device_id]: computedAlertMeta };
                 }
                 return prev;
               });

@@ -21,6 +21,7 @@ import { getUserDevices } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 import { getDeviceReservoirs } from '../services/api/reservoirs.js';
 import { listPlants } from '../services/api/plants.js';
+import { wsClient } from '../services/websocketClient';
 
 // Local persistence for read alerts (database alerts only)
 const READ_STORAGE_KEY = 'alerts.readingIds';
@@ -264,6 +265,35 @@ export default function AlertsPage() {
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'critical'
   // Alerts state initialized as empty - only real database alerts will be shown
   const [alerts, setAlerts] = useState([]);
+  // Persist alerts locally so refresh does not wipe history (bounded)
+  const ALERTS_STORAGE_KEY = 'alerts.realtime';
+
+  // Hydrate from storage
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(ALERTS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setAlerts(prev => {
+            // Merge without duplicating readingId
+            const existingIds = new Set(prev.map(a => a.readingId));
+            const merged = [...prev];
+            parsed.forEach(a => { if (a.readingId && !existingIds.has(a.readingId)) merged.push(a); });
+            return merged;
+          });
+        }
+      }
+    } catch (_e) { /* ignore */ }
+  }, []);
+
+  // Persist on change (trim to last 200 to avoid unbounded growth)
+  React.useEffect(() => {
+    try {
+      const trimmed = alerts.slice(-200);
+      localStorage.setItem(ALERTS_STORAGE_KEY, JSON.stringify(trimmed));
+    } catch (_e) { }
+  }, [alerts]);
   const [filteredDeviceName, setFilteredDeviceName] = useState(null); // Store device name when filtering
 
   // On first mount, apply persisted read flags to initial alerts
@@ -720,6 +750,118 @@ export default function AlertsPage() {
 
     fetchRecentReadings();
     return () => { mounted = false; };
+  }, []);
+
+  // Real-time websocket subscription for sensor.update events
+  React.useEffect(() => {
+    wsClient.connect();
+    const unsubscribe = wsClient.subscribe(msg => {
+      if (!msg || msg.type !== 'sensor.update' || !msg.sensors) return;
+      const deviceId = msg.device_id;
+      const sensors = msg.sensors;
+      const reading = msg.reading || {};
+      const sensorType = reading.sensor_type || null;
+      const value = reading.value;
+      const createdAt = reading.created_at || msg.timestamp || new Date().toISOString();
+
+      // Derive alert conditions (mirror Dashboard + existing classification fallback)
+      let alertCandidate = null;
+      if (typeof sensors.ph === 'number' && (sensors.ph < 5.5 || sensors.ph > 6.5) && sensorType === 'ph') {
+        alertCandidate = {
+          type: 'critical',
+          title: sensors.ph < 5.5 ? 'pH below optimal range' : 'pH above optimal range',
+          message: `pH is ${sensors.ph.toFixed(1)} — ${sensors.ph < 5.5 ? 'below' : 'above'} optimal range (5.5–6.5). Adjust gradually and re-test.`,
+          icon: 'droplet'
+        };
+      } else if (typeof sensors.tds === 'number' && sensorType === 'tds' && (sensors.tds < 800 || sensors.tds > 1500)) {
+        alertCandidate = {
+          type: 'critical',
+          title: sensors.tds < 800 ? 'TDS below optimal range' : 'TDS above optimal range',
+          message: `TDS is ${Math.round(sensors.tds)} ppm (${sensors.tds < 800 ? 'low' : 'high'}). Adjust nutrient concentration and re-test.`,
+          icon: 'zap'
+        };
+      } else if (typeof sensors.water_level === 'number' && sensorType === 'water_level' && (sensors.water_level === 0 || sensors.water_level < 40)) {
+        const wl = sensors.water_level;
+        alertCandidate = {
+          type: wl === 0 ? 'critical' : 'warning',
+            title: wl === 0 ? 'Water level empty' : 'Low water level',
+            message: wl === 0 ? 'Reservoir empty. Refill immediately and inspect for leaks.' : `Water level is ${Math.round(wl)}% (low). Refill soon.`,
+          icon: 'droplet'
+        };
+      } else if (typeof sensors.temperature === 'number' && sensorType === 'air_temperature' && (sensors.temperature < 18 || sensors.temperature > 28)) {
+        alertCandidate = {
+          type: 'warning',
+          title: 'Air temperature out of range',
+          message: `Air temperature is ${sensors.temperature.toFixed(1)}°C (optimal 18–26°C).`,
+          icon: 'thermometer'
+        };
+      } else if (typeof sensors.humidity === 'number' && sensorType === 'humidity' && (sensors.humidity < 50 || sensors.humidity > 70)) {
+        alertCandidate = {
+          type: 'warning',
+          title: sensors.humidity < 50 ? 'Humidity low' : 'Humidity high',
+          message: `Humidity is ${Math.round(sensors.humidity)}%. Optimal 50–70%.`,
+          icon: 'sprout'
+        };
+      } else if (typeof sensors.light_lux === 'number' && sensorType === 'light' && sensors.light_lux > 1500) {
+        alertCandidate = {
+          type: 'critical',
+          title: 'Light intensity high',
+          message: `Light is ${Math.round(sensors.light_lux)} lux (above 1500). Reduce intensity or raise fixture.`,
+          icon: 'sun'
+        };
+      } else if (typeof sensors.turbidity === 'number' && sensorType === 'turbidity' && sensors.turbidity <= 2100) {
+        if (sensors.turbidity <= 1800) {
+          alertCandidate = {
+            type: 'critical',
+            title: 'Water turbid',
+            message: `Turbidity reading ${Math.round(sensors.turbidity)} — water is turbid. Perform partial drain/refill and clean filters.`,
+            icon: 'waves'
+          };
+        } else {
+          alertCandidate = {
+            type: 'warning',
+            title: 'Water cloudy',
+            message: `Turbidity reading ${Math.round(sensors.turbidity)} — water is cloudy. Inspect filters and consider partial change.`,
+            icon: 'waves'
+          };
+        }
+      } else if (typeof sensors.water_temperature === 'number' && sensorType === 'water_temperature') {
+        const wt = sensors.water_temperature;
+        if (wt < 18 || wt > 26) {
+          alertCandidate = {
+            type: 'warning',
+            title: 'Water temperature out of range',
+            message: `Water temperature is ${wt.toFixed(1)}°C (target 18–26°C).`,
+            icon: 'thermometer'
+          };
+        }
+      }
+
+      if (!alertCandidate) return; // no alert produced
+
+      setAlerts(prev => {
+        const readingKey = reading.id || createdAt + ':' + sensorType + ':' + deviceId;
+        if (prev.some(a => a.readingId === readingKey)) return prev; // duplicate guard
+        const nextId = Math.max(0, ...prev.map(a => Number(a.id) || 0)) + 1;
+        const deviceName = msg.device_name || `Device ${deviceId}`;
+        const newAlert = {
+          id: nextId,
+          type: alertCandidate.type,
+          icon: alertCandidate.icon,
+          title: alertCandidate.title,
+          device: deviceName,
+          deviceId: deviceId,
+          deviceSerial: msg.device_serial || null,
+          message: alertCandidate.message,
+          timestamp: 'just now',
+          date: createdAt,
+          read: false,
+          readingId: readingKey,
+        };
+        return [newAlert, ...prev].slice(0, 500); // bound list
+      });
+    });
+    return () => { unsubscribe && unsubscribe(); };
   }, []);
 
   const filteredAlerts = alerts.filter(alert => {
