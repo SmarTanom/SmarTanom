@@ -44,6 +44,8 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 	const [newCollabEmail, setNewCollabEmail] = useState('');
 	const [showAddCollabForm, setShowAddCollabForm] = useState(false);
 	const [addingCollab, setAddingCollab] = useState(false);
+	const [collabOtpCode, setCollabOtpCode] = useState('');
+	const [collabOtpSent, setCollabOtpSent] = useState(false);
 
 	// Confirmation modal states
 	const [confirmModal, setConfirmModal] = useState({
@@ -319,7 +321,7 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 		}
 	};
 
-	const handleAddCollaborator = async (e) => {
+	const handleSendCollabOTP = async (e) => {
 		e.preventDefault();
 
 		if (!newCollabEmail.trim()) {
@@ -331,13 +333,46 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 			setAddingCollab(true);
 			const authToken = localStorage.getItem('authToken');
 			const response = await apiClient.post(
-				`/api/devices/${device.id}/add-collaborator/`,
+				`/api/devices/${device.id}/send-collaborator-otp/`,
 				{ email: newCollabEmail.trim() },
 				{ authToken }
 			);
 
-			toast.success(`Collaborator ${newCollabEmail} added`);
+			toast.success(`OTP sent to ${newCollabEmail}`);
+			setCollabOtpSent(true);
+		} catch (error) {
+			console.error('Failed to send collaborator OTP:', error);
+			const errorMsg = error.data?.detail || error.message || 'Failed to send OTP';
+			toast.error(errorMsg);
+		} finally {
+			setAddingCollab(false);
+		}
+	};
+
+	const handleConfirmAddCollaborator = async (e) => {
+		e.preventDefault();
+
+		if (!collabOtpCode.trim()) {
+			toast.error('Please enter the OTP code');
+			return;
+		}
+
+		try {
+			setAddingCollab(true);
+			const authToken = localStorage.getItem('authToken');
+			const response = await apiClient.post(
+				`/api/devices/${device.id}/confirm-add-collaborator/`,
+				{
+					email: newCollabEmail.trim(),
+					otp: collabOtpCode.trim()
+				},
+				{ authToken }
+			);
+
+			toast.success(`Collaborator ${newCollabEmail} added successfully`);
 			setNewCollabEmail('');
+			setCollabOtpCode('');
+			setCollabOtpSent(false);
 			setShowAddCollabForm(false);
 			// Refresh collaborators list
 			await fetchCollaborators();
@@ -586,24 +621,50 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 											Add Collaborator
 										</button>
 									) : (
-										<form onSubmit={handleAddCollaborator} className="add-collab-form">
+										<form onSubmit={collabOtpSent ? handleConfirmAddCollaborator : handleSendCollabOTP} className="add-collab-form">
+											<label htmlFor="collab-email">Collaborator Email</label>
 											<input
+												id="collab-email"
 												type="email"
 												value={newCollabEmail}
 												onChange={(e) => setNewCollabEmail(e.target.value)}
-												placeholder="Enter user email"
+												placeholder="user@example.com"
 												required
-												disabled={addingCollab}
+												disabled={addingCollab || collabOtpSent}
 											/>
+
+											{collabOtpSent && (
+												<>
+													<label htmlFor="collab-otp" style={{marginTop: '12px'}}>
+														OTP Code
+														<span style={{fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '8px'}}>
+															(Check email for 6-digit code)
+														</span>
+													</label>
+													<input
+														id="collab-otp"
+														type="text"
+														value={collabOtpCode}
+														onChange={(e) => setCollabOtpCode(e.target.value)}
+														placeholder="000000"
+														maxLength="6"
+														required
+														disabled={addingCollab}
+													/>
+												</>
+											)}
+
 											<div className="add-collab-actions">
 												<button type="submit" disabled={addingCollab}>
-													{addingCollab ? 'Adding...' : 'Add'}
+													{addingCollab ? (collabOtpSent ? 'Confirming...' : 'Sending...') : (collabOtpSent ? 'Confirm Add' : 'Send OTP')}
 												</button>
 												<button
 													type="button"
 													onClick={() => {
 														setShowAddCollabForm(false);
 														setNewCollabEmail('');
+														setCollabOtpCode('');
+														setCollabOtpSent(false);
 													}}
 													disabled={addingCollab}
 												>

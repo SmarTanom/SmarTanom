@@ -193,6 +193,69 @@ def send_ownership_removal_otp_email(device, admin_email, code):
         return False
 
 
+def send_collaborator_otp_email(device, collaborator_email, code):
+    """Send OTP email for collaborator addition verification."""
+    expire_minutes = 10  # 10 minutes for collaborator OTP
+    subject = "OTP to confirm collaborator addition (Admin Action)"
+
+    device_name = device.device_name or f"Device {device.device_serial}"
+
+    html_message = f"""
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 20px; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 30px;">
+            <h2 style="color: #333; text-align: center;">SmarTanom</h2>
+            <h3 style="color: #666;">Collaborator Addition Verification</h3>
+            <p style="color: #666;">An administrator is requesting to add you as a collaborator to device <strong>{device_name}</strong> (serial: <strong>{device.device_serial}</strong>).</p>
+            <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="color: #856404; margin: 0; font-weight: bold;">Important Notice:</p>
+                <p style="color: #856404; margin: 5px 0 0 0;">This will grant you view-only access to the device's sensor data and monitoring information. You will be able to see real-time data but cannot modify device settings or remove the device.</p>
+            </div>
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                <p style="color: #666; margin: 0 0 10px 0;">Your OTP is:</p>
+                <h1 style="color: #28a745; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
+            </div>
+            <p style="color: #666;">This code expires in {expire_minutes} minutes.</p>
+            <p style="color: #e74c3c; font-weight: bold;">If you did not expect this request, please contact support immediately.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #999; font-size: 12px; text-align: center;">
+                This is an automated message from SmarTanom. Please do not reply.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    plain_message = (
+        "OTP to confirm collaborator addition (Admin Action)\n\n"
+        f"An administrator is requesting to add you as a collaborator to device {device_name} (serial: {device.device_serial}).\n\n"
+        "IMPORTANT NOTICE:\n"
+        "This will grant you view-only access to the device's sensor data and monitoring information. You will be able to see real-time data but cannot modify device settings or remove the device.\n\n"
+        f"OTP: {code}\n\n"
+        f"This code expires in {expire_minutes} minutes.\n\n"
+        "If you did not expect this request, contact support immediately."
+    )
+
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[collaborator_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        logger.info(f"Collaborator OTP email sent for device {device.device_serial} to {collaborator_email}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send collaborator OTP email: {str(e)}")
+        return False
+
+
 def send_collaborator_invite_email(device, collaborator_email):
     """Send welcome email to new collaborator."""
     subject = f"SmarTanom - Device Collaboration Invitation"
@@ -1149,9 +1212,9 @@ class DeviceViewSet(BaseAuthViewSet):
             'remaining_collaborations': other_active_collabs
         })
 
-    @action(detail=True, methods=['post'], url_path='add-collaborator', permission_classes=[IsAuthenticated])
-    def add_collaborator(self, request, pk=None):
-        """Admin endpoint to add a collaborator to a device (creates user if needed)."""
+    @action(detail=True, methods=['post'], url_path='send-collaborator-otp', permission_classes=[IsAuthenticated])
+    def send_collaborator_otp(self, request, pk=None):
+        """Admin endpoint to send OTP for collaborator addition."""
         if not request.user.is_staff:
             return Response(
                 {'detail': 'Permission denied. Admin access required.'},
@@ -1197,12 +1260,95 @@ class DeviceViewSet(BaseAuthViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+            # Invalidate any previous unused OTPs for this collaborator addition
+            DeviceOTPCode.objects.filter(
+                device=device,
+                email=collaborator_email,
+                is_verified=False
+            ).delete()
+
+            # Create new OTP
+            otp = DeviceOTPCode.objects.create(
+                device=device,
+                email=collaborator_email
+            )
+
+            # Send OTP email
+            email_sent = send_collaborator_otp_email(device, collaborator_email, otp.code)
+
+            logger.info(f"Admin {request.user.email} sent collaborator OTP for device {device.device_serial} to {collaborator_email}")
+
+            return Response({
+                'detail': 'OTP sent to collaborator email',
+                'debug_otp': otp.code if settings.DEBUG else None  # Only in debug mode
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error sending collaborator OTP: {str(e)}")
+            return Response(
+                {'detail': 'Failed to send OTP. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'], url_path='confirm-add-collaborator', permission_classes=[IsAuthenticated])
+    def confirm_add_collaborator(self, request, pk=None):
+        """Admin endpoint to confirm collaborator addition with OTP."""
+        if not request.user.is_staff:
+            return Response(
+                {'detail': 'Permission denied. Admin access required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        device = self.get_object()
+        collaborator_email = request.data.get('email')
+        otp_code = request.data.get('otp')
+
+        if not collaborator_email or not otp_code:
+            return Response(
+                {'detail': 'Email and OTP are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        collaborator_email = collaborator_email.lower().strip()
+        otp_code = otp_code.strip()
+
+        try:
+            # Find valid OTP
+            otp = DeviceOTPCode.objects.filter(
+                device=device,
+                email=collaborator_email,
+                code=otp_code,
+                is_verified=False
+            ).order_by('-created_at').first()
+
+            if not otp:
+                return Response(
+                    {'detail': 'Invalid or expired OTP'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if not otp.is_valid:
+                return Response(
+                    {'detail': 'Invalid or expired OTP'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Mark OTP as verified
+            otp.is_verified = True
+            otp.save()
+
             # Get or create user (OTP-only, no password)
             from apps.accounts.models import User
+            import uuid
+
+            # Generate a unique username
+            base_username = f"user_{collaborator_email.split('@')[0]}"
+            username = f"{base_username}_{uuid.uuid4().hex[:8]}"
+
             user, user_created = User.objects.get_or_create(
                 email=collaborator_email,
                 defaults={
-                    'username': f"user_{collaborator_email.split('@')[0]}_{timezone.now().strftime('%Y%m%d_%H%M%S')}",
+                    'username': username,
                     'is_active': True,
                 }
             )
@@ -1212,21 +1358,47 @@ class DeviceViewSet(BaseAuthViewSet):
                 user.is_active = True
                 user.save()
 
-            # Create collaboration
-            collaboration = DeviceCollaboration.objects.create(
+            # Check if collaboration already exists
+            existing_collaboration = DeviceCollaboration.objects.filter(
                 device=device,
-                collaborator_email=collaborator_email,
-                permissions=DeviceCollaboration.Permission.VIEW_ONLY,
-                status=DeviceCollaboration.Status.ACTIVE,
-                shared_by_email=device.bound_email or request.user.email,
-                added_by=request.user
-            )
+                collaborator_email=collaborator_email
+            ).first()
 
-            # Send welcome email if user was created
+            if existing_collaboration:
+                # If collaboration exists and is active, return error
+                if existing_collaboration.status == DeviceCollaboration.Status.ACTIVE:
+                    return Response(
+                        {'detail': 'User is already a collaborator on this device.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # If collaboration exists but is revoked, reactivate it
+                existing_collaboration.permissions = DeviceCollaboration.Permission.VIEW_ONLY
+                existing_collaboration.status = DeviceCollaboration.Status.ACTIVE
+                existing_collaboration.shared_by_email = device.bound_email or request.user.email
+                existing_collaboration.added_by = request.user
+                existing_collaboration.revoked_by = None
+                existing_collaboration.revoked_at = None
+                existing_collaboration.save()
+
+                collaboration = existing_collaboration
+                logger.info(f"Admin {request.user.email} reactivated collaboration for {collaborator_email} on device {device.device_serial}")
+            else:
+                # Create new collaboration
+                collaboration = DeviceCollaboration.objects.create(
+                    device=device,
+                    collaborator_email=collaborator_email,
+                    permissions=DeviceCollaboration.Permission.VIEW_ONLY,
+                    status=DeviceCollaboration.Status.ACTIVE,
+                    shared_by_email=device.bound_email or request.user.email,
+                    added_by=request.user
+                )
+
+            # Send welcome email if user was created (not for reactivation)
             if user_created:
                 send_collaborator_invite_email(device, collaborator_email)
 
-            logger.info(f"Admin {request.user.email} added {collaborator_email} as collaborator to device {device.device_serial} (user_created={user_created})")
+            logger.info(f"Admin {request.user.email} added {collaborator_email} as collaborator to device {device.device_serial} via OTP (user_created={user_created}, reactivated={bool(existing_collaboration)})")
 
             # Broadcast WebSocket update
             broadcast_device_update(
@@ -1239,16 +1411,25 @@ class DeviceViewSet(BaseAuthViewSet):
             )
 
             return Response({
-                'detail': f'Collaborator added',
-                'user_id': user.id
+                'detail': f'Collaborator added successfully',
+                'user_id': user.id,
+                'user_created': user_created
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            logger.error(f"Error adding collaborator: {str(e)}")
+            logger.error(f"Error confirming collaborator addition: {str(e)}")
             return Response(
                 {'detail': 'Failed to add collaborator. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=True, methods=['post'], url_path='add-collaborator', permission_classes=[IsAuthenticated])
+    def add_collaborator(self, request, pk=None):
+        """Legacy endpoint - redirects to OTP flow."""
+        return Response(
+            {'detail': 'This endpoint is deprecated. Use send-collaborator-otp and confirm-add-collaborator instead.'},
+            status=status.HTTP_410_GONE
+        )
 
     @action(detail=True, methods=['post'], url_path='admin-remove-ownership', permission_classes=[IsAuthenticated])
     def admin_remove_ownership(self, request, pk=None):
