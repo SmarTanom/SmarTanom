@@ -13,6 +13,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
+from rest_framework.decorators import authentication_classes
 from apps.accounts.models import User
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
@@ -281,11 +282,39 @@ def send_device_invitation_email(invitation):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@authentication_classes([])  # Explicitly disable auth for anonymous device existence check
 def check_device(request):
-    """Check if device exists and can be bound."""
+    """Check if device exists and can be bound.
+
+    Added verbose diagnostic logging to help trace unexpected 401/permission issues.
+    Logs include:
+      - Incoming method, path, client IP
+      - Relevant headers (authorization presence only, not token value), content-type
+      - Raw body (truncated) and parsed payload
+      - Serializer validation result
+      - Outcome branch (exists / not exists / invalid)
+    """
+    req_meta = request.META
+    client_ip = req_meta.get('REMOTE_ADDR')
+    auth_header = req_meta.get('HTTP_AUTHORIZATION', '')
+    content_type = req_meta.get('CONTENT_TYPE')
+    raw_body = ''
+    try:
+        raw_body = request.body.decode('utf-8')[:500]
+    except Exception:
+        raw_body = '<unavailable>'
+    logger.debug(
+        "[check_device] incoming POST ip=%s auth_present=%s content_type=%s raw_body=%s",
+        client_ip,
+        bool(auth_header),
+        content_type,
+        raw_body,
+    )
+
     serializer = DeviceCheckSerializer(data=request.data)
 
     if not serializer.is_valid():
+        logger.debug('[check_device] serializer invalid errors=%s', serializer.errors)
         return Response(
             {'error': 'Invalid data', 'details': serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
@@ -295,6 +324,7 @@ def check_device(request):
 
     try:
         device = Device.objects.get(device_serial=serial_number)
+        logger.debug('[check_device] FOUND serial=%s name=%s bound=%s', serial_number, device.device_name, device.is_bound)
         return Response({
             'exists': True,
             'serial_number': serial_number,
@@ -302,6 +332,7 @@ def check_device(request):
             'is_bound': device.is_bound
         }, status=status.HTTP_200_OK)
     except Device.DoesNotExist:
+        logger.debug('[check_device] NOT_FOUND serial=%s', serial_number)
         return Response({
             'exists': False,
             'serial_number': serial_number

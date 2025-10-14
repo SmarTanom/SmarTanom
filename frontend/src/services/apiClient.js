@@ -41,8 +41,14 @@ async function request(path, { method = 'GET', headers = {}, body, authToken, js
   if (json && !(body instanceof FormData)) {
     finalHeaders['Content-Type'] = finalHeaders['Content-Type'] || 'application/json';
   }
-  if (authToken) {
-    finalHeaders['Authorization'] = `Token ${authToken}`;
+  if (authToken && typeof authToken === 'string') {
+    const trimmed = authToken.trim();
+    if (trimmed && trimmed !== 'null' && trimmed !== 'undefined') {
+      finalHeaders['Authorization'] = `Token ${trimmed}`;
+    } else if (trimmed) {
+      // eslint-disable-next-line no-console
+      console.warn('[apiClient] Suppressed invalid auth token header value:', trimmed);
+    }
   }
   const fetchOpts = { method, headers: finalHeaders, ...rest };
   if (body !== undefined) {
@@ -101,15 +107,15 @@ export const authApi = {
     // If backend hints a different flow, retry once with the corrected purpose
     if (first && first.flow_hint === 'should_signup' && purpose === 'login') {
       const second = await apiClient.post('/api/auth/request-otp/', { email, purpose: 'register' });
-      try { localStorage.setItem('otpPurpose', 'register'); } catch (_) {}
+      try { localStorage.setItem('otpPurpose', 'register'); } catch (_) { }
       return { ...second, used_purpose: 'register' };
     }
     if (first && first.flow_hint === 'should_login' && purpose === 'register') {
       const second = await apiClient.post('/api/auth/request-otp/', { email, purpose: 'login' });
-      try { localStorage.setItem('otpPurpose', 'login'); } catch (_) {}
+      try { localStorage.setItem('otpPurpose', 'login'); } catch (_) { }
       return { ...second, used_purpose: 'login' };
     }
-    try { localStorage.setItem('otpPurpose', purpose); } catch (_) {}
+    try { localStorage.setItem('otpPurpose', purpose); } catch (_) { }
     return { ...first, used_purpose: purpose };
   },
   // Verify OTP: default to the last used purpose to avoid mismatch (login vs register)
