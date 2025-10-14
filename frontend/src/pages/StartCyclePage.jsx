@@ -1,76 +1,53 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search, Plus } from 'lucide-react';
 import '../assets/styles/StartCyclePage.css';
+import { listPlants } from '../services/api/plants.js';
 
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
-// Mock plant data - can be expanded
-const PLANT_DATABASE = [
-  {
-    id: 1,
-    name: 'Romaine',
-    category: 'Lettuce',
-    image: '🥬',
-    description: 'Crisp lettuce with elongated leaves'
-  },
-  {
-    id: 2,
-    name: 'Butterhead',
-    category: 'Lettuce',
-    image: '🥬',
-    description: 'Soft, buttery textured lettuce'
-  },
-  {
-    id: 3,
-    name: 'Batavia',
-    category: 'Lettuce',
-    image: '🥬',
-    description: 'Crispy lettuce with wavy leaves'
-  },
-  {
-    id: 4,
-    name: 'Pechay',
-    category: 'Bok Choy',
-    image: '🥬',
-    description: 'Asian green leafy vegetable'
-  },
-  {
-    id: 5,
-    name: 'Basil',
-    category: 'Herbs',
-    image: '🌿',
-    description: 'Aromatic herb for cooking'
-  },
-  {
-    id: 6,
-    name: 'Arugula',
-    category: 'Lettuce',
-    image: '🥬',
-    description: 'Peppery, flavorful greens'
-  },
-  {
-    id: 7,
-    name: 'Spinach',
-    category: 'Leafy Greens',
-    image: '🥬',
-    description: 'Nutrient-rich leafy green'
-  },
-  {
-    id: 8,
-    name: 'Kale',
-    category: 'Leafy Greens',
-    image: '🥬',
-    description: 'Hardy, nutritious green'
-  }
-];
+const categoryFor = (name) => {
+  // Simple grouping heuristic; backend doesn't provide category yet
+  const n = (name || '').toLowerCase();
+  if (['basil', 'mint', 'oregano', 'thyme', 'parsley', 'cilantro', 'chives'].some(k => n.includes(k))) return 'Herbs';
+  if (['romaine', 'butterhead', 'batavia', 'arugula', 'looseleaf'].some(k => n.includes(k))) return 'Lettuce';
+  if (['spinach', 'kale'].some(k => n.includes(k))) return 'Leafy Greens';
+  if (['bok', 'pechay'].some(k => n.includes(k))) return 'Bok Choy';
+  return 'Other';
+};
 
 const StartCyclePage = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlants, setSelectedPlants] = useState([]);
+  const [plants, setPlants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const filteredPlants = PLANT_DATABASE.filter(plant =>
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+        const data = await listPlants('');
+        const items = Array.isArray(data) ? data : (data.results || []);
+        // Map backend shape to UI shape
+        setPlants(items.map(p => ({
+          id: p.id,
+          name: p.plant_name,
+          category: categoryFor(p.plant_name),
+          image: '🥬',
+          description: ''
+        })));
+      } catch (e) {
+        setError(e.message || 'Failed to load plants');
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const filteredPlants = plants.filter(plant =>
     plant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     plant.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -98,7 +75,7 @@ const StartCyclePage = () => {
     <div className="start-cycle-root">
       {/* Header */}
       <div className="start-cycle-header">
-        <button 
+        <button
           className="back-button"
           onClick={() => navigate('/dashboard')}
           aria-label="Go back"
@@ -127,12 +104,18 @@ const StartCyclePage = () => {
         </div>
 
         {/* Plant List */}
+        {error && (
+          <div className="no-results"><p>{error}</p></div>
+        )}
+        {loading && !error && (
+          <div className="no-results"><p>Loading plants…</p></div>
+        )}
         <div className="plant-list">
           {filteredPlants.map(plant => {
             const isSelected = selectedPlants.includes(plant.id);
             return (
-              <div 
-                key={plant.id} 
+              <div
+                key={plant.id}
                 className={`plant-item ${isSelected ? 'selected' : ''}`}
                 onClick={() => togglePlantSelection(plant.id)}
               >
@@ -143,7 +126,7 @@ const StartCyclePage = () => {
                     <div className="plant-category">{plant.category}</div>
                   </div>
                 </div>
-                <button 
+                <button
                   className={`add-button ${isSelected ? 'added' : ''}`}
                   aria-label={isSelected ? 'Remove plant' : 'Add plant'}
                 >
@@ -154,7 +137,7 @@ const StartCyclePage = () => {
           })}
         </div>
 
-        {filteredPlants.length === 0 && (
+        {!loading && filteredPlants.length === 0 && (
           <div className="no-results">
             <p>No plants found matching "{searchQuery}"</p>
           </div>
@@ -163,7 +146,7 @@ const StartCyclePage = () => {
 
       {/* Footer */}
       <div className="start-cycle-footer">
-        <button 
+        <button
           className="start-button"
           onClick={handleStartCycle}
           disabled={selectedPlants.length === 0}

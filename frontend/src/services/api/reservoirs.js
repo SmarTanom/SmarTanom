@@ -49,7 +49,7 @@ export async function getReservoirById(reservoirId) {
  * @param {Object} payload
  * @param {number} payload.device - Device primary key ID
  * @param {string} payload.reservoir_name
- * @param {string} payload.plant_type
+ * @param {number} payload.plant_id
  * @param {string} payload.start_date - YYYY-MM-DD
  * @param {string} payload.end_date - YYYY-MM-DD
  */

@@ -2,25 +2,26 @@
 
 from __future__ import annotations
 
-from rest_framework import filters
+from rest_framework import filters, viewsets
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.common.views import BaseAuthViewSet
-from .models import Reservoir
+from .models import Reservoir, Plant
 from apps.devices.models import DeviceCollaboration
-from .serializers import ReservoirSerializer
+from .serializers import ReservoirSerializer, PlantSerializer
 
 
 class ReservoirViewSet(BaseAuthViewSet):
     """ViewSet for Reservoir model with email-based filtering."""
 
-    queryset = Reservoir.objects.select_related("device").all()
+    queryset = Reservoir.objects.select_related("device", "plant").all()
     serializer_class = ReservoirSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ["device", "plant_type"]
-    search_fields = ["reservoir_name", "plant_type", "device__device_name"]
+    filterset_fields = ["device", "plant"]
+    search_fields = ["reservoir_name", "plant__plant_name", "device__device_name"]
     ordering_fields = ["start_date", "end_date", "created_at"]
     ordering = ["-created_at"]
 
@@ -79,3 +80,16 @@ class ReservoirViewSet(BaseAuthViewSet):
                 "Permission denied. You need manage permissions to delete reservoirs on this device."
             )
         instance.delete()
+
+
+class PlantViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only endpoints for Plant catalog used by reservoirs."""
+
+    queryset = Plant.objects.all().order_by("plant_name")
+    serializer_class = PlantSerializer
+    permission_classes = [AllowAny]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ["plant_name"]
+    search_fields = ["plant_name"]
+    ordering_fields = ["plant_name", "created_at"]
+    ordering = ["plant_name"]

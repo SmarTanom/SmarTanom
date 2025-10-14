@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
-from .models import Reservoir
+from .models import Reservoir, Plant
 from apps.devices.models import Device
 
 User = get_user_model()
@@ -20,6 +20,20 @@ class ReservoirModelTests(TestCase):
             user=self.user,
             device_name='Test Device'
         )
+        self.lettuce = Plant.objects.create(
+            plant_name='Lettuce',
+            ppm_min=300, ppm_max=600,
+            ph_min=5.5, ph_max=6.5,
+            water_temp_min=18, water_temp_max=24,
+            light_min=5000, light_max=40000,
+        )
+        self.tomato = Plant.objects.create(
+            plant_name='Tomato',
+            ppm_min=700, ppm_max=1400,
+            ph_min=5.5, ph_max=6.5,
+            water_temp_min=18, water_temp_max=26,
+            light_min=10000, light_max=50000,
+        )
 
     def test_create_reservoir(self):
         """Test creating a reservoir."""
@@ -29,13 +43,13 @@ class ReservoirModelTests(TestCase):
         reservoir = Reservoir.objects.create(
             device=self.device,
             reservoir_name='Test Reservoir',
-            plant_type='Lettuce',
+            plant=self.lettuce,
             start_date=today,
             end_date=end_date
         )
 
         self.assertEqual(reservoir.reservoir_name, 'Test Reservoir')
-        self.assertEqual(reservoir.plant_type, 'Lettuce')
+        self.assertEqual(reservoir.plant, self.lettuce)
         self.assertEqual(reservoir.start_date, today)
         self.assertEqual(reservoir.end_date, end_date)
         self.assertEqual(reservoir.device, self.device)
@@ -49,7 +63,7 @@ class ReservoirModelTests(TestCase):
             reservoir = Reservoir(
                 device=self.device,
                 reservoir_name='Invalid Reservoir',
-                plant_type='Tomato',
+                plant=self.tomato,
                 start_date=today,
                 end_date=yesterday
             )
@@ -64,7 +78,7 @@ class ReservoirModelTests(TestCase):
             reservoir = Reservoir(
                 device=self.device,
                 reservoir_name='Future Reservoir',
-                plant_type='Cucumber',
+                plant=self.lettuce,
                 start_date=far_future,
                 end_date=end_date
             )
