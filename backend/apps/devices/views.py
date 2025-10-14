@@ -1786,10 +1786,16 @@ def get_user_devices(request, user_id: int):
         from apps.accounts.models import User
         user = User.objects.get(id=user_id)
 
-        # Get devices bound to this user's email
+        # Get device IDs where user is a collaborator
+        shared_device_ids = DeviceCollaboration.objects.filter(
+            collaborator_email=user.email,
+            status=DeviceCollaboration.Status.ACTIVE
+        ).values_list('device_id', flat=True)
+
+        # Get devices bound to this user's email OR shared with them
         devices = Device.objects.filter(
-            is_bound=True,
-            bound_email=user.email
+            Q(bound_email=user.email, is_bound=True) |  # Owned devices
+            Q(id__in=shared_device_ids)  # Shared devices
         ).order_by('-created_at')
 
         # Serialize devices

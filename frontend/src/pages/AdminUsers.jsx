@@ -84,6 +84,8 @@ function AdminUsers() {
 		email: user.email,
 		initials: getInitials(user.name),
 		deviceCount: user.device_count || 0,
+		sharedDeviceCount: user.shared_device_count || 0,
+		totalDeviceCount: (user.device_count || 0) + (user.shared_device_count || 0),
 		lastActive: user.last_active || 'Never',
 		bgColor: getBgColor(index),
 		is_active: user.is_active,
@@ -91,7 +93,7 @@ function AdminUsers() {
 	}));
 
 	const totalUsers = formattedUsers.length;
-	const totalDevices = formattedUsers.reduce((sum, user) => sum + user.deviceCount, 0);
+	const totalDevices = formattedUsers.reduce((sum, user) => sum + user.totalDeviceCount, 0);
 	const avgPerUser = totalUsers > 0 ? (totalDevices / totalUsers).toFixed(1) : '0.0';
 
 	const filteredUsers = formattedUsers.filter(user =>
@@ -162,10 +164,15 @@ function AdminUsers() {
 		let message = '';
 
 		// Device status
-		if (user.deviceCount === 0) {
+		if (user.totalDeviceCount === 0) {
 			message += 'This user has no devices. ';
 		} else {
-			message += `This user has ${user.deviceCount} device${user.deviceCount === 1 ? '' : 's'}. `;
+			message += `This user has ${user.totalDeviceCount} device${user.totalDeviceCount === 1 ? '' : 's'}. `;
+		}
+
+		// Shared devices warning
+		if (user.sharedDeviceCount > 0) {
+			message += `Shared devices: access revoked on delete. `;
 		}
 
 		// Active status
@@ -177,7 +184,7 @@ function AdminUsers() {
 
 		message += 'Deleting will permanently remove their account';
 
-		if (user.deviceCount > 0) {
+		if (user.totalDeviceCount > 0) {
 			message += ' and all associated devices';
 		}
 
@@ -347,7 +354,10 @@ function AdminUsers() {
 								<div className="user-meta">
 									<span className="user-devices">
 										<Smartphone size={14} />
-										{user.deviceCount} {user.deviceCount === 1 ? 'device' : 'devices'}
+										{user.totalDeviceCount} {user.totalDeviceCount === 1 ? 'device' : 'devices'}
+										{user.sharedDeviceCount > 0 && (
+											<span className="shared-devices"> ({user.deviceCount} owned, {user.sharedDeviceCount} shared)</span>
+										)}
 									</span>
 									<span className="user-activity">
 										<Activity size={14} />
@@ -367,7 +377,7 @@ function AdminUsers() {
 									</button>
 								)}
 								<button className="btn-view-user" onClick={() => handleViewDevices(user)}>
-									<span className="user-device-count">{user.deviceCount} {user.deviceCount === 1 ? 'device' : 'devices'}</span>
+									<span className="user-device-count">{user.totalDeviceCount} {user.totalDeviceCount === 1 ? 'device' : 'devices'}</span>
 									<ChevronRight size={20} />
 								</button>
 							</div>

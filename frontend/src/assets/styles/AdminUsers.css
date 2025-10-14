@@ -253,6 +253,12 @@
 	font-weight: 700;
 }
 
+.shared-devices {
+	color: #6b7280;
+	font-size: 0.875rem;
+	font-weight: 400;
+}
+
 /* Responsive */
 @media (max-width: 1023.98px) {
 	.users-summary {

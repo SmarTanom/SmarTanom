@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from django.db.models import Count, Q, F
 from django.utils import timezone
 from datetime import timedelta
-from apps.devices.models import Device
+from apps.devices.models import Device, DeviceCollaboration
 from apps.accounts.models import User
 from apps.notifications.models import NotificationLog
 from apps.sensors.models import SensorData
@@ -245,10 +245,16 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             # Format the response
             users_list = []
             for user in users:
-                # Count devices bound to this user's email
-                device_count = Device.objects.filter(
+                # Count devices bound to this user's email (owned devices)
+                owned_device_count = Device.objects.filter(
                     is_bound=True,
                     bound_email=user.email
+                ).count()
+
+                # Count shared devices via active collaborations
+                shared_device_count = DeviceCollaboration.objects.filter(
+                    collaborator_email=user.email,
+                    status=DeviceCollaboration.Status.ACTIVE
                 ).count()
 
                 # Calculate last active time
@@ -261,7 +267,8 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                     'email': user.email,
                     'name': user.full_name or user.username or user.email.split('@')[0],
                     'username': user.username,
-                    'device_count': device_count,
+                    'device_count': owned_device_count,
+                    'shared_device_count': shared_device_count,
                     'last_active': last_active,
                     'joined': user.date_joined,
                     'is_active': user.is_active,
