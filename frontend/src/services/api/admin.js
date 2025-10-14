@@ -178,6 +178,24 @@ export const getUserDevices = async (userId) => {
   }
 };
 
+/**
+ * Delete a user (admin only)
+ * @param {number} userId - User ID to delete
+ * @returns {Promise<Object>} Deletion confirmation
+ */
+export const deleteUser = async (userId) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await apiClient.delete(`/api/auth/users/${userId}/delete/`, {
+      authToken: token
+    });
+    return response;
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw error;
+  }
+};
+
 export default {
   getAdminStats,
   getRecentActivity,
@@ -187,5 +205,6 @@ export default {
   getAdminProfile,
   updateAdminProfile,
   updateAdminPreferences,
-  getUserDevices
+  getUserDevices,
+  deleteUser
 };

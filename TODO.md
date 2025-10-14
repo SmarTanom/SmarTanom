@@ -1,18 +1,33 @@
-# User Devices Modal Implementation
+# Add Trash Button to Admin Users Page
 
-## Backend Tasks
-- [ ] Add API endpoint `/api/admin/users/{user_id}/devices/` in backend/apps/devices/views.py
-- [ ] Add URL pattern in backend/apps/devices/urls.py
+## Backend Changes
+- [ ] Add `delete_user` API endpoint in `backend/apps/accounts/views.py`
+  - Create view function similar to `safe_delete_users` in admin.py
+  - Handle cleanup of related data (tokens, logs, OTPs, etc.)
+  - Add proper permissions (admin only)
+- [ ] Add URL pattern in `backend/apps/accounts/urls.py` for the delete endpoint
 
-## Frontend Tasks
-- [ ] Add API function `getUserDevices(userId)` in frontend/src/services/api/admin.js
-- [ ] Create UserDevicesModal component in frontend/src/components/ui/UserDevicesModal.jsx
-- [ ] Add modal state management in AdminUsers.jsx (isModalOpen, selectedUser, userDevices, loadingDevices)
-- [ ] Add onClick handler to device button in AdminUsers.jsx
-- [ ] Import and use UserDevicesModal in AdminUsers.jsx
+## Frontend Changes
+- [ ] Add `deleteUser` function to `frontend/src/services/api/admin.js`
+  - Make API call to new backend endpoint
+  - Handle success/error responses
+- [ ] Modify `frontend/src/pages/AdminUsers.jsx`
+  - Import Trash icon from lucide-react
+  - Add state for delete confirmation modal
+  - Add trash button to each user card (except staff users)
+  - Implement delete confirmation logic with dynamic messages:
+    - Users with no devices: "This user has no devices. Deleting will permanently remove their account."
+    - Users with devices: "This user has X device(s). Deleting will permanently remove their account and all associated devices."
+    - Active users: Add "This user is currently active." to message
+    - Inactive users: Add "This user is inactive." to message
+  - Handle delete confirmation and API call
+  - Update UI after successful deletion (remove user from list)
+  - Show error messages on failure
 
 ## Testing
-- [ ] Test modal opening and device fetching
-- [ ] Ensure proper loading/error states
-- [ ] Verify responsive design for mobile
-- [ ] Match existing design patterns
+- [ ] Test deletion of users with different statuses:
+  - User with no devices (inactive/active)
+  - User with devices (inactive/active)
+  - Ensure staff users don't show trash button
+- [ ] Verify proper error handling for API failures
+- [ ] Confirm related data cleanup in backend

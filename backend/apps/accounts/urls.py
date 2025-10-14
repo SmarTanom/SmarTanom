@@ -31,6 +31,7 @@ urlpatterns = [
 
     # Admin endpoints
     path('users/', views.user_list, name='user_list'),
+    path('users/<int:user_id>/delete/', views.delete_user, name='delete_user'),
     path('users/promote/', views.promote_user, name='promote_user'),
 
     # Maintenance endpoints

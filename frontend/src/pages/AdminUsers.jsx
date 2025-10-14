@@ -4,8 +4,9 @@ import '../assets/styles/AdminUsers.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
 import { wsClient } from '../services/websocketClient';
-import { getUserDevices } from '../services/api/admin';
+import { getUserDevices, deleteUser } from '../services/api/admin';
 import UserDevicesModal from '../components/ui/UserDevicesModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -17,7 +18,8 @@ import {
 	Activity,
 	ChevronRight,
 	Loader2,
-	AlertTriangle
+	AlertTriangle,
+	Trash2
 } from 'lucide-react';
 
 function AdminUsers() {
@@ -29,6 +31,11 @@ function AdminUsers() {
 	const [selectedUser, setSelectedUser] = useState(null);
 	const [userDevices, setUserDevices] = useState([]);
 	const [loadingDevices, setLoadingDevices] = useState(false);
+
+	// Delete confirmation modal state
+	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+	const [userToDelete, setUserToDelete] = useState(null);
+	const [deletingUser, setDeletingUser] = useState(false);
 
 	// Use admin realtime store
 	const users = useAdminRealtimeStore(state => state.allUsers);
@@ -115,6 +122,68 @@ function AdminUsers() {
 		setSelectedUser(null);
 		setUserDevices([]);
 		setLoadingDevices(false);
+	};
+
+	// Handle delete button click
+	const handleDeleteClick = (user) => {
+		setUserToDelete(user);
+		setIsDeleteModalOpen(true);
+	};
+
+	// Handle delete confirmation
+	const handleDeleteConfirm = async () => {
+		if (!userToDelete) return;
+
+		setDeletingUser(true);
+		try {
+			await deleteUser(userToDelete.id);
+			// Refresh the users list after successful deletion
+			fetchAdminUsers();
+			setIsDeleteModalOpen(false);
+			setUserToDelete(null);
+		} catch (error) {
+			console.error('Error deleting user:', error);
+			// Could add error toast here if needed
+		} finally {
+			setDeletingUser(false);
+		}
+	};
+
+	// Handle delete modal close
+	const handleCloseDeleteModal = () => {
+		setIsDeleteModalOpen(false);
+		setUserToDelete(null);
+	};
+
+	// Generate confirmation message based on user status
+	const getDeleteConfirmationMessage = (user) => {
+		if (!user) return '';
+
+		let message = '';
+
+		// Device status
+		if (user.deviceCount === 0) {
+			message += 'This user has no devices. ';
+		} else {
+			message += `This user has ${user.deviceCount} device${user.deviceCount === 1 ? '' : 's'}. `;
+		}
+
+		// Active status
+		if (user.is_active) {
+			message += 'This user is currently active. ';
+		} else {
+			message += 'This user is inactive. ';
+		}
+
+		message += 'Deleting will permanently remove their account';
+
+		if (user.deviceCount > 0) {
+			message += ' and all associated devices';
+		}
+
+		message += '. This action cannot be undone.';
+
+		return message;
 	};
 
 	// Loading state
@@ -286,10 +355,22 @@ function AdminUsers() {
 									</span>
 								</div>
 							</div>
-							<button className="btn-view-user" onClick={() => handleViewDevices(user)}>
-								<span className="user-device-count">{user.deviceCount} {user.deviceCount === 1 ? 'device' : 'devices'}</span>
-								<ChevronRight size={20} />
-							</button>
+							<div className="user-actions">
+								{!user.is_staff && (
+									<button
+										className="btn-delete-user"
+										onClick={() => handleDeleteClick(user)}
+										title="Delete user"
+										disabled={deletingUser}
+									>
+										<Trash2 size={16} />
+									</button>
+								)}
+								<button className="btn-view-user" onClick={() => handleViewDevices(user)}>
+									<span className="user-device-count">{user.deviceCount} {user.deviceCount === 1 ? 'device' : 'devices'}</span>
+									<ChevronRight size={20} />
+								</button>
+							</div>
 						</article>
 					))}
 				</section>
@@ -328,6 +409,18 @@ function AdminUsers() {
 					onClose={handleCloseModal}
 				/>
 			)}
+
+			{/* Delete Confirmation Modal */}
+			<ConfirmationModal
+				isOpen={isDeleteModalOpen}
+				onClose={handleCloseDeleteModal}
+				onConfirm={handleDeleteConfirm}
+				title="Delete User"
+				message={getDeleteConfirmationMessage(userToDelete)}
+				confirmText={deletingUser ? "Deleting..." : "Delete User"}
+				cancelText="Cancel"
+				variant="danger"
+			/>
 		</div>
 	);
 }

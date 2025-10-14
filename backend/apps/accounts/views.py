@@ -664,6 +664,77 @@ def check_username_availability(request):
 
 
 # Cleanup task views
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_user(request, user_id):
+    """Delete a user safely (admin only)."""
+    if not request.user.is_admin:
+        return Response(
+            {'error': 'Admin access required'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        user_to_delete = User.objects.get(id=user_id)
+
+        # Prevent deleting other admins or self
+        if user_to_delete.is_admin:
+            return Response(
+                {'error': 'Cannot delete admin users'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if user_to_delete == request.user:
+            return Response(
+                {'error': 'Cannot delete your own account'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Clean up related data first (similar to safe_delete_users in admin.py)
+        from rest_framework.authtoken.models import Token
+        from django.contrib.admin.models import LogEntry
+        from apps.devices.models import DeviceInvitation, DeviceCollaboration, Device
+
+        Token.objects.filter(user=user_to_delete).delete()
+        LogEntry.objects.filter(user=user_to_delete).delete()
+        OTPCode.objects.filter(email=user_to_delete.email).delete()
+        LoginAttempt.objects.filter(email=user_to_delete.email).delete()
+
+        # Clean up device-related data
+        DeviceInvitation.objects.filter(invite_email=user_to_delete.email).delete()
+        DeviceCollaboration.objects.filter(collaborator_email=user_to_delete.email).delete()
+
+        # Delete owned devices (this will cascade to related data)
+        owned_devices = Device.objects.filter(bound_email=user_to_delete.email)
+        owned_devices.delete()
+
+        user_to_delete.groups.clear()
+        user_to_delete.user_permissions.clear()
+
+        # Store email for response before deletion
+        deleted_email = user_to_delete.email
+
+        # Delete the user
+        user_to_delete.delete()
+
+        return Response(
+            {'message': f'User {deleted_email} has been successfully deleted'},
+            status=status.HTTP_200_OK
+        )
+
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except Exception as e:
+        logger.error(f"Error in delete_user: {str(e)}")
+        return Response(
+            {'error': 'Internal server error'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def cleanup_expired_otps(request):
