@@ -408,6 +408,7 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                 },
                 'preferences': {
                     'email_notifications': preferences.email_notifications,
+                    'push_notifications': preferences.push_notifications,
                     'device_alerts': preferences.device_alerts,
                     'system_updates': preferences.system_updates,
                     'weekly_reports': preferences.weekly_reports,
@@ -477,6 +478,8 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             # Update preferences
             if 'email_notifications' in request.data:
                 preferences.email_notifications = request.data['email_notifications']
+            if 'push_notifications' in request.data:
+                preferences.push_notifications = request.data['push_notifications']
             if 'device_alerts' in request.data:
                 preferences.device_alerts = request.data['device_alerts']
             if 'system_updates' in request.data:
@@ -499,10 +502,34 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             preferences.save()
             logger.info(f"Preferences updated for {user.email}")
 
+            # Sync NotificationPreferences with UserPreferences
+            # This ensures the admin dashboard toggles control actual notification delivery
+            try:
+                from apps.notifications.models import NotificationPreferences
+
+                notif_prefs, created = NotificationPreferences.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        'email_enabled': preferences.email_notifications,
+                        'critical_alerts': True,
+                        'warnings': True,
+                        'info': True
+                    }
+                )
+
+                # Update email_enabled to match admin dashboard setting
+                notif_prefs.email_enabled = preferences.email_notifications
+                notif_prefs.save()
+
+                logger.info(f"NotificationPreferences synced for {user.email}: email_enabled={notif_prefs.email_enabled}")
+            except Exception as sync_error:
+                logger.warning(f"Could not sync NotificationPreferences for {user.email}: {sync_error}")
+
             return Response({
                 'message': 'Settings saved successfully',
                 'preferences': {
                     'email_notifications': preferences.email_notifications,
+                    'push_notifications': preferences.push_notifications,
                     'device_alerts': preferences.device_alerts,
                     'system_updates': preferences.system_updates,
                     'weekly_reports': preferences.weekly_reports,

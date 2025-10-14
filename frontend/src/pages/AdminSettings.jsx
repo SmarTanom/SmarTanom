@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import '../assets/styles/AdminSettings.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import { getAdminProfile, updateAdminProfile, updateAdminPreferences } from '../services/api/admin';
+import {
+	isPushNotificationSupported,
+	subscribeToPush,
+	unsubscribeFromPush,
+} from '../services/api/notifications';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
 import {
 	LayoutDashboard,
@@ -47,6 +52,7 @@ function AdminSettings() {
 	// Preferences
 	const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 	const [emailNotifications, setEmailNotifications] = useState(true);
+	const [pushNotifications, setPushNotifications] = useState(true);
 	const [deviceAlerts, setDeviceAlerts] = useState(true);
 	const [systemUpdates, setSystemUpdates] = useState(false);
 	const [weeklyReports, setWeeklyReports] = useState(true);
@@ -74,6 +80,7 @@ function AdminSettings() {
 
 				// Set preferences
 				setEmailNotifications(data.preferences.email_notifications);
+				setPushNotifications(data.preferences.push_notifications ?? true); // Fallback to true if undefined
 				setDeviceAlerts(data.preferences.device_alerts);
 				setSystemUpdates(data.preferences.system_updates);
 				setWeeklyReports(data.preferences.weekly_reports);
@@ -395,8 +402,52 @@ function AdminSettings() {
 
 						<div className="setting-row">
 							<div className="setting-info">
+								<div className="setting-label">Push Notifications</div>
+								<div className="setting-description">Receive browser push notifications</div>
+							</div>
+							<label className="toggle-switch">
+								<input
+									type="checkbox"
+									checked={pushNotifications}
+									onChange={async (e) => {
+										const newValue = e.target.checked;
+										setPushNotifications(newValue);
+										try {
+											// Ensure browser supports push notifications
+											if (!isPushNotificationSupported()) {
+												throw new Error('Push notifications are not supported in this browser');
+											}
+
+											if (newValue) {
+												// Enable: subscribe in browser and create backend PushSubscription
+												await subscribeToPush();
+												await handlePreferenceChange('push_notifications', true);
+												showMessage('Push notifications enabled on this device', 'success');
+											} else {
+												// Disable: unsubscribe in browser and deactivate backend record
+												await unsubscribeFromPush();
+												await handlePreferenceChange('push_notifications', false);
+												showMessage('Push notifications disabled for this device', 'success');
+											}
+										} catch (err) {
+											console.error('❌ Failed to toggle push notifications:', err);
+											// Revert UI toggle on failure
+											setPushNotifications((prev) => !prev);
+											showMessage(
+												typeof err?.message === 'string' ? err.message : 'Failed to update push notifications',
+												'error'
+											);
+										}
+									}}
+								/>
+								<span className="toggle-slider"></span>
+							</label>
+						</div>
+
+						<div className="setting-row">
+							<div className="setting-info">
 								<div className="setting-label">Device Alerts</div>
-								<div className="setting-description">Critical device status changes</div>
+								<div className="setting-description">Critical device status changes from all devices</div>
 							</div>
 							<label className="toggle-switch">
 								<input

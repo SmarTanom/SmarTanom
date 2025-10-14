@@ -77,7 +77,7 @@ class SensorAlertService:
             f"severity={severity}"
         )
 
-        # Send push notification to device owner
+        # Send push/email notification to device owner
         result = PushNotificationService.send_alert_notification(
             user=user,
             alert_title=title,
@@ -86,12 +86,27 @@ class SensorAlertService:
             device_id=device.id,
         )
 
-        if result and result.get('sent', 0) > 0:
-            logger.info(f"Push notification sent to {user.email} for {sensor_type} alert")
-            return body
+        # Log owner delivery summary
+        if result:
+            logger.info(
+                f"Owner notify summary for {user.email}: push_sent={result.get('sent', 0)}, push_failed={result.get('failed', 0)}"
+            )
         else:
-            logger.warning(f"Failed to send push notification to {user.email}")
-            return None
+            logger.warning(f"No result returned from PushNotificationService for {user.email}")
+
+        # Always broadcast to admins who opted in to receive all device alerts (email and/or push)
+        try:
+            PushNotificationService.send_to_all_admins(
+                title=f"🌱 {title}",
+                message=body,
+                notification_type=severity,
+                url=f"/alerts?device={device.id}",
+                data={'device_id': device.id, 'alert_type': severity}
+            )
+        except Exception as e:
+            logger.error(f"Failed to broadcast alert to admins: {e}")
+
+        return body
 
     @staticmethod
     def _detect_alert(sensor_type: str, value: float) -> Optional[dict]:

@@ -122,6 +122,7 @@ class UserPreferences(models.Model):
 
     # Notification settings
     email_notifications = models.BooleanField(default=True)
+    push_notifications = models.BooleanField(default=True)
     device_alerts = models.BooleanField(default=True)
     system_updates = models.BooleanField(default=False)
     weekly_reports = models.BooleanField(default=True)
