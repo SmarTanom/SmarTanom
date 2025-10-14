@@ -804,6 +804,7 @@ export default function AdminDevices() {
 		id: device.id,
 		serial: device.serial || device.device_serial || device.serial_number || 'Unknown',
 		owner: device.owner || (device.owner_email ? maskEmail(device.owner_email) : null),
+		full_owner_email: device.owner_email,
 		status: getDeviceStatus(device),
 		lastSeen: formatLastSeen(device.last_seen),
 		assignedDate: device.assigned_date ? new Date(device.assigned_date).toLocaleDateString() : null,
@@ -832,6 +833,7 @@ export default function AdminDevices() {
 		const matchesSearch =
 			device.serial.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			(device.owner && device.owner.toLowerCase().includes(searchQuery.toLowerCase())) ||
+			(device.full_owner_email && device.full_owner_email.toLowerCase().includes(searchQuery.toLowerCase())) ||
 			(device.device_name && device.device_name.toLowerCase().includes(searchQuery.toLowerCase()));
 
 		const matchesFilter =
