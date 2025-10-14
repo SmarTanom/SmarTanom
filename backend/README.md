@@ -357,16 +357,15 @@ python manage.py check --deploy    # Production readiness check
 - **Structured Logs**: JSON-formatted for production
 - **Log Levels**: Debug (dev) / Info (prod)
 
-## 🐳 Deployment
+## � Deployment
 
-### Docker
-```dockerfile
-# Production-ready Dockerfile provided
-docker build -t smartanom-backend .
-docker run -p 8000:8000 --env-file .env smartanom-backend
+### Local Development
+Run the development server with:
+```bash
+python manage.py runserver
 ```
 
-### Traditional Deployment
+### Production Deployment
 1. **Install dependencies**: `pip install -r requirements.txt`
 2. **Set environment**: Copy and configure `.env`
 3. **Database setup**: `python manage.py migrate`

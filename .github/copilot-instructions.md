@@ -16,10 +16,13 @@ Concise project-specific guidance to help an AI agent work effectively in this r
   2. `py -m venv .venv && .\.venv\Scripts\Activate.ps1`
   3. `pip install -r requirements.txt`
   4. `python manage.py migrate && python manage.py runserver`
+- Local frontend (React + Vite):
+  1. `cd frontend`
+  2. `npm install`
+  3. `npm run dev`
 - OTP auth quick test (dev console email backend): POST JSON to `/api/auth/request-otp/` then `/api/auth/verify-otp/` (see `README_AUTH.md` for curl examples). Response includes `debug_code` in debug mode.
 - Seed mock monitoring data: `python manage.py seed_mock_data --readings-per-sensor 24 --days 3` (idempotent; never creates superusers).
 - Run tests (current minimal coverage): `python manage.py test apps.monitoring` (pytest markers appear in `test_health.py` but project uses Django test runner; pytest may be installed via requirements—avoid mixing unless adding config).
-- Docker (dev full stack): `docker-compose up --build` uses Postgres + Redis + backend + frontend; backend dev image migrates automatically (`docker/Dockerfile.backend.dev`). Production composition handled by `docker-compose.prod.yml` + multi-stage Dockerfile(s).
 
 ### 3. Patterns & Conventions
 - Back-end apps under `backend/apps/`. New domain logic should follow monitoring app structure: `models.py`, `serializers.py`, `views.py`, `urls.py` with `ModelViewSet` and permission scoping like `DeviceViewSet.get_queryset`.
@@ -39,11 +42,11 @@ Concise project-specific guidance to help an AI agent work effectively in this r
 ### 5. File Landmarks
 - `backend/smartanom/settings.py` – single source of config (custom user model, OTP, logging, DB parsing, security toggles).
 - `backend/apps/accounts/models.py` – core auth models & rate limiting logic.
-- `backend/apps/monitoring/models.py` – canonical style for model definitions (constraints + indexes + validation).
-- `backend/apps/monitoring/views.py` – exemplar DRF viewset patterns (scoped queryset, filtering/search/order backends, health endpoint).
+- `backend/apps/devices/models.py` – device model with binding & collaboration logic.
+- `backend/apps/devices/views.py` – device viewset patterns (scoped queryset, filtering/search/order backends, device binding/sharing).
 - `backend/templates/emails/otp_email.*` – HTML + text OTP templates; extend similarly for future notification types.
-- `docker/Dockerfile.backend.dev` vs `docker/Dockerfile.backend` – dev (volume mount, auto migrate) vs multi-stage production build.
-- `docker-compose.yml` – development stack; highlight env mapping & healthchecks.
+- `frontend/src/services/apiClient.js` – centralized API client with VITE_API_BASE_URL configuration.
+- `frontend/.env` – frontend environment variables (API base URL).
 
 ### 6. Common Pitfalls & Gotchas
 - Tests: `pytest` marker used but no `pytest.ini`; running `pytest` alone may not pick up Django settings—prefer `python manage.py test` unless a full pytest integration is added.
@@ -70,8 +73,10 @@ class ExampleViewSet(ModelViewSet):
 ```
 
 ### 9. Deployment Notes
-- Production compose uses single `app` container (likely backend only as of now) exposing port 80 mapped to Django 8000; ensure static files collected if/when static assets added (`COLLECT_STATIC` flag present in dev env vars but not yet implemented—add management command hook before enabling).
-- Ensure `ALLOWED_HOSTS`, `SECRET_KEY`, and DB credentials passed via env; Redis optional until background processing added.
+- Backend runs on port 8000 (`python manage.py runserver`) for development.
+- Frontend runs on port 5173 (`npm run dev`) for development with Vite dev server.
+- Ensure `ALLOWED_HOSTS`, `SECRET_KEY`, and DB credentials configured via env variables.
+- Frontend API communication configured via `VITE_API_BASE_URL` in `frontend/.env`.
 
 ### 10. When Extending
 - Reuse existing env var parsing & security toggle patterns.

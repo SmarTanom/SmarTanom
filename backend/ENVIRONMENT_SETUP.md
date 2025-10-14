@@ -40,15 +40,22 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 
 ### Development vs Production:
 
-- **Development**: Use the provided Docker setup with default database/redis
-- **Production**: Configure your own database and email settings
+- **Development**: Use local SQLite database (default) with console email backend
+- **Production**: Configure PostgreSQL/MySQL database and SMTP email settings
 
-## Docker Development Setup
+## Local Development Setup
 
-For development, you can use Docker Compose which handles most configuration automatically:
+For development, after setting up your `.env` file:
 
 ```bash
-docker-compose up --build
+# Install dependencies
+pip install -r requirements.txt
+
+# Run migrations
+python manage.py migrate
+
+# Start development server
+python manage.py runserver
 ```
 
-This will use the environment variables from your `.env` file and connect to the Docker containers for PostgreSQL and Redis.
+The backend will use SQLite by default for development, which requires no additional setup.
