@@ -107,6 +107,19 @@
 	color: #8BA797;
 }
 
+.filter-section {
+	margin-top: 16px;
+}
+
+.filter-label {
+	font-size: 12px;
+	font-weight: 700;
+	color: #6b7280;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	margin-bottom: 8px;
+}
+
 .filter-tabs {
 	display: flex;
 	gap: 8px;
@@ -134,6 +147,29 @@
 	background: #2eb72e;
 	color: #fff;
 	border-color: #2eb72e;
+	transform: translateY(-1px);
+	box-shadow: 0 2px 8px rgba(46, 183, 46, 0.3);
+}
+
+/* Status-specific filter styles */
+.filter-tab.status-active.active {
+	background: #10b981;
+	border-color: #10b981;
+}
+
+.filter-tab.status-inactive.active {
+	background: #9ca3af;
+	border-color: #9ca3af;
+}
+
+.filter-tab.status-maintenance.active {
+	background: #f59e0b;
+	border-color: #f59e0b;
+}
+
+.filter-tab.status-decommissioned.active {
+	background: #ef4444;
+	border-color: #ef4444;
 }
 
 /* Device list */
@@ -141,6 +177,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: 14px;
+	overflow: visible;
 }
 
 .device-card {
@@ -153,6 +190,8 @@
 	gap: 18px;
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 	transition: all 0.2s;
+	position: relative;
+	overflow: visible;
 }
 
 .device-card:hover {
@@ -237,6 +276,8 @@
 	display: flex;
 	gap: 8px;
 	flex-shrink: 0;
+	position: relative;
+	overflow: visible;
 }
 
 .btn-view-details {
@@ -281,6 +322,163 @@
 	background: #fef2f2;
 	border-color: #fecaca;
 	color: #b91c1c;
+}
+
+/* Status button */
+.btn-set-status {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 10px 18px;
+	border: 1px solid #E8F1EA;
+	border-radius: 10px;
+	background: #fff;
+	color: #111;
+	font-weight: 600;
+	font-size: 14px;
+	cursor: pointer;
+	transition: all 0.2s;
+	white-space: nowrap;
+}
+
+.btn-set-status:hover {
+	background: #F5FDF6;
+	border-color: #2eb72e;
+	color: #2eb72e;
+}
+
+/* Status Selection Modal */
+.status-selection-modal {
+	background: #fff;
+	border-radius: 20px;
+	padding: 32px;
+	max-width: 540px;
+	width: 100%;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+	max-height: 90vh;
+	overflow-y: auto;
+}
+
+.status-modal-header {
+	margin-bottom: 24px;
+	text-align: center;
+}
+
+.status-modal-header h3 {
+	font-family: 'Abril Fatface', serif;
+	font-size: 28px;
+	color: #2eb72e;
+	margin: 0 0 8px 0;
+	font-weight: 400;
+}
+
+.status-modal-header p {
+	color: #6b7280;
+	font-size: 15px;
+	margin: 4px 0;
+}
+
+.status-modal-header .current-status {
+	color: #2eb72e;
+	font-weight: 600;
+	font-size: 14px;
+	margin-top: 12px;
+}
+
+.status-options {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin-bottom: 24px;
+}
+
+.status-option {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 16px 20px;
+	border: 2px solid #E8F1EA;
+	border-radius: 12px;
+	background: #fff;
+	cursor: pointer;
+	transition: all 0.2s;
+	text-align: left;
+	width: 100%;
+}
+
+.status-option:hover {
+	border-color: #2eb72e;
+	background: #F5FDF6;
+	transform: translateY(-2px);
+	box-shadow: 0 4px 12px rgba(46, 183, 46, 0.15);
+}
+
+.status-option.current {
+	border-color: #2eb72e;
+	background: #E8F1EA;
+	position: relative;
+}
+
+.status-option.current::after {
+	content: '✓';
+	position: absolute;
+	right: 20px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: #2eb72e;
+	font-size: 20px;
+	font-weight: bold;
+}
+
+.status-emoji {
+	font-size: 32px;
+	flex-shrink: 0;
+	width: 40px;
+	text-align: center;
+}
+
+.status-info {
+	flex: 1;
+}
+
+.status-name {
+	font-size: 16px;
+	font-weight: 700;
+	color: #111;
+	margin-bottom: 4px;
+}
+
+.status-description {
+	font-size: 13px;
+	color: #6b7280;
+	line-height: 1.4;
+}
+
+.btn-cancel-status {
+	width: 100%;
+	padding: 14px 24px;
+	background: #fff;
+	color: #6b7280;
+	border: 1px solid #E8F1EA;
+	border-radius: 12px;
+	font-weight: 600;
+	font-size: 15px;
+	cursor: pointer;
+	transition: all 0.2s;
+	font-family: 'Montserrat', sans-serif;
+}
+
+.btn-cancel-status:hover {
+	background: #F5FDF6;
+	border-color: #d0ead3;
+	color: #111;
+}
+
+.device-operational-status {
+	font-size: 13px;
+	font-weight: 500;
+	color: #6b7280;
+	padding: 2px 0;
 }
 
 /* Modal */
@@ -598,9 +796,16 @@
 	}
 
 	.btn-view-details,
-	.btn-delete-device {
+	.btn-delete-device,
+	.btn-set-status {
 		width: 100%;
 		justify-content: center;
+	}
+
+	.status-dropdown {
+		left: 0;
+		right: 0;
+		width: 100%;
 	}
 
 	.device-modal {

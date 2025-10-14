@@ -29,7 +29,8 @@ import {
 	Share2,
 	Mail,
 	CheckCircle,
-	Trash2
+	Trash2,
+	Settings as SettingsIcon
 } from 'lucide-react';
 
 function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
@@ -714,13 +715,21 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 export default function AdminDevices() {
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = useState('');
-	const [activeFilter, setActiveFilter] = useState('all');
+	const [activeFilter, setActiveFilter] = useState('all'); // Assignment filter
+	const [statusFilter, setStatusFilter] = useState('all'); // Operational status filter
 	const [selectedDevice, setSelectedDevice] = useState(null);
 
 	// Delete confirmation modal state
 	const [deleteModal, setDeleteModal] = useState({
 		isOpen: false,
 		device: null
+	});
+
+	// Status update modal state
+	const [statusModal, setStatusModal] = useState({
+		isOpen: false,
+		device: null,
+		newStatus: null
 	});
 
 	// Use admin realtime store
@@ -797,6 +806,49 @@ export default function AdminDevices() {
 		}
 	};
 
+	// Handle status change request
+	const handleStatusChange = (device, newStatus) => {
+		setOpenStatusDropdown(null); // Close dropdown
+		setStatusModal({
+			isOpen: true,
+			device: device,
+			newStatus: newStatus
+		});
+	};
+
+	// Execute status update
+	const executeStatusUpdate = async () => {
+		const { device, newStatus } = statusModal;
+		if (!device || !newStatus) return;
+
+		try {
+			const authToken = localStorage.getItem('authToken');
+			await apiClient.patch(`/api/devices/${device.id}/`, {
+				status: newStatus
+			}, { authToken });
+
+			toast.success(`Device ${device.serial} status updated to ${getStatusLabel(newStatus)}`);
+			fetchAdminDevices(); // Refresh the device list
+		} catch (error) {
+			console.error('Failed to update device status:', error);
+			const errorMsg = error.data?.detail || error.message || 'Failed to update device status';
+			toast.error(errorMsg);
+		} finally {
+			setStatusModal({ isOpen: false, device: null, newStatus: null });
+		}
+	};
+
+	// Get status label with emoji
+	const getStatusLabel = (status) => {
+		const statusMap = {
+			'active': '🟢 Active',
+			'inactive': '⚪ Inactive',
+			'maintenance': '🛠️ Maintenance',
+			'decommissioned': '🔴 Decommissioned'
+		};
+		return statusMap[status] || status;
+	};
+
 	// Ensure devices is always an array before mapping
 	const safeDevices = Array.isArray(devices) ? devices : [];
 
@@ -807,10 +859,12 @@ export default function AdminDevices() {
 		owner: device.owner || (device.owner_email ? maskEmail(device.owner_email) : null),
 		full_owner_email: device.owner_email,
 		status: getDeviceStatus(device),
+		operationalStatus: device.status || 'active', // Backend operational status (active, inactive, maintenance, decommissioned)
 		lastSeen: formatLastSeen(device.last_seen),
 		assignedDate: device.assigned_date ? new Date(device.assigned_date).toLocaleDateString() : null,
 		device_name: device.name || device.device_name || device.serial,
-		is_bound: device.is_bound // Keep for debugging
+		is_bound: device.is_bound, // Keep for debugging
+		collaborations_count: device.collaborations_count || 0
 	}));
 
 	console.log('📦 Device Status Breakdown:', {
@@ -830,6 +884,12 @@ export default function AdminDevices() {
 	const availableCount = formattedDevices.filter((d) => d.status === 'Available').length;
 	const sharedCount = safeDevices.filter((d) => (d.collaborations_count || 0) > 0).length;
 
+	// Operational status counts
+	const activeStatusCount = formattedDevices.filter((d) => d.operationalStatus === 'active').length;
+	const inactiveStatusCount = formattedDevices.filter((d) => d.operationalStatus === 'inactive').length;
+	const maintenanceStatusCount = formattedDevices.filter((d) => d.operationalStatus === 'maintenance').length;
+	const decommissionedStatusCount = formattedDevices.filter((d) => d.operationalStatus === 'decommissioned').length;
+
 	const filteredDevices = formattedDevices.filter((device) => {
 		const matchesSearch =
 			device.serial.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -837,13 +897,17 @@ export default function AdminDevices() {
 			(device.full_owner_email && device.full_owner_email.toLowerCase().includes(searchQuery.toLowerCase())) ||
 			(device.device_name && device.device_name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-		const matchesFilter =
+		const matchesAssignmentFilter =
 			activeFilter === 'all' ||
 			(activeFilter === 'assigned' && (device.status === 'Assigned' || device.status === 'Active')) ||
 			(activeFilter === 'available' && device.status === 'Available') ||
 			(activeFilter === 'shared' && safeDevices.find(d => d.id === device.id)?.collaborations_count > 0);
 
-		return matchesSearch && matchesFilter;
+		const matchesStatusFilter =
+			statusFilter === 'all' ||
+			device.operationalStatus === statusFilter;
+
+		return matchesSearch && matchesAssignmentFilter && matchesStatusFilter;
 	});
 
 	// Loading state
@@ -996,31 +1060,73 @@ export default function AdminDevices() {
 							className="search-input"
 						/>
 					</div>
-					<div className="filter-tabs">
-						<button
-							className={`filter-tab ${activeFilter === 'all' ? 'active' : ''}`}
-							onClick={() => setActiveFilter('all')}
-						>
-							All ({totalDevices})
-						</button>
-						<button
-							className={`filter-tab ${activeFilter === 'assigned' ? 'active' : ''}`}
-							onClick={() => setActiveFilter('assigned')}
-						>
-							Assigned ({assignedCount})
-						</button>
-						<button
-							className={`filter-tab ${activeFilter === 'available' ? 'active' : ''}`}
-							onClick={() => setActiveFilter('available')}
-						>
-							Available ({availableCount})
-						</button>
-						<button
-							className={`filter-tab ${activeFilter === 'shared' ? 'active' : ''}`}
-							onClick={() => setActiveFilter('shared')}
-						>
-							Shared ({sharedCount})
-						</button>
+
+					{/* Assignment Status Filters */}
+					<div className="filter-section">
+						<div className="filter-label">Assignment Status</div>
+						<div className="filter-tabs">
+							<button
+								className={`filter-tab ${activeFilter === 'all' ? 'active' : ''}`}
+								onClick={() => setActiveFilter('all')}
+							>
+								All ({totalDevices})
+							</button>
+							<button
+								className={`filter-tab ${activeFilter === 'assigned' ? 'active' : ''}`}
+								onClick={() => setActiveFilter('assigned')}
+							>
+								Assigned ({assignedCount})
+							</button>
+							<button
+								className={`filter-tab ${activeFilter === 'available' ? 'active' : ''}`}
+								onClick={() => setActiveFilter('available')}
+							>
+								Available ({availableCount})
+							</button>
+							<button
+								className={`filter-tab ${activeFilter === 'shared' ? 'active' : ''}`}
+								onClick={() => setActiveFilter('shared')}
+							>
+								Shared ({sharedCount})
+							</button>
+						</div>
+					</div>
+
+					{/* Operational Status Filters */}
+					<div className="filter-section">
+						<div className="filter-label">Operational Status</div>
+						<div className="filter-tabs">
+							<button
+								className={`filter-tab ${statusFilter === 'all' ? 'active' : ''}`}
+								onClick={() => setStatusFilter('all')}
+							>
+								All ({totalDevices})
+							</button>
+							<button
+								className={`filter-tab status-active ${statusFilter === 'active' ? 'active' : ''}`}
+								onClick={() => setStatusFilter('active')}
+							>
+								🟢 Active ({activeStatusCount})
+							</button>
+							<button
+								className={`filter-tab status-inactive ${statusFilter === 'inactive' ? 'active' : ''}`}
+								onClick={() => setStatusFilter('inactive')}
+							>
+								⚪ Inactive ({inactiveStatusCount})
+							</button>
+							<button
+								className={`filter-tab status-maintenance ${statusFilter === 'maintenance' ? 'active' : ''}`}
+								onClick={() => setStatusFilter('maintenance')}
+							>
+								🛠️ Maintenance ({maintenanceStatusCount})
+							</button>
+							<button
+								className={`filter-tab status-decommissioned ${statusFilter === 'decommissioned' ? 'active' : ''}`}
+								onClick={() => setStatusFilter('decommissioned')}
+							>
+								🔴 Decommissioned ({decommissionedStatusCount})
+							</button>
+						</div>
 					</div>
 				</section>
 
@@ -1028,7 +1134,7 @@ export default function AdminDevices() {
 				<section className="devices-list">
 					{filteredDevices.map((device) => (
 						<article key={device.id} className="device-card">
-							<div className={`device-icon ${device.status.toLowerCase()}`}>
+							<div className={`device-icon ${device.operationalStatus.toLowerCase()}`}>
 								<Leaf size={24} strokeWidth={2} />
 							</div>
 							<div className="device-info">
@@ -1043,6 +1149,9 @@ export default function AdminDevices() {
 									<span className={`device-status ${device.status.toLowerCase()}`}>
 										{device.status}
 									</span>
+									<span className="device-operational-status">
+										{getStatusLabel(device.operationalStatus)}
+									</span>
 									<span className="device-last-seen">Last seen: {device.lastSeen}</span>
 								</div>
 							</div>
@@ -1053,6 +1162,14 @@ export default function AdminDevices() {
 								>
 									<Boxes size={16} />
 									View Details
+								</button>
+								<button
+									className="btn-set-status"
+									onClick={() => setStatusModal({ isOpen: true, device: device, newStatus: null })}
+									title="Set Device Status"
+								>
+									<SettingsIcon size={16} />
+									Set Status
 								</button>
 								<button
 									className="btn-delete-device"
@@ -1119,6 +1236,87 @@ export default function AdminDevices() {
 			confirmText="Delete Device"
 			cancelText="Cancel"
 		/>
+
+		{/* Status Update Confirmation Modal */}
+		<ConfirmationModal
+			isOpen={statusModal.isOpen && statusModal.newStatus !== null}
+			onClose={() => setStatusModal({ isOpen: false, device: null, newStatus: null })}
+			onConfirm={executeStatusUpdate}
+			title="Update Device Status"
+			message={`Are you sure you want to set device "${statusModal.device?.serial}" to ${getStatusLabel(statusModal.newStatus)}?`}
+			variant="warning"
+			confirmText="Confirm"
+			cancelText="Cancel"
+		/>
+
+		{/* Status Selection Modal */}
+		{statusModal.isOpen && statusModal.newStatus === null && (
+			<div className="modal-overlay" onClick={() => setStatusModal({ isOpen: false, device: null, newStatus: null })}>
+				<div className="status-selection-modal" onClick={(e) => e.stopPropagation()}>
+					<div className="status-modal-header">
+						<h3>Set Device Status</h3>
+						<p>Select a new status for device <strong>{statusModal.device?.serial}</strong></p>
+						<p className="current-status">Current: {getStatusLabel(statusModal.device?.operationalStatus)}</p>
+					</div>
+					<div className="status-options">
+						<button
+							className={`status-option ${statusModal.device?.operationalStatus === 'active' ? 'current' : ''}`}
+							onClick={() => {
+								setStatusModal({ ...statusModal, newStatus: 'active' });
+							}}
+						>
+							<span className="status-emoji">🟢</span>
+							<div className="status-info">
+								<div className="status-name">Active</div>
+								<div className="status-description">Device is operational and functioning normally</div>
+							</div>
+						</button>
+						<button
+							className={`status-option ${statusModal.device?.operationalStatus === 'inactive' ? 'current' : ''}`}
+							onClick={() => {
+								setStatusModal({ ...statusModal, newStatus: 'inactive' });
+							}}
+						>
+							<span className="status-emoji">⚪</span>
+							<div className="status-info">
+								<div className="status-name">Inactive</div>
+								<div className="status-description">Device is not currently in use</div>
+							</div>
+						</button>
+						<button
+							className={`status-option ${statusModal.device?.operationalStatus === 'maintenance' ? 'current' : ''}`}
+							onClick={() => {
+								setStatusModal({ ...statusModal, newStatus: 'maintenance' });
+							}}
+						>
+							<span className="status-emoji">🛠️</span>
+							<div className="status-info">
+								<div className="status-name">Maintenance</div>
+								<div className="status-description">Device is undergoing repairs or updates</div>
+							</div>
+						</button>
+						<button
+							className={`status-option ${statusModal.device?.operationalStatus === 'decommissioned' ? 'current' : ''}`}
+							onClick={() => {
+								setStatusModal({ ...statusModal, newStatus: 'decommissioned' });
+							}}
+						>
+							<span className="status-emoji">🔴</span>
+							<div className="status-info">
+								<div className="status-name">Decommissioned</div>
+								<div className="status-description">Device is permanently retired from service</div>
+							</div>
+						</button>
+					</div>
+					<button
+						className="btn-cancel-status"
+						onClick={() => setStatusModal({ isOpen: false, device: null, newStatus: null })}
+					>
+						Cancel
+					</button>
+				</div>
+			</div>
+		)}
 	</div>
 );
 }
