@@ -208,12 +208,23 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 			);
 
 			toast.success(`Device successfully bound to ${email}`);
+
+			// Update the local device state to reflect bound status
+			const updatedDevice = {
+				...device,
+				is_bound: true,
+				bound_email: email,
+				owner: email
+			};
+
 			setBindEmail('');
 			setOtpCode('');
 			setOtpSent(false);
 			setShowBindForm(false);
+
+			// Trigger parent component update for device list and modal
 			if (onDeviceUpdate) {
-				onDeviceUpdate();
+				onDeviceUpdate(updatedDevice);
 			}
 		} catch (error) {
 			console.error('Failed to bind device:', error);
@@ -245,8 +256,21 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 			);
 
 			toast.success('Device successfully unbound');
+
+			// Update the local device state to reflect unbound status
+			const updatedDevice = {
+				...device,
+				is_bound: false,
+				bound_email: null,
+				owner: null
+			};
+
+			// Refresh collaborators list (should be empty after unbinding)
+			await fetchCollaborators();
+
+			// Trigger parent component update for device list and modal
 			if (onDeviceUpdate) {
-				onDeviceUpdate();
+				onDeviceUpdate(updatedDevice);
 			}
 		} catch (error) {
 			console.error('Failed to unbind device:', error);
@@ -996,7 +1020,14 @@ export default function AdminDevices() {
 			<DeviceDetailsModal
 				device={selectedDevice}
 				onClose={() => setSelectedDevice(null)}
-				onDeviceUpdate={fetchAdminDevices}
+				onDeviceUpdate={(updatedDevice) => {
+					if (updatedDevice) {
+						// Update the selected device state
+						setSelectedDevice(updatedDevice);
+					}
+					// Refresh the device list
+					fetchAdminDevices();
+				}}
 			/>
 		)}
 

@@ -1368,6 +1368,8 @@ class DeviceViewSet(BaseAuthViewSet):
 
     def perform_destroy(self, instance):
         user = self.request.user
+        if instance.is_bound:
+            raise PermissionDenied("Permission denied. Cannot delete a device that is already bound to an email address.")
         if not user.is_staff and instance.bound_email != user.email:
             raise PermissionDenied("Permission denied. Only the device owner can delete a device.")
         instance.delete()
