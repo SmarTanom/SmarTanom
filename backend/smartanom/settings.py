@@ -39,6 +39,10 @@ ALLOWED_HOSTS: list[str] = (
 	or "*"
 ).split(",")
 
+# In development, allow all hosts to support LAN IP access (e.g., 192.168.x.x)
+if DEBUG:
+	ALLOWED_HOSTS = ["*"]
+
 
 # Application definition
 
