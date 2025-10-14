@@ -2,8 +2,29 @@
 // Falls back to window.location.origin (enabling use of Vite proxy) if env var absent.
 
 const RAW_BASE = (import.meta.env.VITE_API_BASE_URL || '').trim();
-const API_BASE = RAW_BASE ? (RAW_BASE.endsWith('/') ? RAW_BASE.slice(0, -1) : RAW_BASE) : window.location.origin;
-const DIRECT_BACKEND_FALLBACK = 'http://127.0.0.1:8000';
+
+// If RAW_BASE points to localhost/127.0.0.1 but the app is loaded from a non-loopback host (e.g., phone on LAN),
+// ignore RAW_BASE to avoid mobile devices trying to call their own 127.0.0.1. We'll rely on proxy/origin instead.
+let EFFECTIVE_BASE = RAW_BASE;
+try {
+  if (RAW_BASE && typeof window !== 'undefined') {
+    const u = new URL(RAW_BASE, window.location.origin);
+    const isLoopback = ['localhost', '127.0.0.1', '::1'].includes(u.hostname);
+    const originIsLoopback = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+    if (isLoopback && !originIsLoopback) {
+      // eslint-disable-next-line no-console
+      console.warn('[apiClient] Ignoring VITE_API_BASE_URL pointing to loopback while served from non-loopback host:', RAW_BASE);
+      EFFECTIVE_BASE = '';
+    }
+  }
+} catch (_) {
+  // If URL parsing fails, keep EFFECTIVE_BASE as-is
+}
+
+const API_BASE = EFFECTIVE_BASE ? (EFFECTIVE_BASE.endsWith('/') ? EFFECTIVE_BASE.slice(0, -1) : EFFECTIVE_BASE) : window.location.origin;
+// Use an override if provided, otherwise derive from current hostname so it works on real devices
+const DIRECT_BACKEND_FALLBACK = (import.meta.env.VITE_DIRECT_BACKEND_FALLBACK || '').trim() ||
+  (typeof window !== 'undefined' ? `http://${window.location.hostname}:8000` : 'http://127.0.0.1:8000');
 
 function buildUrl(path) {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;

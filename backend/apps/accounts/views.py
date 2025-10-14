@@ -5,11 +5,12 @@ from django.utils import timezone
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes, throttle_classes, parser_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes, parser_classes, authentication_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
+from django.views.decorators.csrf import csrf_exempt
 from .models import OTPCode, LoginAttempt
 from .serializers import (
     OTPRequestSerializer,
@@ -218,8 +219,10 @@ def verify_google_account(email: str) -> bool:
     return True
 
 
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def request_otp(request):
     """Request OTP code for authentication."""
     serializer = OTPRequestSerializer(data=request.data)
@@ -276,10 +279,13 @@ def request_otp(request):
                     user_obj = User.objects.get(email=email)
                 except User.DoesNotExist:
                     user_obj = None
-                if user_obj and not user_obj.is_staff and not _user_has_active_access(email):
-                    if not invited_exists:
+                if user_obj and not user_obj.is_staff and not _user_has_active_access(email) and not invited_exists:
+                    # In development, relax this restriction to ease testing from mobile
+                    if not settings.DEBUG:
                         LoginAttempt.record_attempt(email, ip_address, successful=False)
                         return Response({'error': 'No active device access for this account.'}, status=status.HTTP_403_FORBIDDEN)
+                    else:
+                        logger.warning(f"DEBUG override: allowing OTP for {email} without active access/invitation")
                 purpose = OTPCode.PURPOSE_LOGIN
             elif invited_exists:
                 # Allow login attempt to proceed as signup flow for invited emails
@@ -329,8 +335,10 @@ def request_otp(request):
         )
 
 
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def verify_otp(request):
     """Verify OTP code and authenticate user."""
     serializer = OTPVerifySerializer(data=request.data)
