@@ -111,6 +111,44 @@ class User(AbstractBaseUser, PermissionsMixin):
         super().save(*args, **kwargs)
 
 
+class UserPreferences(models.Model):
+    """User preferences and settings."""
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='preferences'
+    )
+
+    # Notification settings
+    email_notifications = models.BooleanField(default=True)
+    device_alerts = models.BooleanField(default=True)
+    system_updates = models.BooleanField(default=False)
+    weekly_reports = models.BooleanField(default=True)
+
+    # Security settings
+    two_factor_enabled = models.BooleanField(default=False)
+    session_timeout = models.IntegerField(default=30, help_text="Session timeout in minutes")
+
+    # Appearance settings
+    dark_mode = models.BooleanField(default=False)
+    font_size = models.CharField(
+        max_length=10,
+        choices=[('small', 'Small'), ('medium', 'Medium'), ('large', 'Large')],
+        default='medium'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'User Preferences'
+        verbose_name_plural = 'User Preferences'
+
+    def __str__(self):
+        return f"Preferences for {self.user.email}"
+
+
 class OTPCode(models.Model):
     """OTP code model for email-based authentication."""
 

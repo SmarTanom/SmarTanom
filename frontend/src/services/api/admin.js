@@ -102,10 +102,71 @@ export const createDevice = async (deviceData) => {
   }
 };
 
+/**
+ * Get current admin profile and settings
+ * @returns {Promise<Object>} Profile and preferences object
+ */
+export const getAdminProfile = async () => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await apiClient.get('/api/admin/dashboard/profile/', {
+      authToken: token
+    });
+    return response;
+  } catch (error) {
+    console.error('Error fetching admin profile:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update admin profile
+ * @param {Object} profileData - Profile data (first_name, last_name only)
+ * @returns {Promise<Object>} Updated profile object
+ */
+export const updateAdminProfile = async (profileData) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    // Only send first_name and last_name
+    const cleanData = {
+      first_name: profileData.first_name,
+      last_name: profileData.last_name
+    };
+    const response = await apiClient.patch('/api/admin/dashboard/update_profile/', cleanData, {
+      authToken: token
+    });
+    return response;
+  } catch (error) {
+    console.error('Error updating admin profile:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update admin preferences/settings
+ * @param {Object} preferences - Preferences object
+ * @returns {Promise<Object>} Updated preferences object
+ */
+export const updateAdminPreferences = async (preferences) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await apiClient.patch('/api/admin/dashboard/update_preferences/', preferences, {
+      authToken: token
+    });
+    return response;
+  } catch (error) {
+    console.error('Error updating admin preferences:', error);
+    throw error;
+  }
+};
+
 export default {
   getAdminStats,
   getRecentActivity,
   getAdminDevices,
   getAdminUsers,
-  createDevice
+  createDevice,
+  getAdminProfile,
+  updateAdminProfile,
+  updateAdminPreferences
 };

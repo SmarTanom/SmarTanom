@@ -382,3 +382,141 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                 {'error': f'Failed to create device: {str(e)}'},
                 status=500
             )
+
+    @action(detail=False, methods=['get'])
+    def profile(self, request):
+        """
+        Get current user profile and settings
+        """
+        try:
+            user = request.user
+
+            # Get or create preferences
+            from apps.accounts.models import UserPreferences
+            preferences, _ = UserPreferences.objects.get_or_create(user=user)
+
+            return Response({
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'username': user.username,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'full_name': user.full_name,
+                    'is_staff': user.is_staff,
+                    'date_joined': user.date_joined
+                },
+                'preferences': {
+                    'email_notifications': preferences.email_notifications,
+                    'device_alerts': preferences.device_alerts,
+                    'system_updates': preferences.system_updates,
+                    'weekly_reports': preferences.weekly_reports,
+                    'two_factor_enabled': preferences.two_factor_enabled,
+                    'session_timeout': preferences.session_timeout,
+                    'dark_mode': preferences.dark_mode,
+                    'font_size': preferences.font_size
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Error fetching profile: {e}")
+            return Response(
+                {'error': 'Failed to fetch profile'},
+                status=500
+            )
+
+    @action(detail=False, methods=['patch'])
+    def update_profile(self, request):
+        """
+        Update user profile (first_name, last_name only)
+        Username is not editable to avoid UNIQUE constraint issues
+        """
+        try:
+            user = request.user
+
+            # Update allowed fields
+            if 'first_name' in request.data:
+                user.first_name = request.data['first_name'].strip()
+            if 'last_name' in request.data:
+                user.last_name = request.data['last_name'].strip()
+
+            user.save()
+            logger.info(f"Profile updated for {user.email}")
+
+            return Response({
+                'message': 'Profile updated successfully',
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'username': user.username,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'full_name': user.full_name
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Error updating profile: {e}")
+            return Response(
+                {'error': f'Failed to update profile: {str(e)}'},
+                status=500
+            )
+
+    @action(detail=False, methods=['patch'])
+    def update_preferences(self, request):
+        """
+        Update user preferences/settings
+        """
+        try:
+            user = request.user
+            from apps.accounts.models import UserPreferences
+
+            # Get or create preferences
+            preferences, _ = UserPreferences.objects.get_or_create(user=user)
+
+            # Update preferences
+            if 'email_notifications' in request.data:
+                preferences.email_notifications = request.data['email_notifications']
+            if 'device_alerts' in request.data:
+                preferences.device_alerts = request.data['device_alerts']
+            if 'system_updates' in request.data:
+                preferences.system_updates = request.data['system_updates']
+            if 'weekly_reports' in request.data:
+                preferences.weekly_reports = request.data['weekly_reports']
+            if 'two_factor_enabled' in request.data:
+                preferences.two_factor_enabled = request.data['two_factor_enabled']
+            if 'session_timeout' in request.data:
+                timeout = int(request.data['session_timeout'])
+                if timeout in [15, 30, 60, 120]:
+                    preferences.session_timeout = timeout
+            if 'dark_mode' in request.data:
+                preferences.dark_mode = request.data['dark_mode']
+            if 'font_size' in request.data:
+                font_size = request.data['font_size'].lower()
+                if font_size in ['small', 'medium', 'large']:
+                    preferences.font_size = font_size
+
+            preferences.save()
+            logger.info(f"Preferences updated for {user.email}")
+
+            return Response({
+                'message': 'Settings saved successfully',
+                'preferences': {
+                    'email_notifications': preferences.email_notifications,
+                    'device_alerts': preferences.device_alerts,
+                    'system_updates': preferences.system_updates,
+                    'weekly_reports': preferences.weekly_reports,
+                    'two_factor_enabled': preferences.two_factor_enabled,
+                    'session_timeout': preferences.session_timeout,
+                    'dark_mode': preferences.dark_mode,
+                    'font_size': preferences.font_size
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Error updating preferences: {e}")
+            return Response(
+                {'error': f'Failed to update settings: {str(e)}'},
+                status=500
+            )
+

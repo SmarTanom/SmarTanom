@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../assets/styles/AdminSettings.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
+import { getAdminProfile, updateAdminProfile, updateAdminPreferences } from '../services/api/admin';
+import ConfirmModal from '../components/ui/ConfirmModal.jsx';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -15,23 +17,154 @@ import {
 	Sun,
 	Moon,
 	HelpCircle,
-	LogOut
+	LogOut,
+	Loader2,
+	CheckCircle2,
+	AlertCircle,
+	Edit2,
+	X
 } from 'lucide-react';
 
 function AdminSettings() {
 	const navigate = useNavigate();
-	const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
+	const [loading, setLoading] = useState(true);
+	const [saving, setSaving] = useState(false);
+	const [saveMessage, setSaveMessage] = useState(null);
+
+	// User data
+	const [email, setEmail] = useState('');
+	const [firstName, setFirstName] = useState('');
+	const [lastName, setLastName] = useState('');
+
+	// Edit mode state
+	const [isEditing, setIsEditing] = useState(false);
+	const [originalFirstName, setOriginalFirstName] = useState('');
+	const [originalLastName, setOriginalLastName] = useState('');
+
+	// Logout modal
+	const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+	// Preferences
+	const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 	const [emailNotifications, setEmailNotifications] = useState(true);
 	const [deviceAlerts, setDeviceAlerts] = useState(true);
 	const [systemUpdates, setSystemUpdates] = useState(false);
 	const [weeklyReports, setWeeklyReports] = useState(true);
-	const [darkMode, setDarkMode] = useState(false);
+	const [darkMode, setDarkMode] = useState(() => {
+		const saved = localStorage.getItem('darkMode');
+		return saved ? JSON.parse(saved) : false;
+	});
 	const [sessionTimeout, setSessionTimeout] = useState('30');
-	const [fontSize, setFontSize] = useState('Medium');
+	const [fontSize, setFontSize] = useState(() => {
+		return localStorage.getItem('fontSize') || 'medium';
+	});
 
-	const handleLogout = () => {
-		// Placeholder for logout functionality
-		alert('Logout functionality will be implemented');
+	// Fetch profile on mount
+	useEffect(() => {
+		const fetchProfile = async () => {
+			try {
+				const data = await getAdminProfile();
+
+				// Set user data
+				setEmail(data.user.email);
+				setFirstName(data.user.first_name || '');
+				setLastName(data.user.last_name || '');
+				setOriginalFirstName(data.user.first_name || '');
+				setOriginalLastName(data.user.last_name || '');
+
+				// Set preferences
+				setEmailNotifications(data.preferences.email_notifications);
+				setDeviceAlerts(data.preferences.device_alerts);
+				setSystemUpdates(data.preferences.system_updates);
+				setWeeklyReports(data.preferences.weekly_reports);
+				setTwoFactorEnabled(data.preferences.two_factor_enabled);
+				setSessionTimeout(String(data.preferences.session_timeout));
+
+				// Sync dark mode and font size with localStorage
+				const savedDarkMode = data.preferences.dark_mode;
+				setDarkMode(savedDarkMode);
+				localStorage.setItem('darkMode', JSON.stringify(savedDarkMode));
+
+				const savedFontSize = data.preferences.font_size;
+				setFontSize(savedFontSize);
+				localStorage.setItem('fontSize', savedFontSize);
+
+			} catch (error) {
+				console.error('Failed to fetch profile:', error);
+				showMessage('Failed to load settings', 'error');
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		fetchProfile();
+	}, []);
+
+	const showMessage = (message, type = 'success') => {
+		setSaveMessage({ message, type });
+		setTimeout(() => setSaveMessage(null), 3000);
+	};
+
+	const handleEditClick = () => {
+		setIsEditing(true);
+	};
+
+	const handleCancelEdit = () => {
+		setFirstName(originalFirstName);
+		setLastName(originalLastName);
+		setIsEditing(false);
+	};
+
+	const handleSaveProfile = async () => {
+		setSaving(true);
+		try {
+			await updateAdminProfile({
+				first_name: firstName,
+				last_name: lastName
+			});
+			setOriginalFirstName(firstName);
+			setOriginalLastName(lastName);
+			setIsEditing(false);
+			showMessage('Profile updated successfully', 'success');
+		} catch (error) {
+			const errorMsg = error.response?.data?.error || 'Failed to update profile';
+			showMessage(errorMsg, 'error');
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const handlePreferenceChange = async (key, value) => {
+		try {
+			await updateAdminPreferences({ [key]: value });
+			showMessage('Settings saved', 'success');
+		} catch (error) {
+			showMessage('Failed to save settings', 'error');
+			console.error('Failed to update preference:', error);
+		}
+	};
+
+	const handleDarkModeChange = async (value) => {
+		setDarkMode(value);
+		localStorage.setItem('darkMode', JSON.stringify(value));
+		await handlePreferenceChange('dark_mode', value);
+	};
+
+	const handleFontSizeChange = async (value) => {
+		setFontSize(value);
+		localStorage.setItem('fontSize', value);
+		await handlePreferenceChange('font_size', value);
+	};
+
+	const openLogoutModal = () => setShowLogoutModal(true);
+	const closeLogoutModal = () => setShowLogoutModal(false);
+
+	const confirmLogout = () => {
+		localStorage.removeItem('authToken');
+		localStorage.removeItem('userEmail');
+		setShowLogoutModal(false);
+		navigate('/login');
+		window.location.reload();
 	};
 
 	return (
@@ -86,24 +219,97 @@ function AdminSettings() {
 						<h1 className="settings-title">Settings</h1>
 						<p className="settings-subtitle">Manage your account and system preferences</p>
 					</div>
+					{saveMessage && (
+						<div className={`save-message ${saveMessage.type}`}>
+							{saveMessage.type === 'success' ? (
+								<CheckCircle2 size={18} />
+							) : (
+								<AlertCircle size={18} />
+							)}
+							<span>{saveMessage.message}</span>
+						</div>
+					)}
 				</header>
 
-				<div className="settings-grid">
-					{/* Account Settings */}
-					<section className="settings-card">
-						<div className="card-header">
-							<User size={20} className="card-icon" />
-							<h2 className="card-title">Account Settings</h2>
-						</div>
+				{loading ? (
+					<div style={{ textAlign: 'center', padding: '60px 20px' }}>
+						<Loader2 size={48} className="spinner" style={{ color: '#339432' }} />
+						<p style={{ marginTop: '16px', color: '#6f8876' }}>Loading settings...</p>
+					</div>
+				) : (
+					<>
+					<div className="settings-grid">
+						{/* Account Settings */}
+						<section className="settings-card">
+							<div className="card-header">
+								<User size={20} className="card-icon" />
+								<h2 className="card-title">Account Settings</h2>
+							</div>
 
-						<div className="settings-group">
-							<label className="setting-label">Email Address</label>
-							<div className="email-display">adm***@smartanom.com</div>
-							<p className="setting-help">Email address is managed through OAuth authentication</p>
-						</div>
+							<div className="settings-group">
+								<label className="setting-label">Email Address</label>
+								<div className="email-display">{email || 'Loading...'}</div>
+								<p className="setting-help">Email address is managed through authentication</p>
+							</div>
 
-						<button className="btn-update-profile">Update Profile</button>
-					</section>
+							<div className="settings-group">
+								<label className="setting-label">First Name</label>
+								{isEditing ? (
+									<input
+										type="text"
+										className="setting-input"
+										value={firstName}
+										onChange={(e) => setFirstName(e.target.value)}
+										placeholder="Enter first name"
+									/>
+								) : (
+									<div className="setting-value">{firstName || 'Not set'}</div>
+								)}
+							</div>
+
+							<div className="settings-group">
+								<label className="setting-label">Last Name</label>
+								{isEditing ? (
+									<input
+										type="text"
+										className="setting-input"
+										value={lastName}
+										onChange={(e) => setLastName(e.target.value)}
+										placeholder="Enter last name"
+									/>
+								) : (
+									<div className="setting-value">{lastName || 'Not set'}</div>
+								)}
+							</div>
+
+							{!isEditing ? (
+								<button className="btn-edit-profile" onClick={handleEditClick}>
+									<Edit2 size={16} />
+									Edit Profile
+								</button>
+							) : (
+								<div className="edit-actions">
+									<button
+										className="btn-save-profile"
+										onClick={handleSaveProfile}
+										disabled={saving}
+									>
+										{saving ? (
+											<>
+												<Loader2 size={16} className="spinner" /> Saving...
+											</>
+										) : (
+											<>
+												<CheckCircle2 size={16} /> Save
+											</>
+										)}
+									</button>
+									<button className="btn-cancel-profile" onClick={handleCancelEdit} disabled={saving}>
+										<X size={16} /> Cancel
+									</button>
+								</div>
+							)}
+						</section>
 
 					{/* Security */}
 					<section className="settings-card">
@@ -121,7 +327,10 @@ function AdminSettings() {
 								<input
 									type="checkbox"
 									checked={twoFactorEnabled}
-									onChange={(e) => setTwoFactorEnabled(e.target.checked)}
+									onChange={(e) => {
+										setTwoFactorEnabled(e.target.checked);
+										handlePreferenceChange('two_factor_enabled', e.target.checked);
+									}}
 								/>
 								<span className="toggle-slider"></span>
 							</label>
@@ -135,7 +344,10 @@ function AdminSettings() {
 							<select
 								className="setting-select"
 								value={sessionTimeout}
-								onChange={(e) => setSessionTimeout(e.target.value)}
+								onChange={(e) => {
+									setSessionTimeout(e.target.value);
+									handlePreferenceChange('session_timeout', e.target.value);
+								}}
 							>
 								<option value="15">15 min</option>
 								<option value="30">30 min</option>
@@ -145,7 +357,7 @@ function AdminSettings() {
 						</div>
 
 						<p className="security-note">
-							Authentication is managed through OAuth. Password changes are handled by your OAuth provider.
+							Authentication is managed through email OTP. Session settings apply after next login.
 						</p>
 					</section>
 
@@ -165,7 +377,10 @@ function AdminSettings() {
 								<input
 									type="checkbox"
 									checked={emailNotifications}
-									onChange={(e) => setEmailNotifications(e.target.checked)}
+									onChange={(e) => {
+										setEmailNotifications(e.target.checked);
+										handlePreferenceChange('email_notifications', e.target.checked);
+									}}
 								/>
 								<span className="toggle-slider"></span>
 							</label>
@@ -180,7 +395,10 @@ function AdminSettings() {
 								<input
 									type="checkbox"
 									checked={deviceAlerts}
-									onChange={(e) => setDeviceAlerts(e.target.checked)}
+									onChange={(e) => {
+										setDeviceAlerts(e.target.checked);
+										handlePreferenceChange('device_alerts', e.target.checked);
+									}}
 								/>
 								<span className="toggle-slider"></span>
 							</label>
@@ -195,7 +413,10 @@ function AdminSettings() {
 								<input
 									type="checkbox"
 									checked={systemUpdates}
-									onChange={(e) => setSystemUpdates(e.target.checked)}
+									onChange={(e) => {
+										setSystemUpdates(e.target.checked);
+										handlePreferenceChange('system_updates', e.target.checked);
+									}}
 								/>
 								<span className="toggle-slider"></span>
 							</label>
@@ -210,7 +431,10 @@ function AdminSettings() {
 								<input
 									type="checkbox"
 									checked={weeklyReports}
-									onChange={(e) => setWeeklyReports(e.target.checked)}
+									onChange={(e) => {
+										setWeeklyReports(e.target.checked);
+										handlePreferenceChange('weekly_reports', e.target.checked);
+									}}
 								/>
 								<span className="toggle-slider"></span>
 							</label>
@@ -232,13 +456,13 @@ function AdminSettings() {
 							<div className="theme-toggle">
 								<button
 									className={`theme-btn ${!darkMode ? 'active' : ''}`}
-									onClick={() => setDarkMode(false)}
+									onClick={() => handleDarkModeChange(false)}
 								>
 									<Sun size={16} />
 								</button>
 								<button
 									className={`theme-btn ${darkMode ? 'active' : ''}`}
-									onClick={() => setDarkMode(true)}
+									onClick={() => handleDarkModeChange(true)}
 								>
 									<Moon size={16} />
 								</button>
@@ -253,11 +477,11 @@ function AdminSettings() {
 							<select
 								className="setting-select"
 								value={fontSize}
-								onChange={(e) => setFontSize(e.target.value)}
+								onChange={(e) => handleFontSizeChange(e.target.value)}
 							>
-								<option value="Small">Small</option>
-								<option value="Medium">Medium</option>
-								<option value="Large">Large</option>
+								<option value="small">Small</option>
+								<option value="medium">Medium</option>
+								<option value="large">Large</option>
 							</select>
 						</div>
 					</section>
@@ -280,11 +504,13 @@ function AdminSettings() {
 
 				{/* Logout */}
 				<section className="settings-card logout-card">
-					<button className="btn-logout" onClick={handleLogout}>
+					<button className="btn-logout" onClick={openLogoutModal}>
 						<LogOut size={20} />
 						Logout
 					</button>
 				</section>
+				</>
+				)}
 			</main>
 
 			{/* Bottom navigation (mobile) */}
@@ -310,6 +536,25 @@ function AdminSettings() {
 					<span>Settings</span>
 				</button>
 			</nav>
+
+			{/* Logout Confirmation Modal */}
+			<ConfirmModal
+				isOpen={showLogoutModal}
+				title="Sign out"
+				description={
+					<div>
+						<p style={{ margin: 0, color: '#2F3E46' }}>Are you sure you want to sign out?</p>
+						<p style={{ margin: '6px 0 0', color: '#6B7D75', fontSize: 14 }}>
+							You can sign back in anytime using your email.
+						</p>
+					</div>
+				}
+				confirmText="Sign Out"
+				cancelText="Cancel"
+				onConfirm={confirmLogout}
+				onCancel={closeLogoutModal}
+				confirmVariant="danger"
+			/>
 		</div>
 	);
 }
