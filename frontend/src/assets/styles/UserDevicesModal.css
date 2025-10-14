@@ -233,6 +233,20 @@
 	overflow: hidden;
 }
 
+.device-card.clickable {
+	cursor: pointer;
+}
+
+.device-card.clickable:hover {
+	transform: translateY(-4px);
+	box-shadow: 0 12px 24px rgba(51, 148, 50, 0.12);
+	border-color: #c7e6ca;
+}
+
+.device-card.clickable:hover::before {
+	transform: scaleX(1);
+}
+
 .device-card::before {
 	content: '';
 	position: absolute;

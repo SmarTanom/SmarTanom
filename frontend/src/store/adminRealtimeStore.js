@@ -191,16 +191,16 @@ const useAdminRealtimeStore = create(
           }
 
           case 'collaborator_added': {
-            // Update device collaborator count
+            // Update device collaborations count
             const { allDevices } = get();
             const deviceIndex = allDevices.findIndex(d => d.id === data.device_id);
 
             if (deviceIndex !== -1) {
               const updatedDevices = [...allDevices];
-              const currentCollab = updatedDevices[deviceIndex].collaborator_count || 0;
+              const currentCollab = updatedDevices[deviceIndex].collaborations_count || 0;
               updatedDevices[deviceIndex] = {
                 ...updatedDevices[deviceIndex],
-                collaborator_count: currentCollab + 1
+                collaborations_count: currentCollab + 1
               };
               set({ allDevices: updatedDevices });
             }
@@ -208,16 +208,16 @@ const useAdminRealtimeStore = create(
           }
 
           case 'collaborator_revoked': {
-            // Update device collaborator count
+            // Update device collaborations count
             const { allDevices } = get();
             const deviceIndex = allDevices.findIndex(d => d.id === data.device_id);
 
             if (deviceIndex !== -1) {
               const updatedDevices = [...allDevices];
-              const currentCollab = updatedDevices[deviceIndex].collaborator_count || 0;
+              const currentCollab = updatedDevices[deviceIndex].collaborations_count || 0;
               updatedDevices[deviceIndex] = {
                 ...updatedDevices[deviceIndex],
-                collaborator_count: Math.max(0, currentCollab - 1)
+                collaborations_count: Math.max(0, currentCollab - 1)
               };
               set({ allDevices: updatedDevices });
             }

@@ -52,7 +52,14 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             # Available units: devices that are NOT bound
             available_units = Device.objects.filter(is_bound=False).count()
 
-            logger.info(f"Device Stats - Total: {total_devices}, Active: {active_devices}, Bound: {bound_devices}, Available: {available_units}")
+            # Shared devices: devices that have active collaborations
+            shared_devices = Device.objects.filter(
+                id__in=DeviceCollaboration.objects.filter(
+                    status=DeviceCollaboration.Status.ACTIVE
+                ).values_list('device_id', flat=True).distinct()
+            ).count()
+
+            logger.info(f"Device Stats - Total: {total_devices}, Active: {active_devices}, Bound: {bound_devices}, Available: {available_units}, Shared: {shared_devices}")
 
             # User Statistics
             total_users = User.objects.count()
@@ -148,7 +155,8 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                         'inactive': inactive_devices,
                         'maintenance': maintenance_devices,
                         'available': available_units,
-                        'bound': bound_devices
+                        'bound': bound_devices,
+                        'shared': shared_devices
                     },
                     'users': {
                         'total': total_users,
@@ -312,6 +320,12 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                 if device.updated_at:
                     last_seen = timesince(device.updated_at) + ' ago'
 
+                # Count active collaborations for this device
+                collaborations_count = DeviceCollaboration.objects.filter(
+                    device=device,
+                    status=DeviceCollaboration.Status.ACTIVE
+                ).count()
+
                 devices_list.append({
                     'id': device.id,
                     'serial': device.device_serial,
@@ -324,6 +338,7 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                     'last_seen': last_seen,
                     'created_at': device.created_at,
                     'assigned_date': device.created_at if device.is_bound else None,
+                    'collaborations_count': collaborations_count,
                 })
 
             return Response(devices_list)

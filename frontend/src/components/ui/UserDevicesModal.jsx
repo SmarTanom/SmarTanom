@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Smartphone, Activity, MapPin, Calendar, Loader2, Leaf, Zap, CheckCircle, AlertCircle } from 'lucide-react';
+import DeviceDetailsModal from './DeviceDetailsModal';
 import '../../assets/styles/UserDevicesModal.css';
 
 const UserDevicesModal = ({ user, devices, loading, onClose }) => {
+	const [selectedDevice, setSelectedDevice] = useState(null);
 	const formatDate = (dateString) => {
 		if (!dateString) return 'Never';
 		const date = new Date(dateString);
@@ -98,8 +100,9 @@ const UserDevicesModal = ({ user, devices, loading, onClose }) => {
 								return (
 									<div
 										key={device.id}
-										className="device-card"
+										className="device-card clickable"
 										style={{ animationDelay: `${index * 50}ms` }}
+										onClick={() => setSelectedDevice(device)}
 									>
 										<div className="device-card-header">
 											<div className="device-icon-wrapper">
@@ -122,7 +125,7 @@ const UserDevicesModal = ({ user, devices, loading, onClose }) => {
 											{device.device_name || device.name || device.serial || device.device_serial}
 											{device.is_owner || device.bound_email === user?.email ? (
 												<span className="device-owner-badge">Owner</span>
-											) : device.is_collaborator || device.bound_email !== user?.email ? (
+											) : device.is_collaborator || (device.bound_email && device.bound_email !== user?.email) ? (
 												<span className="device-shared-badge">Shared Device</span>
 											) : null}
 										</h3>
@@ -166,6 +169,21 @@ const UserDevicesModal = ({ user, devices, loading, onClose }) => {
 					)}
 				</div>
 			</div>
+
+			{/* Device Details Modal */}
+			{selectedDevice && (
+				<DeviceDetailsModal
+					device={selectedDevice}
+					onClose={() => setSelectedDevice(null)}
+					onDeviceUpdate={(updatedDevice) => {
+						// Update the device in the list if needed
+						if (updatedDevice) {
+							// This could be passed down from parent if needed
+							console.log('Device updated:', updatedDevice);
+						}
+					}}
+				/>
+			)}
 		</div>
 	);
 };

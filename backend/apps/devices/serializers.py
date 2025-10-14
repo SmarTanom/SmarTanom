@@ -118,6 +118,7 @@ class DeviceSerializer(serializers.ModelSerializer):
     plant_photo_url = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
     is_collaborator = serializers.SerializerMethodField()
+    collaborations_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Device
@@ -133,6 +134,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             "plant_photo_url",
             "is_owner",
             "is_collaborator",
+            "collaborations_count",
             "created_at",
             "updated_at",
         ]
@@ -164,6 +166,13 @@ class DeviceSerializer(serializers.ModelSerializer):
             collaborator_email=request.user.email,
             status=DeviceCollaboration.Status.ACTIVE,
         ).exists()
+
+    def get_collaborations_count(self, obj):
+        """Get the count of active collaborations for this device."""
+        return DeviceCollaboration.objects.filter(
+            device=obj,
+            status=DeviceCollaboration.Status.ACTIVE,
+        ).count()
 
 
 class DeviceOTPCodeSerializer(serializers.ModelSerializer):
