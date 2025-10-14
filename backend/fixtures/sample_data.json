@@ -1,2074 +1,2091 @@
 [
-{
-  "model": "accounts.user",
-  "pk": 2,
-  "fields": {
-    "password": "pbkdf2_sha256$600000$zlYu8OXRWNpfrzFO6dvnuL$jUsqB8xQjVhR4LZnYjd7e+bzMqLnTMgulonp5zf1xZ0=",
-    "is_superuser": true,
-    "email": "smartanom01@gmail.com",
-    "username": null,
-    "first_name": "",
-    "last_name": "",
-    "role": "admin",
-    "is_active": true,
-    "is_staff": true,
-    "is_verified": false,
-    "date_joined": "2025-09-30T03:08:50.007Z",
-    "last_login": "2025-10-10T11:35:13.534Z",
-    "groups": [],
-    "user_permissions": []
+  {
+    "model": "reservoirs.plant",
+    "pk": 101,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.900Z",
+      "updated_at": "2025-10-10T11:47:38.900Z",
+      "plant_name": "Kale",
+      "ppm_min": 300.0,
+      "ppm_max": 1200.0,
+      "ph_min": 5.5,
+      "ph_max": 6.5,
+      "water_temp_min": 18.0,
+      "water_temp_max": 26.0,
+      "light_min": 1000.0,
+      "light_max": 50000.0
+    }
+  },
+  {
+    "model": "accounts.user",
+    "pk": 2,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$zlYu8OXRWNpfrzFO6dvnuL$jUsqB8xQjVhR4LZnYjd7e+bzMqLnTMgulonp5zf1xZ0=",
+      "is_superuser": true,
+      "email": "smartanom01@gmail.com",
+      "username": null,
+      "first_name": "",
+      "last_name": "",
+      "role": "admin",
+      "is_active": true,
+      "is_staff": true,
+      "is_verified": false,
+      "date_joined": "2025-09-30T03:08:50.007Z",
+      "last_login": "2025-10-10T11:35:13.534Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "accounts.user",
+    "pk": 10,
+    "fields": {
+      "password": "",
+      "is_superuser": false,
+      "email": "test1@smartanom.com",
+      "username": null,
+      "first_name": "",
+      "last_name": "",
+      "role": "user",
+      "is_active": true,
+      "is_staff": false,
+      "is_verified": false,
+      "date_joined": "2025-10-10T11:47:38.942Z",
+      "last_login": null,
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "devices.device",
+    "pk": 11,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.947Z",
+      "updated_at": "2025-10-10T11:47:38.947Z",
+      "user": 10,
+      "device_name": "Greenhouse Alpha 1",
+      "status": "active"
+    }
+  },
+  {
+    "model": "reservoirs.reservoir",
+    "pk": 11,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.951Z",
+      "updated_at": "2025-10-10T11:47:38.951Z",
+      "device": 11,
+      "reservoir_name": "Main Tank",
+      "plant": 101,
+      "start_date": "2025-07-11",
+      "end_date": "2025-09-10"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 47,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.956Z",
+      "updated_at": "2025-10-10T11:47:38.956Z",
+      "device": 11,
+      "sensor_type": "ph",
+      "unit": "pH"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 48,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.961Z",
+      "updated_at": "2025-10-10T11:47:38.961Z",
+      "device": 11,
+      "sensor_type": "tds",
+      "unit": "ppm"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 49,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.964Z",
+      "updated_at": "2025-10-10T11:47:38.964Z",
+      "device": 11,
+      "sensor_type": "water_temperature",
+      "unit": "°C"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 50,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.974Z",
+      "updated_at": "2025-10-10T11:47:38.974Z",
+      "device": 11,
+      "sensor_type": "water_level",
+      "unit": "%"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 51,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.978Z",
+      "updated_at": "2025-10-10T11:47:38.978Z",
+      "device": 11,
+      "sensor_type": "turbidity",
+      "unit": "NTU"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 52,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.982Z",
+      "updated_at": "2025-10-10T11:47:38.982Z",
+      "device": 11,
+      "sensor_type": "air_temperature",
+      "unit": "°C"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 53,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.987Z",
+      "updated_at": "2025-10-10T11:47:38.987Z",
+      "device": 11,
+      "sensor_type": "humidity",
+      "unit": "%"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 54,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.992Z",
+      "updated_at": "2025-10-10T11:47:38.992Z",
+      "device": 11,
+      "sensor_type": "light",
+      "unit": "lux"
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1633,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.994Z",
+      "updated_at": "2025-10-10T11:47:38.994Z",
+      "sensor": 47,
+      "value": 5.52
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1634,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.996Z",
+      "updated_at": "2025-10-10T11:47:38.996Z",
+      "sensor": 47,
+      "value": 6.08
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1635,
+    "fields": {
+      "created_at": "2025-10-10T11:47:38.998Z",
+      "updated_at": "2025-10-10T11:47:38.998Z",
+      "sensor": 47,
+      "value": 5.79
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1636,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.000Z",
+      "updated_at": "2025-10-10T11:47:39.000Z",
+      "sensor": 47,
+      "value": 5.53
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1637,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.002Z",
+      "updated_at": "2025-10-10T11:47:39.002Z",
+      "sensor": 47,
+      "value": 5.9
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1638,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.004Z",
+      "updated_at": "2025-10-10T11:47:39.004Z",
+      "sensor": 47,
+      "value": 6.46
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1639,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.008Z",
+      "updated_at": "2025-10-10T11:47:39.008Z",
+      "sensor": 47,
+      "value": 6.47
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1640,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.010Z",
+      "updated_at": "2025-10-10T11:47:39.010Z",
+      "sensor": 47,
+      "value": 5.96
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1641,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.012Z",
+      "updated_at": "2025-10-10T11:47:39.012Z",
+      "sensor": 47,
+      "value": 5.84
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1642,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.014Z",
+      "updated_at": "2025-10-10T11:47:39.014Z",
+      "sensor": 47,
+      "value": 5.89
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1643,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.016Z",
+      "updated_at": "2025-10-10T11:47:39.016Z",
+      "sensor": 47,
+      "value": 5.88
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1644,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.018Z",
+      "updated_at": "2025-10-10T11:47:39.018Z",
+      "sensor": 47,
+      "value": 5.87
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1645,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.020Z",
+      "updated_at": "2025-10-10T11:47:39.020Z",
+      "sensor": 47,
+      "value": 5.77
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1646,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.023Z",
+      "updated_at": "2025-10-10T11:47:39.023Z",
+      "sensor": 47,
+      "value": 6.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1647,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.025Z",
+      "updated_at": "2025-10-10T11:47:39.025Z",
+      "sensor": 47,
+      "value": 5.87
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1648,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.027Z",
+      "updated_at": "2025-10-10T11:47:39.027Z",
+      "sensor": 47,
+      "value": 5.89
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1649,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.029Z",
+      "updated_at": "2025-10-10T11:47:39.029Z",
+      "sensor": 47,
+      "value": 6.31
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1650,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.031Z",
+      "updated_at": "2025-10-10T11:47:39.031Z",
+      "sensor": 47,
+      "value": 5.54
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1651,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.033Z",
+      "updated_at": "2025-10-10T11:47:39.033Z",
+      "sensor": 47,
+      "value": 5.62
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1652,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.035Z",
+      "updated_at": "2025-10-10T11:47:39.035Z",
+      "sensor": 47,
+      "value": 5.91
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1653,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.038Z",
+      "updated_at": "2025-10-10T11:47:39.038Z",
+      "sensor": 47,
+      "value": 6.02
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1654,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.041Z",
+      "updated_at": "2025-10-10T11:47:39.041Z",
+      "sensor": 47,
+      "value": 6.39
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1655,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.043Z",
+      "updated_at": "2025-10-10T11:47:39.043Z",
+      "sensor": 47,
+      "value": 6.44
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1656,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.044Z",
+      "updated_at": "2025-10-10T11:47:39.044Z",
+      "sensor": 47,
+      "value": 5.86
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1657,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.047Z",
+      "updated_at": "2025-10-10T11:47:39.047Z",
+      "sensor": 48,
+      "value": 775.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1658,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.049Z",
+      "updated_at": "2025-10-10T11:47:39.049Z",
+      "sensor": 48,
+      "value": 831.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1659,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.051Z",
+      "updated_at": "2025-10-10T11:47:39.051Z",
+      "sensor": 48,
+      "value": 692.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1660,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.053Z",
+      "updated_at": "2025-10-10T11:47:39.053Z",
+      "sensor": 48,
+      "value": 590.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1661,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.055Z",
+      "updated_at": "2025-10-10T11:47:39.055Z",
+      "sensor": 48,
+      "value": 730.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1662,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.057Z",
+      "updated_at": "2025-10-10T11:47:39.057Z",
+      "sensor": 48,
+      "value": 711.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1663,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.059Z",
+      "updated_at": "2025-10-10T11:47:39.059Z",
+      "sensor": 48,
+      "value": 354.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1664,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.061Z",
+      "updated_at": "2025-10-10T11:47:39.061Z",
+      "sensor": 48,
+      "value": 1066.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1665,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.063Z",
+      "updated_at": "2025-10-10T11:47:39.063Z",
+      "sensor": 48,
+      "value": 1179.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1666,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.066Z",
+      "updated_at": "2025-10-10T11:47:39.066Z",
+      "sensor": 48,
+      "value": 537.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1667,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.068Z",
+      "updated_at": "2025-10-10T11:47:39.068Z",
+      "sensor": 48,
+      "value": 614.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1668,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.070Z",
+      "updated_at": "2025-10-10T11:47:39.070Z",
+      "sensor": 48,
+      "value": 1085.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1669,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.072Z",
+      "updated_at": "2025-10-10T11:47:39.072Z",
+      "sensor": 48,
+      "value": 393.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1670,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.074Z",
+      "updated_at": "2025-10-10T11:47:39.074Z",
+      "sensor": 48,
+      "value": 1080.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1671,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.076Z",
+      "updated_at": "2025-10-10T11:47:39.076Z",
+      "sensor": 48,
+      "value": 397.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1672,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.078Z",
+      "updated_at": "2025-10-10T11:47:39.078Z",
+      "sensor": 48,
+      "value": 843.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1673,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.080Z",
+      "updated_at": "2025-10-10T11:47:39.080Z",
+      "sensor": 48,
+      "value": 866.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1674,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.082Z",
+      "updated_at": "2025-10-10T11:47:39.082Z",
+      "sensor": 48,
+      "value": 996.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1675,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.085Z",
+      "updated_at": "2025-10-10T11:47:39.085Z",
+      "sensor": 48,
+      "value": 404.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1676,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.087Z",
+      "updated_at": "2025-10-10T11:47:39.087Z",
+      "sensor": 48,
+      "value": 1180.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1677,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.089Z",
+      "updated_at": "2025-10-10T11:47:39.089Z",
+      "sensor": 48,
+      "value": 589.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1678,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.091Z",
+      "updated_at": "2025-10-10T11:47:39.091Z",
+      "sensor": 48,
+      "value": 383.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1679,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.092Z",
+      "updated_at": "2025-10-10T11:47:39.092Z",
+      "sensor": 48,
+      "value": 923.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1680,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.094Z",
+      "updated_at": "2025-10-10T11:47:39.094Z",
+      "sensor": 48,
+      "value": 883.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1681,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.096Z",
+      "updated_at": "2025-10-10T11:47:39.096Z",
+      "sensor": 49,
+      "value": 21.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1682,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.098Z",
+      "updated_at": "2025-10-10T11:47:39.098Z",
+      "sensor": 49,
+      "value": 20.3
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1683,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.100Z",
+      "updated_at": "2025-10-10T11:47:39.100Z",
+      "sensor": 49,
+      "value": 24.6
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1684,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.102Z",
+      "updated_at": "2025-10-10T11:47:39.102Z",
+      "sensor": 49,
+      "value": 24.7
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1685,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.104Z",
+      "updated_at": "2025-10-10T11:47:39.104Z",
+      "sensor": 49,
+      "value": 22.4
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1686,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.106Z",
+      "updated_at": "2025-10-10T11:47:39.106Z",
+      "sensor": 49,
+      "value": 18.2
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1687,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.107Z",
+      "updated_at": "2025-10-10T11:47:39.107Z",
+      "sensor": 49,
+      "value": 19.6
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1688,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.109Z",
+      "updated_at": "2025-10-10T11:47:39.109Z",
+      "sensor": 49,
+      "value": 22.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1689,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.111Z",
+      "updated_at": "2025-10-10T11:47:39.111Z",
+      "sensor": 49,
+      "value": 22.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1690,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.113Z",
+      "updated_at": "2025-10-10T11:47:39.113Z",
+      "sensor": 49,
+      "value": 22.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1691,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.114Z",
+      "updated_at": "2025-10-10T11:47:39.114Z",
+      "sensor": 49,
+      "value": 24.2
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1692,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.117Z",
+      "updated_at": "2025-10-10T11:47:39.117Z",
+      "sensor": 49,
+      "value": 21.6
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1693,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.118Z",
+      "updated_at": "2025-10-10T11:47:39.118Z",
+      "sensor": 49,
+      "value": 20.3
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1694,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.120Z",
+      "updated_at": "2025-10-10T11:47:39.120Z",
+      "sensor": 49,
+      "value": 24.2
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1695,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.122Z",
+      "updated_at": "2025-10-10T11:47:39.122Z",
+      "sensor": 49,
+      "value": 23.4
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1696,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.124Z",
+      "updated_at": "2025-10-10T11:47:39.124Z",
+      "sensor": 49,
+      "value": 22.8
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1697,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.126Z",
+      "updated_at": "2025-10-10T11:47:39.126Z",
+      "sensor": 49,
+      "value": 19.3
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1698,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.128Z",
+      "updated_at": "2025-10-10T11:47:39.128Z",
+      "sensor": 49,
+      "value": 22.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1699,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.129Z",
+      "updated_at": "2025-10-10T11:47:39.129Z",
+      "sensor": 49,
+      "value": 21.7
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1700,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.131Z",
+      "updated_at": "2025-10-10T11:47:39.131Z",
+      "sensor": 49,
+      "value": 23.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1701,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.133Z",
+      "updated_at": "2025-10-10T11:47:39.133Z",
+      "sensor": 49,
+      "value": 19.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1702,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.135Z",
+      "updated_at": "2025-10-10T11:47:39.135Z",
+      "sensor": 49,
+      "value": 25.6
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1703,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.137Z",
+      "updated_at": "2025-10-10T11:47:39.137Z",
+      "sensor": 49,
+      "value": 19.8
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1704,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.139Z",
+      "updated_at": "2025-10-10T11:47:39.139Z",
+      "sensor": 49,
+      "value": 19.8
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1705,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.141Z",
+      "updated_at": "2025-10-10T11:47:39.141Z",
+      "sensor": 50,
+      "value": 62.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1706,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.143Z",
+      "updated_at": "2025-10-10T11:47:39.143Z",
+      "sensor": 50,
+      "value": 91.9
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1707,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.145Z",
+      "updated_at": "2025-10-10T11:47:39.145Z",
+      "sensor": 50,
+      "value": 62.2
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1708,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.147Z",
+      "updated_at": "2025-10-10T11:47:39.147Z",
+      "sensor": 50,
+      "value": 61.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1709,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.149Z",
+      "updated_at": "2025-10-10T11:47:39.149Z",
+      "sensor": 50,
+      "value": 52.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1710,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.151Z",
+      "updated_at": "2025-10-10T11:47:39.151Z",
+      "sensor": 50,
+      "value": 86.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1711,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.153Z",
+      "updated_at": "2025-10-10T11:47:39.153Z",
+      "sensor": 50,
+      "value": 62.3
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1712,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.155Z",
+      "updated_at": "2025-10-10T11:47:39.155Z",
+      "sensor": 50,
+      "value": 20.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1713,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.157Z",
+      "updated_at": "2025-10-10T11:47:39.157Z",
+      "sensor": 50,
+      "value": 68.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1714,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.159Z",
+      "updated_at": "2025-10-10T11:47:39.159Z",
+      "sensor": 50,
+      "value": 72.6
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1715,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.161Z",
+      "updated_at": "2025-10-10T11:47:39.161Z",
+      "sensor": 50,
+      "value": 46.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1716,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.163Z",
+      "updated_at": "2025-10-10T11:47:39.163Z",
+      "sensor": 50,
+      "value": 37.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1717,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.165Z",
+      "updated_at": "2025-10-10T11:47:39.165Z",
+      "sensor": 50,
+      "value": 26.9
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1718,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.167Z",
+      "updated_at": "2025-10-10T11:47:39.167Z",
+      "sensor": 50,
+      "value": 50.3
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1719,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.169Z",
+      "updated_at": "2025-10-10T11:47:39.169Z",
+      "sensor": 50,
+      "value": 38.7
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1720,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.171Z",
+      "updated_at": "2025-10-10T11:47:39.171Z",
+      "sensor": 50,
+      "value": 94.9
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1721,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.173Z",
+      "updated_at": "2025-10-10T11:47:39.173Z",
+      "sensor": 50,
+      "value": 72.8
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1722,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.175Z",
+      "updated_at": "2025-10-10T11:47:39.175Z",
+      "sensor": 50,
+      "value": 81.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1723,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.177Z",
+      "updated_at": "2025-10-10T11:47:39.177Z",
+      "sensor": 50,
+      "value": 25.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1724,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.179Z",
+      "updated_at": "2025-10-10T11:47:39.179Z",
+      "sensor": 50,
+      "value": 67.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1725,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.181Z",
+      "updated_at": "2025-10-10T11:47:39.181Z",
+      "sensor": 50,
+      "value": 76.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1726,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.183Z",
+      "updated_at": "2025-10-10T11:47:39.183Z",
+      "sensor": 50,
+      "value": 23.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1727,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.184Z",
+      "updated_at": "2025-10-10T11:47:39.184Z",
+      "sensor": 50,
+      "value": 50.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1728,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.187Z",
+      "updated_at": "2025-10-10T11:47:39.187Z",
+      "sensor": 50,
+      "value": 69.6
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1729,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.189Z",
+      "updated_at": "2025-10-10T11:47:39.189Z",
+      "sensor": 51,
+      "value": 6.76
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1730,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.191Z",
+      "updated_at": "2025-10-10T11:47:39.191Z",
+      "sensor": 51,
+      "value": 2.81
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1731,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.193Z",
+      "updated_at": "2025-10-10T11:47:39.193Z",
+      "sensor": 51,
+      "value": 2.13
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1732,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.195Z",
+      "updated_at": "2025-10-10T11:47:39.195Z",
+      "sensor": 51,
+      "value": 5.01
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1733,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.196Z",
+      "updated_at": "2025-10-10T11:47:39.196Z",
+      "sensor": 51,
+      "value": 6.04
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1734,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.198Z",
+      "updated_at": "2025-10-10T11:47:39.198Z",
+      "sensor": 51,
+      "value": 1.42
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1735,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.200Z",
+      "updated_at": "2025-10-10T11:47:39.200Z",
+      "sensor": 51,
+      "value": 7.6
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1736,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.202Z",
+      "updated_at": "2025-10-10T11:47:39.202Z",
+      "sensor": 51,
+      "value": 2.51
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1737,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.204Z",
+      "updated_at": "2025-10-10T11:47:39.204Z",
+      "sensor": 51,
+      "value": 7.83
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1738,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.206Z",
+      "updated_at": "2025-10-10T11:47:39.206Z",
+      "sensor": 51,
+      "value": 8.34
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1739,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.209Z",
+      "updated_at": "2025-10-10T11:47:39.209Z",
+      "sensor": 51,
+      "value": 6.63
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1740,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.211Z",
+      "updated_at": "2025-10-10T11:47:39.211Z",
+      "sensor": 51,
+      "value": 6.52
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1741,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.212Z",
+      "updated_at": "2025-10-10T11:47:39.212Z",
+      "sensor": 51,
+      "value": 2.64
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1742,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.214Z",
+      "updated_at": "2025-10-10T11:47:39.214Z",
+      "sensor": 51,
+      "value": 6.02
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1743,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.216Z",
+      "updated_at": "2025-10-10T11:47:39.216Z",
+      "sensor": 51,
+      "value": 8.55
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1744,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.218Z",
+      "updated_at": "2025-10-10T11:47:39.218Z",
+      "sensor": 51,
+      "value": 9.78
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1745,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.220Z",
+      "updated_at": "2025-10-10T11:47:39.220Z",
+      "sensor": 51,
+      "value": 4.53
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1746,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.222Z",
+      "updated_at": "2025-10-10T11:47:39.222Z",
+      "sensor": 51,
+      "value": 0.33
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1747,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.224Z",
+      "updated_at": "2025-10-10T11:47:39.224Z",
+      "sensor": 51,
+      "value": 7.64
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1748,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.228Z",
+      "updated_at": "2025-10-10T11:47:39.228Z",
+      "sensor": 51,
+      "value": 7.67
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1749,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.230Z",
+      "updated_at": "2025-10-10T11:47:39.230Z",
+      "sensor": 51,
+      "value": 9.74
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1750,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.232Z",
+      "updated_at": "2025-10-10T11:47:39.233Z",
+      "sensor": 51,
+      "value": 8.35
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1751,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.234Z",
+      "updated_at": "2025-10-10T11:47:39.234Z",
+      "sensor": 51,
+      "value": 3.21
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1752,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.236Z",
+      "updated_at": "2025-10-10T11:47:39.236Z",
+      "sensor": 51,
+      "value": 6.7
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1753,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.238Z",
+      "updated_at": "2025-10-10T11:47:39.238Z",
+      "sensor": 52,
+      "value": 33.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1754,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.240Z",
+      "updated_at": "2025-10-10T11:47:39.240Z",
+      "sensor": 52,
+      "value": 24.9
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1755,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.241Z",
+      "updated_at": "2025-10-10T11:47:39.242Z",
+      "sensor": 52,
+      "value": 32.3
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1756,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.244Z",
+      "updated_at": "2025-10-10T11:47:39.244Z",
+      "sensor": 52,
+      "value": 33.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1757,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.246Z",
+      "updated_at": "2025-10-10T11:47:39.246Z",
+      "sensor": 52,
+      "value": 22.8
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1758,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.248Z",
+      "updated_at": "2025-10-10T11:47:39.248Z",
+      "sensor": 52,
+      "value": 26.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1759,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.250Z",
+      "updated_at": "2025-10-10T11:47:39.250Z",
+      "sensor": 52,
+      "value": 30.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1760,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.252Z",
+      "updated_at": "2025-10-10T11:47:39.252Z",
+      "sensor": 52,
+      "value": 24.9
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1761,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.254Z",
+      "updated_at": "2025-10-10T11:47:39.254Z",
+      "sensor": 52,
+      "value": 24.7
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1762,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.256Z",
+      "updated_at": "2025-10-10T11:47:39.256Z",
+      "sensor": 52,
+      "value": 23.8
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1763,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.257Z",
+      "updated_at": "2025-10-10T11:47:39.257Z",
+      "sensor": 52,
+      "value": 28.4
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1764,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.259Z",
+      "updated_at": "2025-10-10T11:47:39.259Z",
+      "sensor": 52,
+      "value": 28.3
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1765,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.261Z",
+      "updated_at": "2025-10-10T11:47:39.261Z",
+      "sensor": 52,
+      "value": 27.7
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1766,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.262Z",
+      "updated_at": "2025-10-10T11:47:39.262Z",
+      "sensor": 52,
+      "value": 20.4
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1767,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.264Z",
+      "updated_at": "2025-10-10T11:47:39.264Z",
+      "sensor": 52,
+      "value": 22.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1768,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.266Z",
+      "updated_at": "2025-10-10T11:47:39.266Z",
+      "sensor": 52,
+      "value": 23.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1769,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.268Z",
+      "updated_at": "2025-10-10T11:47:39.268Z",
+      "sensor": 52,
+      "value": 20.4
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1770,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.270Z",
+      "updated_at": "2025-10-10T11:47:39.270Z",
+      "sensor": 52,
+      "value": 30.3
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1771,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.273Z",
+      "updated_at": "2025-10-10T11:47:39.273Z",
+      "sensor": 52,
+      "value": 24.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1772,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.274Z",
+      "updated_at": "2025-10-10T11:47:39.274Z",
+      "sensor": 52,
+      "value": 21.4
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1773,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.276Z",
+      "updated_at": "2025-10-10T11:47:39.276Z",
+      "sensor": 52,
+      "value": 32.4
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1774,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.278Z",
+      "updated_at": "2025-10-10T11:47:39.278Z",
+      "sensor": 52,
+      "value": 30.3
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1775,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.280Z",
+      "updated_at": "2025-10-10T11:47:39.280Z",
+      "sensor": 52,
+      "value": 26.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1776,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.281Z",
+      "updated_at": "2025-10-10T11:47:39.281Z",
+      "sensor": 52,
+      "value": 20.7
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1777,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.284Z",
+      "updated_at": "2025-10-10T11:47:39.284Z",
+      "sensor": 53,
+      "value": 71.9
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1778,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.286Z",
+      "updated_at": "2025-10-10T11:47:39.286Z",
+      "sensor": 53,
+      "value": 58.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1779,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.287Z",
+      "updated_at": "2025-10-10T11:47:39.287Z",
+      "sensor": 53,
+      "value": 50.3
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1780,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.289Z",
+      "updated_at": "2025-10-10T11:47:39.289Z",
+      "sensor": 53,
+      "value": 42.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1781,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.291Z",
+      "updated_at": "2025-10-10T11:47:39.291Z",
+      "sensor": 53,
+      "value": 79.8
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1782,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.292Z",
+      "updated_at": "2025-10-10T11:47:39.292Z",
+      "sensor": 53,
+      "value": 62.1
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1783,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.294Z",
+      "updated_at": "2025-10-10T11:47:39.294Z",
+      "sensor": 53,
+      "value": 58.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1784,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.296Z",
+      "updated_at": "2025-10-10T11:47:39.296Z",
+      "sensor": 53,
+      "value": 59.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1785,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.297Z",
+      "updated_at": "2025-10-10T11:47:39.297Z",
+      "sensor": 53,
+      "value": 54.6
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1786,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.299Z",
+      "updated_at": "2025-10-10T11:47:39.299Z",
+      "sensor": 53,
+      "value": 50.2
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1787,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.301Z",
+      "updated_at": "2025-10-10T11:47:39.301Z",
+      "sensor": 53,
+      "value": 72.6
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1788,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.303Z",
+      "updated_at": "2025-10-10T11:47:39.303Z",
+      "sensor": 53,
+      "value": 68.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1789,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.305Z",
+      "updated_at": "2025-10-10T11:47:39.305Z",
+      "sensor": 53,
+      "value": 55.9
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1790,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.306Z",
+      "updated_at": "2025-10-10T11:47:39.306Z",
+      "sensor": 53,
+      "value": 79.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1791,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.308Z",
+      "updated_at": "2025-10-10T11:47:39.308Z",
+      "sensor": 53,
+      "value": 79.8
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1792,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.310Z",
+      "updated_at": "2025-10-10T11:47:39.310Z",
+      "sensor": 53,
+      "value": 77.7
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1793,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.312Z",
+      "updated_at": "2025-10-10T11:47:39.312Z",
+      "sensor": 53,
+      "value": 64.4
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1794,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.313Z",
+      "updated_at": "2025-10-10T11:47:39.313Z",
+      "sensor": 53,
+      "value": 48.9
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1795,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.315Z",
+      "updated_at": "2025-10-10T11:47:39.315Z",
+      "sensor": 53,
+      "value": 61.8
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1796,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.317Z",
+      "updated_at": "2025-10-10T11:47:39.317Z",
+      "sensor": 53,
+      "value": 55.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1797,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.319Z",
+      "updated_at": "2025-10-10T11:47:39.319Z",
+      "sensor": 53,
+      "value": 58.4
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1798,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.321Z",
+      "updated_at": "2025-10-10T11:47:39.321Z",
+      "sensor": 53,
+      "value": 64.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1799,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.323Z",
+      "updated_at": "2025-10-10T11:47:39.323Z",
+      "sensor": 53,
+      "value": 45.5
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1800,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.325Z",
+      "updated_at": "2025-10-10T11:47:39.325Z",
+      "sensor": 53,
+      "value": 74.2
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1801,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.327Z",
+      "updated_at": "2025-10-10T11:47:39.327Z",
+      "sensor": 54,
+      "value": 4808.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1802,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.329Z",
+      "updated_at": "2025-10-10T11:47:39.329Z",
+      "sensor": 54,
+      "value": 6589.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1803,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.331Z",
+      "updated_at": "2025-10-10T11:47:39.331Z",
+      "sensor": 54,
+      "value": 25327.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1804,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.333Z",
+      "updated_at": "2025-10-10T11:47:39.333Z",
+      "sensor": 54,
+      "value": 36228.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1805,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.335Z",
+      "updated_at": "2025-10-10T11:47:39.335Z",
+      "sensor": 54,
+      "value": 27664.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1806,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.337Z",
+      "updated_at": "2025-10-10T11:47:39.337Z",
+      "sensor": 54,
+      "value": 14819.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1807,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.339Z",
+      "updated_at": "2025-10-10T11:47:39.339Z",
+      "sensor": 54,
+      "value": 43686.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1808,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.341Z",
+      "updated_at": "2025-10-10T11:47:39.341Z",
+      "sensor": 54,
+      "value": 25132.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1809,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.342Z",
+      "updated_at": "2025-10-10T11:47:39.342Z",
+      "sensor": 54,
+      "value": 33659.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1810,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.344Z",
+      "updated_at": "2025-10-10T11:47:39.344Z",
+      "sensor": 54,
+      "value": 17905.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1811,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.345Z",
+      "updated_at": "2025-10-10T11:47:39.345Z",
+      "sensor": 54,
+      "value": 3817.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1812,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.347Z",
+      "updated_at": "2025-10-10T11:47:39.347Z",
+      "sensor": 54,
+      "value": 35944.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1813,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.350Z",
+      "updated_at": "2025-10-10T11:47:39.350Z",
+      "sensor": 54,
+      "value": 30937.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1814,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.352Z",
+      "updated_at": "2025-10-10T11:47:39.352Z",
+      "sensor": 54,
+      "value": 40522.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1815,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.354Z",
+      "updated_at": "2025-10-10T11:47:39.354Z",
+      "sensor": 54,
+      "value": 24709.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1816,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.356Z",
+      "updated_at": "2025-10-10T11:47:39.356Z",
+      "sensor": 54,
+      "value": 31077.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1817,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.357Z",
+      "updated_at": "2025-10-10T11:47:39.357Z",
+      "sensor": 54,
+      "value": 25170.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1818,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.359Z",
+      "updated_at": "2025-10-10T11:47:39.359Z",
+      "sensor": 54,
+      "value": 11418.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1819,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.361Z",
+      "updated_at": "2025-10-10T11:47:39.361Z",
+      "sensor": 54,
+      "value": 16095.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1820,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.362Z",
+      "updated_at": "2025-10-10T11:47:39.362Z",
+      "sensor": 54,
+      "value": 17743.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1821,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.364Z",
+      "updated_at": "2025-10-10T11:47:39.364Z",
+      "sensor": 54,
+      "value": 47651.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1822,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.367Z",
+      "updated_at": "2025-10-10T11:47:39.367Z",
+      "sensor": 54,
+      "value": 26843.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1823,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.368Z",
+      "updated_at": "2025-10-10T11:47:39.368Z",
+      "sensor": 54,
+      "value": 11798.0
+    }
+  },
+  {
+    "model": "sensors.sensordata",
+    "pk": 1824,
+    "fields": {
+      "created_at": "2025-10-10T11:47:39.370Z",
+      "updated_at": "2025-10-10T11:47:39.370Z",
+      "sensor": 54,
+      "value": 22221.0
+    }
   }
-},
-{
-  "model": "accounts.user",
-  "pk": 10,
-  "fields": {
-    "password": "",
-    "is_superuser": false,
-    "email": "test1@smartanom.com",
-    "username": null,
-    "first_name": "",
-    "last_name": "",
-    "role": "user",
-    "is_active": true,
-    "is_staff": false,
-    "is_verified": false,
-    "date_joined": "2025-10-10T11:47:38.942Z",
-    "last_login": null,
-    "groups": [],
-    "user_permissions": []
-  }
-},
-{
-  "model": "devices.device",
-  "pk": 11,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.947Z",
-    "updated_at": "2025-10-10T11:47:38.947Z",
-    "user": 10,
-    "device_name": "Greenhouse Alpha 1",
-    "status": "active"
-  }
-},
-{
-  "model": "reservoirs.reservoir",
-  "pk": 11,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.951Z",
-    "updated_at": "2025-10-10T11:47:38.951Z",
-    "device": 11,
-    "reservoir_name": "Main Tank",
-    "plant_type": "Kale",
-    "start_date": "2025-07-11",
-    "end_date": "2025-09-10"
-  }
-},
-{
-  "model": "sensors.sensor",
-  "pk": 47,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.956Z",
-    "updated_at": "2025-10-10T11:47:38.956Z",
-    "device": 11,
-    "sensor_type": "ph",
-    "unit": "pH"
-  }
-},
-{
-  "model": "sensors.sensor",
-  "pk": 48,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.961Z",
-    "updated_at": "2025-10-10T11:47:38.961Z",
-    "device": 11,
-    "sensor_type": "tds",
-    "unit": "ppm"
-  }
-},
-{
-  "model": "sensors.sensor",
-  "pk": 49,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.964Z",
-    "updated_at": "2025-10-10T11:47:38.964Z",
-    "device": 11,
-    "sensor_type": "water_temperature",
-    "unit": "°C"
-  }
-},
-{
-  "model": "sensors.sensor",
-  "pk": 50,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.974Z",
-    "updated_at": "2025-10-10T11:47:38.974Z",
-    "device": 11,
-    "sensor_type": "water_level",
-    "unit": "%"
-  }
-},
-{
-  "model": "sensors.sensor",
-  "pk": 51,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.978Z",
-    "updated_at": "2025-10-10T11:47:38.978Z",
-    "device": 11,
-    "sensor_type": "turbidity",
-    "unit": "NTU"
-  }
-},
-{
-  "model": "sensors.sensor",
-  "pk": 52,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.982Z",
-    "updated_at": "2025-10-10T11:47:38.982Z",
-    "device": 11,
-    "sensor_type": "air_temperature",
-    "unit": "°C"
-  }
-},
-{
-  "model": "sensors.sensor",
-  "pk": 53,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.987Z",
-    "updated_at": "2025-10-10T11:47:38.987Z",
-    "device": 11,
-    "sensor_type": "humidity",
-    "unit": "%"
-  }
-},
-{
-  "model": "sensors.sensor",
-  "pk": 54,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.992Z",
-    "updated_at": "2025-10-10T11:47:38.992Z",
-    "device": 11,
-    "sensor_type": "light",
-    "unit": "lux"
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1633,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.994Z",
-    "updated_at": "2025-10-10T11:47:38.994Z",
-    "sensor": 47,
-    "value": 5.52
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1634,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.996Z",
-    "updated_at": "2025-10-10T11:47:38.996Z",
-    "sensor": 47,
-    "value": 6.08
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1635,
-  "fields": {
-    "created_at": "2025-10-10T11:47:38.998Z",
-    "updated_at": "2025-10-10T11:47:38.998Z",
-    "sensor": 47,
-    "value": 5.79
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1636,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.000Z",
-    "updated_at": "2025-10-10T11:47:39.000Z",
-    "sensor": 47,
-    "value": 5.53
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1637,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.002Z",
-    "updated_at": "2025-10-10T11:47:39.002Z",
-    "sensor": 47,
-    "value": 5.9
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1638,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.004Z",
-    "updated_at": "2025-10-10T11:47:39.004Z",
-    "sensor": 47,
-    "value": 6.46
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1639,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.008Z",
-    "updated_at": "2025-10-10T11:47:39.008Z",
-    "sensor": 47,
-    "value": 6.47
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1640,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.010Z",
-    "updated_at": "2025-10-10T11:47:39.010Z",
-    "sensor": 47,
-    "value": 5.96
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1641,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.012Z",
-    "updated_at": "2025-10-10T11:47:39.012Z",
-    "sensor": 47,
-    "value": 5.84
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1642,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.014Z",
-    "updated_at": "2025-10-10T11:47:39.014Z",
-    "sensor": 47,
-    "value": 5.89
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1643,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.016Z",
-    "updated_at": "2025-10-10T11:47:39.016Z",
-    "sensor": 47,
-    "value": 5.88
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1644,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.018Z",
-    "updated_at": "2025-10-10T11:47:39.018Z",
-    "sensor": 47,
-    "value": 5.87
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1645,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.020Z",
-    "updated_at": "2025-10-10T11:47:39.020Z",
-    "sensor": 47,
-    "value": 5.77
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1646,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.023Z",
-    "updated_at": "2025-10-10T11:47:39.023Z",
-    "sensor": 47,
-    "value": 6.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1647,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.025Z",
-    "updated_at": "2025-10-10T11:47:39.025Z",
-    "sensor": 47,
-    "value": 5.87
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1648,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.027Z",
-    "updated_at": "2025-10-10T11:47:39.027Z",
-    "sensor": 47,
-    "value": 5.89
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1649,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.029Z",
-    "updated_at": "2025-10-10T11:47:39.029Z",
-    "sensor": 47,
-    "value": 6.31
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1650,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.031Z",
-    "updated_at": "2025-10-10T11:47:39.031Z",
-    "sensor": 47,
-    "value": 5.54
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1651,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.033Z",
-    "updated_at": "2025-10-10T11:47:39.033Z",
-    "sensor": 47,
-    "value": 5.62
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1652,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.035Z",
-    "updated_at": "2025-10-10T11:47:39.035Z",
-    "sensor": 47,
-    "value": 5.91
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1653,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.038Z",
-    "updated_at": "2025-10-10T11:47:39.038Z",
-    "sensor": 47,
-    "value": 6.02
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1654,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.041Z",
-    "updated_at": "2025-10-10T11:47:39.041Z",
-    "sensor": 47,
-    "value": 6.39
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1655,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.043Z",
-    "updated_at": "2025-10-10T11:47:39.043Z",
-    "sensor": 47,
-    "value": 6.44
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1656,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.044Z",
-    "updated_at": "2025-10-10T11:47:39.044Z",
-    "sensor": 47,
-    "value": 5.86
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1657,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.047Z",
-    "updated_at": "2025-10-10T11:47:39.047Z",
-    "sensor": 48,
-    "value": 775.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1658,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.049Z",
-    "updated_at": "2025-10-10T11:47:39.049Z",
-    "sensor": 48,
-    "value": 831.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1659,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.051Z",
-    "updated_at": "2025-10-10T11:47:39.051Z",
-    "sensor": 48,
-    "value": 692.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1660,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.053Z",
-    "updated_at": "2025-10-10T11:47:39.053Z",
-    "sensor": 48,
-    "value": 590.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1661,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.055Z",
-    "updated_at": "2025-10-10T11:47:39.055Z",
-    "sensor": 48,
-    "value": 730.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1662,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.057Z",
-    "updated_at": "2025-10-10T11:47:39.057Z",
-    "sensor": 48,
-    "value": 711.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1663,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.059Z",
-    "updated_at": "2025-10-10T11:47:39.059Z",
-    "sensor": 48,
-    "value": 354.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1664,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.061Z",
-    "updated_at": "2025-10-10T11:47:39.061Z",
-    "sensor": 48,
-    "value": 1066.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1665,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.063Z",
-    "updated_at": "2025-10-10T11:47:39.063Z",
-    "sensor": 48,
-    "value": 1179.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1666,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.066Z",
-    "updated_at": "2025-10-10T11:47:39.066Z",
-    "sensor": 48,
-    "value": 537.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1667,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.068Z",
-    "updated_at": "2025-10-10T11:47:39.068Z",
-    "sensor": 48,
-    "value": 614.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1668,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.070Z",
-    "updated_at": "2025-10-10T11:47:39.070Z",
-    "sensor": 48,
-    "value": 1085.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1669,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.072Z",
-    "updated_at": "2025-10-10T11:47:39.072Z",
-    "sensor": 48,
-    "value": 393.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1670,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.074Z",
-    "updated_at": "2025-10-10T11:47:39.074Z",
-    "sensor": 48,
-    "value": 1080.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1671,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.076Z",
-    "updated_at": "2025-10-10T11:47:39.076Z",
-    "sensor": 48,
-    "value": 397.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1672,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.078Z",
-    "updated_at": "2025-10-10T11:47:39.078Z",
-    "sensor": 48,
-    "value": 843.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1673,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.080Z",
-    "updated_at": "2025-10-10T11:47:39.080Z",
-    "sensor": 48,
-    "value": 866.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1674,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.082Z",
-    "updated_at": "2025-10-10T11:47:39.082Z",
-    "sensor": 48,
-    "value": 996.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1675,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.085Z",
-    "updated_at": "2025-10-10T11:47:39.085Z",
-    "sensor": 48,
-    "value": 404.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1676,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.087Z",
-    "updated_at": "2025-10-10T11:47:39.087Z",
-    "sensor": 48,
-    "value": 1180.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1677,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.089Z",
-    "updated_at": "2025-10-10T11:47:39.089Z",
-    "sensor": 48,
-    "value": 589.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1678,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.091Z",
-    "updated_at": "2025-10-10T11:47:39.091Z",
-    "sensor": 48,
-    "value": 383.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1679,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.092Z",
-    "updated_at": "2025-10-10T11:47:39.092Z",
-    "sensor": 48,
-    "value": 923.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1680,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.094Z",
-    "updated_at": "2025-10-10T11:47:39.094Z",
-    "sensor": 48,
-    "value": 883.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1681,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.096Z",
-    "updated_at": "2025-10-10T11:47:39.096Z",
-    "sensor": 49,
-    "value": 21.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1682,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.098Z",
-    "updated_at": "2025-10-10T11:47:39.098Z",
-    "sensor": 49,
-    "value": 20.3
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1683,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.100Z",
-    "updated_at": "2025-10-10T11:47:39.100Z",
-    "sensor": 49,
-    "value": 24.6
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1684,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.102Z",
-    "updated_at": "2025-10-10T11:47:39.102Z",
-    "sensor": 49,
-    "value": 24.7
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1685,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.104Z",
-    "updated_at": "2025-10-10T11:47:39.104Z",
-    "sensor": 49,
-    "value": 22.4
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1686,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.106Z",
-    "updated_at": "2025-10-10T11:47:39.106Z",
-    "sensor": 49,
-    "value": 18.2
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1687,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.107Z",
-    "updated_at": "2025-10-10T11:47:39.107Z",
-    "sensor": 49,
-    "value": 19.6
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1688,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.109Z",
-    "updated_at": "2025-10-10T11:47:39.109Z",
-    "sensor": 49,
-    "value": 22.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1689,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.111Z",
-    "updated_at": "2025-10-10T11:47:39.111Z",
-    "sensor": 49,
-    "value": 22.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1690,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.113Z",
-    "updated_at": "2025-10-10T11:47:39.113Z",
-    "sensor": 49,
-    "value": 22.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1691,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.114Z",
-    "updated_at": "2025-10-10T11:47:39.114Z",
-    "sensor": 49,
-    "value": 24.2
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1692,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.117Z",
-    "updated_at": "2025-10-10T11:47:39.117Z",
-    "sensor": 49,
-    "value": 21.6
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1693,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.118Z",
-    "updated_at": "2025-10-10T11:47:39.118Z",
-    "sensor": 49,
-    "value": 20.3
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1694,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.120Z",
-    "updated_at": "2025-10-10T11:47:39.120Z",
-    "sensor": 49,
-    "value": 24.2
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1695,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.122Z",
-    "updated_at": "2025-10-10T11:47:39.122Z",
-    "sensor": 49,
-    "value": 23.4
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1696,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.124Z",
-    "updated_at": "2025-10-10T11:47:39.124Z",
-    "sensor": 49,
-    "value": 22.8
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1697,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.126Z",
-    "updated_at": "2025-10-10T11:47:39.126Z",
-    "sensor": 49,
-    "value": 19.3
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1698,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.128Z",
-    "updated_at": "2025-10-10T11:47:39.128Z",
-    "sensor": 49,
-    "value": 22.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1699,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.129Z",
-    "updated_at": "2025-10-10T11:47:39.129Z",
-    "sensor": 49,
-    "value": 21.7
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1700,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.131Z",
-    "updated_at": "2025-10-10T11:47:39.131Z",
-    "sensor": 49,
-    "value": 23.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1701,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.133Z",
-    "updated_at": "2025-10-10T11:47:39.133Z",
-    "sensor": 49,
-    "value": 19.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1702,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.135Z",
-    "updated_at": "2025-10-10T11:47:39.135Z",
-    "sensor": 49,
-    "value": 25.6
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1703,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.137Z",
-    "updated_at": "2025-10-10T11:47:39.137Z",
-    "sensor": 49,
-    "value": 19.8
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1704,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.139Z",
-    "updated_at": "2025-10-10T11:47:39.139Z",
-    "sensor": 49,
-    "value": 19.8
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1705,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.141Z",
-    "updated_at": "2025-10-10T11:47:39.141Z",
-    "sensor": 50,
-    "value": 62.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1706,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.143Z",
-    "updated_at": "2025-10-10T11:47:39.143Z",
-    "sensor": 50,
-    "value": 91.9
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1707,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.145Z",
-    "updated_at": "2025-10-10T11:47:39.145Z",
-    "sensor": 50,
-    "value": 62.2
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1708,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.147Z",
-    "updated_at": "2025-10-10T11:47:39.147Z",
-    "sensor": 50,
-    "value": 61.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1709,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.149Z",
-    "updated_at": "2025-10-10T11:47:39.149Z",
-    "sensor": 50,
-    "value": 52.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1710,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.151Z",
-    "updated_at": "2025-10-10T11:47:39.151Z",
-    "sensor": 50,
-    "value": 86.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1711,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.153Z",
-    "updated_at": "2025-10-10T11:47:39.153Z",
-    "sensor": 50,
-    "value": 62.3
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1712,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.155Z",
-    "updated_at": "2025-10-10T11:47:39.155Z",
-    "sensor": 50,
-    "value": 20.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1713,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.157Z",
-    "updated_at": "2025-10-10T11:47:39.157Z",
-    "sensor": 50,
-    "value": 68.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1714,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.159Z",
-    "updated_at": "2025-10-10T11:47:39.159Z",
-    "sensor": 50,
-    "value": 72.6
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1715,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.161Z",
-    "updated_at": "2025-10-10T11:47:39.161Z",
-    "sensor": 50,
-    "value": 46.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1716,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.163Z",
-    "updated_at": "2025-10-10T11:47:39.163Z",
-    "sensor": 50,
-    "value": 37.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1717,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.165Z",
-    "updated_at": "2025-10-10T11:47:39.165Z",
-    "sensor": 50,
-    "value": 26.9
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1718,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.167Z",
-    "updated_at": "2025-10-10T11:47:39.167Z",
-    "sensor": 50,
-    "value": 50.3
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1719,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.169Z",
-    "updated_at": "2025-10-10T11:47:39.169Z",
-    "sensor": 50,
-    "value": 38.7
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1720,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.171Z",
-    "updated_at": "2025-10-10T11:47:39.171Z",
-    "sensor": 50,
-    "value": 94.9
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1721,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.173Z",
-    "updated_at": "2025-10-10T11:47:39.173Z",
-    "sensor": 50,
-    "value": 72.8
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1722,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.175Z",
-    "updated_at": "2025-10-10T11:47:39.175Z",
-    "sensor": 50,
-    "value": 81.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1723,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.177Z",
-    "updated_at": "2025-10-10T11:47:39.177Z",
-    "sensor": 50,
-    "value": 25.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1724,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.179Z",
-    "updated_at": "2025-10-10T11:47:39.179Z",
-    "sensor": 50,
-    "value": 67.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1725,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.181Z",
-    "updated_at": "2025-10-10T11:47:39.181Z",
-    "sensor": 50,
-    "value": 76.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1726,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.183Z",
-    "updated_at": "2025-10-10T11:47:39.183Z",
-    "sensor": 50,
-    "value": 23.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1727,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.184Z",
-    "updated_at": "2025-10-10T11:47:39.184Z",
-    "sensor": 50,
-    "value": 50.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1728,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.187Z",
-    "updated_at": "2025-10-10T11:47:39.187Z",
-    "sensor": 50,
-    "value": 69.6
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1729,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.189Z",
-    "updated_at": "2025-10-10T11:47:39.189Z",
-    "sensor": 51,
-    "value": 6.76
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1730,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.191Z",
-    "updated_at": "2025-10-10T11:47:39.191Z",
-    "sensor": 51,
-    "value": 2.81
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1731,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.193Z",
-    "updated_at": "2025-10-10T11:47:39.193Z",
-    "sensor": 51,
-    "value": 2.13
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1732,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.195Z",
-    "updated_at": "2025-10-10T11:47:39.195Z",
-    "sensor": 51,
-    "value": 5.01
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1733,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.196Z",
-    "updated_at": "2025-10-10T11:47:39.196Z",
-    "sensor": 51,
-    "value": 6.04
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1734,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.198Z",
-    "updated_at": "2025-10-10T11:47:39.198Z",
-    "sensor": 51,
-    "value": 1.42
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1735,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.200Z",
-    "updated_at": "2025-10-10T11:47:39.200Z",
-    "sensor": 51,
-    "value": 7.6
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1736,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.202Z",
-    "updated_at": "2025-10-10T11:47:39.202Z",
-    "sensor": 51,
-    "value": 2.51
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1737,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.204Z",
-    "updated_at": "2025-10-10T11:47:39.204Z",
-    "sensor": 51,
-    "value": 7.83
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1738,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.206Z",
-    "updated_at": "2025-10-10T11:47:39.206Z",
-    "sensor": 51,
-    "value": 8.34
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1739,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.209Z",
-    "updated_at": "2025-10-10T11:47:39.209Z",
-    "sensor": 51,
-    "value": 6.63
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1740,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.211Z",
-    "updated_at": "2025-10-10T11:47:39.211Z",
-    "sensor": 51,
-    "value": 6.52
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1741,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.212Z",
-    "updated_at": "2025-10-10T11:47:39.212Z",
-    "sensor": 51,
-    "value": 2.64
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1742,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.214Z",
-    "updated_at": "2025-10-10T11:47:39.214Z",
-    "sensor": 51,
-    "value": 6.02
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1743,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.216Z",
-    "updated_at": "2025-10-10T11:47:39.216Z",
-    "sensor": 51,
-    "value": 8.55
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1744,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.218Z",
-    "updated_at": "2025-10-10T11:47:39.218Z",
-    "sensor": 51,
-    "value": 9.78
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1745,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.220Z",
-    "updated_at": "2025-10-10T11:47:39.220Z",
-    "sensor": 51,
-    "value": 4.53
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1746,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.222Z",
-    "updated_at": "2025-10-10T11:47:39.222Z",
-    "sensor": 51,
-    "value": 0.33
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1747,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.224Z",
-    "updated_at": "2025-10-10T11:47:39.224Z",
-    "sensor": 51,
-    "value": 7.64
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1748,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.228Z",
-    "updated_at": "2025-10-10T11:47:39.228Z",
-    "sensor": 51,
-    "value": 7.67
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1749,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.230Z",
-    "updated_at": "2025-10-10T11:47:39.230Z",
-    "sensor": 51,
-    "value": 9.74
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1750,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.232Z",
-    "updated_at": "2025-10-10T11:47:39.233Z",
-    "sensor": 51,
-    "value": 8.35
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1751,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.234Z",
-    "updated_at": "2025-10-10T11:47:39.234Z",
-    "sensor": 51,
-    "value": 3.21
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1752,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.236Z",
-    "updated_at": "2025-10-10T11:47:39.236Z",
-    "sensor": 51,
-    "value": 6.7
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1753,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.238Z",
-    "updated_at": "2025-10-10T11:47:39.238Z",
-    "sensor": 52,
-    "value": 33.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1754,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.240Z",
-    "updated_at": "2025-10-10T11:47:39.240Z",
-    "sensor": 52,
-    "value": 24.9
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1755,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.241Z",
-    "updated_at": "2025-10-10T11:47:39.242Z",
-    "sensor": 52,
-    "value": 32.3
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1756,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.244Z",
-    "updated_at": "2025-10-10T11:47:39.244Z",
-    "sensor": 52,
-    "value": 33.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1757,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.246Z",
-    "updated_at": "2025-10-10T11:47:39.246Z",
-    "sensor": 52,
-    "value": 22.8
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1758,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.248Z",
-    "updated_at": "2025-10-10T11:47:39.248Z",
-    "sensor": 52,
-    "value": 26.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1759,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.250Z",
-    "updated_at": "2025-10-10T11:47:39.250Z",
-    "sensor": 52,
-    "value": 30.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1760,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.252Z",
-    "updated_at": "2025-10-10T11:47:39.252Z",
-    "sensor": 52,
-    "value": 24.9
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1761,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.254Z",
-    "updated_at": "2025-10-10T11:47:39.254Z",
-    "sensor": 52,
-    "value": 24.7
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1762,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.256Z",
-    "updated_at": "2025-10-10T11:47:39.256Z",
-    "sensor": 52,
-    "value": 23.8
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1763,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.257Z",
-    "updated_at": "2025-10-10T11:47:39.257Z",
-    "sensor": 52,
-    "value": 28.4
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1764,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.259Z",
-    "updated_at": "2025-10-10T11:47:39.259Z",
-    "sensor": 52,
-    "value": 28.3
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1765,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.261Z",
-    "updated_at": "2025-10-10T11:47:39.261Z",
-    "sensor": 52,
-    "value": 27.7
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1766,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.262Z",
-    "updated_at": "2025-10-10T11:47:39.262Z",
-    "sensor": 52,
-    "value": 20.4
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1767,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.264Z",
-    "updated_at": "2025-10-10T11:47:39.264Z",
-    "sensor": 52,
-    "value": 22.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1768,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.266Z",
-    "updated_at": "2025-10-10T11:47:39.266Z",
-    "sensor": 52,
-    "value": 23.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1769,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.268Z",
-    "updated_at": "2025-10-10T11:47:39.268Z",
-    "sensor": 52,
-    "value": 20.4
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1770,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.270Z",
-    "updated_at": "2025-10-10T11:47:39.270Z",
-    "sensor": 52,
-    "value": 30.3
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1771,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.273Z",
-    "updated_at": "2025-10-10T11:47:39.273Z",
-    "sensor": 52,
-    "value": 24.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1772,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.274Z",
-    "updated_at": "2025-10-10T11:47:39.274Z",
-    "sensor": 52,
-    "value": 21.4
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1773,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.276Z",
-    "updated_at": "2025-10-10T11:47:39.276Z",
-    "sensor": 52,
-    "value": 32.4
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1774,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.278Z",
-    "updated_at": "2025-10-10T11:47:39.278Z",
-    "sensor": 52,
-    "value": 30.3
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1775,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.280Z",
-    "updated_at": "2025-10-10T11:47:39.280Z",
-    "sensor": 52,
-    "value": 26.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1776,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.281Z",
-    "updated_at": "2025-10-10T11:47:39.281Z",
-    "sensor": 52,
-    "value": 20.7
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1777,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.284Z",
-    "updated_at": "2025-10-10T11:47:39.284Z",
-    "sensor": 53,
-    "value": 71.9
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1778,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.286Z",
-    "updated_at": "2025-10-10T11:47:39.286Z",
-    "sensor": 53,
-    "value": 58.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1779,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.287Z",
-    "updated_at": "2025-10-10T11:47:39.287Z",
-    "sensor": 53,
-    "value": 50.3
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1780,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.289Z",
-    "updated_at": "2025-10-10T11:47:39.289Z",
-    "sensor": 53,
-    "value": 42.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1781,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.291Z",
-    "updated_at": "2025-10-10T11:47:39.291Z",
-    "sensor": 53,
-    "value": 79.8
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1782,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.292Z",
-    "updated_at": "2025-10-10T11:47:39.292Z",
-    "sensor": 53,
-    "value": 62.1
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1783,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.294Z",
-    "updated_at": "2025-10-10T11:47:39.294Z",
-    "sensor": 53,
-    "value": 58.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1784,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.296Z",
-    "updated_at": "2025-10-10T11:47:39.296Z",
-    "sensor": 53,
-    "value": 59.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1785,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.297Z",
-    "updated_at": "2025-10-10T11:47:39.297Z",
-    "sensor": 53,
-    "value": 54.6
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1786,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.299Z",
-    "updated_at": "2025-10-10T11:47:39.299Z",
-    "sensor": 53,
-    "value": 50.2
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1787,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.301Z",
-    "updated_at": "2025-10-10T11:47:39.301Z",
-    "sensor": 53,
-    "value": 72.6
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1788,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.303Z",
-    "updated_at": "2025-10-10T11:47:39.303Z",
-    "sensor": 53,
-    "value": 68.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1789,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.305Z",
-    "updated_at": "2025-10-10T11:47:39.305Z",
-    "sensor": 53,
-    "value": 55.9
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1790,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.306Z",
-    "updated_at": "2025-10-10T11:47:39.306Z",
-    "sensor": 53,
-    "value": 79.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1791,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.308Z",
-    "updated_at": "2025-10-10T11:47:39.308Z",
-    "sensor": 53,
-    "value": 79.8
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1792,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.310Z",
-    "updated_at": "2025-10-10T11:47:39.310Z",
-    "sensor": 53,
-    "value": 77.7
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1793,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.312Z",
-    "updated_at": "2025-10-10T11:47:39.312Z",
-    "sensor": 53,
-    "value": 64.4
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1794,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.313Z",
-    "updated_at": "2025-10-10T11:47:39.313Z",
-    "sensor": 53,
-    "value": 48.9
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1795,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.315Z",
-    "updated_at": "2025-10-10T11:47:39.315Z",
-    "sensor": 53,
-    "value": 61.8
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1796,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.317Z",
-    "updated_at": "2025-10-10T11:47:39.317Z",
-    "sensor": 53,
-    "value": 55.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1797,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.319Z",
-    "updated_at": "2025-10-10T11:47:39.319Z",
-    "sensor": 53,
-    "value": 58.4
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1798,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.321Z",
-    "updated_at": "2025-10-10T11:47:39.321Z",
-    "sensor": 53,
-    "value": 64.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1799,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.323Z",
-    "updated_at": "2025-10-10T11:47:39.323Z",
-    "sensor": 53,
-    "value": 45.5
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1800,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.325Z",
-    "updated_at": "2025-10-10T11:47:39.325Z",
-    "sensor": 53,
-    "value": 74.2
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1801,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.327Z",
-    "updated_at": "2025-10-10T11:47:39.327Z",
-    "sensor": 54,
-    "value": 4808.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1802,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.329Z",
-    "updated_at": "2025-10-10T11:47:39.329Z",
-    "sensor": 54,
-    "value": 6589.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1803,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.331Z",
-    "updated_at": "2025-10-10T11:47:39.331Z",
-    "sensor": 54,
-    "value": 25327.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1804,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.333Z",
-    "updated_at": "2025-10-10T11:47:39.333Z",
-    "sensor": 54,
-    "value": 36228.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1805,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.335Z",
-    "updated_at": "2025-10-10T11:47:39.335Z",
-    "sensor": 54,
-    "value": 27664.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1806,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.337Z",
-    "updated_at": "2025-10-10T11:47:39.337Z",
-    "sensor": 54,
-    "value": 14819.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1807,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.339Z",
-    "updated_at": "2025-10-10T11:47:39.339Z",
-    "sensor": 54,
-    "value": 43686.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1808,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.341Z",
-    "updated_at": "2025-10-10T11:47:39.341Z",
-    "sensor": 54,
-    "value": 25132.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1809,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.342Z",
-    "updated_at": "2025-10-10T11:47:39.342Z",
-    "sensor": 54,
-    "value": 33659.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1810,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.344Z",
-    "updated_at": "2025-10-10T11:47:39.344Z",
-    "sensor": 54,
-    "value": 17905.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1811,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.345Z",
-    "updated_at": "2025-10-10T11:47:39.345Z",
-    "sensor": 54,
-    "value": 3817.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1812,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.347Z",
-    "updated_at": "2025-10-10T11:47:39.347Z",
-    "sensor": 54,
-    "value": 35944.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1813,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.350Z",
-    "updated_at": "2025-10-10T11:47:39.350Z",
-    "sensor": 54,
-    "value": 30937.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1814,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.352Z",
-    "updated_at": "2025-10-10T11:47:39.352Z",
-    "sensor": 54,
-    "value": 40522.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1815,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.354Z",
-    "updated_at": "2025-10-10T11:47:39.354Z",
-    "sensor": 54,
-    "value": 24709.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1816,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.356Z",
-    "updated_at": "2025-10-10T11:47:39.356Z",
-    "sensor": 54,
-    "value": 31077.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1817,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.357Z",
-    "updated_at": "2025-10-10T11:47:39.357Z",
-    "sensor": 54,
-    "value": 25170.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1818,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.359Z",
-    "updated_at": "2025-10-10T11:47:39.359Z",
-    "sensor": 54,
-    "value": 11418.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1819,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.361Z",
-    "updated_at": "2025-10-10T11:47:39.361Z",
-    "sensor": 54,
-    "value": 16095.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1820,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.362Z",
-    "updated_at": "2025-10-10T11:47:39.362Z",
-    "sensor": 54,
-    "value": 17743.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1821,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.364Z",
-    "updated_at": "2025-10-10T11:47:39.364Z",
-    "sensor": 54,
-    "value": 47651.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1822,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.367Z",
-    "updated_at": "2025-10-10T11:47:39.367Z",
-    "sensor": 54,
-    "value": 26843.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1823,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.368Z",
-    "updated_at": "2025-10-10T11:47:39.368Z",
-    "sensor": 54,
-    "value": 11798.0
-  }
-},
-{
-  "model": "sensors.sensordata",
-  "pk": 1824,
-  "fields": {
-    "created_at": "2025-10-10T11:47:39.370Z",
-    "updated_at": "2025-10-10T11:47:39.370Z",
-    "sensor": 54,
-    "value": 22221.0
-  }
-}
 ]

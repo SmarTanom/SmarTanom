@@ -10,6 +10,55 @@ from apps.common.models import TimeStampedModel
 from apps.devices.models import Device
 
 
+class Plant(TimeStampedModel):
+    """Reference table describing ideal ranges for a plant/crop.
+
+    Columns (all NOT NULL):
+    - plant_name
+    - ppm_min / ppm_max
+    - ph_min / ph_max
+    - water_temp_min / water_temp_max
+    - light_min / light_max
+    """
+
+    plant_name = models.CharField(max_length=100, unique=True)
+
+    ppm_min = models.FloatField()
+    ppm_max = models.FloatField()
+
+    ph_min = models.FloatField()
+    ph_max = models.FloatField()
+
+    water_temp_min = models.FloatField()
+    water_temp_max = models.FloatField()
+
+    light_min = models.FloatField()
+    light_max = models.FloatField()
+
+    class Meta:
+        verbose_name = "Plant"
+        verbose_name_plural = "Plants"
+        indexes = [
+            models.Index(fields=["plant_name"], name="idx_plant_name"),
+        ]
+
+    def clean(self):
+        errors = {}
+        if self.ppm_min > self.ppm_max:
+            errors["ppm_min"] = "ppm_min cannot be greater than ppm_max"
+        if self.ph_min > self.ph_max:
+            errors["ph_min"] = "ph_min cannot be greater than ph_max"
+        if self.water_temp_min > self.water_temp_max:
+            errors["water_temp_min"] = "water_temp_min cannot be greater than water_temp_max"
+        if self.light_min > self.light_max:
+            errors["light_min"] = "light_min cannot be greater than light_max"
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self) -> str:
+        return self.plant_name
+
+
 class Reservoir(TimeStampedModel):
     """A reservoir (e.g., hydroponic tank) associated with a device."""
 
@@ -17,7 +66,9 @@ class Reservoir(TimeStampedModel):
         Device, on_delete=models.CASCADE, related_name="reservoirs", db_index=True
     )
     reservoir_name = models.CharField(max_length=100)
-    plant_type = models.CharField(max_length=100)
+    plant = models.ForeignKey(
+        Plant, on_delete=models.PROTECT, related_name="reservoirs", db_index=True
+    )
     start_date = models.DateField()
     end_date = models.DateField()
 

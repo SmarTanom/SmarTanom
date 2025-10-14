@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from apps.devices.models import Device
-from apps.reservoirs.models import Reservoir
+from apps.reservoirs.models import Reservoir, Plant
 from apps.sensors.models import Sensor, SensorData
 
 User = get_user_model()
@@ -71,7 +71,6 @@ class Command(BaseCommand):
         owned_devices = self.create_devices(users, options['devices_per_user'])
         unowned_devices = self.create_unowned_devices(options['unowned_devices'])
         all_devices = owned_devices + unowned_devices
-
         reservoirs = self.create_reservoirs(all_devices, options['reservoirs_per_device'])
         sensors = self.create_sensors(all_devices)
         self.create_sensor_data(sensors, options['readings_per_sensor'], options['days'])
@@ -184,6 +183,19 @@ class Command(BaseCommand):
             'Lettuce', 'Tomatoes', 'Herbs', 'Peppers', 'Spinach',
             'Kale', 'Basil', 'Cilantro', 'Strawberries', 'Cucumbers'
         ]
+        # Ensure Plant records exist for the above names with sane defaults
+        plant_records = {}
+        for name in plant_types:
+            plant, _ = Plant.objects.get_or_create(
+                plant_name=name,
+                defaults=dict(
+                    ppm_min=300, ppm_max=1200,
+                    ph_min=5.5, ph_max=6.5,
+                    water_temp_min=18, water_temp_max=26,
+                    light_min=1000, light_max=50000,
+                )
+            )
+            plant_records[name] = plant
         reservoir_names = [
             'Main Tank', 'Nutrient Reservoir', 'Seedling Tank', 'Flowering Chamber',
             'Vegetative Tank', 'Clone Chamber', 'Recovery Tank'
@@ -193,6 +205,7 @@ class Command(BaseCommand):
             for i in range(reservoirs_per_device):
                 reservoir_name = reservoir_names[i % len(reservoir_names)]
                 plant_type = random.choice(plant_types)
+                plant = plant_records[plant_type]
 
                 # Generate realistic date ranges
                 start_date = date.today() - timedelta(days=random.randint(30, 180))
@@ -202,13 +215,13 @@ class Command(BaseCommand):
                     device=device,
                     reservoir_name=reservoir_name,
                     defaults={
-                        'plant_type': plant_type,
+                        'plant': plant,
                         'start_date': start_date,
                         'end_date': end_date
                     }
                 )
                 if created:
-                    self.stdout.write(f'Created reservoir: {reservoir_name} ({plant_type}) for {device.device_name}')
+                    self.stdout.write(f'Created reservoir: {reservoir_name} ({plant.plant_name}) for {device.device_name}')
                 reservoirs.append(reservoir)
 
         return reservoirs

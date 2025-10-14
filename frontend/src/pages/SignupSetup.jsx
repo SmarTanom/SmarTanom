@@ -7,6 +7,7 @@ import { Check } from '../components/ui/Icon.jsx';
 import { Mail } from '../components/ui/Icon.jsx';
 import { Wifi, Refresh, Lock, SignalBars } from '../components/ui/Icon.jsx';
 import { authApi, deviceApi } from '../services/apiClient.js';
+import { listPlants } from '../services/api/plants.js';
 import { createReservoir } from '../services/api/reservoirs.js';
 import { checkDevice, requestDeviceOTP, verifyDeviceOTP } from '../services/api/devices.js';
 // Removed shared OtpInput component per request; using local inline inputs
@@ -212,17 +213,7 @@ export default function SignupSetup() {
     'Salanova', 'Butterhead', 'Looseleaf', 'Batavia', 'Romaine',
     'Spinach', 'Arugula', 'Kale', 'Bok Choy', 'Basil', 'Mint', 'Oregano', 'Cilantro', 'Chives', 'Parsley', 'Thyme'
   ];
-  // Plant type choices aligned with StartCycle page
-  const PLANT_TYPES = [
-    'Romaine',
-    'Butterhead',
-    'Batavia',
-    'Pechay',
-    'Basil',
-    'Arugula',
-    'Spinach',
-    'Kale',
-  ];
+  const [plantOptions, setPlantOptions] = useState([]);
   const [selectedDefaultImage, setSelectedDefaultImage] = useState('');
   const [showDefaultImageModal, setShowDefaultImageModal] = useState(false); // new modal state
   const [showPlantPhotoModal, setShowPlantPhotoModal] = useState(false); // plant photo modal
@@ -236,10 +227,27 @@ export default function SignupSetup() {
     return d.toISOString().slice(0, 10);
   }, []);
   const [reservoirName, setReservoirName] = useState('');
-  const [plantType, setPlantType] = useState('');
+  const [plantId, setPlantId] = useState('');
   const [resStartDate, setResStartDate] = useState(todayStr);
   const [resEndDate, setResEndDate] = useState(plus30Str);
   const [reservoirError, setReservoirError] = useState('');
+
+  useEffect(() => {
+    async function loadPlants() {
+      try {
+        const data = await listPlants('');
+        const items = Array.isArray(data) ? data : (data.results || []);
+        setPlantOptions(items);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('[SignupSetup] Could not load plant list', e);
+        setPlantOptions([]);
+      }
+    }
+    if (step === 2 && plantOptions.length === 0) {
+      loadPlants();
+    }
+  }, [step]);
 
   // Step 3 state
   const [bindEmail, setBindEmail] = useState('');
@@ -553,7 +561,7 @@ export default function SignupSetup() {
         // Create initial Reservoir if inputs were provided and valid
         try {
           const token = localStorage.getItem('authToken');
-          if (token && reservoirName.trim() && plantType.trim()) {
+          if (token && reservoirName.trim() && plantId) {
             // Fetch user devices and find the one matching the serial
             const devicesResponse = await deviceApi.list(token);
             const devicesList = Array.isArray(devicesResponse) ? devicesResponse : devicesResponse.results || [];
@@ -565,7 +573,7 @@ export default function SignupSetup() {
               const payload = {
                 device_id: matchedDevice.id,
                 reservoir_name: reservoirName.trim(),
-                plant_type: plantType.trim(),
+                plant_id: Number(plantId),
                 start_date: sd,
                 end_date: ed,
               };
@@ -1085,20 +1093,20 @@ export default function SignupSetup() {
 
                           <div className="setup-field">
                             <div className="setup-field-label-row">
-                              <label className="setup-field-label setup-field-label--xs" htmlFor="plantType">Plant Type</label>
+                              <label className="setup-field-label setup-field-label--xs" htmlFor="plantId">Plant</label>
                             </div>
                             <select
-                              id="plantType"
-                              value={plantType}
-                              onChange={(e) => setPlantType(e.target.value)}
-                              aria-describedby="help-planttype"
+                              id="plantId"
+                              value={plantId}
+                              onChange={(e) => setPlantId(e.target.value)}
+                              aria-describedby="help-plant"
                             >
-                              <option value="" disabled>Select plant type</option>
-                              {PLANT_TYPES.map(pt => (
-                                <option key={pt} value={pt}>{pt}</option>
+                              <option value="" disabled>Select a plant</option>
+                              {plantOptions.map(p => (
+                                <option key={p.id} value={p.id}>{p.plant_name}</option>
                               ))}
                             </select>
-                            <p id="help-planttype" className="setup-helper setup-helper--sm">Matches the options used in Start Cycle.</p>
+                            <p id="help-plant" className="setup-helper setup-helper--sm">Choices come from backend Plant catalog.</p>
                           </div>
 
                           <div className="setup-field">
@@ -1382,8 +1390,8 @@ export default function SignupSetup() {
                             setReservoirError('Reservoir name is required.');
                             return;
                           }
-                          if (!plantType.trim()) {
-                            setReservoirError('Plant type is required.');
+                          if (!plantId) {
+                            setReservoirError('Plant is required.');
                             return;
                           }
                           if (sd > ed) {
