@@ -6,9 +6,20 @@ import { apiClient } from '../apiClient.js';
  * Check if a device exists and can be bound
  */
 export async function checkDevice(serialNumber) {
-  return apiClient.post('/api/devices/check/', {
-    serial_number: serialNumber
-  });
+  const payload = { serial_number: serialNumber };
+  // Diagnostic logging
+  // eslint-disable-next-line no-console
+  console.log('[checkDevice] → POST /api/devices/check/ payload=', payload, 'token=', localStorage.getItem('authToken'));
+  try {
+    const res = await apiClient.post('/api/devices/check/', payload);
+    // eslint-disable-next-line no-console
+    console.log('[checkDevice] ← 200 response', res);
+    return res;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[checkDevice] ← error status=', err.status, 'message=', err.message, 'data=', err.data);
+    throw err;
+  }
 }
 
 /**

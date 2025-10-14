@@ -21,9 +21,10 @@ app_name = 'devices'
 router = DefaultRouter()
 router.register(r"", DeviceViewSet, basename="device")
 
+# IMPORTANT: Place explicit non-model routes BEFORE including the router URLs
+# to avoid the default '' route capturing segments like 'check/' as a device PK.
 urlpatterns = [
-    path("", include(router.urls)),
-    # Device binding endpoints
+    # Device binding endpoints (anonymous)
     path("check/", check_device, name="check_device"),
     path("request-otp/", request_device_otp, name="request_device_otp"),
     path("verify-otp/", verify_device_otp, name="verify_device_otp"),
@@ -35,4 +36,6 @@ urlpatterns = [
     path("shared/", get_shared_devices, name="get_shared_devices"),
     # PWA notifications
     path("notifications/subscribe/", subscribe_notifications, name="subscribe_notifications"),
+    # Finally include CRUD router
+    path("", include(router.urls)),
 ]

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import '../assets/styles/UserDashboard.css';
 import {
   Leaf,
@@ -26,6 +26,7 @@ import { MdScience } from 'react-icons/md';
 import { getUserDevices } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 import { getDeviceReservoirs } from '../services/api/reservoirs.js';
+import { listPlants } from '../services/api/plants.js';
 import { authApi } from '../services/apiClient.js';
 import { wsClient } from '../services/websocketClient';
 
@@ -272,6 +273,35 @@ const isAlertRead = (readingId) => {
   return readAlerts.has(readingId);
 };
 
+// --- BEGIN shared alert classification (duplicated from AlertsPage; consider refactor to shared module) ---
+const DEFAULT_PROXIMITY_MIN = 50;
+const DEFAULT_PROXIMITY_MAX = 200;
+function computeProximityBuffer(min, max) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return { low: DEFAULT_PROXIMITY_MIN, high: DEFAULT_PROXIMITY_MIN };
+  const span = Math.max(0, max - min);
+  const base = span * 0.1;
+  const buf = Math.min(DEFAULT_PROXIMITY_MAX, Math.max(DEFAULT_PROXIMITY_MIN, base));
+  return { low: buf, high: buf };
+}
+function classifyValue(value, min, max) {
+  if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max)) {
+    return { severity: 'none', reason: null };
+  }
+  const { low: proxLow, high: proxHigh } = computeProximityBuffer(min, max);
+  if (value < min) return { severity: 'critical', reason: 'below_min', proxLow, proxHigh };
+  if (value > max) return { severity: 'critical', reason: 'above_max', proxLow, proxHigh };
+  if (value <= min + proxLow) return { severity: 'warning', reason: 'near_min', proxLow, proxHigh };
+  if (value >= max - proxHigh) return { severity: 'warning', reason: 'near_max', proxLow, proxHigh };
+  return { severity: 'none', reason: null, proxLow, proxHigh };
+}
+const classifyPH = (v, plant) => plant ? classifyValue(Number(v), plant.ph_min, plant.ph_max) : { severity: 'none' };
+const classifyTDS = (v, plant) => plant ? classifyValue(Number(v), plant.ppm_min, plant.ppm_max) : { severity: 'none' };
+const classifyEnvTemp = (v, plant) => plant ? classifyValue(Number(v), plant.environment_temp_min, plant.environment_temp_max) : { severity: 'none' };
+const classifyHumidity = (v, plant) => plant ? classifyValue(Number(v), plant.humidity_min, plant.humidity_max) : { severity: 'none' };
+const classifyLight = (v, plant) => plant ? classifyValue(Number(v), plant.light_min, plant.light_max) : { severity: 'none' };
+const classifyWaterTemp = (v, plant) => plant ? classifyValue(Number(v), plant.water_temp_min, plant.water_temp_max) : { severity: 'none' };
+// --- END shared alert classification ---
+
 function PHBar({ v, i, min, max }) {
   // Handle null/undefined values (no data for this date)
   if (v === null || v === undefined) {
@@ -337,6 +367,7 @@ function PHBar({ v, i, min, max }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const carouselRef = useRef(null);
 
   // Initialize activeIdx from localStorage or default to 0
@@ -600,25 +631,49 @@ export default function Dashboard() {
       let unreadCount = 0;
       const perDevice = {};
 
+      // Fetch plant catalog once for dynamic ranges
+      let plantCatalog = [];
+      try {
+        const plantResp = await listPlants();
+        plantCatalog = plantResp && plantResp.results ? plantResp.results : plantResp;
+      } catch (e) {
+        console.warn('Dashboard: failed to fetch plant catalog (non-fatal)', e);
+      }
+
+      const findPlantForDevice = async (deviceId) => {
+        try {
+          const resResp = await getDeviceReservoirs(deviceId);
+          const reservoirs = resResp && resResp.results ? resResp.results : resResp;
+          if (Array.isArray(reservoirs) && reservoirs.length) {
+            const active = [...reservoirs].sort((a, b) => {
+              const da = new Date(a.start_date || a.created_at || 0).getTime();
+              const db = new Date(b.start_date || b.created_at || 0).getTime();
+              return db - da;
+            })[0];
+            const name = active?.plant_type || active?.plant;
+            if (name) return plantCatalog.find(p => p.plant_name === name) || null;
+          }
+        } catch (e) {
+          // ignore
+        }
+        return null;
+      };
+
       // Check each device for out-of-range sensor readings
       await Promise.all(userDevices.map(async (device) => {
         try {
           if (!device || !device.id) return;
+          const devicePlant = await findPlantForDevice(device.id);
           const sensorsResponse = await getDeviceSensors(device.id);
           const sensors = sensorsResponse && sensorsResponse.results ? sensorsResponse.results : sensorsResponse;
           if (!sensors || sensors.length === 0) return;
 
-          // Check pH, TDS, water_level, air_temperature sensors for alerts
-          const phSensors = sensors.filter(s => s.sensor_type === 'ph');
-          const tdsSensors = sensors.filter(s => s.sensor_type === 'tds');
-          const waterLevelSensors = sensors.filter(s => s.sensor_type === 'water_level');
-          const tempSensors = sensors.filter(s => s.sensor_type === 'air_temperature');
-
-          const allSensorsToCheck = [...phSensors, ...tdsSensors, ...waterLevelSensors, ...tempSensors];
+          // Include broader set to match AlertsPage logic
+          const allSensorsToCheck = sensors.filter(s => ['ph', 'tds', 'water_level', 'air_temperature', 'humidity', 'light', 'turbidity', 'water_temperature'].includes(s.sensor_type));
 
           await Promise.all(allSensorsToCheck.map(async (sensor) => {
             try {
-              const sensorDataResponse = await getSensorData(sensor.id);
+              const sensorDataResponse = await getSensorData(sensor.id, 30);
               const sensorReadings = sensorDataResponse.results || sensorDataResponse;
               if (!sensorReadings || sensorReadings.length === 0) return;
 
@@ -636,16 +691,35 @@ export default function Dashboard() {
 
                 const value = reading.value;
                 let hasAlert = false;
-
-                // Check for alert conditions based on sensor type
-                if (sensor.sensor_type === 'ph') {
-                  if (value < 5.5 || value > 6.5) hasAlert = true;
-                } else if (sensor.sensor_type === 'tds') {
-                  if (value < 800 || value > 1500) hasAlert = true;
-                } else if (sensor.sensor_type === 'water_level') {
-                  if (value < 20) hasAlert = true;
-                } else if (sensor.sensor_type === 'air_temperature') {
-                  if (value < 18 || value > 28) hasAlert = true;
+                const numVal = Number(value);
+                if (!Number.isFinite(numVal)) return;
+                switch (sensor.sensor_type) {
+                  case 'ph': {
+                    const r = classifyPH(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
+                  }
+                  case 'tds': {
+                    const r = classifyTDS(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
+                  }
+                  case 'air_temperature': {
+                    const r = classifyEnvTemp(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
+                  }
+                  case 'humidity': {
+                    const r = classifyHumidity(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
+                  }
+                  case 'light': {
+                    const r = classifyLight(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
+                  }
+                  case 'water_temperature': {
+                    const r = classifyWaterTemp(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
+                  }
+                  case 'turbidity': {
+                    // >2100 none, 1800-2100 warning, <1800 critical
+                    if (numVal <= 2100) hasAlert = true; break;
+                  }
+                  case 'water_level': {
+                    if (numVal === 0 || numVal <= 40) hasAlert = true; break;
+                  }
+                  default: break;
                 }
 
                 if (hasAlert) {
@@ -964,6 +1038,17 @@ export default function Dashboard() {
       window.removeEventListener('alerts-read-updated', handleAlertsReadUpdated);
     };
   }, [loading, devices]);
+
+  // Recalculate unread counts whenever route returns to /dashboard (covers SPA navigation back from alerts)
+  useEffect(() => {
+    if (location.pathname === '/dashboard' && !loading && devices.length > 0) {
+      (async () => {
+        const result = await countUnreadAlerts();
+        setUnreadAlertsCount(result.total);
+        setPerDeviceUnreadCounts(result.perDevice || {});
+      })();
+    }
+  }, [location.pathname, loading, devices]);
 
   // Floating Action Button (FAB) draggable state
   const fabRef = useRef(null);
