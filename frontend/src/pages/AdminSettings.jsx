@@ -135,22 +135,26 @@ function AdminSettings() {
 	};
 
 	const handlePreferenceChange = async (key, value) => {
+		console.log(`🔄 Updating preference: ${key} = ${value}`);
 		try {
-			await updateAdminPreferences({ [key]: value });
+			const response = await updateAdminPreferences({ [key]: value });
+			console.log(`✅ Preference saved: ${key} = ${value}`, response);
 			showMessage('Settings saved', 'success');
 		} catch (error) {
+			console.error(`❌ Failed to save preference ${key}:`, error);
 			showMessage('Failed to save settings', 'error');
-			console.error('Failed to update preference:', error);
 		}
 	};
 
 	const handleDarkModeChange = async (value) => {
+		console.log(`🌓 Changing dark mode to: ${value}`);
 		setDarkMode(value);
 		localStorage.setItem('darkMode', JSON.stringify(value));
 		await handlePreferenceChange('dark_mode', value);
 	};
 
 	const handleFontSizeChange = async (value) => {
+		console.log(`🔤 Changing font size to: ${value}`);
 		setFontSize(value);
 		localStorage.setItem('fontSize', value);
 		await handlePreferenceChange('font_size', value);
@@ -327,9 +331,10 @@ function AdminSettings() {
 								<input
 									type="checkbox"
 									checked={twoFactorEnabled}
-									onChange={(e) => {
-										setTwoFactorEnabled(e.target.checked);
-										handlePreferenceChange('two_factor_enabled', e.target.checked);
+									onChange={async (e) => {
+										const newValue = e.target.checked;
+										setTwoFactorEnabled(newValue);
+										await handlePreferenceChange('two_factor_enabled', newValue);
 									}}
 								/>
 								<span className="toggle-slider"></span>
@@ -344,9 +349,10 @@ function AdminSettings() {
 							<select
 								className="setting-select"
 								value={sessionTimeout}
-								onChange={(e) => {
-									setSessionTimeout(e.target.value);
-									handlePreferenceChange('session_timeout', e.target.value);
+								onChange={async (e) => {
+									const newValue = e.target.value;
+									setSessionTimeout(newValue);
+									await handlePreferenceChange('session_timeout', newValue);
 								}}
 							>
 								<option value="15">15 min</option>
@@ -377,9 +383,10 @@ function AdminSettings() {
 								<input
 									type="checkbox"
 									checked={emailNotifications}
-									onChange={(e) => {
-										setEmailNotifications(e.target.checked);
-										handlePreferenceChange('email_notifications', e.target.checked);
+									onChange={async (e) => {
+										const newValue = e.target.checked;
+										setEmailNotifications(newValue);
+										await handlePreferenceChange('email_notifications', newValue);
 									}}
 								/>
 								<span className="toggle-slider"></span>
@@ -395,9 +402,10 @@ function AdminSettings() {
 								<input
 									type="checkbox"
 									checked={deviceAlerts}
-									onChange={(e) => {
-										setDeviceAlerts(e.target.checked);
-										handlePreferenceChange('device_alerts', e.target.checked);
+									onChange={async (e) => {
+										const newValue = e.target.checked;
+										setDeviceAlerts(newValue);
+										await handlePreferenceChange('device_alerts', newValue);
 									}}
 								/>
 								<span className="toggle-slider"></span>
@@ -413,9 +421,10 @@ function AdminSettings() {
 								<input
 									type="checkbox"
 									checked={systemUpdates}
-									onChange={(e) => {
-										setSystemUpdates(e.target.checked);
-										handlePreferenceChange('system_updates', e.target.checked);
+									onChange={async (e) => {
+										const newValue = e.target.checked;
+										setSystemUpdates(newValue);
+										await handlePreferenceChange('system_updates', newValue);
 									}}
 								/>
 								<span className="toggle-slider"></span>
@@ -431,9 +440,10 @@ function AdminSettings() {
 								<input
 									type="checkbox"
 									checked={weeklyReports}
-									onChange={(e) => {
-										setWeeklyReports(e.target.checked);
-										handlePreferenceChange('weekly_reports', e.target.checked);
+									onChange={async (e) => {
+										const newValue = e.target.checked;
+										setWeeklyReports(newValue);
+										await handlePreferenceChange('weekly_reports', newValue);
 									}}
 								/>
 								<span className="toggle-slider"></span>
