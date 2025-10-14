@@ -139,7 +139,7 @@ export default function App() {
     };
 
     initPWA();
-  }, []);  return (
+  }, []); return (
     <AuthProvider>
       <AuthFlowProvider>
         <Routes>
@@ -225,6 +225,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AddDevicePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/add-device/setup"
+            element={
+              <ProtectedRoute>
+                <SignupSetup />
               </ProtectedRoute>
             }
           />
