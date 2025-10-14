@@ -243,6 +243,29 @@ class DeviceCollaboration(TimeStampedModel):
         help_text="Email address of the user who shared this device"
     )
 
+    # Admin tracking fields
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='collaborations_added',
+        help_text="Admin user who added this collaborator"
+    )
+    revoked_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='collaborations_revoked',
+        help_text="Admin user who revoked this collaboration"
+    )
+    revoked_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when collaboration was revoked"
+    )
+
     class Meta:
         constraints = [
             models.UniqueConstraint(

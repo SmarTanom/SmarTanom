@@ -19,7 +19,7 @@ from .views import (
 app_name = 'devices'
 
 router = DefaultRouter()
-router.register(r"devices", DeviceViewSet, basename="device")
+router.register(r"", DeviceViewSet, basename="device")
 
 urlpatterns = [
     path("", include(router.urls)),

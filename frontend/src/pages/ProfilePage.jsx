@@ -523,7 +523,7 @@ export default function ProfilePage() {
       }
 
       const response = await apiClient.post(
-        `/api/devices/devices/${revokeShare.deviceId}/collaborators/${revokeShare.collaboratorId}/revoke/`,
+        `/api/devices/${revokeShare.deviceId}/collaborators/${revokeShare.collaboratorId}/revoke/`,
         { otp_code: revokeOtp },
         { authToken: token }
       );

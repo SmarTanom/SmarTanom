@@ -43,7 +43,7 @@ export async function getUserDevices() {
     throw new Error('No authentication token found');
   }
 
-  return apiClient.get('/api/devices/devices/', {
+  return apiClient.get('/api/devices/', {
     authToken: token
   });
 }
@@ -57,7 +57,7 @@ export async function getDeviceById(deviceId) {
     throw new Error('No authentication token found');
   }
 
-  return apiClient.get(`/api/devices/devices/${deviceId}/`, {
+  return apiClient.get(`/api/devices/${deviceId}/`, {
     authToken: token
   });
 }
@@ -78,7 +78,7 @@ export async function uploadPlantPhoto(deviceId, photoFile, plantName = '') {
   }
 
   // Don't set Content-Type header - browser will set it automatically with boundary
-  return apiClient.post(`/api/devices/devices/${deviceId}/upload-photo/`, formData, {
+  return apiClient.post(`/api/devices/${deviceId}/upload-photo/`, formData, {
     authToken: token,
     json: false // Important: tells apiClient not to set JSON headers
   });

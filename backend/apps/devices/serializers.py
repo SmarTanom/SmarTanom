@@ -233,6 +233,16 @@ class DeviceCollaborationSerializer(serializers.ModelSerializer):
     device_name = serializers.CharField(source='device.device_name', read_only=True)
     device_serial = serializers.CharField(source='device.device_serial', read_only=True)
     shared_date = serializers.DateTimeField(source='created_at', read_only=True)
+    user_id = serializers.SerializerMethodField()
+
+    def get_user_id(self, obj):
+        """Get the user ID from the collaborator email."""
+        from apps.accounts.models import User
+        try:
+            user = User.objects.get(email=obj.collaborator_email)
+            return user.id
+        except User.DoesNotExist:
+            return None
 
     class Meta:
         model = DeviceCollaboration
@@ -242,6 +252,7 @@ class DeviceCollaborationSerializer(serializers.ModelSerializer):
             'device_name',
             'device_serial',
             'collaborator_email',
+            'user_id',
             'permissions',
             'status',
             'shared_by_email',

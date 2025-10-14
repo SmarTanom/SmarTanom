@@ -18,6 +18,10 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 import logging
 
+# WebSocket support
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
 from apps.common.views import BaseAuthViewSet
 from .models import Device, DeviceOTPCode, DeviceCollaboration, DeviceInvitation
 from .serializers import (
@@ -32,6 +36,158 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def broadcast_device_update(action, device, **extra_data):
+    """
+    Broadcast device update via WebSocket to all connected clients.
+
+    Args:
+        action (str): Type of action (bind, unbind, collaborator_added, collaborator_revoked)
+        device (Device): The device instance
+        **extra_data: Additional data to include in the broadcast
+    """
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                "devices",
+                {
+                    "type": "device_update",
+                    "action": action,
+                    "data": {
+                        "device_id": device.id,
+                        "device_serial": device.device_serial,
+                        "device_name": device.device_name,
+                        "bound_email": device.bound_email,
+                        "is_bound": device.is_bound,
+                        "timestamp": timezone.now().isoformat(),
+                        **extra_data
+                    }
+                }
+            )
+            logger.debug(f"WebSocket broadcast sent: {action} for device {device.device_serial}")
+    except Exception as e:
+        # Don't fail the request if WebSocket broadcast fails
+        logger.error(f"WebSocket broadcast failed: {str(e)}")
+
+
+def send_bind_otp_email(device, email, code):
+    """Send OTP email for admin-initiated device binding."""
+    expire_minutes = 10  # 10 minutes for bind OTP
+    subject = "OTP to confirm device binding (from Admin)"
+
+    device_name = device.device_name or f"Device {device.device_serial}"
+
+    html_message = f"""
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 20px; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 30px;">
+            <h2 style="color: #333; text-align: center;">SmarTanom</h2>
+            <h3 style="color: #666;">Device Binding Confirmation</h3>
+            <p style="color: #666;">An administrator wants to bind device <strong>{device_name}</strong> (serial: <strong>{device.device_serial}</strong>) to this account.</p>
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                <p style="color: #666; margin: 0 0 10px 0;">Your OTP is:</p>
+                <h1 style="color: #2eb72e; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
+            </div>
+            <p style="color: #666;">This code expires in {expire_minutes} minutes.</p>
+            <p style="color: #e74c3c; font-weight: bold;">If you did not expect this, please contact support immediately.</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="color: #999; font-size: 12px; text-align: center;">
+                This is an automated message from SmarTanom. Please do not reply.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+
+    plain_message = (
+        "OTP to confirm device binding (from Admin)\n\n"
+        f"An administrator wants to bind device {device_name} (serial: {device.device_serial}) to this account.\n\n"
+        f"OTP: {code}\n\n"
+        f"This code expires in {expire_minutes} minutes.\n\n"
+        "If you did not expect this, contact support."
+    )
+
+    try:
+        send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        logger.info(f"Bind OTP email sent for device {device.device_serial} to {email}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send bind OTP email: {str(e)}")
+        return False
+
+
+def send_collaborator_invite_email(device, collaborator_email):
+    """Send welcome email to new collaborator."""
+    subject = f"SmarTanom - Device Collaboration Invitation"
+
+    html_message = f"""
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 20px; font-family: Arial, sans-serif; background-color: #f5f5f5;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 30px;">
+            <h2 style="color: #333; text-align: center;">SmarTanom</h2>
+            <h3 style="color: #666;">Collaboration Invitation</h3>
+            <p style="color: #666;">You've been added as a collaborator to device <strong>{device.device_serial}</strong>.</p>
+            <div style="background-color: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; color: #333;"><strong>Device Details:</strong></p>
+                <p style="margin: 5px 0 0 0; color: #666;">Serial: {device.device_serial}</p>
+                <p style="margin: 5px 0 0 0; color: #666;">Name: {device.device_name or 'N/A'}</p>
+            </div>
+            <p style="color: #666;">You can now view data from this device in the SmarTanom app. Use OTP authentication to log in:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{settings.FRONTEND_URL}/login" style="display: inline-block; padding: 12px 30px; background-color: #007bff; color: #ffffff; text-decoration: none; border-radius: 5px;">Log In to SmarTanom</a>
+            </div>
+            <p style="color: #999; font-size: 12px; margin-top: 30px;">If you have any questions, please contact support.</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    plain_message = f"""
+    SmarTanom - Collaboration Invitation
+
+    You've been added as a collaborator to device {device.device_serial}.
+
+    Device Details:
+    - Serial: {device.device_serial}
+    - Name: {device.device_name or 'N/A'}
+
+    You can now view data from this device in the SmarTanom app.
+    Log in at: {settings.FRONTEND_URL}/login
+
+    If you have any questions, please contact support.
+    """
+
+    try:
+        send_mail(
+            subject,
+            plain_message,
+            settings.DEFAULT_FROM_EMAIL,
+            [collaborator_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        logger.info(f"Collaborator invite email sent to {collaborator_email} for device {device.device_serial}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send collaborator invite email: {str(e)}")
+        return False
 
 
 def send_device_otp_email(device_serial, email, code):
@@ -411,7 +567,7 @@ class DeviceViewSet(BaseAuthViewSet):
         # Only staff can use this endpoint
         if not request.user.is_staff:
             return Response(
-                {'error': 'Permission denied. Admin access required.'},
+                {'detail': 'Permission denied. Admin access required.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -419,7 +575,7 @@ class DeviceViewSet(BaseAuthViewSet):
 
         if not device.is_bound:
             return Response(
-                {'error': 'Device is not currently bound to any user.'},
+                {'detail': 'Device is not currently bound to any user.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -430,15 +586,172 @@ class DeviceViewSet(BaseAuthViewSet):
 
         logger.info(f"Admin {request.user.email} unbound device {device.device_serial} from {old_email}")
 
+        # Broadcast WebSocket update
+        broadcast_device_update("unbind", device, old_email=old_email, unbound_by_admin=request.user.email)
+
         return Response({
-            'success': True,
-            'message': f'Device successfully unbound from {old_email}',
-            'device': {
-                'id': device.id,
-                'serial': device.device_serial,
-                'device_name': device.device_name,
-            }
+            'detail': f'Device successfully unbound from {old_email}'
         }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='bind-otp', permission_classes=[IsAuthenticated])
+    def bind_otp(self, request, pk=None):
+        """Admin triggers OTP email for device binding."""
+        if not request.user.is_staff:
+            return Response(
+                {'detail': 'Permission denied. Admin access required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        device = self.get_object()
+        email = request.data.get('email')
+
+        if not email:
+            return Response(
+                {'detail': 'Email is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        email = email.lower().strip()
+
+        # Duplicate binding protection
+        if device.is_bound and device.bound_email != email:
+            return Response(
+                {'detail': 'This device is already bound to another user.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if device.is_bound and device.bound_email == email:
+            return Response(
+                {'detail': 'User is already bound to this device.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Invalidate any previous unused OTPs for this device+email
+            DeviceOTPCode.objects.filter(
+                device=device,
+                email=email,
+                is_verified=False
+            ).delete()
+
+            # Create new OTP
+            otp = DeviceOTPCode.objects.create(
+                device=device,
+                email=email
+            )
+
+            # Send email
+            send_bind_otp_email(device, email, otp.code)
+
+            logger.info(f"Admin {request.user.email} initiated bind OTP for device {device.device_serial} to {email}")
+
+            return Response({
+                'detail': 'OTP sent',
+                'debug_otp': otp.code if settings.DEBUG else None  # Only in debug mode
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error sending bind OTP: {str(e)}")
+            return Response(
+                {'detail': 'Failed to send OTP. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'], url_path='confirm-bind', permission_classes=[IsAuthenticated])
+    def confirm_bind(self, request, pk=None):
+        """Confirm OTP and bind device to user."""
+        if not request.user.is_staff:
+            return Response(
+                {'detail': 'Permission denied. Admin access required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        device = self.get_object()
+        email = request.data.get('email')
+        otp_code = request.data.get('otp')
+
+        if not email or not otp_code:
+            return Response(
+                {'detail': 'Email and OTP are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        email = email.lower().strip()
+        otp_code = otp_code.strip()
+
+        # Duplicate binding protection
+        if device.is_bound and device.bound_email != email:
+            return Response(
+                {'detail': 'This device is already bound to another user.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if device.is_bound and device.bound_email == email:
+            return Response(
+                {'detail': 'User is already bound to this device.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Find valid OTP
+            otp = DeviceOTPCode.objects.filter(
+                device=device,
+                email=email,
+                code=otp_code,
+                is_verified=False
+            ).order_by('-created_at').first()
+
+            if not otp:
+                return Response(
+                    {'detail': 'Invalid or expired OTP'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if not otp.is_valid:
+                return Response(
+                    {'detail': 'Invalid or expired OTP'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Mark OTP as verified
+            otp.is_verified = True
+            otp.save()
+
+            # Get or create user (OTP-only, no password)
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    'username': f"user_{email.split('@')[0]}_{timezone.now().strftime('%Y%m%d_%H%M%S')}",
+                    'is_active': True,
+                }
+            )
+
+            # If user exists but inactive, reactivate
+            if not created and not user.is_active:
+                user.is_active = True
+                user.save()
+
+            # Bind device
+            device.is_bound = True
+            device.bound_email = email
+            device.save()
+
+            logger.info(f"Admin {request.user.email} bound device {device.device_serial} to {email} via OTP")
+
+            # Broadcast WebSocket update
+            broadcast_device_update("bind", device, user_created=created, bound_by_admin=request.user.email)
+
+            return Response({
+                'detail': f'Device successfully bound to {email}',
+                'user_created': created
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error confirming bind: {str(e)}")
+            return Response(
+                {'detail': 'Failed to bind device. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=True, methods=['post'], url_path='upload-photo')
     def upload_plant_photo(self, request, pk=None):
@@ -659,67 +972,95 @@ class DeviceViewSet(BaseAuthViewSet):
             'message': f'Access revoked for {collaboration.collaborator_email}'
         })
 
-    @action(detail=True, methods=['post'], url_path='collaborators/(?P<collaborator_id>[^/.]+)/admin-revoke')
-    def admin_revoke_access(self, request, pk=None, collaborator_id=None):
-        """Admin endpoint to revoke device access for a collaborator without OTP."""
+    @action(detail=True, methods=['post'], url_path='revoke/(?P<user_id>[^/.]+)')
+    def admin_revoke_access(self, request, pk=None, user_id=None):
+        """Admin endpoint to revoke device access for a collaborator (conditional deactivation + logout)."""
         device = self.get_object()
 
         # Only staff can use this endpoint
         if not request.user.is_staff:
             return Response(
-                {'error': 'Permission denied. Admin access required.'},
+                {'detail': 'Permission denied. Admin access required.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        # Get user by ID
+        from apps.accounts.models import User
+        try:
+            collaborator_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'User not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        collaborator_email = collaborator_user.email
+
+        # Find active collaboration
         try:
             collaboration = DeviceCollaboration.objects.get(
-                id=collaborator_id,
                 device=device,
+                collaborator_email=collaborator_email,
                 status=DeviceCollaboration.Status.ACTIVE
             )
         except DeviceCollaboration.DoesNotExist:
             return Response(
-                {'error': 'Collaboration not found.'},
+                {'detail': 'Active collaboration not found.'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Get the collaborator user
-        collaborator_email = collaboration.collaborator_email
-        try:
-            from apps.accounts.models import User
-            collaborator_user = User.objects.get(email=collaborator_email)
+        # Revoke this collaboration
+        collaboration.status = DeviceCollaboration.Status.REVOKED
+        collaboration.revoked_by = request.user
+        collaboration.revoked_at = timezone.now()
+        collaboration.save()
 
-            # Set user as inactive
+        # Check if user has other active collaborations
+        other_active_collabs = DeviceCollaboration.objects.filter(
+            collaborator_email=collaborator_email,
+            status=DeviceCollaboration.Status.ACTIVE
+        ).exclude(id=collaboration.id).count()
+
+        user_deactivated = False
+        if other_active_collabs == 0:
+            # No other active collaborations - deactivate user and logout
             collaborator_user.is_active = False
             collaborator_user.save()
+            user_deactivated = True
 
-            # Invalidate all auth tokens for this user
+            # Invalidate all auth tokens for this user (force logout)
             from rest_framework.authtoken.models import Token
             Token.objects.filter(user=collaborator_user).delete()
 
-            logger.info(f"User {collaborator_email} marked inactive and logged out")
-
-        except User.DoesNotExist:
-            logger.warning(f"User {collaborator_email} not found in system")
-
-        # Revoke collaboration
-        collaboration.status = DeviceCollaboration.Status.REVOKED
-        collaboration.save()
+            logger.info(f"User {collaborator_email} marked inactive and logged out (no other active collaborations)")
+        else:
+            logger.info(f"User {collaborator_email} still has {other_active_collabs} active collaboration(s), not deactivated")
 
         logger.info(f"Admin {request.user.email} revoked access for {collaborator_email} on device {device.device_serial}")
 
+        # Broadcast WebSocket update
+        broadcast_device_update(
+            "collaborator_revoked",
+            device,
+            collaborator_email=collaborator_email,
+            collaborator_id=user_id,
+            user_deactivated=user_deactivated,
+            remaining_collaborations=other_active_collabs,
+            revoked_by_admin=request.user.email
+        )
+
         return Response({
-            'success': True,
-            'message': f"Access revoked for {collaborator_email}. User account is now inactive and logged out."
+            'detail': f"Access revoked for {collaborator_email}",
+            'user_deactivated': user_deactivated,
+            'remaining_collaborations': other_active_collabs
         })
 
     @action(detail=True, methods=['post'], url_path='add-collaborator', permission_classes=[IsAuthenticated])
     def add_collaborator(self, request, pk=None):
-        """Admin endpoint to add a collaborator to a device."""
-        # Only staff can use this endpoint
+        """Admin endpoint to add a collaborator to a device (creates user if needed)."""
         if not request.user.is_staff:
             return Response(
-                {'error': 'Permission denied. Admin access required.'},
+                {'detail': 'Permission denied. Admin access required.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -728,69 +1069,92 @@ class DeviceViewSet(BaseAuthViewSet):
 
         if not collaborator_email:
             return Response(
-                {'error': 'Email is required'},
+                {'detail': 'Email is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         collaborator_email = collaborator_email.lower().strip()
 
-        # Check if user exists
-        from apps.accounts.models import User
         try:
-            collaborator_user = User.objects.get(email=collaborator_email)
-        except User.DoesNotExist:
-            return Response(
-                {'error': 'User does not exist. Please ensure the user is registered.'},
-                status=status.HTTP_404_NOT_FOUND
+            # Check if device is bound
+            if not device.is_bound:
+                return Response(
+                    {'detail': 'Device must be bound to a user before adding collaborators.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Check if user is the device owner
+            if device.bound_email == collaborator_email:
+                return Response(
+                    {'detail': 'User is already the device owner.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Check if already a collaborator
+            existing_collab = DeviceCollaboration.objects.filter(
+                device=device,
+                collaborator_email=collaborator_email,
+                status=DeviceCollaboration.Status.ACTIVE
+            ).first()
+
+            if existing_collab:
+                return Response(
+                    {'detail': 'User already a collaborator'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get or create user (OTP-only, no password)
+            from apps.accounts.models import User
+            user, user_created = User.objects.get_or_create(
+                email=collaborator_email,
+                defaults={
+                    'username': f"user_{collaborator_email.split('@')[0]}_{timezone.now().strftime('%Y%m%d_%H%M%S')}",
+                    'is_active': True,
+                }
             )
 
-        # Check if device is bound
-        if not device.is_bound:
-            return Response(
-                {'error': 'Device must be bound to a user before adding collaborators.'},
-                status=status.HTTP_400_BAD_REQUEST
+            # If user exists but was inactive, reactivate
+            if not user_created and not user.is_active:
+                user.is_active = True
+                user.save()
+
+            # Create collaboration
+            collaboration = DeviceCollaboration.objects.create(
+                device=device,
+                collaborator_email=collaborator_email,
+                permissions=DeviceCollaboration.Permission.VIEW_ONLY,
+                status=DeviceCollaboration.Status.ACTIVE,
+                shared_by_email=device.bound_email or request.user.email,
+                added_by=request.user
             )
 
-        # Check if user is the device owner
-        if device.bound_email == collaborator_email:
-            return Response(
-                {'error': 'User is already the device owner.'},
-                status=status.HTTP_400_BAD_REQUEST
+            # Send welcome email if user was created
+            if user_created:
+                send_collaborator_invite_email(device, collaborator_email)
+
+            logger.info(f"Admin {request.user.email} added {collaborator_email} as collaborator to device {device.device_serial} (user_created={user_created})")
+
+            # Broadcast WebSocket update
+            broadcast_device_update(
+                "collaborator_added",
+                device,
+                collaborator_email=collaborator_email,
+                collaborator_id=user.id,
+                user_created=user_created,
+                added_by_admin=request.user.email
             )
 
-        # Check if already a collaborator
-        existing_collab = DeviceCollaboration.objects.filter(
-            device=device,
-            collaborator_email=collaborator_email,
-            status=DeviceCollaboration.Status.ACTIVE
-        ).first()
+            return Response({
+                'detail': f'Collaborator added',
+                'user_id': user.id
+            }, status=status.HTTP_201_CREATED)
 
-        if existing_collab:
+        except Exception as e:
+            logger.error(f"Error adding collaborator: {str(e)}")
             return Response(
-                {'error': 'User is already a collaborator on this device.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'detail': 'Failed to add collaborator. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-        # Create collaboration
-        collaboration = DeviceCollaboration.objects.create(
-            device=device,
-            collaborator_email=collaborator_email,
-            permissions='view',  # Default permission
-            status=DeviceCollaboration.Status.ACTIVE
-        )
-
-        logger.info(f"Admin {request.user.email} added {collaborator_email} as collaborator to device {device.device_serial}")
-
-        return Response({
-            'success': True,
-            'message': f'{collaborator_email} added as collaborator successfully',
-            'collaboration': {
-                'id': collaboration.id,
-                'email': collaboration.collaborator_email,
-                'permissions': collaboration.permissions,
-                'status': collaboration.status
-            }
-        }, status=status.HTTP_201_CREATED)
 
     # Enforce owner-only for device-level writes via standard endpoints
     def perform_update(self, serializer):

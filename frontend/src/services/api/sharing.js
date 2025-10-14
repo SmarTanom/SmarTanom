@@ -15,7 +15,7 @@ export const shareDevice = async (deviceId, inviteEmail, permission = 'view_only
     }
 
     const response = await apiClient.post(
-      `/api/devices/devices/${deviceId}/share/`,
+      `/api/devices/${deviceId}/share/`,
       {
         invite_email: inviteEmail,
         permissions: typeof permission === 'string' ? permission : 'view_only',
@@ -39,7 +39,7 @@ export const getDeviceCollaborators = async (deviceId) => {
       throw new Error('No authentication token found');
     }
 
-    const response = await apiClient.get(`/api/devices/devices/${deviceId}/collaborators/`, { authToken: token });
+    const response = await apiClient.get(`/api/devices/${deviceId}/collaborators/`, { authToken: token });
 
     return response;
   } catch (error) {
@@ -74,7 +74,7 @@ export const revokeDeviceAccess = async (deviceId, collaboratorId, otpCode) => {
     }
 
     const response = await apiClient.post(
-      `/api/devices/devices/${deviceId}/collaborators/${collaboratorId}/revoke/`,
+      `/api/devices/${deviceId}/collaborators/${collaboratorId}/revoke/`,
       {
         otp_code: otpCode
       },

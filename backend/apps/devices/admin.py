@@ -216,6 +216,9 @@ class DeviceCollaborationAdmin(admin.ModelAdmin):
         'permissions',
         'status_display',
         'shared_by_email',
+        'added_by',
+        'revoked_by',
+        'revoked_at',
         'created_at'
     )
     list_filter = ('status', 'permissions', 'created_at')
@@ -234,6 +237,10 @@ class DeviceCollaborationAdmin(admin.ModelAdmin):
         }),
         ('Access Control', {
             'fields': ('permissions', 'status')
+        }),
+        ('Admin Tracking', {
+            'fields': ('added_by', 'revoked_by', 'revoked_at'),
+            'classes': ('collapse',)
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),

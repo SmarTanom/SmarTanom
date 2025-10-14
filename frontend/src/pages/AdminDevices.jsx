@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import { toast } from 'react-toastify';
 import ConfirmationModal from '../components/ConfirmationModal';
 import '../assets/styles/AdminDevices.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import { getAdminDevices } from '../services/api/admin';
 import { apiClient } from '../services/apiClient';
+import { wsClient } from '../services/websocketClient';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -22,14 +24,17 @@ import {
 	Loader2,
 	UserPlus,
 	UserMinus,
-	Share2
+	Share2,
+	Mail,
+	CheckCircle
 } from 'lucide-react';
 
 function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 	const qrRef = useRef(null);
 	const [loading, setLoading] = useState(false);
 	const [bindEmail, setBindEmail] = useState('');
-	const [qrCodeInput, setQrCodeInput] = useState('');
+	const [otpCode, setOtpCode] = useState('');
+	const [otpSent, setOtpSent] = useState(false);
 	const [showBindForm, setShowBindForm] = useState(false);
 	const [collaborators, setCollaborators] = useState([]);
 	const [loadingCollaborators, setLoadingCollaborators] = useState(true);
@@ -59,10 +64,11 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 		try {
 			setLoadingCollaborators(true);
 			const authToken = localStorage.getItem('authToken');
-			const data = await apiClient.get(`/api/devices/devices/${device.id}/collaborators/`, { authToken });
+			const data = await apiClient.get(`/api/devices/${device.id}/collaborators/`, { authToken });
 			setCollaborators(data.results || []);
 		} catch (error) {
 			console.error('Failed to fetch collaborators:', error);
+			toast.error(error.message || 'Failed to load collaborators');
 			setCollaborators([]);
 		} finally {
 			setLoadingCollaborators(false);
@@ -85,7 +91,7 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 		try {
 			const svg = qrRef.current.querySelector('svg');
 			if (!svg) {
-				alert('QR code not found');
+				toast.error('QR code not found');
 				return;
 			}
 
@@ -114,13 +120,14 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 					document.body.removeChild(link);
 					URL.revokeObjectURL(downloadUrl);
 					URL.revokeObjectURL(url);
+					toast.success('QR code image downloaded successfully');
 				});
 			};
 
 			img.src = url;
 		} catch (error) {
 			console.error('Error downloading QR code:', error);
-			alert('Failed to download QR code. Please try again.');
+			toast.error('Failed to download QR code. Please try again.');
 		}
 	};
 
@@ -136,19 +143,17 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 			case 'download':
 				executeDownloadQR();
 				break;
+			case 'confirm-bind':
+				executeConfirmBind();
+				break;
 			default:
 				break;
 		}
 	};
-	const handleBindDevice = async (e) => {
+	const handleSendOTP = async (e) => {
 		e.preventDefault();
 		if (!bindEmail.trim()) {
-			alert('Please enter an email address');
-			return;
-		}
-
-		if (!qrCodeInput.trim()) {
-			alert('Please enter the device QR code for validation');
+			toast.error('Please enter an email address');
 			return;
 		}
 
@@ -156,26 +161,63 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 			setLoading(true);
 			const authToken = localStorage.getItem('authToken');
 			const response = await apiClient.post(
-				`/api/devices/devices/${device.id}/admin-bind/`,
-				{
-					email: bindEmail.trim(),
-					qr_code: qrCodeInput.trim()
-				},
+				`/api/devices/${device.id}/bind-otp/`,
+				{ email: bindEmail.trim() },
 				{ authToken }
 			);
 
-			if (response.success) {
-				alert(`Device successfully bound to ${bindEmail}`);
-				setBindEmail('');
-				setQrCodeInput('');
-				setShowBindForm(false);
-				if (onDeviceUpdate) {
-					onDeviceUpdate();
-				}
+			toast.success(`OTP sent to ${bindEmail}`);
+			setOtpSent(true);
+		} catch (error) {
+			console.error('Failed to send OTP:', error);
+			const errorMsg = error.data?.detail || error.message || 'Failed to send OTP';
+			toast.error(errorMsg);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleConfirmBind = async (e) => {
+		e.preventDefault();
+		if (!otpCode.trim()) {
+			toast.error('Please enter the OTP code');
+			return;
+		}
+
+		setConfirmModal({
+			isOpen: true,
+			action: 'confirm-bind',
+			title: 'Confirm Device Binding',
+			message: `Bind device ${device.device_serial} to ${bindEmail}?`,
+			variant: 'info',
+			data: { email: bindEmail, otp: otpCode.trim() }
+		});
+	};
+
+	const executeConfirmBind = async () => {
+		const { email, otp } = confirmModal.data;
+
+		try {
+			setLoading(true);
+			const authToken = localStorage.getItem('authToken');
+			const response = await apiClient.post(
+				`/api/devices/${device.id}/confirm-bind/`,
+				{ email, otp },
+				{ authToken }
+			);
+
+			toast.success(`Device successfully bound to ${email}`);
+			setBindEmail('');
+			setOtpCode('');
+			setOtpSent(false);
+			setShowBindForm(false);
+			if (onDeviceUpdate) {
+				onDeviceUpdate();
 			}
 		} catch (error) {
 			console.error('Failed to bind device:', error);
-			alert(error.message || 'Failed to bind device. Please try again.');
+			const errorMsg = error.data?.detail || error.message || 'Failed to bind device';
+			toast.error(errorMsg);
 		} finally {
 			setLoading(false);
 		}
@@ -196,54 +238,59 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 			setLoading(true);
 			const authToken = localStorage.getItem('authToken');
 			const response = await apiClient.post(
-				`/api/devices/devices/${device.id}/admin-unbind/`,
+				`/api/devices/${device.id}/admin-unbind/`,
 				{},
 				{ authToken }
 			);
 
-			if (response.success) {
-				alert('Device successfully unbound');
-				if (onDeviceUpdate) {
-					onDeviceUpdate();
-				}
+			toast.success('Device successfully unbound');
+			if (onDeviceUpdate) {
+				onDeviceUpdate();
 			}
 		} catch (error) {
 			console.error('Failed to unbind device:', error);
-			alert(error.message || 'Failed to unbind device. Please try again.');
+			const errorMsg = error.data?.detail || error.message;
+			if (errorMsg === 'Device is not currently bound to any user.') {
+				toast.warning(errorMsg);
+			} else {
+				toast.error(errorMsg || 'Failed to unbind device');
+			}
 		} finally {
 			setLoading(false);
 		}
 	};
 
-	const handleRevokeAccess = (collaboratorId, email) => {
+	const handleRevokeAccess = (userId, email) => {
 		setConfirmModal({
 			isOpen: true,
 			action: 'revoke',
 			title: 'Revoke Collaborator Access',
-			message: `Are you sure you want to revoke access for ${email}? The user will be marked inactive and logged out immediately.`,
+			message: `Are you sure you want to revoke access for ${email}? The user may be logged out if they have no other active collaborations.`,
 			variant: 'danger',
-			data: { collaboratorId, email }
+			data: { userId, email }
 		});
 	};
 
 	const executeRevokeAccess = async () => {
-		const { collaboratorId, email } = confirmModal.data;
+		const { userId, email } = confirmModal.data;
 
 		try {
 			const authToken = localStorage.getItem('authToken');
 			const response = await apiClient.post(
-				`/api/devices/devices/${device.id}/collaborators/${collaboratorId}/admin-revoke/`,
-				{}, // No OTP needed for admin endpoint
+				`/api/devices/${device.id}/revoke/${userId}/`,
+				{},
 				{ authToken }
 			);
 
-			if (response.success) {
-				alert(`Access revoked for ${email}`);
-				fetchCollaborators(); // Refresh the list
-			}
+			const msg = response.user_deactivated
+				? `Collaborator access revoked — user logged out`
+				: `Access revoked for ${email}`;
+			toast.success(msg);
+			fetchCollaborators(); // Refresh the list
 		} catch (error) {
 			console.error('Failed to revoke access:', error);
-			alert(error.message || 'Failed to revoke access. Please try again.');
+			const errorMsg = error.data?.detail || error.message || 'Failed to revoke access';
+			toast.error(errorMsg);
 		}
 	};
 
@@ -251,7 +298,7 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 		e.preventDefault();
 
 		if (!newCollabEmail.trim()) {
-			alert('Please enter an email address');
+			toast.error('Please enter an email address');
 			return;
 		}
 
@@ -259,21 +306,20 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 			setAddingCollab(true);
 			const authToken = localStorage.getItem('authToken');
 			const response = await apiClient.post(
-				`/api/devices/devices/${device.id}/add-collaborator/`,
+				`/api/devices/${device.id}/add-collaborator/`,
 				{ email: newCollabEmail.trim() },
 				{ authToken }
 			);
 
-			if (response.success) {
-				alert(response.message || 'Collaborator added successfully');
-				setNewCollabEmail('');
-				setShowAddCollabForm(false);
-				// Refresh collaborators list
-				await fetchCollaborators();
-			}
+			toast.success(`Collaborator ${newCollabEmail} added`);
+			setNewCollabEmail('');
+			setShowAddCollabForm(false);
+			// Refresh collaborators list
+			await fetchCollaborators();
 		} catch (error) {
 			console.error('Failed to add collaborator:', error);
-			alert(error.message || 'Failed to add collaborator. Please try again.');
+			const errorMsg = error.data?.detail || error.message || 'Failed to add collaborator';
+			toast.error(errorMsg);
 		} finally {
 			setAddingCollab(false);
 		}
@@ -385,51 +431,87 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 									Bind Device to User
 								</button>
 							) : (
-								<form onSubmit={handleBindDevice} className="bind-form">
-									<label htmlFor="bind-email">User Email</label>
-									<input
-										id="bind-email"
-										type="email"
-										value={bindEmail}
-										onChange={(e) => setBindEmail(e.target.value)}
-										placeholder="user@example.com"
-										required
-										disabled={loading}
-									/>
+								<div className="bind-form">
+									{!otpSent ? (
+										<form onSubmit={handleSendOTP}>
+											<label htmlFor="bind-email">User Email</label>
+											<input
+												id="bind-email"
+												type="email"
+												value={bindEmail}
+												onChange={(e) => setBindEmail(e.target.value)}
+												placeholder="user@example.com"
+												required
+												disabled={loading}
+											/>
 
-									<label htmlFor="qr-code-input" style={{marginTop: '12px'}}>
-										QR Code Validation
-										<span style={{fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '8px'}}>
-											(Scan or type device QR code)
-										</span>
-									</label>
-									<input
-										id="qr-code-input"
-										type="text"
-										value={qrCodeInput}
-										onChange={(e) => setQrCodeInput(e.target.value)}
-										placeholder="Enter device QR code"
-										required
-										disabled={loading}
-									/>
+											<div className="bind-form-actions">
+												<button type="submit" disabled={loading}>
+													<Mail size={16} />
+													{loading ? 'Sending...' : 'Send OTP'}
+												</button>
+												<button
+													type="button"
+													onClick={() => {
+														setShowBindForm(false);
+														setBindEmail('');
+														setOtpSent(false);
+													}}
+													disabled={loading}
+												>
+													Cancel
+												</button>
+											</div>
+										</form>
+									) : (
+										<form onSubmit={handleConfirmBind}>
+											<label htmlFor="bind-email">User Email</label>
+											<input
+												id="bind-email"
+												type="email"
+												value={bindEmail}
+												readOnly
+												disabled
+											/>
 
-									<div className="bind-form-actions">
-										<button type="submit" disabled={loading}>
-											{loading ? 'Binding...' : 'Bind Device'}
-										</button>
-										<button
-											type="button"
-											onClick={() => {
-												setShowBindForm(false);
-												setBindEmail('');
-												setQrCodeInput('');
-											}}
-											disabled={loading}
-										>
-											Cancel
-										</button>
-									</div>
-								</form>
+											<label htmlFor="otp-code" style={{marginTop: '12px'}}>
+												OTP Code
+												<span style={{fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '8px'}}>
+													(Check email for 6-digit code)
+												</span>
+											</label>
+											<input
+												id="otp-code"
+												type="text"
+												value={otpCode}
+												onChange={(e) => setOtpCode(e.target.value)}
+												placeholder="000000"
+												maxLength="6"
+												required
+												disabled={loading}
+											/>
+
+											<div className="bind-form-actions">
+												<button type="submit" disabled={loading}>
+													<CheckCircle size={16} />
+													{loading ? 'Confirming...' : 'Confirm Bind'}
+												</button>
+												<button
+													type="button"
+													onClick={() => {
+														setShowBindForm(false);
+														setBindEmail('');
+														setOtpCode('');
+														setOtpSent(false);
+													}}
+													disabled={loading}
+												>
+													Cancel
+												</button>
+											</div>
+										</form>
+									)}
+								</div>
 							)}
 						</div>
 					)}
@@ -458,7 +540,7 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 												<span className="collab-permission">{collab.permissions}</span>
 												<button
 													className="btn-revoke-collab"
-													onClick={() => handleRevokeAccess(collab.id, collab.collaborator_email)}
+													onClick={() => handleRevokeAccess(collab.user_id || collab.id, collab.collaborator_email)}
 													title="Revoke Access"
 												>
 													<UserMinus size={14} />
@@ -552,7 +634,60 @@ export default function AdminDevices() {
 
 	useEffect(() => {
 		fetchDevices();
-	}, []);
+
+		// Connect to WebSocket for real-time updates
+		console.log('[AdminDevices] Connecting to WebSocket...');
+		wsClient.connect();
+
+		// Subscribe to device updates
+		const unsubscribe = wsClient.subscribe((update) => {
+			console.log('[AdminDevices] WebSocket update received:', update);
+			const { action, data } = update;
+
+			switch (action) {
+				case 'bind':
+					// Update device when bound
+					toast.success(`Device ${data.device_serial} bound to ${data.bound_email}`);
+					fetchDevices(); // Refresh device list
+					break;
+
+				case 'unbind':
+					// Update device when unbound
+					toast.info(`Device ${data.device_serial} unbound from ${data.old_email}`);
+					fetchDevices(); // Refresh device list
+					break;
+
+				case 'collaborator_added':
+					// Refresh collaborators if we're viewing this device
+					toast.success(`Collaborator ${data.collaborator_email} added to device ${data.device_serial}`);
+					if (selectedDevice?.id === data.device_id) {
+						// If details modal is open, it will auto-refresh via its own effect
+						fetchDevices(); // Also refresh main list to update counts
+					}
+					break;
+
+				case 'collaborator_revoked':
+					// Refresh collaborators if we're viewing this device
+					toast.warning(`Access revoked for ${data.collaborator_email} on device ${data.device_serial}`);
+					if (selectedDevice?.id === data.device_id) {
+						// If details modal is open, it will auto-refresh via its own effect
+						fetchDevices(); // Also refresh main list to update counts
+					}
+					break;
+
+				default:
+					console.log('[AdminDevices] Unknown WebSocket action:', action);
+			}
+		});
+
+		// Cleanup on unmount
+		return () => {
+			console.log('[AdminDevices] Unsubscribing from WebSocket');
+			unsubscribe();
+			// Note: Don't disconnect here if other components might use WebSocket
+			// wsClient.disconnect();
+		};
+	}, [selectedDevice]);
 
 	const fetchDevices = async () => {
 		try {

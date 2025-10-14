@@ -56,6 +56,7 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
+	"daphne",  # Must be first for Channels to work properly
 	"django.contrib.admin",
 	"django.contrib.auth",
 	"django.contrib.contenttypes",
@@ -63,9 +64,11 @@ INSTALLED_APPS = [
 	"django.contrib.messages",
 	"django.contrib.staticfiles",
 	# Third-party
+	"channels",  # WebSocket support
 	"corsheaders",
 	"rest_framework",
 	"rest_framework.authtoken",
+	"rest_framework_simplejwt",  # JWT authentication
 	"django_filters",
 	# Local apps
 	"apps.accounts",
@@ -230,9 +233,10 @@ REST_FRAMEWORK = {
 		"rest_framework.permissions.IsAuthenticated",
 	],
 	"DEFAULT_AUTHENTICATION_CLASSES": [
-		"rest_framework.authentication.TokenAuthentication",
-		"rest_framework.authentication.SessionAuthentication",
-		"rest_framework.authentication.BasicAuthentication",
+		"rest_framework_simplejwt.authentication.JWTAuthentication",  # JWT (primary)
+		"rest_framework.authentication.TokenAuthentication",          # OTP Token (fallback)
+		"rest_framework.authentication.SessionAuthentication",        # Session (fallback)
+		"rest_framework.authentication.BasicAuthentication",          # Basic (dev/testing)
 	],
 	"DEFAULT_FILTER_BACKENDS": [
 		"django_filters.rest_framework.DjangoFilterBackend",
@@ -379,4 +383,77 @@ VAPID_ADMIN_EMAIL = os.getenv('VAPID_ADMIN_EMAIL', 'admin@smartanom.com')
 VAPID_CLAIMS = {
     'sub': f'mailto:{VAPID_ADMIN_EMAIL}'
 }
+
+# =============================================
+# Django Channels & WebSocket Configuration
+# =============================================
+ASGI_APPLICATION = 'smartanom.asgi.application'
+
+# Channel Layers for WebSocket communication
+# Use Redis in production (Render), in-memory for local development
+REDIS_URL = os.getenv('REDIS_URL', '')
+
+if REDIS_URL:
+    # Production: Use Redis for channel layer (required for multi-worker setups)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL],
+            },
+        },
+    }
+else:
+    # Development: Use in-memory channel layer (single-worker only)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
+
+# =============================================
+# JWT Authentication (Simple JWT)
+# =============================================
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Short-lived access tokens
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Long-lived refresh tokens
+    'ROTATE_REFRESH_TOKENS': True,                   # Issue new refresh token on refresh
+    'BLACKLIST_AFTER_ROTATION': False,               # Don't blacklist old tokens (no blacklist app)
+    'UPDATE_LAST_LOGIN': True,                       # Update last_login on token refresh
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+
+    'JTI_CLAIM': 'jti',
+}
+
+# =============================================
+# Frontend URLs (for CORS)
+# =============================================
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+# Support multiple frontend URLs for different environments
+FRONTEND_URLS = [
+    'http://localhost:5173',      # Vite dev server
+    'http://localhost:5174',      # Alternative port
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+]
+
+# Add production frontend URL from environment
+netlify_url = os.getenv('NETLIFY_URL')
+if netlify_url and netlify_url not in FRONTEND_URLS:
+    FRONTEND_URLS.append(netlify_url)
 
