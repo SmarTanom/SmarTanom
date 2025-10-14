@@ -333,7 +333,7 @@ class DeviceViewSet(BaseAuthViewSet):
 
     @action(detail=True, methods=['post'], url_path='admin-bind', permission_classes=[IsAuthenticated])
     def admin_bind_device(self, request, pk=None):
-        """Admin endpoint to bind a device to a user."""
+        """Admin endpoint to bind a device to a user with QR code validation."""
         # Only staff can use this endpoint
         if not request.user.is_staff:
             return Response(
@@ -343,6 +343,7 @@ class DeviceViewSet(BaseAuthViewSet):
 
         device = self.get_object()
         email = request.data.get('email')
+        qr_code = request.data.get('qr_code')
 
         if not email:
             return Response(
@@ -350,8 +351,21 @@ class DeviceViewSet(BaseAuthViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        if not qr_code:
+            return Response(
+                {'error': 'QR code validation is required for device binding'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Normalize email
         email = email.lower().strip()
+
+        # Validate QR code matches device serial
+        if qr_code.strip() != device.device_serial:
+            return Response(
+                {'error': 'Invalid QR code — binding failed. QR code does not match device.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Check if device is already bound
         if device.is_bound and device.bound_email != email:
@@ -377,7 +391,7 @@ class DeviceViewSet(BaseAuthViewSet):
             device.device_name = device_name
         device.save()
 
-        logger.info(f"Admin {request.user.email} bound device {device.device_serial} to {email}")
+        logger.info(f"Admin {request.user.email} bound device {device.device_serial} to {email} (QR validated)")
 
         return Response({
             'success': True,
@@ -669,15 +683,114 @@ class DeviceViewSet(BaseAuthViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # Get the collaborator user
+        collaborator_email = collaboration.collaborator_email
+        try:
+            from apps.accounts.models import User
+            collaborator_user = User.objects.get(email=collaborator_email)
+
+            # Set user as inactive
+            collaborator_user.is_active = False
+            collaborator_user.save()
+
+            # Invalidate all auth tokens for this user
+            from rest_framework.authtoken.models import Token
+            Token.objects.filter(user=collaborator_user).delete()
+
+            logger.info(f"User {collaborator_email} marked inactive and logged out")
+
+        except User.DoesNotExist:
+            logger.warning(f"User {collaborator_email} not found in system")
+
+        # Revoke collaboration
         collaboration.status = DeviceCollaboration.Status.REVOKED
         collaboration.save()
 
-        logger.info(f"Admin {request.user.email} revoked access for {collaboration.collaborator_email} on device {device.device_serial}")
+        logger.info(f"Admin {request.user.email} revoked access for {collaborator_email} on device {device.device_serial}")
 
         return Response({
             'success': True,
-            'message': f'Access revoked for {collaboration.collaborator_email}'
+            'message': f"Access revoked for {collaborator_email}. User account is now inactive and logged out."
         })
+
+    @action(detail=True, methods=['post'], url_path='add-collaborator', permission_classes=[IsAuthenticated])
+    def add_collaborator(self, request, pk=None):
+        """Admin endpoint to add a collaborator to a device."""
+        # Only staff can use this endpoint
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Permission denied. Admin access required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        device = self.get_object()
+        collaborator_email = request.data.get('email')
+
+        if not collaborator_email:
+            return Response(
+                {'error': 'Email is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        collaborator_email = collaborator_email.lower().strip()
+
+        # Check if user exists
+        from apps.accounts.models import User
+        try:
+            collaborator_user = User.objects.get(email=collaborator_email)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'User does not exist. Please ensure the user is registered.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if device is bound
+        if not device.is_bound:
+            return Response(
+                {'error': 'Device must be bound to a user before adding collaborators.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if user is the device owner
+        if device.bound_email == collaborator_email:
+            return Response(
+                {'error': 'User is already the device owner.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if already a collaborator
+        existing_collab = DeviceCollaboration.objects.filter(
+            device=device,
+            collaborator_email=collaborator_email,
+            status=DeviceCollaboration.Status.ACTIVE
+        ).first()
+
+        if existing_collab:
+            return Response(
+                {'error': 'User is already a collaborator on this device.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create collaboration
+        collaboration = DeviceCollaboration.objects.create(
+            device=device,
+            collaborator_email=collaborator_email,
+            permissions='view',  # Default permission
+            status=DeviceCollaboration.Status.ACTIVE
+        )
+
+        logger.info(f"Admin {request.user.email} added {collaborator_email} as collaborator to device {device.device_serial}")
+
+        return Response({
+            'success': True,
+            'message': f'{collaborator_email} added as collaborator successfully',
+            'collaboration': {
+                'id': collaboration.id,
+                'email': collaboration.collaborator_email,
+                'permissions': collaboration.permissions,
+                'status': collaboration.status
+            }
+        }, status=status.HTTP_201_CREATED)
 
     # Enforce owner-only for device-level writes via standard endpoints
     def perform_update(self, serializer):

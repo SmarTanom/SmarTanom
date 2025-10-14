@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import ConfirmationModal from '../components/ConfirmationModal';
 import '../assets/styles/AdminDevices.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import { getAdminDevices } from '../services/api/admin';
@@ -28,9 +29,25 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 	const qrRef = useRef(null);
 	const [loading, setLoading] = useState(false);
 	const [bindEmail, setBindEmail] = useState('');
+	const [qrCodeInput, setQrCodeInput] = useState('');
 	const [showBindForm, setShowBindForm] = useState(false);
 	const [collaborators, setCollaborators] = useState([]);
 	const [loadingCollaborators, setLoadingCollaborators] = useState(true);
+
+	// Add collaborator state
+	const [newCollabEmail, setNewCollabEmail] = useState('');
+	const [showAddCollabForm, setShowAddCollabForm] = useState(false);
+	const [addingCollab, setAddingCollab] = useState(false);
+
+	// Confirmation modal states
+	const [confirmModal, setConfirmModal] = useState({
+		isOpen: false,
+		action: null,
+		title: '',
+		message: '',
+		variant: 'warning',
+		data: null
+	});
 
 	useEffect(() => {
 		if (device && device.id) {
@@ -55,14 +72,23 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 	if (!device) return null;
 
 	const handleDownloadQR = () => {
+		setConfirmModal({
+			isOpen: true,
+			action: 'download',
+			title: 'Download QR Code',
+			message: `Download the QR code for device ${device.serial || device.device_serial}?`,
+			variant: 'info'
+		});
+	};
+
+	const executeDownloadQR = async () => {
 		try {
 			const svg = qrRef.current.querySelector('svg');
 			if (!svg) {
-				alert('QR code not generated yet');
+				alert('QR code not found');
 				return;
 			}
 
-			// Create a canvas to convert SVG to image
 			const canvas = document.createElement('canvas');
 			const ctx = canvas.getContext('2d');
 			const svgData = new XMLSerializer().serializeToString(svg);
@@ -98,10 +124,31 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 		}
 	};
 
+	// Handle confirmation modal actions
+	const handleConfirmAction = () => {
+		switch (confirmModal.action) {
+			case 'unbind':
+				executeUnbind();
+				break;
+			case 'revoke':
+				executeRevokeAccess();
+				break;
+			case 'download':
+				executeDownloadQR();
+				break;
+			default:
+				break;
+		}
+	};
 	const handleBindDevice = async (e) => {
 		e.preventDefault();
 		if (!bindEmail.trim()) {
 			alert('Please enter an email address');
+			return;
+		}
+
+		if (!qrCodeInput.trim()) {
+			alert('Please enter the device QR code for validation');
 			return;
 		}
 
@@ -110,13 +157,17 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 			const authToken = localStorage.getItem('authToken');
 			const response = await apiClient.post(
 				`/api/devices/devices/${device.id}/admin-bind/`,
-				{ email: bindEmail.trim() },
+				{
+					email: bindEmail.trim(),
+					qr_code: qrCodeInput.trim()
+				},
 				{ authToken }
 			);
 
 			if (response.success) {
 				alert(`Device successfully bound to ${bindEmail}`);
 				setBindEmail('');
+				setQrCodeInput('');
 				setShowBindForm(false);
 				if (onDeviceUpdate) {
 					onDeviceUpdate();
@@ -130,11 +181,17 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 		}
 	};
 
-	const handleUnbindDevice = async () => {
-		if (!confirm(`Are you sure you want to unbind this device from ${device.owner || device.bound_email}?`)) {
-			return;
-		}
+	const handleUnbindDevice = () => {
+		setConfirmModal({
+			isOpen: true,
+			action: 'unbind',
+			title: 'Unbind Device',
+			message: `Are you sure you want to unbind this device from ${device.owner || device.bound_email}? This action cannot be undone.`,
+			variant: 'danger'
+		});
+	};
 
+	const executeUnbind = async () => {
 		try {
 			setLoading(true);
 			const authToken = localStorage.getItem('authToken');
@@ -158,10 +215,19 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 		}
 	};
 
-	const handleRevokeAccess = async (collaboratorId, email) => {
-		if (!confirm(`Are you sure you want to revoke access for ${email}?`)) {
-			return;
-		}
+	const handleRevokeAccess = (collaboratorId, email) => {
+		setConfirmModal({
+			isOpen: true,
+			action: 'revoke',
+			title: 'Revoke Collaborator Access',
+			message: `Are you sure you want to revoke access for ${email}? The user will be marked inactive and logged out immediately.`,
+			variant: 'danger',
+			data: { collaboratorId, email }
+		});
+	};
+
+	const executeRevokeAccess = async () => {
+		const { collaboratorId, email } = confirmModal.data;
 
 		try {
 			const authToken = localStorage.getItem('authToken');
@@ -178,6 +244,38 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 		} catch (error) {
 			console.error('Failed to revoke access:', error);
 			alert(error.message || 'Failed to revoke access. Please try again.');
+		}
+	};
+
+	const handleAddCollaborator = async (e) => {
+		e.preventDefault();
+
+		if (!newCollabEmail.trim()) {
+			alert('Please enter an email address');
+			return;
+		}
+
+		try {
+			setAddingCollab(true);
+			const authToken = localStorage.getItem('authToken');
+			const response = await apiClient.post(
+				`/api/devices/devices/${device.id}/add-collaborator/`,
+				{ email: newCollabEmail.trim() },
+				{ authToken }
+			);
+
+			if (response.success) {
+				alert(response.message || 'Collaborator added successfully');
+				setNewCollabEmail('');
+				setShowAddCollabForm(false);
+				// Refresh collaborators list
+				await fetchCollaborators();
+			}
+		} catch (error) {
+			console.error('Failed to add collaborator:', error);
+			alert(error.message || 'Failed to add collaborator. Please try again.');
+		} finally {
+			setAddingCollab(false);
 		}
 	};
 
@@ -298,6 +396,23 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 										required
 										disabled={loading}
 									/>
+
+									<label htmlFor="qr-code-input" style={{marginTop: '12px'}}>
+										QR Code Validation
+										<span style={{fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '8px'}}>
+											(Scan or type device QR code)
+										</span>
+									</label>
+									<input
+										id="qr-code-input"
+										type="text"
+										value={qrCodeInput}
+										onChange={(e) => setQrCodeInput(e.target.value)}
+										placeholder="Enter device QR code"
+										required
+										disabled={loading}
+									/>
+
 									<div className="bind-form-actions">
 										<button type="submit" disabled={loading}>
 											{loading ? 'Binding...' : 'Bind Device'}
@@ -307,6 +422,7 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 											onClick={() => {
 												setShowBindForm(false);
 												setBindEmail('');
+												setQrCodeInput('');
 											}}
 											disabled={loading}
 										>
@@ -331,25 +447,70 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 								<Loader2 size={16} className="spin" />
 								<span>Loading collaborators...</span>
 							</div>
-						) : collaborators.length > 0 ? (
-							<ul className="collaborators-list">
-								{collaborators.map((collab) => (
-									<li key={collab.id} className="collaborator-item">
-										<User size={14} />
-										<span className="collab-email">{collab.collaborator_email}</span>
-										<span className="collab-permission">{collab.permissions}</span>
-										<button
-											className="btn-revoke-collab"
-											onClick={() => handleRevokeAccess(collab.id, collab.collaborator_email)}
-											title="Revoke Access"
-										>
-											<UserMinus size={14} />
-										</button>
-									</li>
-								))}
-							</ul>
 						) : (
-							<p className="no-collaborators">No collaborators yet</p>
+							<>
+								{collaborators.length > 0 && (
+									<ul className="collaborators-list">
+										{collaborators.map((collab) => (
+											<li key={collab.id} className="collaborator-item">
+												<User size={14} />
+												<span className="collab-email">{collab.collaborator_email}</span>
+												<span className="collab-permission">{collab.permissions}</span>
+												<button
+													className="btn-revoke-collab"
+													onClick={() => handleRevokeAccess(collab.id, collab.collaborator_email)}
+													title="Revoke Access"
+												>
+													<UserMinus size={14} />
+												</button>
+											</li>
+										))}
+									</ul>
+								)}
+
+								{/* Add Collaborator Form */}
+								<div className="add-collaborator-section">
+									{!showAddCollabForm ? (
+										<button
+											className="btn-add-collaborator"
+											onClick={() => setShowAddCollabForm(true)}
+										>
+											<UserPlus size={14} />
+											Add Collaborator
+										</button>
+									) : (
+										<form onSubmit={handleAddCollaborator} className="add-collab-form">
+											<input
+												type="email"
+												value={newCollabEmail}
+												onChange={(e) => setNewCollabEmail(e.target.value)}
+												placeholder="Enter user email"
+												required
+												disabled={addingCollab}
+											/>
+											<div className="add-collab-actions">
+												<button type="submit" disabled={addingCollab}>
+													{addingCollab ? 'Adding...' : 'Add'}
+												</button>
+												<button
+													type="button"
+													onClick={() => {
+														setShowAddCollabForm(false);
+														setNewCollabEmail('');
+													}}
+													disabled={addingCollab}
+												>
+													Cancel
+												</button>
+											</div>
+										</form>
+									)}
+								</div>
+
+								{collaborators.length === 0 && !showAddCollabForm && (
+									<p className="no-collaborators">No collaborators yet</p>
+								)}
+							</>
 						)}
 					</div>
 				)}
@@ -364,6 +525,18 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 					</button>
 				</div>
 			</div>
+
+			{/* Confirmation Modal */}
+			<ConfirmationModal
+				isOpen={confirmModal.isOpen}
+				onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+				onConfirm={handleConfirmAction}
+				title={confirmModal.title}
+				message={confirmModal.message}
+				variant={confirmModal.variant}
+				confirmText="Confirm"
+				cancelText="Cancel"
+			/>
 		</div>
 	);
 }
