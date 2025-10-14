@@ -74,6 +74,25 @@ class DeviceConsumer(AsyncWebsocketConsumer):
         }))
         print(f"[WebSocket] Broadcasted: {event.get('action')}")
 
+    async def sensor_update(self, event):
+        """
+        Broadcast real-time sensor data updates to all connected clients.
+
+        Called via:
+            channel_layer.group_send("devices", {
+                "type": "sensor_update",
+                "payload": {
+                    "type": "sensor.update",
+                    "device_id": 1,
+                    "timestamp": "...",
+                    "sensors": {...}
+                }
+            })
+        """
+        payload = event.get("payload", {})
+        await self.send(text_data=json.dumps(payload))
+        print(f"[WebSocket] Broadcasted sensor.update for device {payload.get('device_id')}")
+
 
 class UserConsumer(AsyncWebsocketConsumer):
     """
@@ -114,3 +133,22 @@ class UserConsumer(AsyncWebsocketConsumer):
             "data": event.get("data"),
             "timestamp": event.get("timestamp")
         }))
+
+    async def sensor_update(self, event):
+        """
+        Send real-time sensor data updates to user-specific channels.
+
+        Event structure:
+        {
+            "type": "sensor_update",
+            "payload": {
+                "type": "sensor.update",
+                "device_id": 1,
+                "timestamp": "...",
+                "sensors": {...}
+            }
+        }
+        """
+        payload = event.get("payload", {})
+        await self.send(text_data=json.dumps(payload))
+        print(f"[WebSocket] Sent sensor.update to user {self.user_id} for device {payload.get('device_id')}")

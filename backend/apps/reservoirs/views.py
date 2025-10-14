@@ -7,11 +7,58 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
+from django.utils import timezone
+
+# WebSocket support
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+import logging
 
 from apps.common.views import BaseAuthViewSet
 from .models import Reservoir, Plant
 from apps.devices.models import DeviceCollaboration
 from .serializers import ReservoirSerializer, PlantSerializer
+
+logger = logging.getLogger(__name__)
+
+
+def broadcast_reservoir_update(reservoir, action="update"):
+    """
+    Broadcast reservoir update via WebSocket to all connected clients.
+
+    Args:
+        reservoir (Reservoir): The reservoir instance
+        action (str): Action type (create, update, delete)
+    """
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            device = reservoir.device if reservoir else None
+
+            payload_data = {
+                "device_id": device.id if device else None,
+                "device_serial": device.device_serial if device else None,
+                "device_name": device.device_name if device else None,
+                "reservoir_id": reservoir.id if reservoir else None,
+                "reservoir_name": reservoir.reservoir_name if reservoir else None,
+                "water_level": float(reservoir.water_level) if reservoir.water_level is not None else None,
+                "max_capacity": float(reservoir.max_capacity) if reservoir.max_capacity is not None else None,
+                "update_action": action,
+                "timestamp": timezone.now().isoformat(),
+            }
+
+            async_to_sync(channel_layer.group_send)(
+                "devices",
+                {
+                    "type": "device_update",
+                    "action": "reservoir_update",
+                    "data": payload_data
+                }
+            )
+            logger.info(f"[WebSocket] Broadcasted reservoir_update: level={payload_data.get('water_level')} for device {device.device_serial if device else 'unknown'}")
+    except Exception as e:
+        # Don't fail the request if WebSocket broadcast fails
+        logger.error(f"[WebSocket] Broadcast failed: {str(e)}", exc_info=True)
 
 
 class ReservoirViewSet(BaseAuthViewSet):
@@ -61,7 +108,10 @@ class ReservoirViewSet(BaseAuthViewSet):
             raise PermissionDenied(
                 "Permission denied. You need manage permissions to create reservoirs on this device."
             )
-        serializer.save()
+        reservoir = serializer.save()
+
+        # Broadcast WebSocket update for real-time data
+        broadcast_reservoir_update(reservoir, action="create")
 
     def perform_update(self, serializer):
         device = getattr(serializer.instance, "device", None)
@@ -71,7 +121,10 @@ class ReservoirViewSet(BaseAuthViewSet):
             raise PermissionDenied(
                 "Permission denied. You need manage permissions to update reservoirs on this device."
             )
-        serializer.save()
+        reservoir = serializer.save()
+
+        # Broadcast WebSocket update for real-time data
+        broadcast_reservoir_update(reservoir, action="update")
 
     def perform_destroy(self, instance):
         device = getattr(instance, "device", None)

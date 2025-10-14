@@ -27,6 +27,7 @@ import { getUserDevices } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 import { getDeviceReservoirs } from '../services/api/reservoirs.js';
 import { authApi } from '../services/apiClient.js';
+import { wsClient } from '../services/websocketClient';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -90,6 +91,7 @@ const transformSensorData = (sensors, sensorDataMap) => {
 };
 
 // Helper function to get pH history from sensor data based on time range
+// Uses the LAST reading in each period (day/week/month bucket) instead of averaging.
 const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
   if (!phSensorId || !sensorDataMap[phSensorId]) {
     return null;
@@ -143,27 +145,19 @@ const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
     dateMap[dateKey] = null;
   }
 
-  // Fill in actual data where it exists
+  // Fill with the LAST reading in each period (latest wins)
   phData.forEach(d => {
-    if (d && d.created_at) {
-      try {
-        const dataDate = new Date(d.created_at);
-        const dateKey = getDateKey(dataDate);
-
-        if (dateMap.hasOwnProperty(dateKey)) {
-          const value = Number(d.value);
-          if (Number.isFinite(value)) {
-            // Average multiple readings in the same period
-            if (dateMap[dateKey] === null) {
-              dateMap[dateKey] = value;
-            } else {
-              dateMap[dateKey] = (dateMap[dateKey] + value) / 2;
-            }
-          }
-        }
-      } catch (e) {
-        // Invalid date, skip
-      }
+    if (!d || !d.created_at) return;
+    try {
+      const dataDate = new Date(d.created_at);
+      const dateKey = getDateKey(dataDate);
+      if (!dateMap.hasOwnProperty(dateKey)) return;
+      const value = Number(d.value);
+      if (!Number.isFinite(value)) return;
+      // Latest always overwrites (so the last iteration for that bucket wins)
+      dateMap[dateKey] = value;
+    } catch (_e) {
+      // Ignore malformed date/value
     }
   });
 
@@ -677,6 +671,202 @@ export default function Dashboard() {
   useEffect(() => {
     fetchDevicesData();
   }, [timeRange]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // WebSocket real-time updates
+  useEffect(() => {
+    console.log('[Dashboard] Connecting to WebSocket...');
+    wsClient.connect();
+
+    const unsubscribe = wsClient.subscribe((update) => {
+      console.log('[Dashboard] WebSocket update received:', update);
+
+      // Handle new sensor.update format
+      if (update.type === 'sensor.update') {
+        console.log('[Dashboard] Real-time sensor data:', update);
+        const { device_id, sensors, timestamp, reading, created } = update;
+
+        if (device_id && sensors) {
+          // Update the device data directly in state without full API refetch
+          setDevicesData(prev => {
+            const existing = prev[device_id] || {};
+
+            // Update sensors with new values
+            const updatedSensors = {
+              ...(existing.sensors || {}),
+              ...(sensors.ph !== undefined && { ph: sensors.ph }),
+              ...(sensors.ec !== undefined && { ec: sensors.ec }),
+              ...(sensors.tds !== undefined && { tds: sensors.tds }),
+              ...(sensors.water_level !== undefined && { waterLevel: sensors.water_level }),
+              ...(sensors.turbidity !== undefined && { turbidity: sensors.turbidity }),
+              ...(sensors.water_temperature !== undefined && { waterTemperature: sensors.water_temperature }),
+            };
+
+            const updatedEnvironment = {
+              ...(existing.environment || {}),
+              ...(sensors.temperature !== undefined && { temperature: sensors.temperature }),
+              ...(sensors.humidity !== undefined && { humidity: sensors.humidity }),
+              ...(sensors.light_lux !== undefined && { light: sensors.light_lux }),
+              ...(sensors.water_temperature !== undefined && { water_temperature: sensors.water_temperature }),
+            };
+
+            // Update nutrient level if available
+            const nutrientText = (sensors.tds !== undefined || (existing.sensors && existing.sensors.tds !== undefined))
+              ? getNutrientStatus(sensors.tds !== undefined ? sensors.tds : existing.sensors.tds)
+              : existing.nutrientText;
+
+            // Update connectivity status
+            const { connectivity, lastSync } = getConnectivityStatus(new Date(timestamp));
+
+            // Regenerate alert text with new sensor values
+            const combinedSensors = {
+              ph: sensors.ph,
+              tds: sensors.tds,
+              ec: sensors.ec,
+              waterLevel: sensors.water_level,
+              turbidity: sensors.turbidity,
+              temperature: sensors.temperature,
+              humidity: sensors.humidity,
+              light: sensors.light_lux
+            };
+            const alertText = generateAlertText(combinedSensors);
+
+            // Append to pH history when a new pH reading arrives (only for days range to avoid recomputation cost)
+            let phHistory = existing.phHistory || null;
+            let phLabels = existing.phLabels || null;
+            if (reading && reading.sensor_type === 'ph') {
+              // Rebuild history minimally: push new value if timeRange === 'days'
+              if (timeRange === 'days') {
+                const value = Number(reading.value);
+                if (Number.isFinite(value)) {
+                  // Initialize if missing
+                  if (!Array.isArray(phHistory)) phHistory = [];
+                  // Maintain max 30 items
+                  const copy = phHistory.slice(-29); // keep last 29 then add new -> 30
+                  copy.push(value);
+                  phHistory = copy;
+                  // Labels: maintain parallel array of date strings
+                  if (!Array.isArray(phLabels)) phLabels = [];
+                  const dateLabel = new Date(reading.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                  const labelsCopy = phLabels.slice(-29);
+                  labelsCopy.push(dateLabel);
+                  phLabels = labelsCopy;
+                }
+              }
+            }
+
+            const sensorTimestamps = { ...(existing.sensorTimestamps || {}) };
+            if (reading && reading.sensor_type && reading.created_at) {
+              sensorTimestamps[reading.sensor_type] = reading.created_at;
+            }
+            const nextState = {
+              ...prev,
+              [device_id]: {
+                ...existing,
+                sensors: updatedSensors,
+                environment: updatedEnvironment,
+                nutrientText,
+                connectivity,
+                lastSyncLabel: lastSync,
+                alertText,
+                lastUpdate: timestamp,
+                phHistory,
+                phLabels,
+                lastReading: reading || existing.lastReading,
+                sensorTimestamps,
+              }
+            };
+
+            return nextState;
+          });
+
+          console.log(`[Dashboard] Updated device ${device_id} data in real-time`);
+
+          // Recompute alert counts & nutrient after this device's update (without full loops)
+          try {
+            if (device_id) {
+              const sensorSnapshot = devicesData?.[device_id]?.sensors || {};
+              const merged = { ...sensorSnapshot, ...sensors };
+              // Quick alert detection replicating generateAlertText logic
+              let hasAlert = false;
+              if (typeof merged.tds === 'number' && merged.tds < 300) hasAlert = true;
+              if (typeof merged.ph === 'number' && merged.ph > 6.5) hasAlert = true;
+              if (typeof merged.waterLevel === 'number' && merged.waterLevel < 20) hasAlert = true;
+              if (typeof merged.temperature === 'number' && (merged.temperature < 18 || merged.temperature > 28)) hasAlert = true;
+              setPerDeviceUnreadCounts(prev => ({
+                ...prev,
+                [device_id]: hasAlert ? Math.max(1, prev[device_id] || 0) : 0
+              }));
+              // Recompute total unread
+              setUnreadAlertsCount(prev => {
+                const nextMap = { ...perDeviceUnreadCounts, [device_id]: hasAlert ? Math.max(1, perDeviceUnreadCounts[device_id] || 0) : 0 };
+                return Object.values(nextMap).reduce((a, b) => a + (b || 0), 0);
+              });
+            }
+          } catch (e) {
+            console.warn('Realtime alert count recompute failed:', e);
+          }
+
+          // Fallback: if pH exists in backend reading meta but not updatedSensors OR huge discrepancy (>2 pH units) vs existing, trigger targeted refetch
+          try {
+            if (reading && reading.sensor_type === 'ph') {
+              const currentPh = devicesData?.[device_id]?.sensors?.ph;
+              const newPh = Number(reading.value);
+              if (Number.isFinite(newPh) && Number.isFinite(currentPh)) {
+                if (Math.abs(newPh - currentPh) > 2) {
+                  console.warn('[Dashboard] Detected large pH discrepancy, triggering refetch');
+                  fetchDeviceDataById(device_id);
+                }
+              } else if (Number.isFinite(newPh) && currentPh === undefined) {
+                // ensure we have historical context if missing
+                fetchDeviceDataById(device_id);
+              }
+            }
+          } catch (e) {
+            console.warn('Fallback pH refetch logic error:', e);
+          }
+        }
+        return;
+      }
+
+      // Handle legacy message formats
+      const { action, data } = update;
+
+      switch (action) {
+        case 'sensor_data':
+          // Legacy format - fallback to API refetch
+          console.log('[Dashboard] New sensor data (legacy):', data);
+          if (data.device_id) {
+            fetchDeviceDataById(data.device_id);
+          }
+          break;
+
+        case 'reservoir_update':
+          // Reservoir water level updated
+          console.log('[Dashboard] Reservoir update:', data);
+          if (data.device_id) {
+            fetchDeviceDataById(data.device_id);
+          }
+          break;
+
+        case 'bind':
+        case 'unbind':
+        case 'collaborator_added':
+        case 'collaborator_revoked':
+          // Device binding/collaborator changes - refresh full device list
+          console.log('[Dashboard] Device or collaborator update:', action);
+          fetchDevicesData();
+          break;
+
+        default:
+          console.log('[Dashboard] Unknown WebSocket action:', action);
+      }
+    });
+
+    return () => {
+      console.log('[Dashboard] Unsubscribing from WebSocket');
+      unsubscribe();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Count unread alerts when devices data is loaded
   useEffect(() => {
@@ -1685,60 +1875,60 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Current pH level */}
+        {/* Current pH level (real-time latest reading, independent of history) */}
         <section className="card current-ph-card" aria-label="Current pH">
-          <div className="ph-value-container">
-            <div className="ph-value-main">
-              <span className="ph-number">{data && data.phHistory && data.phHistory.length > 0 ? currentPH : '--'}</span>
-              <span className="ph-unit">pH</span>
-            </div>
-            <div className="ph-status-indicator">
-              <div className={`ph-status-dot ${data && data.phHistory && data.phHistory.length > 0 && currentPH >= 5.5 && currentPH <= 6.5 ? 'optimal' : 'warning'}`}></div>
-              <span className="ph-status-text">
-                {data && data.phHistory && data.phHistory.length > 0
-                  ? (currentPH >= 5.5 && currentPH <= 6.5 ? 'Optimal' : currentPH < 5.5 ? 'Too Low' : 'Too High')
-                  : 'Loading...'
-                }
-              </span>
-            </div>
-          </div>
-          <div className="ph-info-section">
-            <div className="ph-label-row">
-              <Activity size={16} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              <span className="ph-label">Current Level</span>
-            </div>
-            <div className="ph-range-indicator">
-              <div className="range-bar">
-                <div className="optimal-range"></div>
-                <div
-                  className="current-marker"
-                  style={{
-                    left: data && data.phHistory && data.phHistory.length > 0
-                      ? `${Math.max(0, Math.min(100, ((currentPH - 5.5) / (8.5 - 5.5)) * 100))}%`
-                      : '50%'
-                  }}
-                ></div>
-              </div>
-              <div className="range-labels">
-                <span>{(() => {
-                  const hasData = data && data.phHistory && data.phHistory.length > 0;
-                  const ph = Number(currentPH);
-                  if (!hasData || Number.isNaN(ph)) return '--';
-                  if (ph < 5.5) return ph.toFixed(1);
-                  // otherwise show the lowest monitored pH (dynamic scale min)
-                  return (typeof phScale?.min === 'number' && Number.isFinite(phScale.min)) ? phScale.min.toFixed(1) : '5.5';
-                })()}</span>
-                <span style={{ fontWeight: '600', color: PRIMARY_GREEN }}>5.5-6.5</span>
-                <span>{(() => {
-                  const hasData = data && data.phHistory && data.phHistory.length > 0;
-                  const ph = Number(currentPH);
-                  if (!hasData || Number.isNaN(ph)) return '--';
-                  if (ph > 6.5) return ph.toFixed(1);
-                  return '8.5';
-                })()}</span>
-              </div>
-            </div>
-          </div>
+          {(() => {
+            const latestPh = data?.sensors?.ph; // real-time field updated by WebSocket
+            const hasPh = typeof latestPh === 'number' && Number.isFinite(latestPh);
+            const phVal = hasPh ? latestPh : null;
+            const status = !hasPh ? 'Loading...' : (phVal < 5.5 ? 'Too Low' : phVal > 6.5 ? 'Too High' : 'Optimal');
+            return (
+              <>
+                <div className="ph-value-container">
+                  <div className="ph-value-main">
+                    <span className="ph-number">{hasPh ? phVal.toFixed(1) : '--'}</span>
+                    <span className="ph-unit">pH</span>
+                  </div>
+                  <div className="ph-status-indicator">
+                    <div className={`ph-status-dot ${hasPh && phVal >= 5.5 && phVal <= 6.5 ? 'optimal' : 'warning'}`}></div>
+                    <span className="ph-status-text">{status}</span>
+                  </div>
+                </div>
+                <div className="ph-info-section">
+                  <div className="ph-label-row">
+                    <Activity size={16} color={PRIMARY_GREEN} strokeWidth={2.5} />
+                    <span className="ph-label">Current Level</span>
+                  </div>
+                  <div className="ph-range-indicator">
+                    <div className="range-bar">
+                      <div className="optimal-range"></div>
+                      <div
+                        className="current-marker"
+                        style={{
+                          left: hasPh
+                            ? `${Math.max(0, Math.min(100, ((phVal - 5.5) / (8.5 - 5.5)) * 100))}%`
+                            : '50%'
+                        }}
+                      ></div>
+                    </div>
+                    <div className="range-labels">
+                      <span>{(() => {
+                        if (!hasPh) return '--';
+                        if (phVal < 5.5) return phVal.toFixed(1);
+                        return '5.5';
+                      })()}</span>
+                      <span style={{ fontWeight: '600', color: PRIMARY_GREEN }}>5.5-6.5</span>
+                      <span>{(() => {
+                        if (!hasPh) return '--';
+                        if (phVal > 6.5) return phVal.toFixed(1);
+                        return '8.5';
+                      })()}</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </section>
 
         {/* Sensor grid */}

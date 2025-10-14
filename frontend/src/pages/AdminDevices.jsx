@@ -675,6 +675,26 @@ export default function AdminDevices() {
 					}
 					break;
 
+				case 'sensor_data':
+					// New sensor reading received
+					console.log('[AdminDevices] New sensor data:', data);
+					toast.info(`New ${data.sensor_type} reading: ${data.value} ${data.unit || ''}`, {
+						autoClose: 2000
+					});
+					// Refresh device list to show updated last seen time
+					fetchDevices();
+					break;
+
+				case 'reservoir_update':
+					// Reservoir water level updated
+					console.log('[AdminDevices] Reservoir update:', data);
+					toast.info(`Reservoir water level updated for device ${data.device_serial}`, {
+						autoClose: 2000
+					});
+					// Refresh device list
+					fetchDevices();
+					break;
+
 				default:
 					console.log('[AdminDevices] Unknown WebSocket action:', action);
 			}

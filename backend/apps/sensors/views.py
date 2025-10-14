@@ -6,11 +6,60 @@ from rest_framework import filters
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
+from django.utils import timezone
+
+# WebSocket support
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+import logging
 
 from apps.common.views import BaseAuthViewSet
 from .models import Sensor, SensorData
 from apps.devices.models import DeviceCollaboration
 from .serializers import SensorSerializer, SensorDataSerializer
+from .alert_service import SensorAlertService
+
+logger = logging.getLogger(__name__)
+
+
+def broadcast_sensor_update(sensor_data):
+    """
+    Broadcast new sensor data via WebSocket to all connected clients.
+
+    Args:
+        sensor_data (SensorData): The sensor data instance
+    """
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            sensor = sensor_data.sensor
+            device = sensor.device if sensor else None
+
+            # Prepare complete sensor data payload
+            payload_data = {
+                "device_id": device.id if device else None,
+                "device_serial": device.device_serial if device else None,
+                "device_name": device.device_name if device else None,
+                "sensor_id": sensor.id if sensor else None,
+                "sensor_type": sensor.sensor_type if sensor else None,
+                "sensor_data_id": sensor_data.id if sensor_data else None,
+                "value": float(sensor_data.value) if sensor_data.value is not None else None,
+                "unit": sensor.unit if sensor else "",
+                "timestamp": sensor_data.created_at.isoformat() if sensor_data.created_at else timezone.now().isoformat(),
+            }
+
+            async_to_sync(channel_layer.group_send)(
+                "devices",
+                {
+                    "type": "device_update",
+                    "action": "sensor_data",
+                    "data": payload_data
+                }
+            )
+            logger.info(f"[WebSocket] Broadcasted sensor_data: {sensor.sensor_type if sensor else 'unknown'}={payload_data.get('value')} for device {device.device_serial if device else 'unknown'}")
+    except Exception as e:
+        # Don't fail the request if WebSocket broadcast fails
+        logger.error(f"[WebSocket] Broadcast failed: {str(e)}", exc_info=True)
 
 
 class SensorViewSet(BaseAuthViewSet):
@@ -130,7 +179,17 @@ class SensorDataViewSet(BaseAuthViewSet):
             raise PermissionDenied(
                 "Permission denied. You need manage permissions to create sensor data on this device."
             )
-        serializer.save()
+        sensor_data = serializer.save()
+
+        # Check thresholds and send push notifications if alerts detected
+        try:
+            SensorAlertService.check_and_notify(sensor_data)
+            logger.debug(f"Alert check completed for sensor data {sensor_data.id}")
+        except Exception as e:
+            logger.error(f"Alert notification failed for sensor data {sensor_data.id}: {str(e)}")
+
+        # Broadcast WebSocket update for real-time data
+        broadcast_sensor_update(sensor_data)
 
     def perform_update(self, serializer):
         sensor = getattr(serializer.instance, "sensor", None)

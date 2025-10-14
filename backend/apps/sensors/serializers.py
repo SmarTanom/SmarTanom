@@ -37,6 +37,8 @@ class SensorDataSerializer(serializers.ModelSerializer):
         source="sensor", queryset=Sensor.objects.all(), write_only=True
     )
     sensor = serializers.StringRelatedField(read_only=True)
+    sensor_type = serializers.CharField(source='sensor.sensor_type', read_only=True)
+    unit = serializers.CharField(source='sensor.unit', read_only=True)
 
     class Meta:
         model = SensorData
@@ -44,7 +46,9 @@ class SensorDataSerializer(serializers.ModelSerializer):
             "id",
             "sensor",
             "sensor_id",
+            "sensor_type",
             "value",
+            "unit",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "sensor_type", "unit", "created_at"]
