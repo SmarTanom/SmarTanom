@@ -754,9 +754,9 @@ export default function Dashboard() {
         sensorDataResults.forEach(({ sensorId, data }) => { sensorDataMap[sensorId] = data; });
       }
       const transformedSensors = transformSensorData(sensors || [], sensorDataMap);
-  const phSensor = Array.isArray(sensors) ? sensors.find(s => s.sensor_type === 'ph') : null;
-  const phHistory = getPHHistory(sensorDataMap, phSensor?.id, timeRange);
-  const phLabels = getPHLabels(sensorDataMap, phSensor?.id, timeRange);
+      const phSensor = Array.isArray(sensors) ? sensors.find(s => s.sensor_type === 'ph') : null;
+      const phHistory = getPHHistory(sensorDataMap, phSensor?.id, timeRange);
+      const phLabels = getPHLabels(sensorDataMap, phSensor?.id, timeRange);
       let lastSensorUpdate = null;
       Object.values(sensorDataMap).forEach(arr => {
         if (Array.isArray(arr)) {
@@ -765,7 +765,7 @@ export default function Dashboard() {
             try {
               const t = new Date(d.created_at);
               if (!lastSensorUpdate || t > lastSensorUpdate) lastSensorUpdate = t;
-            } catch (_e) {}
+            } catch (_e) { }
           });
         }
       });
@@ -830,7 +830,7 @@ export default function Dashboard() {
   // Handle FAB click (if not dragged)
   const handleFabClick = () => {
     if (!hasDraggedRef.current) {
-      navigate('/signup-setup');
+      navigate('/add-device/setup');
     }
   };
 
@@ -1238,7 +1238,7 @@ export default function Dashboard() {
           <p style={{ color: '#666', fontSize: '1rem' }}>No devices found</p>
           <p style={{ color: '#999', fontSize: '0.9rem' }}>Bind your first device to get started!</p>
           <button
-            onClick={() => navigate('/signup-setup')}
+            onClick={() => navigate('/add-device/setup')}
             style={{
               padding: '0.75rem 1.5rem',
               backgroundColor: PRIMARY_GREEN,
@@ -1340,8 +1340,8 @@ export default function Dashboard() {
                   <h3 className="device-name">{d.device_name}</h3>
                   <p className="device-id">
                     {d.plant_name ? `Growing: ${d.plant_name}` :
-                     (d.is_collaborator && !d.is_owner) ? 'Shared Device' :
-                     `Serial: ${d.device_serial}`}
+                      (d.is_collaborator && !d.is_owner) ? 'Shared Device' :
+                        `Serial: ${d.device_serial}`}
                   </p>
                   {d.location ? (
                     <p className="device-location">{d.location}</p>
@@ -1518,7 +1518,7 @@ export default function Dashboard() {
                     ? 'No data available'
                     : timeRange === 'days' ? `Last ${PH_WINDOW_SIZE} Days`
                       : timeRange === 'weeks' ? `Last ${PH_WINDOW_SIZE} Weeks`
-                      : `Last ${PH_WINDOW_SIZE} Months`
+                        : `Last ${PH_WINDOW_SIZE} Months`
                 }
               </span>
               <button
@@ -1632,27 +1632,27 @@ export default function Dashboard() {
                 }}>
                   {phHistoryDisplay && phHistoryDisplay.length > 0
                     ? phHistoryDisplay.map((_, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            borderLeft: i === 0 ? 'none' : '1px solid rgba(139, 167, 151, 0.1)',
-                            width: i === 0 ? '1px' : 'auto',
-                            flex: 1,
-                            height: '100%'
-                          }}
-                        />
-                      ))
+                      <div
+                        key={i}
+                        style={{
+                          borderLeft: i === 0 ? 'none' : '1px solid rgba(139, 167, 151, 0.1)',
+                          width: i === 0 ? '1px' : 'auto',
+                          flex: 1,
+                          height: '100%'
+                        }}
+                      />
+                    ))
                     : Array.from({ length: 10 }, (_, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            borderLeft: i === 0 ? 'none' : '1px solid rgba(139, 167, 151, 0.1)',
-                            width: i === 0 ? '1px' : 'auto',
-                            flex: 1,
-                            height: '100%'
-                          }}
-                        />
-                      ))
+                      <div
+                        key={i}
+                        style={{
+                          borderLeft: i === 0 ? 'none' : '1px solid rgba(139, 167, 151, 0.1)',
+                          width: i === 0 ? '1px' : 'auto',
+                          flex: 1,
+                          height: '100%'
+                        }}
+                      />
+                    ))
                   }
                 </div>
 
@@ -1675,11 +1675,11 @@ export default function Dashboard() {
               <div className="ph-x-axis" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0', gap: '2px' }}>
                 {phLabelsDisplay && phLabelsDisplay.length > 0
                   ? phLabelsDisplay.map((label, i) => (
-                      <span key={i} className="ph-x-label" style={{ flex: 1, textAlign: 'center', fontSize: '10px' }}>{label}</span>
-                    ))
+                    <span key={i} className="ph-x-label" style={{ flex: 1, textAlign: 'center', fontSize: '10px' }}>{label}</span>
+                  ))
                   : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((_, i) => (
-                      <span key={i} className="ph-x-label" style={{ flex: 1, textAlign: 'center', fontSize: '10px' }}>--</span>
-                    ))}
+                    <span key={i} className="ph-x-label" style={{ flex: 1, textAlign: 'center', fontSize: '10px' }}>--</span>
+                  ))}
               </div>
             </div>
           </div>
