@@ -423,6 +423,8 @@ export default function Dashboard() {
   const [displayName, setDisplayName] = useState('User');
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [perDeviceUnreadCounts, setPerDeviceUnreadCounts] = useState({});
+  // Store the latest alert metadata per device for realtime display
+  const [latestAlerts, setLatestAlerts] = useState({}); // { [deviceId]: { title, body, severity, at } }
 
   // Shared helper to compute a stable reading key (match AlertsPage logic)
   const readingKeyOf = (reading) => {
@@ -808,6 +810,19 @@ export default function Dashboard() {
             };
             const alertText = generateAlertText(combinedSensors);
 
+            // Derive a structured latest alert (simple heuristics mirroring generateAlertText and thresholds)
+            let newAlertMeta = null;
+            const nowIso = new Date(timestamp).toISOString();
+            if (typeof combinedSensors.tds === 'number' && combinedSensors.tds < 300) {
+              newAlertMeta = { title: 'TDS Too Low', body: `TDS is ${Math.round(combinedSensors.tds)} ppm (low)`, severity: 'warning', at: nowIso };
+            } else if (typeof combinedSensors.ph === 'number' && combinedSensors.ph > 6.5) {
+              newAlertMeta = { title: 'pH High', body: `pH is ${combinedSensors.ph.toFixed(1)} (high)`, severity: 'critical', at: nowIso };
+            } else if (typeof combinedSensors.waterLevel === 'number' && combinedSensors.waterLevel < 20) {
+              newAlertMeta = { title: 'Water Level Low', body: `Water level ${Math.round(combinedSensors.waterLevel)}% (low)`, severity: 'warning', at: nowIso };
+            } else if (typeof combinedSensors.temperature === 'number' && (combinedSensors.temperature < 18 || combinedSensors.temperature > 28)) {
+              newAlertMeta = { title: 'Temperature Out of Range', body: `Temp ${combinedSensors.temperature.toFixed(1)}°C`, severity: 'warning', at: nowIso };
+            }
+
             // Append to pH history when a new pH reading arrives (only for days range to avoid recomputation cost)
             let phHistory = existing.phHistory || null;
             let phLabels = existing.phLabels || null;
@@ -856,6 +871,17 @@ export default function Dashboard() {
 
             return nextState;
           });
+
+          // Update latest alert meta if a new one detected
+            if (newAlertMeta) {
+              setLatestAlerts(prev => {
+                const prevMeta = prev[device_id];
+                if (!prevMeta || prevMeta.at < newAlertMeta.at) {
+                  return { ...prev, [device_id]: newAlertMeta };
+                }
+                return prev;
+              });
+            }
 
           console.log(`[Dashboard] Updated device ${device_id} data in real-time`);
 
@@ -1436,10 +1462,13 @@ export default function Dashboard() {
     return name || plant || fallback || 'Device';
   }, [currentDevice]);
   const currentPH = useMemo(() => {
-    if (!data?.phHistory) return '6.3';
-    // Find the most recent non-null pH value
-    const lastValue = [...data.phHistory].reverse().find(value => value !== null && value !== undefined);
-    return lastValue ? Number(lastValue).toFixed(1) : '6.3';
+    // Prefer real-time latest sensor value if present
+    if (typeof data?.sensors?.ph === 'number') return data.sensors.ph.toFixed(1);
+    if (Array.isArray(data?.phHistory)) {
+      const lastValue = [...data.phHistory].reverse().find(v => v !== null && v !== undefined);
+      if (Number.isFinite(Number(lastValue))) return Number(lastValue).toFixed(1);
+    }
+    return '--';
   }, [activeIdx, data]);
 
   // Save activeIdx and device ID to localStorage whenever it changes
@@ -1738,6 +1767,11 @@ export default function Dashboard() {
             )}
           </h3>
           <div className="alert-card-message">{(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 ? (data?.alertText || 'Loading...') : 'All systems normal'}</div>
+          {latestAlerts[currentDevice?.id] && (
+            <div style={{ marginTop: '6px', fontSize: '11px', color: '#555' }} aria-live="polite">
+              <strong>{latestAlerts[currentDevice.id].title}:</strong> {latestAlerts[currentDevice.id].body}
+            </div>
+          )}
           {currentDevice && (
             <p style={{
               fontSize: '11px',
