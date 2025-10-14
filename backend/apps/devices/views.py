@@ -331,6 +331,101 @@ class DeviceViewSet(BaseAuthViewSet):
             Q(id__in=shared_device_ids)  # Shared devices
         )
 
+    @action(detail=True, methods=['post'], url_path='admin-bind', permission_classes=[IsAuthenticated])
+    def admin_bind_device(self, request, pk=None):
+        """Admin endpoint to bind a device to a user."""
+        # Only staff can use this endpoint
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Permission denied. Admin access required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        device = self.get_object()
+        email = request.data.get('email')
+
+        if not email:
+            return Response(
+                {'error': 'Email is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Normalize email
+        email = email.lower().strip()
+
+        # Check if device is already bound
+        if device.is_bound and device.bound_email != email:
+            return Response(
+                {'error': f'Device is already bound to {device.bound_email}. Unbind first if needed.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Find or create user with this email
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                'username': f"user_{email.split('@')[0]}_{timezone.now().strftime('%Y%m%d_%H%M%S')}",
+                'is_active': True,
+            }
+        )
+
+        # Bind device
+        device.is_bound = True
+        device.bound_email = email
+        device_name = request.data.get('device_name')
+        if device_name:
+            device.device_name = device_name
+        device.save()
+
+        logger.info(f"Admin {request.user.email} bound device {device.device_serial} to {email}")
+
+        return Response({
+            'success': True,
+            'message': f'Device successfully bound to {email}',
+            'device': {
+                'id': device.id,
+                'serial': device.device_serial,
+                'device_name': device.device_name,
+                'bound_email': device.bound_email,
+            },
+            'user_created': created
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='admin-unbind', permission_classes=[IsAuthenticated])
+    def admin_unbind_device(self, request, pk=None):
+        """Admin endpoint to unbind a device from a user."""
+        # Only staff can use this endpoint
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Permission denied. Admin access required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        device = self.get_object()
+
+        if not device.is_bound:
+            return Response(
+                {'error': 'Device is not currently bound to any user.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        old_email = device.bound_email
+        device.is_bound = False
+        device.bound_email = None
+        device.save()
+
+        logger.info(f"Admin {request.user.email} unbound device {device.device_serial} from {old_email}")
+
+        return Response({
+            'success': True,
+            'message': f'Device successfully unbound from {old_email}',
+            'device': {
+                'id': device.id,
+                'serial': device.device_serial,
+                'device_name': device.device_name,
+            }
+        }, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post'], url_path='upload-photo')
     def upload_plant_photo(self, request, pk=None):
         """Upload plant photo for a device."""
@@ -544,6 +639,40 @@ class DeviceViewSet(BaseAuthViewSet):
         collaboration.save()
 
         logger.info(f"Access revoked for {collaboration.collaborator_email} on device {device.device_serial}")
+
+        return Response({
+            'success': True,
+            'message': f'Access revoked for {collaboration.collaborator_email}'
+        })
+
+    @action(detail=True, methods=['post'], url_path='collaborators/(?P<collaborator_id>[^/.]+)/admin-revoke')
+    def admin_revoke_access(self, request, pk=None, collaborator_id=None):
+        """Admin endpoint to revoke device access for a collaborator without OTP."""
+        device = self.get_object()
+
+        # Only staff can use this endpoint
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Permission denied. Admin access required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            collaboration = DeviceCollaboration.objects.get(
+                id=collaborator_id,
+                device=device,
+                status=DeviceCollaboration.Status.ACTIVE
+            )
+        except DeviceCollaboration.DoesNotExist:
+            return Response(
+                {'error': 'Collaboration not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        collaboration.status = DeviceCollaboration.Status.REVOKED
+        collaboration.save()
+
+        logger.info(f"Admin {request.user.email} revoked access for {collaboration.collaborator_email} on device {device.device_serial}")
 
         return Response({
             'success': True,

@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import '../assets/styles/AdminDevices.css';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import { getAdminDevices } from '../services/api/admin';
+import { apiClient } from '../services/apiClient';
 import {
 	LayoutDashboard,
 	Boxes,
@@ -16,15 +18,180 @@ import {
 	User,
 	Calendar,
 	Activity,
-	Loader2
+	Loader2,
+	UserPlus,
+	UserMinus,
+	Share2
 } from 'lucide-react';
 
-function DeviceDetailsModal({ device, onClose }) {
+function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
+	const qrRef = useRef(null);
+	const [loading, setLoading] = useState(false);
+	const [bindEmail, setBindEmail] = useState('');
+	const [showBindForm, setShowBindForm] = useState(false);
+	const [collaborators, setCollaborators] = useState([]);
+	const [loadingCollaborators, setLoadingCollaborators] = useState(true);
+
+	useEffect(() => {
+		if (device && device.id) {
+			fetchCollaborators();
+		}
+	}, [device]);
+
+	const fetchCollaborators = async () => {
+		try {
+			setLoadingCollaborators(true);
+			const authToken = localStorage.getItem('authToken');
+			const data = await apiClient.get(`/api/devices/devices/${device.id}/collaborators/`, { authToken });
+			setCollaborators(data.results || []);
+		} catch (error) {
+			console.error('Failed to fetch collaborators:', error);
+			setCollaborators([]);
+		} finally {
+			setLoadingCollaborators(false);
+		}
+	};
+
 	if (!device) return null;
 
 	const handleDownloadQR = () => {
-		alert(`Downloading QR code for ${device.serial}`);
+		try {
+			const svg = qrRef.current.querySelector('svg');
+			if (!svg) {
+				alert('QR code not generated yet');
+				return;
+			}
+
+			// Create a canvas to convert SVG to image
+			const canvas = document.createElement('canvas');
+			const ctx = canvas.getContext('2d');
+			const svgData = new XMLSerializer().serializeToString(svg);
+			const img = new Image();
+
+			const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+			const url = URL.createObjectURL(svgBlob);
+
+			img.onload = () => {
+				canvas.width = img.width;
+				canvas.height = img.height;
+				ctx.fillStyle = 'white';
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				ctx.drawImage(img, 0, 0);
+
+				canvas.toBlob((blob) => {
+					const downloadUrl = URL.createObjectURL(blob);
+					const link = document.createElement('a');
+					link.href = downloadUrl;
+					link.download = `${device.serial || device.device_serial}_QR.png`;
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);
+					URL.revokeObjectURL(downloadUrl);
+					URL.revokeObjectURL(url);
+				});
+			};
+
+			img.src = url;
+		} catch (error) {
+			console.error('Error downloading QR code:', error);
+			alert('Failed to download QR code. Please try again.');
+		}
 	};
+
+	const handleBindDevice = async (e) => {
+		e.preventDefault();
+		if (!bindEmail.trim()) {
+			alert('Please enter an email address');
+			return;
+		}
+
+		try {
+			setLoading(true);
+			const authToken = localStorage.getItem('authToken');
+			const response = await apiClient.post(
+				`/api/devices/devices/${device.id}/admin-bind/`,
+				{ email: bindEmail.trim() },
+				{ authToken }
+			);
+
+			if (response.success) {
+				alert(`Device successfully bound to ${bindEmail}`);
+				setBindEmail('');
+				setShowBindForm(false);
+				if (onDeviceUpdate) {
+					onDeviceUpdate();
+				}
+			}
+		} catch (error) {
+			console.error('Failed to bind device:', error);
+			alert(error.message || 'Failed to bind device. Please try again.');
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleUnbindDevice = async () => {
+		if (!confirm(`Are you sure you want to unbind this device from ${device.owner || device.bound_email}?`)) {
+			return;
+		}
+
+		try {
+			setLoading(true);
+			const authToken = localStorage.getItem('authToken');
+			const response = await apiClient.post(
+				`/api/devices/devices/${device.id}/admin-unbind/`,
+				{},
+				{ authToken }
+			);
+
+			if (response.success) {
+				alert('Device successfully unbound');
+				if (onDeviceUpdate) {
+					onDeviceUpdate();
+				}
+			}
+		} catch (error) {
+			console.error('Failed to unbind device:', error);
+			alert(error.message || 'Failed to unbind device. Please try again.');
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleRevokeAccess = async (collaboratorId, email) => {
+		if (!confirm(`Are you sure you want to revoke access for ${email}?`)) {
+			return;
+		}
+
+		try {
+			const authToken = localStorage.getItem('authToken');
+			const response = await apiClient.post(
+				`/api/devices/devices/${device.id}/collaborators/${collaboratorId}/admin-revoke/`,
+				{}, // No OTP needed for admin endpoint
+				{ authToken }
+			);
+
+			if (response.success) {
+				alert(`Access revoked for ${email}`);
+				fetchCollaborators(); // Refresh the list
+			}
+		} catch (error) {
+			console.error('Failed to revoke access:', error);
+			alert(error.message || 'Failed to revoke access. Please try again.');
+		}
+	};
+
+
+	const deviceSerial = device.serial || device.device_serial;
+	const deviceOwner = device.owner || device.bound_email;
+	const deviceId = device.id;
+
+	// Create QR code data with device information
+	const qrData = JSON.stringify({
+		serial: deviceSerial,
+		id: deviceId,
+		type: 'smartanom-device'
+	});
 
 	return (
 		<div className="modal-overlay" onClick={onClose}>
@@ -39,18 +206,18 @@ function DeviceDetailsModal({ device, onClose }) {
 				</div>
 				<p className="modal-subtitle">Complete information and QR code for device registration</p>
 
-				<div className="modal-device-title">{device.serial}</div>
+				<div className="modal-device-title">{deviceSerial}</div>
 				<span className={`modal-status-badge ${device.status.toLowerCase()}`}>
 					{device.status}
 				</span>
 
 				<div className="modal-info-grid">
-					{device.owner && (
+					{deviceOwner && (
 						<div className="modal-info-item">
 							<User size={16} className="info-icon" />
 							<div>
 								<div className="info-label">Assigned To</div>
-								<div className="info-value">{device.owner}</div>
+								<div className="info-value">{deviceOwner}</div>
 							</div>
 						</div>
 					)}
@@ -69,29 +236,123 @@ function DeviceDetailsModal({ device, onClose }) {
 						<Activity size={16} className="info-icon" />
 						<div>
 							<div className="info-label">Last Activity</div>
-							<div className="info-value">{device.lastSeen}</div>
+							<div className="info-value">{device.lastSeen || 'Never'}</div>
 						</div>
 					</div>
 				</div>
 
+				{/* QR Code Section */}
 				<div className="qr-code-section">
-					<div className="qr-code-placeholder">
-						<div className="qr-icon">
-							<div className="qr-square"></div>
-							<div className="qr-square"></div>
-							<div className="qr-square"></div>
-							<div className="qr-square"></div>
-							<div className="qr-dots">
-								<span>•</span>
-								<span>•</span>
-								<span>•</span>
-							</div>
-						</div>
+					<div className="qr-code-container" ref={qrRef}>
+						<QRCodeSVG
+							value={qrData}
+							size={300}
+							level="H"
+							includeMargin={true}
+							fgColor="#2eb72e"
+							bgColor="#ffffff"
+						/>
 					</div>
 					<div className="qr-label">QR Code for</div>
-					<div className="qr-device-name">{device.serial}</div>
+					<div className="qr-device-name">{deviceSerial}</div>
 					<p className="qr-description">Scan this QR code to register or identify the device</p>
 				</div>
+
+				{/* Device Binding Section */}
+				<div className="device-actions-section">
+					{deviceOwner ? (
+						<div className="bound-device-info">
+							<div className="bound-header">
+								<User size={16} />
+								<span>Device Owner</span>
+							</div>
+							<div className="bound-email">{deviceOwner}</div>
+							<button
+								className="btn-unbind"
+								onClick={handleUnbindDevice}
+								disabled={loading}
+							>
+								<UserMinus size={16} />
+								{loading ? 'Unbinding...' : 'Unbind Device'}
+							</button>
+						</div>
+					) : (
+						<div className="bind-device-section">
+							{!showBindForm ? (
+								<button
+									className="btn-show-bind-form"
+									onClick={() => setShowBindForm(true)}
+								>
+									<UserPlus size={16} />
+									Bind Device to User
+								</button>
+							) : (
+								<form onSubmit={handleBindDevice} className="bind-form">
+									<label htmlFor="bind-email">User Email</label>
+									<input
+										id="bind-email"
+										type="email"
+										value={bindEmail}
+										onChange={(e) => setBindEmail(e.target.value)}
+										placeholder="user@example.com"
+										required
+										disabled={loading}
+									/>
+									<div className="bind-form-actions">
+										<button type="submit" disabled={loading}>
+											{loading ? 'Binding...' : 'Bind Device'}
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												setShowBindForm(false);
+												setBindEmail('');
+											}}
+											disabled={loading}
+										>
+											Cancel
+										</button>
+									</div>
+								</form>
+							)}
+						</div>
+					)}
+				</div>
+
+				{/* Collaborators Section */}
+				{deviceOwner && (
+					<div className="collaborators-section">
+						<div className="collaborators-header">
+							<Share2 size={16} />
+							<span>Shared With</span>
+						</div>
+						{loadingCollaborators ? (
+							<div className="loading-collaborators">
+								<Loader2 size={16} className="spin" />
+								<span>Loading collaborators...</span>
+							</div>
+						) : collaborators.length > 0 ? (
+							<ul className="collaborators-list">
+								{collaborators.map((collab) => (
+									<li key={collab.id} className="collaborator-item">
+										<User size={14} />
+										<span className="collab-email">{collab.collaborator_email}</span>
+										<span className="collab-permission">{collab.permissions}</span>
+										<button
+											className="btn-revoke-collab"
+											onClick={() => handleRevokeAccess(collab.id, collab.collaborator_email)}
+											title="Revoke Access"
+										>
+											<UserMinus size={14} />
+										</button>
+									</li>
+								))}
+							</ul>
+						) : (
+							<p className="no-collaborators">No collaborators yet</p>
+						)}
+					</div>
+				)}
 
 				<div className="modal-actions">
 					<button className="btn-download" onClick={handleDownloadQR}>
@@ -117,36 +378,36 @@ export default function AdminDevices() {
 	const [error, setError] = useState(null);
 
 	useEffect(() => {
-		const fetchDevices = async () => {
-			try {
-				setLoading(true);
-				setError(null);
-				const data = await getAdminDevices();
-				console.log('Devices data received:', data); // Debug log
-
-				// Handle different response structures
-				if (Array.isArray(data)) {
-					setDevices(data);
-				} else if (data && Array.isArray(data.results)) {
-					setDevices(data.results);
-				} else if (data && typeof data === 'object') {
-					// If data is an object, convert to array
-					setDevices(Object.values(data));
-				} else {
-					console.error('Unexpected data structure:', data);
-					setDevices([]);
-				}
-			} catch (err) {
-				console.error('Failed to fetch devices:', err);
-				setError('Failed to load devices');
-				setDevices([]); // Ensure devices is always an array
-			} finally {
-				setLoading(false);
-			}
-		};
-
 		fetchDevices();
 	}, []);
+
+	const fetchDevices = async () => {
+		try {
+			setLoading(true);
+			setError(null);
+			const data = await getAdminDevices();
+			console.log('Devices data received:', data); // Debug log
+
+			// Handle different response structures
+			if (Array.isArray(data)) {
+				setDevices(data);
+			} else if (data && Array.isArray(data.results)) {
+				setDevices(data.results);
+			} else if (data && typeof data === 'object') {
+				// If data is an object, convert to array
+				setDevices(Object.values(data));
+			} else {
+				console.error('Unexpected data structure:', data);
+				setDevices([]);
+			}
+		} catch (err) {
+			console.error('Failed to fetch devices:', err);
+			setError('Failed to load devices');
+			setDevices([]); // Ensure devices is always an array
+		} finally {
+			setLoading(false);
+		}
+	};
 
 	// Helper function to format last seen time
 	const formatLastSeen = (lastSeenStr) => {
@@ -445,7 +706,11 @@ export default function AdminDevices() {
 
 			{/* Device Details Modal */}
 			{selectedDevice && (
-				<DeviceDetailsModal device={selectedDevice} onClose={() => setSelectedDevice(null)} />
+				<DeviceDetailsModal
+					device={selectedDevice}
+					onClose={() => setSelectedDevice(null)}
+					onDeviceUpdate={fetchDevices}
+				/>
 			)}
 		</div>
 	);

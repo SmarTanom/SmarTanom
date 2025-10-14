@@ -64,4 +64,4 @@ probeHealth();
 
 ## Building for Production
 
-Use `npm run build` which outputs to `dist/`. A production deployment would typically serve these assets behind the Django app or a separate static host (not yet wired in repo Docker).
+Use `npm run build` which outputs to `dist/`. A production deployment would typically serve these assets behind the Django app or a separate static host.
