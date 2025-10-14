@@ -29,6 +29,7 @@ import { getDeviceReservoirs } from '../services/api/reservoirs.js';
 import { listPlants } from '../services/api/plants.js';
 import { authApi } from '../services/apiClient.js';
 import { wsClient } from '../services/websocketClient';
+import { useRealtimeStore } from '../store/realtimeStore';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -423,249 +424,57 @@ export default function Dashboard() {
   const [phWindows, setPhWindows] = useState({}); // { [deviceId]: startIndex }
 
   // State for real data
-  const [devices, setDevices] = useState([]);
-  const [devicesData, setDevicesData] = useState({});
+  // Centralized realtime store state
+  const devices = useRealtimeStore(s => s.devices);
+  const devicesData = useRealtimeStore(s => s.deviceData);
+  const fetchInitial = useRealtimeStore(s => s.fetchInitial);
+  const connectWS = useRealtimeStore(s => s.connectWS);
+  const latestAlerts = useRealtimeStore(s => s.latestAlerts);
+  const totalUnread = useRealtimeStore(s => s.totalUnread);
+  const loadingInitial = useRealtimeStore(s => s.loadingInitial);
+  const errorInitial = useRealtimeStore(s => s.errorInitial);
+
   // Latest reading for the first device's first sensor (useful for small widgets)
   const [firstSensorReading, setFirstSensorReading] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [displayName, setDisplayName] = useState('User');
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
-  const [perDeviceUnreadCounts, setPerDeviceUnreadCounts] = useState(() => {
-    try {
-      const raw = localStorage.getItem('dashboard.perDeviceUnread');
-      if (raw) return JSON.parse(raw) || {};
-    } catch (_) {}
-    return {};
-  });
-  // Store the latest alert metadata per device for realtime display
-  // Persist latest alerts across refresh using localStorage (lightweight cache)
-  const [latestAlerts, setLatestAlerts] = useState(() => {
-    try {
-      const raw = localStorage.getItem('dashboard.latestAlerts');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') return parsed;
-      }
-    } catch (e) {
-      console.warn('Failed to load persisted latestAlerts:', e);
-    }
-    return {};
-  }); // { [deviceId]: { title, body, severity, at } }
+  const [perDeviceUnreadCounts, setPerDeviceUnreadCounts] = useState({});
 
-  // Persist latestAlerts whenever it changes (debounced minimal)
-  useEffect(() => {
-    try {
-      localStorage.setItem('dashboard.latestAlerts', JSON.stringify(latestAlerts));
-    } catch (e) {
-      // Ignore quota / serialization errors
-    }
-  }, [latestAlerts]);
-
-  // Persist unread counts when they change
-  useEffect(() => {
-    try { localStorage.setItem('dashboard.perDeviceUnread', JSON.stringify(perDeviceUnreadCounts)); } catch (_) {}
-  }, [perDeviceUnreadCounts]);
-  useEffect(() => {
-    try { localStorage.setItem('dashboard.totalUnread', String(unreadAlertsCount)); } catch (_) {}
-  }, [unreadAlertsCount]);
+  // Local pH history augmentation (store keeps latest values; we add historical series here)
+  const [localPhData, setLocalPhData] = useState({}); // { [deviceId]: { phHistory, phLabels } }
 
   // Shared helper to compute a stable reading key (match AlertsPage logic)
   const readingKeyOf = (reading) => {
     return (reading && (reading.id || reading.created_at || reading.timestamp)) || JSON.stringify(reading || {});
   };
 
-  // Fetch user devices and their data
-  const fetchDevicesData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Check if user is authenticated
+  // Initialize store and fetch profile on mount
+  useEffect(() => {
+    const initDashboard = async () => {
+      // Check authentication first
       const token = localStorage.getItem('authToken');
       if (!token) {
         navigate('/login');
         return;
       }
 
-      // Fetch current user profile for greeting (best-effort; non-blocking)
+      // Fetch user profile for greeting (non-blocking)
       try {
         const profile = await authApi.getProfile(token);
         const name =
           (profile && (profile.full_name?.trim() || profile.first_name?.trim() || profile.username?.trim())) ||
           (profile && profile.email ? (profile.email.split('@')[0] || 'User') : 'User');
         setDisplayName(name);
-      } catch (_) {
-        // ignore profile errors; keep default
+      } catch (e) {
+        console.warn('Failed to fetch profile:', e);
       }
 
-      // Fetch user's devices
-      const devicesResponse = await getUserDevices();
-      const userDevices = devicesResponse.results || devicesResponse;
+      // Trigger store's initial device fetch
+      await fetchInitial();
+    };
 
-      // Debug: Log device data to see what's returned
-      console.log('Dashboard - Devices response:', devicesResponse);
-      console.log('Dashboard - User devices:', userDevices);
-      if (userDevices && userDevices.length > 0) {
-        console.log('Dashboard - First device plant data:', {
-          plant_photo: userDevices[0].plant_photo,
-          plant_photo_url: userDevices[0].plant_photo_url,
-          plant_name: userDevices[0].plant_name,
-          plant_variety: userDevices[0].plant_variety,
-          plant_status: userDevices[0].plant_status
-        });
-      }
-
-      if (!userDevices || userDevices.length === 0) {
-        setDevices([]);
-        setDevicesData({});
-        setLoading(false);
-        return;
-      }
-
-      // Fetch the first device's first sensor latest reading (small, best-effort fetch)
-      try {
-        const firstDevice = userDevices[0];
-        if (firstDevice && firstDevice.id) {
-          const sensorsResp = await getDeviceSensors(firstDevice.id);
-          const sensorsList = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
-          if (Array.isArray(sensorsList) && sensorsList.length > 0) {
-            const firstSensor = sensorsList[0];
-            try {
-              const firstSensorDataResp = await getSensorData(firstSensor.id, 1);
-              const firstData = firstSensorDataResp && firstSensorDataResp.results
-                ? firstSensorDataResp.results[0]
-                : (Array.isArray(firstSensorDataResp) ? firstSensorDataResp[0] : null);
-              setFirstSensorReading(firstData || null);
-              // Small debug log so devs can see the value in console
-              console.log('Dashboard - first device first sensor reading:', firstData);
-            } catch (err) {
-              console.warn('Failed to load first sensor data:', err);
-            }
-          }
-        }
-      } catch (err) {
-        // Non-fatal; continue with full device fetch below
-        console.warn('Failed to load first device sensors (best-effort):', err);
-      }
-
-      setDevices(userDevices);      // Fetch sensors and sensor data for each device
-      const deviceDataPromises = userDevices.map(async (device) => {
-        try {
-          const [sensorsResponse, reservoirsResponse] = await Promise.all([
-            getDeviceSensors(device.id),
-            getDeviceReservoirs(device.id)
-          ]);
-
-          const sensors = sensorsResponse.results || sensorsResponse;
-          const reservoirs = reservoirsResponse.results || reservoirsResponse;
-
-          // Fetch recent sensor data for all sensors
-          const sensorDataMap = {};
-          if (sensors && sensors.length > 0) {
-            const sensorDataPromises = sensors.map(async (sensor) => {
-              try {
-                const dataResponse = await getSensorData(sensor.id, 60); // Get last 60 readings
-                return { sensorId: sensor.id, data: dataResponse.results || dataResponse };
-              } catch (error) {
-                console.warn(`Failed to fetch data for sensor ${sensor.id}:`, error);
-                return { sensorId: sensor.id, data: [] };
-              }
-            });
-
-            const sensorDataResults = await Promise.all(sensorDataPromises);
-            sensorDataResults.forEach(({ sensorId, data }) => {
-              sensorDataMap[sensorId] = data;
-            });
-          }
-
-          // Transform the data to match expected structure
-          const transformedSensors = transformSensorData(sensors || [], sensorDataMap);
-
-          // Find pH sensor for history
-          const phSensor = sensors?.find(s => s.sensor_type === 'ph');
-          const phHistory = getPHHistory(sensorDataMap, phSensor?.id, timeRange);
-          const phLabels = getPHLabels(sensorDataMap, phSensor?.id, timeRange);
-
-          // Get latest sensor update time across all sensors. Arrays may not be ordered,
-          // so scan each array for the max created_at value.
-          let lastSensorUpdate = null;
-          Object.values(sensorDataMap).forEach(sensorData => {
-            if (sensorData.length > 0) {
-              sensorData.forEach(d => {
-                if (!d || !d.created_at) return;
-                try {
-                  const t = new Date(d.created_at);
-                  if (!lastSensorUpdate || t > lastSensorUpdate) {
-                    lastSensorUpdate = t;
-                  }
-                } catch (e) {
-                  // ignore parse errors
-                }
-              });
-            }
-          });
-
-          const { connectivity, lastSync } = getConnectivityStatus(lastSensorUpdate);
-          const alertText = Object.keys(transformedSensors).length ? generateAlertText(transformedSensors) : undefined;
-          const nutrientText = typeof transformedSensors.tds === 'number' ? getNutrientStatus(transformedSensors.tds) : undefined;
-
-          return {
-            deviceId: device.id,
-            data: {
-              alertText,
-              connectivity,
-              lastSyncLabel: lastSync,
-              nutrientText,
-              phHistory,
-              phLabels,
-              sensors: {
-                // Include pH so current pH card has initial value before realtime websocket update
-                ...(typeof transformedSensors.ph === 'number' ? { ph: transformedSensors.ph } : {}),
-                ...(typeof transformedSensors.ec === 'number' ? { ec: transformedSensors.ec } : {}),
-                ...(typeof transformedSensors.tds === 'number' ? { tds: transformedSensors.tds } : {}),
-                ...(typeof transformedSensors.waterLevel === 'number' ? { waterLevel: transformedSensors.waterLevel } : {}),
-                ...(typeof transformedSensors.turbidity === 'number' ? { turbidity: transformedSensors.turbidity } : {}),
-              },
-              environment: {
-                ...(typeof transformedSensors.temperature === 'number' ? { temperature: transformedSensors.temperature } : {}),
-                ...(typeof transformedSensors.humidity === 'number' ? { humidity: transformedSensors.humidity } : {}),
-                ...(typeof transformedSensors.light === 'number' ? { light: transformedSensors.light } : {}),
-              },
-              sensors_raw: sensors || [],
-              reservoirs: reservoirs || []
-            }
-          };
-        } catch (error) {
-          console.warn(`Failed to fetch data for device ${device.id}:`, error);
-          // Return default data structure for failed device
-          return {
-            deviceId: device.id,
-            data: {
-              // Minimal fallback; omit mock values so UI shows Loading...
-              connectivity: 'Offline',
-              lastSyncLabel: 'Never',
-              sensors_raw: [],
-              reservoirs: []
-            }
-          };
-        }
-      });
-
-      const deviceDataResults = await Promise.all(deviceDataPromises);
-      const deviceDataMap = {};
-      deviceDataResults.forEach(({ deviceId, data }) => {
-        deviceDataMap[deviceId] = data;
-      });
-
-      setDevicesData(deviceDataMap);
-    } catch (error) {
-      console.error('Failed to fetch devices data:', error);
-      setError('Failed to load dashboard data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    initDashboard();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Function to count unread alerts from sensor data
   const countUnreadAlerts = async () => {
@@ -790,17 +599,20 @@ export default function Dashboard() {
   };
 
   // Fetch data on component mount and when time range changes
+  // Initial fetch (only once) and then refetch when timeRange changes for history-specific data if needed
   useEffect(() => {
-    fetchDevicesData();
-  }, [timeRange]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Only call full fetch once on mount for base snapshot
+    fetchInitial();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Time range change currently affects only local ph window history building (skip server refetch to avoid flicker)
 
   // WebSocket real-time updates
   useEffect(() => {
-    console.log('[Dashboard] Connecting to WebSocket...');
-    wsClient.connect();
-
+    console.log('[Dashboard] Ensuring WebSocket connection via store...');
+    const unsub = connectWS();
     const unsubscribe = wsClient.subscribe((update) => {
-      console.log('[Dashboard] WebSocket update received:', update);
+      console.log('[Dashboard] (Direct subscription) WebSocket update received:', update);
 
       // Handle new sensor.update format
       if (update.type === 'sensor.update') {
@@ -835,114 +647,35 @@ export default function Dashboard() {
             computedAlertMeta = { title: 'Temperature Out of Range', body: `Temp ${tempCombined.temperature.toFixed(1)}°C`, severity: 'warning', at: nowIso };
           }
 
-          // Update the device data directly in state without full API refetch
-          setDevicesData(prev => {
+          // Store already handles sensor value updates via applyRealtime; we only augment pH history locally
+          setLocalPhData(prev => {
             const existing = prev[device_id] || {};
-            const oldPhHistory = existing.phHistory ? [...existing.phHistory] : null;
-
-            // Update sensors with new values
-            const updatedSensors = {
-              ...(existing.sensors || {}),
-              ...(sensors.ph !== undefined && { ph: sensors.ph }),
-              ...(sensors.ec !== undefined && { ec: sensors.ec }),
-              ...(sensors.tds !== undefined && { tds: sensors.tds }),
-              ...(sensors.water_level !== undefined && { waterLevel: sensors.water_level }),
-              ...(sensors.turbidity !== undefined && { turbidity: sensors.turbidity }),
-              ...(sensors.water_temperature !== undefined && { waterTemperature: sensors.water_temperature }),
-            };
-
-            const updatedEnvironment = {
-              ...(existing.environment || {}),
-              ...(sensors.temperature !== undefined && { temperature: sensors.temperature }),
-              ...(sensors.humidity !== undefined && { humidity: sensors.humidity }),
-              ...(sensors.light_lux !== undefined && { light: sensors.light_lux }),
-              ...(sensors.water_temperature !== undefined && { water_temperature: sensors.water_temperature }),
-            };
-
-            // Update nutrient level if available
-            const nutrientText = (sensors.tds !== undefined || (existing.sensors && existing.sensors.tds !== undefined))
-              ? getNutrientStatus(sensors.tds !== undefined ? sensors.tds : existing.sensors.tds)
-              : existing.nutrientText;
-
-            // Update connectivity status
-            const { connectivity, lastSync } = getConnectivityStatus(new Date(timestamp));
-
-            // Regenerate alert text with new sensor values
-            const combinedSensors = {
-              // Use new pH if provided, else retain existing
-              ph: sensors.ph !== undefined ? sensors.ph : existing.sensors?.ph,
-              tds: sensors.tds,
-              ec: sensors.ec,
-              waterLevel: sensors.water_level,
-              turbidity: sensors.turbidity,
-              temperature: sensors.temperature,
-              humidity: sensors.humidity,
-              light: sensors.light_lux
-            };
-            const alertText = generateAlertText(combinedSensors);
-
-            // Derive a structured latest alert (simple heuristics mirroring generateAlertText and thresholds)
-            // (Alert meta now computed earlier as computedAlertMeta)
-
-            // Append to pH history when a new pH reading arrives (only for days range to avoid recomputation cost)
             let phHistory = existing.phHistory || null;
             let phLabels = existing.phLabels || null;
-            if (reading && reading.sensor_type === 'ph') {
-              // Rebuild history minimally: push new value if timeRange === 'days'
-              if (timeRange === 'days') {
-                const value = Number(reading.value);
-                if (Number.isFinite(value)) {
-                  // Initialize if missing
-                  if (!Array.isArray(phHistory)) phHistory = [];
-                  // Maintain max 30 items
-                  const copy = phHistory.slice(-29); // keep last 29 then add new -> 30
-                  copy.push(value);
-                  phHistory = copy;
-                  // Labels: maintain parallel array of date strings
-                  if (!Array.isArray(phLabels)) phLabels = [];
-                  const dateLabel = new Date(reading.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                  const labelsCopy = phLabels.slice(-29);
-                  labelsCopy.push(dateLabel);
-                  phLabels = labelsCopy;
-                }
+
+            if (reading && reading.sensor_type === 'ph' && timeRange === 'days') {
+              const value = Number(reading.value);
+              if (Number.isFinite(value)) {
+                if (!Array.isArray(phHistory)) phHistory = [];
+                const copy = phHistory.slice(-29);
+                copy.push(value);
+                phHistory = copy;
+
+                if (!Array.isArray(phLabels)) phLabels = [];
+                const dateLabel = new Date(reading.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                const labelsCopy = phLabels.slice(-29);
+                labelsCopy.push(dateLabel);
+                phLabels = labelsCopy;
               }
             }
 
-            const sensorTimestamps = { ...(existing.sensorTimestamps || {}) };
-            if (reading && reading.sensor_type && reading.created_at) {
-              sensorTimestamps[reading.sensor_type] = reading.created_at;
-            }
-            const nextState = {
+            return {
               ...prev,
-              [device_id]: {
-                ...existing,
-                sensors: updatedSensors,
-                environment: updatedEnvironment,
-                nutrientText,
-                connectivity,
-                lastSyncLabel: lastSync,
-                alertText,
-                lastUpdate: timestamp,
-                phHistory,
-                phLabels,
-                lastReading: reading || existing.lastReading,
-                sensorTimestamps,
-              }
+              [device_id]: { phHistory, phLabels }
             };
-
-            return nextState;
           });
 
-          // Update latest alert meta if a new one detected
-            if (computedAlertMeta) {
-              setLatestAlerts(prev => {
-                const prevMeta = prev[device_id];
-                if (!prevMeta || prevMeta.at < computedAlertMeta.at) {
-                  return { ...prev, [device_id]: computedAlertMeta };
-                }
-                return prev;
-              });
-            }
+          // latestAlerts now handled by realtime store (no local setLatestAlerts)
 
           console.log(`[Dashboard] Updated device ${device_id} data in real-time`);
 
@@ -950,12 +683,11 @@ export default function Dashboard() {
           if (reading && reading.sensor_type === 'ph' && timeRange === 'days') {
             setPhWindows(prev => {
               const existingWindowStart = prev[device_id];
-              const phHist = (devicesData[device_id]?.phHistory) || [];
-              const oldLength = phHist.length; // before adding new one
-              const newLength = Math.min(oldLength + 1, 30); // after trim logic
+              const phHist = localPhData[device_id]?.phHistory || [];
+              const oldLength = phHist.length;
+              const newLength = Math.min(oldLength + 1, 30);
               const oldMaxStart = Math.max(0, oldLength - PH_WINDOW_SIZE);
               const newMaxStart = Math.max(0, newLength - PH_WINDOW_SIZE);
-              // If user was at the end (oldMaxStart) move to new end
               if (typeof existingWindowStart === 'number' && existingWindowStart === oldMaxStart) {
                 return { ...prev, [device_id]: newMaxStart };
               }
@@ -1020,7 +752,7 @@ export default function Dashboard() {
         case 'collaborator_revoked':
           // Device binding/collaborator changes - refresh full device list
           console.log('[Dashboard] Device or collaborator update:', action);
-          fetchDevicesData();
+          fetchInitial();
           break;
 
         default:
@@ -1036,7 +768,7 @@ export default function Dashboard() {
 
   // Count unread alerts when devices data is loaded
   useEffect(() => {
-    if (!loading && devices.length > 0) {
+    if (!loadingInitial && devices.length > 0) {
       const fetchAlertCount = async () => {
         const result = await countUnreadAlerts();
         setUnreadAlertsCount(result.total);
@@ -1044,41 +776,20 @@ export default function Dashboard() {
       };
       fetchAlertCount();
     }
-  }, [loading, devices]);
+  }, [loadingInitial, devices]);
 
   // Recompute alert card text & nav unread count reactively when devicesData updates (realtime pH / sensor changes)
   useEffect(() => {
     if (!devices || devices.length === 0) return;
-    // Build per-device quick alert evaluation using current devicesData snapshot
     const nextPerDevice = {};
     devices.forEach(d => {
       const dd = devicesData[d.id];
       if (!dd) return;
       const s = { ...(dd.sensors || {}), ...(dd.environment || {}) };
-      let hasAlert = false;
-  if (typeof s.tds === 'number' && (s.tds < 300 || s.tds > 1500)) hasAlert = true;
-  if (typeof s.ph === 'number' && (s.ph < 5.5 || s.ph > 6.5)) hasAlert = true;
-      if (typeof s.waterLevel === 'number' && s.waterLevel < 20) hasAlert = true;
-      if (typeof s.temperature === 'number' && (s.temperature < 18 || s.temperature > 28)) hasAlert = true;
-      if (hasAlert) nextPerDevice[d.id] = 1; // treat presence as one unread
-      // Also ensure alertText regenerated if sensors changed
-      if (dd && Object.keys(dd.sensors || {}).length) {
-        const alertText = generateAlertText({
-          ph: dd.sensors.ph,
-            tds: dd.sensors.tds,
-            waterLevel: dd.sensors.waterLevel,
-            temperature: dd.environment?.temperature,
-            humidity: dd.environment?.humidity,
-            light: dd.environment?.light,
-            turbidity: dd.sensors.turbidity
-        });
-        if (alertText && dd.alertText !== alertText) {
-          setDevicesData(prev => ({
-            ...prev,
-            [d.id]: { ...dd, alertText }
-          }));
-        }
-      }
+      if (typeof s.tds === 'number' && (s.tds < 300 || s.tds > 1500)) nextPerDevice[d.id] = 1;
+      else if (typeof s.ph === 'number' && (s.ph < 5.5 || s.ph > 6.5)) nextPerDevice[d.id] = 1;
+      else if (typeof s.waterLevel === 'number' && s.waterLevel < 20) nextPerDevice[d.id] = 1;
+      else if (typeof s.temperature === 'number' && (s.temperature < 18 || s.temperature > 28)) nextPerDevice[d.id] = 1;
     });
     setPerDeviceUnreadCounts(nextPerDevice);
     setUnreadAlertsCount(Object.values(nextPerDevice).reduce((a,b)=>a+(b||0),0));
@@ -1087,7 +798,7 @@ export default function Dashboard() {
   // Refresh alert count when returning to dashboard (window focus)
   useEffect(() => {
     const handleWindowFocus = async () => {
-      if (!loading && devices.length > 0) {
+      if (!loadingInitial && devices.length > 0) {
         const result = await countUnreadAlerts();
         setUnreadAlertsCount(result.total);
         setPerDeviceUnreadCounts(result.perDevice || {});
@@ -1095,7 +806,7 @@ export default function Dashboard() {
     };
     const handleAlertsReadUpdated = async () => {
       // Recompute when AlertsPage marks items as read
-      if (!loading && devices.length > 0) {
+      if (!loadingInitial && devices.length > 0) {
         const result = await countUnreadAlerts();
         setUnreadAlertsCount(result.total);
         setPerDeviceUnreadCounts(result.perDevice || {});
@@ -1108,18 +819,18 @@ export default function Dashboard() {
       window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('alerts-read-updated', handleAlertsReadUpdated);
     };
-  }, [loading, devices]);
+  }, [loadingInitial, devices]);
 
   // Recalculate unread counts whenever route returns to /dashboard (covers SPA navigation back from alerts)
   useEffect(() => {
-    if (location.pathname === '/dashboard' && !loading && devices.length > 0) {
+    if (location.pathname === '/dashboard' && !loadingInitial && devices.length > 0) {
       (async () => {
         const result = await countUnreadAlerts();
         setUnreadAlertsCount(result.total);
         setPerDeviceUnreadCounts(result.perDevice || {});
       })();
     }
-  }, [location.pathname, loading, devices]);
+  }, [location.pathname, loadingInitial, devices]);
 
   // Floating Action Button (FAB) draggable state
   const fabRef = useRef(null);
@@ -1424,7 +1135,19 @@ export default function Dashboard() {
 
   const currentDevice = devices[activeIdx];
   const data = currentDevice ? devicesData[currentDevice.id] : null;
-  const phTotal = data && Array.isArray(data.phHistory) ? data.phHistory.length : 0;
+
+  // Merge store data with local pH history
+  const mergedData = useMemo(() => {
+    if (!data) return null;
+    const localPh = localPhData[currentDevice?.id];
+    return {
+      ...data,
+      phHistory: localPh?.phHistory || data.phHistory || [],
+      phLabels: localPh?.phLabels || data.phLabels || [],
+    };
+  }, [data, localPhData, currentDevice]);
+
+  const phTotal = mergedData && Array.isArray(mergedData.phHistory) ? mergedData.phHistory.length : 0;
   const maxStart = Math.max(0, phTotal - PH_WINDOW_SIZE);
   const currentStart = useMemo(() => {
     if (!currentDevice) return 0;
@@ -1434,19 +1157,19 @@ export default function Dashboard() {
     return Math.min(Math.max(0, base), maxStart);
   }, [currentDevice, phWindows, maxStart]);
   const phHistoryDisplay = useMemo(() => {
-    if (!data || !Array.isArray(data.phHistory)) return [];
+    if (!mergedData || !Array.isArray(mergedData.phHistory)) return [];
     // Show 10-day window from the 30-day dataset based on currentStart
     const start = Math.max(0, currentStart);
-    const end = Math.min(data.phHistory.length, start + PH_WINDOW_SIZE);
-    return data.phHistory.slice(start, end);
-  }, [data, currentStart]);
+    const end = Math.min(mergedData.phHistory.length, start + PH_WINDOW_SIZE);
+    return mergedData.phHistory.slice(start, end);
+  }, [mergedData, currentStart]);
   const phLabelsDisplay = useMemo(() => {
-    if (!data || !Array.isArray(data.phLabels)) return [];
+    if (!mergedData || !Array.isArray(mergedData.phLabels)) return [];
     // Show corresponding labels for the windowed data
     const start = Math.max(0, currentStart);
-    const end = Math.min(data.phLabels.length, start + PH_WINDOW_SIZE);
-    return data.phLabels.slice(start, end);
-  }, [data, currentStart]);
+    const end = Math.min(mergedData.phLabels.length, start + PH_WINDOW_SIZE);
+    return mergedData.phLabels.slice(start, end);
+  }, [mergedData, currentStart]);
 
   // Dynamic scale for pH bars based on displayed data (excluding null values)
   const phNumbers = useMemo(() =>
@@ -1566,8 +1289,10 @@ export default function Dashboard() {
         setActiveIdx(0);
       }
     }
-  }, [devices.length]);  // Show loading state
-  if (loading) {
+  }, [devices.length]);
+
+  // Show loading state
+  if (loadingInitial) {
     return (
       <div className="dashboard-root">
         <header className="dash-header" role="banner">
@@ -1591,7 +1316,7 @@ export default function Dashboard() {
   }
 
   // Show error state
-  if (error) {
+  if (errorInitial) {
     return (
       <div className="dashboard-root">
         <header className="dash-header" role="banner">
@@ -1608,9 +1333,9 @@ export default function Dashboard() {
           gap: '1rem'
         }}>
           <AlertCircle size={48} color="#e74c3c" />
-          <p style={{ color: '#e74c3c', fontSize: '1rem' }}>{error}</p>
+          <p style={{ color: '#e74c3c', fontSize: '1rem' }}>{errorInitial}</p>
           <button
-            onClick={fetchDevicesData}
+            onClick={fetchInitial}
             style={{
               padding: '0.5rem 1rem',
               backgroundColor: PRIMARY_GREEN,
@@ -1688,7 +1413,7 @@ export default function Dashboard() {
         <h1 className="dash-header-title">
           Hello, {displayName} <span className="dash-header-emoji">🌿</span>
         </h1>
-        <button className="dash-header-settings" aria-label="Sync" onClick={fetchDevicesData}>
+        <button className="dash-header-settings" aria-label="Sync" onClick={fetchInitial}>
           <RefreshCw size={24} color={PRIMARY_GREEN} />
         </button>
       </header>
@@ -1811,7 +1536,7 @@ export default function Dashboard() {
               </span>
             )}
           </h3>
-          <div className="alert-card-message">{(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 ? (data?.alertText || 'Loading...') : 'All systems normal'}</div>
+          <div className="alert-card-message">{(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 ? (data?.alertText || 'All systems normal') : 'All systems normal'}</div>
           {latestAlerts[currentDevice?.id] && (
             <div style={{ marginTop: '6px', fontSize: '11px', color: '#555' }} aria-live="polite">
               <strong>{latestAlerts[currentDevice.id].title}:</strong> {latestAlerts[currentDevice.id].body}

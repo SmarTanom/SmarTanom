@@ -296,9 +296,9 @@ export default function AlertsPage() {
   }, [alerts]);
   const [filteredDeviceName, setFilteredDeviceName] = useState(null); // Store device name when filtering
 
-  // On first mount, apply persisted read flags to initial alerts
+  // Apply persisted read flags WITHOUT auto-marking new ones (only user actions mark as read)
   React.useEffect(() => {
-    setAlerts(prev => prev.map(a => ({ ...a, read: isPersistedRead(a) || a.read }))); // preserve existing read true
+    setAlerts(prev => prev.map(a => ({ ...a, read: isPersistedRead(a) ? true : a.read }))); // only set true if previously persisted
   }, []);
 
   // On mount: fetch user's bound devices -> map devices to active reservoir plant -> fetch sensors & readings
@@ -308,7 +308,7 @@ export default function AlertsPage() {
       try {
         const devicesResp = await getUserDevices();
         const devices = devicesResp && devicesResp.results ? devicesResp.results : devicesResp;
-        if (!devices || devices.length === 0) return;
+  if (!devices || devices.length === 0) return;
 
         // We'll collect out-of-range pH readings (low <6 or high >7) across all devices
         const abnormalReadings = [];
@@ -462,26 +462,23 @@ export default function AlertsPage() {
 
         if (!mounted) return;
 
-        if (abnormalReadings.length === 0) return;
+        if (abnormalReadings.length > 0) {
+          // Build alerts for each out-of-range reading, avoiding duplicates by reading id/timestamp
+          setAlerts(prev => {
+            const existingKeys = new Set(prev.map(a => a.readingId));
+            const next = [...prev];
+            let nextId = Math.max(0, ...next.map(a => Number(a.id) || 0)) + 1;
 
-        // Build alerts for each out-of-range reading, avoiding duplicates by reading id/timestamp
-        setAlerts(prev => {
-          const next = [...prev];
-          // find numeric id base
-          let nextId = Math.max(0, ...next.map(a => Number(a.id) || 0)) + 1;
-
-          abnormalReadings
-            // sort newest-first by reading.created_at (if available)
-            .sort((a, b) => {
-              const ta = a.reading && (a.reading.created_at || a.reading.timestamp) ? new Date(a.reading.created_at || a.reading.timestamp).getTime() : 0;
-              const tb = b.reading && (b.reading.created_at || b.reading.timestamp) ? new Date(b.reading.created_at || b.reading.timestamp).getTime() : 0;
-              return tb - ta;
-            })
-            .forEach(({ device, sensor, reading, plant }) => {
+            abnormalReadings
+              .sort((a, b) => {
+                const ta = a.reading && (a.reading.created_at || a.reading.timestamp) ? new Date(a.reading.created_at || a.reading.timestamp).getTime() : 0;
+                const tb = b.reading && (b.reading.created_at || b.reading.timestamp) ? new Date(b.reading.created_at || b.reading.timestamp).getTime() : 0;
+                return tb - ta;
+              })
+              .forEach(({ device, sensor, reading, plant }) => {
               const readingKey = reading.id || reading.created_at || reading.timestamp || JSON.stringify(reading);
-              // skip if already represented
-              const exists = next.some(a => a.readingId && a.readingId === readingKey);
-              if (exists) return;
+              if (existingKeys.has(readingKey)) return; // skip duplicates
+              existingKeys.add(readingKey);
 
               const latestIso = reading.created_at || reading.timestamp || new Date().toISOString();
               const val = reading.value;
@@ -736,11 +733,11 @@ export default function AlertsPage() {
               }
 
               // prepend so newest appear first
-              next.unshift(alertObj);
+              next.unshift(alertObj); // newest first
             });
-
-          return next;
-        });
+            return next;
+          });
+        }
       } catch (err) {
         // Non-fatal; alerts page should still render (empty if no database alerts)
         // eslint-disable-next-line no-console
