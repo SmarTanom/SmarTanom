@@ -20,6 +20,7 @@ import AdminDevices from './pages/AdminDevices.jsx';
 import AdminCreate from './pages/AdminCreate.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import AdminSettings from './pages/AdminSettings.jsx';
+import AdminAlerts from './pages/AdminAlerts.jsx';
 import DeviceDetails from './pages/DeviceDetails.jsx';
 import AlertsPage from './pages/AlertsPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
@@ -325,6 +326,14 @@ export default function App() {
             element={
               <ProtectedRoute requireAdmin={true}>
                 <AdminSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/alerts"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminAlerts />
               </ProtectedRoute>
             }
           />

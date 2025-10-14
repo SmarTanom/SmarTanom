@@ -22,7 +22,8 @@ import {
 	BarChart2,
 	Smartphone,
 	Clock,
-	Loader2
+	Loader2,
+	Eye
 } from 'lucide-react';
 import {
 	Chart as ChartJS,
@@ -373,7 +374,10 @@ export default function AdminDashboard() {
 											<AlertTriangle size={18} />
 								<span>System Alerts</span>
 							</div>
-							<button className="view-all" onClick={() => navigate('/admin/devices')}>View All</button>
+							<button className="view-all" onClick={() => navigate('/admin/alerts')}>
+								<Eye size={16} />
+								View All
+							</button>
 						</header>
 						<div className="alerts-list">
 							{alerts.critical > 0 && (

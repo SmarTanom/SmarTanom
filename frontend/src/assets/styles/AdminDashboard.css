@@ -20,6 +20,29 @@
 .summary-progress .fill { height:100%; background:#2eb72e; border-radius:999px; }
 .summary-caption { color:#8BA797; font-size:13px; font-weight:500; margin:0; order:4; }
 
+/* View All Button */
+.view-all {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 16px;
+  background:#fff;
+  border:2px solid var(--color-border);
+  border-radius:999px;
+  color:#274232;
+  font-weight:700;
+  font-size:14px;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+.view-all:hover {
+  background:#2eb72e;
+  border-color:#2eb72e;
+  color:#fff;
+  box-shadow:0 4px 12px rgba(46,183,46,0.3);
+  transform:translateY(-2px);
+}
+
 /* Middle */
 .middle-grid { display:grid; grid-template-columns:1fr; gap:16px; }
 .panel { background:#fff; border:1px solid var(--color-border); border-radius:20px; box-shadow:var(--shadow); overflow:hidden; }
