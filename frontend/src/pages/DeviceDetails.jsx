@@ -111,6 +111,7 @@ export default function DeviceDetails() {
   const deviceData = useRealtimeStore(state => state.deviceData[deviceId]);
   const connectWS = useRealtimeStore(state => state.connectWS);
   const fetchInitial = useRealtimeStore(state => state.fetchInitial);
+  const totalUnread = useRealtimeStore(state => state.totalUnread);
 
   // Plant photo change states
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -181,10 +182,10 @@ export default function DeviceDetails() {
     };
 
     initRealtime();
-    
+
     // Connect to WebSocket for real-time updates
     const unsub = connectWS();
-    
+
     return () => {
       unsub && unsub();
     };
@@ -715,8 +716,29 @@ export default function DeviceDetails() {
           <Leaf size={20} />
           <span>Tanom</span>
         </button>
-        <button className="nav-item" onClick={() => navigate('/alerts')}>
+        <button className="nav-item" onClick={() => navigate('/alerts')} style={{ position: 'relative' }}>
           <AlertCircle size={20} />
+          {totalUnread > 0 && (
+            <span className="nav-notification-badge" style={{
+              position: 'absolute',
+              top: '8px',
+              right: '18px',
+              backgroundColor: '#e74c3c',
+              color: 'white',
+              borderRadius: '50%',
+              width: '16px',
+              height: '16px',
+              fontSize: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              border: '2px solid white',
+              minWidth: '16px',
+            }}>
+              {totalUnread > 9 ? '9+' : totalUnread}
+            </span>
+          )}
           <span>Alerts</span>
         </button>
         <button className="nav-item" onClick={() => navigate('/profile')}>

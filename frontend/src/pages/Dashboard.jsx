@@ -74,6 +74,9 @@ const transformSensorData = (sensors, sensorDataMap) => {
       case 'water_level':
         sensorMap.waterLevel = value;
         break;
+      case 'water_temperature':
+        sensorMap.waterTemperature = value;
+        break;
       case 'turbidity':
         sensorMap.turbidity = value;
         break;
@@ -244,67 +247,166 @@ const getConnectivityStatus = (lastSensorUpdate) => {
   }
 };
 
-// Helper function to generate alert text based on plant-specific ranges (no hard-coded thresholds)
+// Helper function to generate alert text based on plant-specific ranges, mirroring AlertsPage descriptions
 const generateAlertText = (sensors, plant) => {
   if (!sensors) return 'All systems normal';
-  const alerts = [];
 
-  // TDS (ppm) relative to plant target
-  if (typeof sensors.tds === 'number' && plant) {
-    const cls = classifyTDS(sensors.tds, plant);
-    if (cls.severity === 'critical') {
-      alerts.push(`TDS Outside Range: ${Math.round(sensors.tds)} ppm (target ${plant.ppm_min}-${plant.ppm_max})`);
-    } else if (cls.severity === 'warning') {
-      alerts.push(`TDS Near Limit: ${Math.round(sensors.tds)} ppm (target ${plant.ppm_min}-${plant.ppm_max})`);
+  const candidates = [];
+  const plantName = plant?.plant_name || 'this plant';
+
+  // Helper to push with priority and severity
+  const pushCandidate = (severity, priority, message) => {
+    if (!message) return;
+    candidates.push({ severity, priority, message });
+  };
+
+  // Water level (no plant needed)
+  if (typeof sensors.waterLevel === 'number') {
+    const v = Number(sensors.waterLevel);
+    if (v === 0) {
+      pushCandidate('critical', 0, 'Water level is 0% — reservoir empty. Refill with fresh nutrient solution immediately, check pumps for priming issues, and inspect for leaks.');
+    } else if (v > 0 && v <= 40) {
+      pushCandidate('warning', 1, `Water level is ${v}%. Low reservoir level (<=40%). Refill soon and verify auto-refill settings or inspect for slow leaks.`);
     }
   }
 
   // pH relative to plant target
   if (typeof sensors.ph === 'number' && plant) {
-    const cls = classifyPH(sensors.ph, plant);
+    const v = Number(sensors.ph);
+    const min = plant.ph_min;
+    const max = plant.ph_max;
+    const cls = classifyPH(v, plant);
     if (cls.severity === 'critical') {
-      alerts.push(`pH Outside Range: ${sensors.ph.toFixed(1)} (target ${plant.ph_min}-${plant.ph_max})`);
+      if (cls.reason === 'below_min') {
+        pushCandidate('critical', 2, `pH is ${v} — below optimal range (${min}–${max}) for ${plantName}. Raise pH slowly using pH Up; mix thoroughly and re-test.`);
+      } else if (cls.reason === 'above_max') {
+        pushCandidate('critical', 2, `pH is ${v} — above optimal range (${min}–${max}) for ${plantName}. Lower pH gradually using pH Down; mix thoroughly and re-test.`);
+      }
     } else if (cls.severity === 'warning') {
-      alerts.push(`pH Near Limit: ${sensors.ph.toFixed(1)} (target ${plant.ph_min}-${plant.ph_max})`);
+      if (cls.reason === 'near_min') {
+        pushCandidate('warning', 5, `pH is ${v}, approaching ${min} for ${plantName}. Monitor trend and adjust if it continues downward.`);
+      } else if (cls.reason === 'near_max') {
+        pushCandidate('warning', 5, `pH is ${v}, approaching ${max} for ${plantName}. Monitor and plan gentle adjustment if rising further.`);
+      }
     }
   }
 
-  // Water level: only treat empty reservoir as alert (no arbitrary low threshold)
-  if (typeof sensors.waterLevel === 'number' && sensors.waterLevel === 0) {
-    alerts.push('Water Level Empty: Reservoir empty - refill immediately and check pumps');
-  }
-
-  // Environment temperature relative to plant target
-  if (typeof sensors.temperature === 'number' && plant) {
-    const cls = classifyEnvTemp(sensors.temperature, plant);
+  // TDS relative to plant target
+  if (typeof sensors.tds === 'number' && plant) {
+    const v = Number(sensors.tds);
+    const min = plant.ppm_min;
+    const max = plant.ppm_max;
+    const cls = classifyTDS(v, plant);
     if (cls.severity === 'critical') {
-      alerts.push(`Air Temperature Outside Range: ${sensors.temperature.toFixed(1)}°C (target ${plant.environment_temp_min}-${plant.environment_temp_max}°C)`);
+      if (cls.reason === 'below_min') {
+        pushCandidate('critical', 3, `TDS is ${v} ppm which is below the optimal range (${min}–${max} ppm) for ${plantName}. Increase nutrient concentration gradually and re-test.`);
+      } else if (cls.reason === 'above_max') {
+        pushCandidate('critical', 3, `TDS is ${v} ppm which is above the optimal range (${min}–${max} ppm) for ${plantName}. Dilute or perform a partial drain/refill and re-test.`);
+      }
     } else if (cls.severity === 'warning') {
-      alerts.push(`Air Temperature Near Limit: ${sensors.temperature.toFixed(1)}°C (target ${plant.environment_temp_min}-${plant.environment_temp_max}°C)`);
+      if (cls.reason === 'near_min') {
+        pushCandidate('warning', 6, `TDS is ${v} ppm and nearing the lower limit (${min} ppm) for ${plantName}. Monitor and consider a mild nutrient top-up.`);
+      } else if (cls.reason === 'near_max') {
+        pushCandidate('warning', 6, `TDS is ${v} ppm and nearing the upper limit (${max} ppm) for ${plantName}. Monitor and consider dilution if trend continues.`);
+      }
     }
   }
 
   // Light relative to plant target
   if (typeof sensors.light === 'number' && plant) {
-    const cls = classifyLight(sensors.light, plant);
+    const lux = Number(sensors.light);
+    const min = plant.light_min;
+    const max = plant.light_max;
+    const cls = classifyLight(lux, plant);
     if (cls.severity === 'critical') {
-      alerts.push(`Light Outside Range: ${Math.round(sensors.light)} lux (target ${plant.light_min}-${plant.light_max})`);
+      if (cls.reason === 'below_min') {
+        pushCandidate('critical', 7, `Light is ${lux} lux — below optimal range (${min}–${max} lux) for ${plantName}. Increase exposure or adjust lighting.`);
+      } else if (cls.reason === 'above_max') {
+        pushCandidate('critical', 7, `Light is ${lux} lux — above optimal range (${min}–${max} lux) for ${plantName}. Provide shading or reduce supplemental lighting.`);
+      }
     } else if (cls.severity === 'warning') {
-      alerts.push(`Light Near Limit: ${Math.round(sensors.light)} lux (target ${plant.light_min}-${plant.light_max})`);
+      if (cls.reason === 'near_min') {
+        pushCandidate('warning', 8, `Light is ${lux} lux, approaching the lower bound (${min} lux) for ${plantName}. Monitor and adjust if it trends lower.`);
+      } else if (cls.reason === 'near_max') {
+        pushCandidate('warning', 8, `Light is ${lux} lux, approaching the upper bound (${max} lux) for ${plantName}. Monitor to prevent stress.`);
+      }
     }
   }
 
   // Humidity relative to plant target
   if (typeof sensors.humidity === 'number' && plant) {
-    const cls = classifyHumidity(sensors.humidity, plant);
+    const h = Number(sensors.humidity);
+    const min = plant.humidity_min;
+    const max = plant.humidity_max;
+    const cls = classifyHumidity(h, plant);
     if (cls.severity === 'critical') {
-      alerts.push(`Humidity Outside Range: ${Math.round(sensors.humidity)}% (target ${plant.humidity_min}-${plant.humidity_max}%)`);
+      if (cls.reason === 'below_min') {
+        pushCandidate('critical', 9, `Humidity is ${h}% — below optimal range (${min}–${max}%) for ${plantName}. Add humidity (misters, trays) and reduce excessive ventilation.`);
+      } else if (cls.reason === 'above_max') {
+        pushCandidate('critical', 9, `Humidity is ${h}% — above optimal range (${min}–${max}%) for ${plantName}. Increase airflow or dehumidify to prevent mold.`);
+      }
     } else if (cls.severity === 'warning') {
-      alerts.push(`Humidity Near Limit: ${Math.round(sensors.humidity)}% (target ${plant.humidity_min}-${plant.humidity_max}%)`);
+      if (cls.reason === 'near_min') {
+        pushCandidate('warning', 10, `Humidity is ${h}% and nearing ${min}% for ${plantName}. Monitor to avoid plant stress.`);
+      } else if (cls.reason === 'near_max') {
+        pushCandidate('warning', 10, `Humidity is ${h}% and nearing ${max}% for ${plantName}. Improve ventilation if trend continues.`);
+      }
     }
   }
 
-  return alerts.length > 0 ? alerts[0] : 'All systems normal';
+  // Air temperature (environment) relative to plant target
+  if (typeof sensors.temperature === 'number' && plant) {
+    const t = Number(sensors.temperature);
+    const min = plant.environment_temp_min;
+    const max = plant.environment_temp_max;
+    const cls = classifyEnvTemp(t, plant);
+    if (cls.severity === 'critical') {
+      if (cls.reason === 'below_min') {
+        pushCandidate('critical', 11, `Air temperature is ${t}°C — below optimal (${min}–${max}°C) for ${plantName}. Add heating or reduce drafts.`);
+      } else if (cls.reason === 'above_max') {
+        pushCandidate('critical', 11, `Air temperature is ${t}°C — above optimal (${min}–${max}°C) for ${plantName}. Improve cooling, shading, or airflow.`);
+      }
+    } else if (cls.severity === 'warning') {
+      if (cls.reason === 'near_min') {
+        pushCandidate('warning', 12, `Air temperature is ${t}°C, approaching ${min}°C for ${plantName}. Monitor to avoid chilling stress.`);
+      } else if (cls.reason === 'near_max') {
+        pushCandidate('warning', 12, `Air temperature is ${t}°C, approaching ${max}°C for ${plantName}. Enhance ventilation or shading.`);
+      }
+    }
+  }
+
+  // Water temperature relative to plant target
+  if (typeof sensors.waterTemperature === 'number' && plant) {
+    const wt = Number(sensors.waterTemperature);
+    const min = plant.water_temp_min;
+    const max = plant.water_temp_max;
+    const cls = classifyWaterTemp(wt, plant);
+    if (cls.severity === 'critical') {
+      if (cls.reason === 'below_min') {
+        pushCandidate('critical', 13, `Water temperature is ${wt}°C — below optimal (${min}–${max}°C) for ${plantName}. Add a heater or insulate reservoir.`);
+      } else if (cls.reason === 'above_max') {
+        pushCandidate('critical', 13, `Water temperature is ${wt}°C — above optimal (${min}–${max}°C) for ${plantName}. Cool reservoir (chiller / frozen bottles) and increase circulation.`);
+      }
+    } else if (cls.severity === 'warning') {
+      if (cls.reason === 'near_min') {
+        pushCandidate('warning', 14, `Water temp is ${wt}°C, approaching ${min}°C for ${plantName}. Monitor and prepare heating if it drops further.`);
+      } else if (cls.reason === 'near_max') {
+        pushCandidate('warning', 14, `Water temp is ${wt}°C, approaching ${max}°C for ${plantName}. Consider cooling actions to avoid root stress.`);
+      }
+    }
+  }
+
+  if (candidates.length === 0) return 'All systems normal';
+
+  // Sort by severity (critical first), then priority asc
+  candidates.sort((a, b) => {
+    if (a.severity !== b.severity) {
+      return a.severity === 'critical' ? -1 : 1;
+    }
+    return a.priority - b.priority;
+  });
+
+  return candidates[0].message;
 };
 
 // Helper function to determine nutrient status relative to plant ppm range
@@ -451,6 +553,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const carouselRef = useRef(null);
+  // Cache plant catalog for mapping reservoirs -> plant ranges (shared with AlertsPage logic)
+  const plantCatalogRef = useRef(null);
 
   // Initialize activeIdx from localStorage or default to 0
   const [activeIdx, setActiveIdx] = useState(() => {
@@ -515,11 +619,16 @@ export default function Dashboard() {
   const perDeviceUnreadCounts = useRealtimeStore(s => s.unreadCounts);
   const loadingInitial = useRealtimeStore(s => s.loadingInitial);
   const errorInitial = useRealtimeStore(s => s.errorInitial);
+  const updateDeviceData = useRealtimeStore(s => s.updateDeviceData);
+
+  // Current device selection must be defined before any effects/dependencies that reference it
+  const currentDevice = devices[activeIdx];
+  const data = currentDevice ? devicesData[currentDevice.id] : null;
 
   // Latest reading for the first device's first sensor (useful for small widgets)
   const [firstSensorReading, setFirstSensorReading] = useState(null);
   const [displayName, setDisplayName] = useState('User');
-  const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
+  // Unread count comes from the realtime store (total across devices)
 
   // Local pH history augmentation (store keeps latest values; we add historical series here)
   const [localPhData, setLocalPhData] = useState(() => {
@@ -611,6 +720,14 @@ export default function Dashboard() {
     };
   }, [connectWS]);
 
+  // Always compute plant-aware alert text for the active device (independent of pH history caching)
+  useEffect(() => {
+    if (currentDevice?.id) {
+      fetchDeviceDataById(currentDevice.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDevice?.id]);
+
   // Floating Action Button (FAB) draggable state
   const fabRef = useRef(null);
   const navHeight = 64; // Bottom nav height from CSS
@@ -634,6 +751,39 @@ export default function Dashboard() {
       ]);
       const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
       const reservoirs = reservoirsResp && reservoirsResp.results ? reservoirsResp.results : reservoirsResp;
+      // Resolve plant ranges for this device by matching its active reservoir's plant_type to plant catalog
+      let plantCatalog = plantCatalogRef.current;
+      if (!plantCatalog) {
+        try {
+          const plantResp = await listPlants();
+          plantCatalog = (plantResp && plantResp.results) ? plantResp.results : (Array.isArray(plantResp) ? plantResp : []);
+          plantCatalogRef.current = plantCatalog;
+        } catch (e) {
+          console.warn('[Dashboard] Failed to fetch plant catalog:', e);
+          plantCatalog = [];
+          plantCatalogRef.current = [];
+        }
+      }
+      const findPlant = (reservoir) => {
+        if (!reservoir) return null;
+        const name = reservoir.plant_type || reservoir.plant;
+        if (!name) return null;
+        return plantCatalog.find(p => p.plant_name === name) || null;
+      };
+      // Choose the active reservoir (latest by start_date/created_at)
+      let devicePlant = null;
+      try {
+        if (Array.isArray(reservoirs) && reservoirs.length > 0) {
+          const active = [...reservoirs].sort((a, b) => {
+            const da = new Date(a.start_date || a.created_at || 0).getTime();
+            const db = new Date(b.start_date || b.created_at || 0).getTime();
+            return db - da;
+          })[0];
+          devicePlant = findPlant(active);
+        }
+      } catch (e) {
+        console.warn('[Dashboard] Failed to resolve active reservoir/plant for device', deviceId, e);
+      }
       const sensorDataMap = {};
       if (Array.isArray(sensors) && sensors.length > 0) {
         const sensorDataPromises = sensors.map(async (sensor) => {
@@ -685,7 +835,8 @@ export default function Dashboard() {
       });
       const { connectivity, lastSync } = getConnectivityStatus(lastSensorUpdate);
       const deviceMeta = devices.find(d => d.id === deviceId);
-      const plant = deviceMeta?.plant;
+      // Prefer resolved devicePlant (from reservoirs + catalog), fall back to any plant bundled on device meta
+      const plant = devicePlant || deviceMeta?.plant || null;
       const alertText = Object.keys(transformedSensors).length ? generateAlertText(transformedSensors, plant) : undefined;
       const nutrientText = typeof transformedSensors.tds === 'number' ? getNutrientStatus(transformedSensors.tds, plant) : undefined;
 
@@ -710,10 +861,11 @@ export default function Dashboard() {
           ...(typeof transformedSensors.light === 'number' ? { light: transformedSensors.light } : {}),
         },
         sensors_raw: sensors || [],
-        reservoirs: reservoirs || []
+        reservoirs: reservoirs || [],
+        plant: plant || null,
       };
 
-      setDevicesData(prev => ({ ...prev, [deviceId]: dataPayload }));
+      updateDeviceData(deviceId, dataPayload);
     } catch (_e) {
       // leave existing data untouched on failure
     }
@@ -933,8 +1085,6 @@ export default function Dashboard() {
     };
   }, [infiniteDevices.length, devices.length, isInfinite]);
 
-  const currentDevice = devices[activeIdx];
-  const data = currentDevice ? devicesData[currentDevice.id] : null;
 
   // Merge store data with local pH history
   const mergedData = useMemo(() => {
@@ -1210,8 +1360,29 @@ export default function Dashboard() {
             <Leaf size={20} />
             <span>Tanom</span>
           </button>
-          <button className="nav-item" onClick={() => navigate('/alerts')}>
+          <button className="nav-item" onClick={() => navigate('/alerts')} style={{ position: 'relative' }}>
             <AlertCircle size={20} />
+            {totalUnread > 0 && (
+              <span className="nav-notification-badge" style={{
+                position: 'absolute',
+                top: '8px',
+                right: '18px',
+                backgroundColor: '#e74c3c',
+                color: 'white',
+                borderRadius: '50%',
+                width: '16px',
+                height: '16px',
+                fontSize: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 'bold',
+                border: '2px solid white',
+                minWidth: '16px',
+              }}>
+                {totalUnread > 9 ? '9+' : totalUnread}
+              </span>
+            )}
             <span>Alerts</span>
           </button>
           <button className="nav-item" onClick={() => navigate('/profile')}>
@@ -1651,7 +1822,7 @@ export default function Dashboard() {
                   padding: '8px 0'
                 }}>
                   {phHistoryDisplay && phHistoryDisplay.length > 0
-                    ? phHistoryDisplay.map((v, i) => <PHBar key={i} v={v} i={i} min={phScale.min} max={phScale.max} plant={currentDevice?.plant} />)
+                    ? phHistoryDisplay.map((v, i) => <PHBar key={i} v={v} i={i} min={phScale.min} max={phScale.max} plant={data?.plant || currentDevice?.plant} />)
                     : <div style={{ color: '#999', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', zIndex: 3 }}>
                       {mergedData && mergedData.phHistory && mergedData.phHistory.length === 0 ? 'No pH data available' : 'Loading pH data...'}
                     </div>}
@@ -1676,14 +1847,15 @@ export default function Dashboard() {
             const latestPh = data?.sensors?.ph; // real-time field updated by WebSocket
             const hasPh = typeof latestPh === 'number' && Number.isFinite(latestPh);
             const phVal = hasPh ? latestPh : null;
+            const plantObj = data?.plant || currentDevice?.plant;
 
             // Enhanced status determination with plant-specific ranges
             const getPHStatus = (phValue) => {
               if (!hasPh) return { status: 'Loading...', severity: 'none', color: '#8BA797' };
               // Use plant-specific ranges if available; otherwise neutral
-              if (currentDevice?.plant?.ph_min !== undefined && currentDevice?.plant?.ph_max !== undefined) {
-                const phMin = Number(currentDevice.plant.ph_min);
-                const phMax = Number(currentDevice.plant.ph_max);
+              if (plantObj?.ph_min !== undefined && plantObj?.ph_max !== undefined) {
+                const phMin = Number(plantObj.ph_min);
+                const phMax = Number(plantObj.ph_max);
                 if (phValue < phMin) return { status: 'Critical Low', severity: 'critical', color: '#e74c3c' };
                 if (phValue > phMax) return { status: 'Critical High', severity: 'critical', color: '#e74c3c' };
                 const buffer = Math.max(0.05, (phMax - phMin) * 0.1);
@@ -1721,9 +1893,9 @@ export default function Dashboard() {
                         style={{
                           left: (() => {
                             if (!hasPh) return '50%';
-                            if (currentDevice?.plant?.ph_min !== undefined && currentDevice?.plant?.ph_max !== undefined) {
-                              const phMin = Number(currentDevice.plant.ph_min);
-                              const phMax = Number(currentDevice.plant.ph_max);
+                            if (plantObj?.ph_min !== undefined && plantObj?.ph_max !== undefined) {
+                              const phMin = Number(plantObj.ph_min);
+                              const phMax = Number(plantObj.ph_max);
                               const span = Math.max(0.1, phMax - phMin);
                               const pct = ((phVal - phMin) / span) * 100;
                               return `${Math.max(0, Math.min(100, pct))}%`;
@@ -1737,18 +1909,18 @@ export default function Dashboard() {
                     <div className="range-labels">
                       <span>{(() => {
                         if (!hasPh) return '--';
-                        if (currentDevice?.plant?.ph_min !== undefined) return `${currentDevice.plant.ph_min}`;
+                        if (plantObj?.ph_min !== undefined) return `${plantObj.ph_min}`;
                         return '--';
                       })()}</span>
                       <span style={{ fontWeight: '600', color: phStatus.color }}>
-                        {currentDevice?.plant?.ph_min !== undefined && currentDevice?.plant?.ph_max !== undefined
-                          ? `${currentDevice.plant.ph_min}-${currentDevice.plant.ph_max}`
+                        {plantObj?.ph_min !== undefined && plantObj?.ph_max !== undefined
+                          ? `${plantObj.ph_min}-${plantObj.ph_max}`
                           : '—'
                         }
                       </span>
                       <span>{(() => {
                         if (!hasPh) return '--';
-                        if (currentDevice?.plant?.ph_max !== undefined) return `${currentDevice.plant.ph_max}`;
+                        if (plantObj?.ph_max !== undefined) return `${plantObj.ph_max}`;
                         return '--';
                       })()}</span>
                     </div>
@@ -1836,7 +2008,7 @@ export default function Dashboard() {
         </button>
         <button className="nav-item" onClick={() => navigate('/alerts')} style={{ position: 'relative' }}>
           <AlertCircle size={20} />
-          {unreadAlertsCount > 0 && (
+          {totalUnread > 0 && (
             <span className="nav-notification-badge" style={{
               position: 'absolute',
               top: '8px',
@@ -1854,7 +2026,7 @@ export default function Dashboard() {
               border: '2px solid white',
               minWidth: '16px',
             }}>
-              {unreadAlertsCount > 9 ? '9+' : unreadAlertsCount}
+              {totalUnread > 9 ? '9+' : totalUnread}
             </span>
           )}
           <span>Alerts</span>
