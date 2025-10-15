@@ -6,9 +6,10 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, renderer_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.renderers import JSONRenderer
 from django.db import connections
 from django.db.utils import OperationalError
 
@@ -22,11 +23,12 @@ class BaseAuthViewSet(viewsets.ModelViewSet):
 
 @api_view(["GET", "HEAD"])
 @permission_classes([AllowAny])
+@renderer_classes([JSONRenderer])  # Disable browsable API for health checks
 def healthz(request):
     """Health check endpoint to verify API and database status.
 
     Supports both GET (with response body) and HEAD (lightweight, no body)
-    requests for uptime monitoring.
+    requests for uptime monitoring. Returns pure JSON without DRF browsable API.
     """
     if request.method == "HEAD":
         # Lightweight liveness probe with no body
