@@ -438,7 +438,6 @@ export default function Dashboard() {
   const [firstSensorReading, setFirstSensorReading] = useState(null);
   const [displayName, setDisplayName] = useState('User');
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
-  const [perDeviceUnreadCounts, setPerDeviceUnreadCounts] = useState({});
 
   // Local pH history augmentation (store keeps latest values; we add historical series here)
   const [localPhData, setLocalPhData] = useState({}); // { [deviceId]: { phHistory, phLabels } }
@@ -476,127 +475,11 @@ export default function Dashboard() {
     initDashboard();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Function to count unread alerts from sensor data
-  const countUnreadAlerts = async () => {
-    try {
-      const devicesResponse = await getUserDevices();
-      const userDevices = devicesResponse.results || devicesResponse;
-      if (!userDevices || userDevices.length === 0) return { total: 0, perDevice: {} };
+  // Unread counts are now managed by the realtime store automatically
 
-      let unreadCount = 0;
-      const perDevice = {};
 
-      // Fetch plant catalog once for dynamic ranges
-      let plantCatalog = [];
-      try {
-        const plantResp = await listPlants();
-        plantCatalog = plantResp && plantResp.results ? plantResp.results : plantResp;
-      } catch (e) {
-        console.warn('Dashboard: failed to fetch plant catalog (non-fatal)', e);
-      }
 
-      const findPlantForDevice = async (deviceId) => {
-        try {
-          const resResp = await getDeviceReservoirs(deviceId);
-          const reservoirs = resResp && resResp.results ? resResp.results : resResp;
-          if (Array.isArray(reservoirs) && reservoirs.length) {
-            const active = [...reservoirs].sort((a, b) => {
-              const da = new Date(a.start_date || a.created_at || 0).getTime();
-              const db = new Date(b.start_date || b.created_at || 0).getTime();
-              return db - da;
-            })[0];
-            const name = active?.plant_type || active?.plant;
-            if (name) return plantCatalog.find(p => p.plant_name === name) || null;
-          }
-        } catch (e) {
-          // ignore
-        }
-        return null;
-      };
 
-      // Check each device for out-of-range sensor readings
-      await Promise.all(userDevices.map(async (device) => {
-        try {
-          if (!device || !device.id) return;
-          const devicePlant = await findPlantForDevice(device.id);
-          const sensorsResponse = await getDeviceSensors(device.id);
-          const sensors = sensorsResponse && sensorsResponse.results ? sensorsResponse.results : sensorsResponse;
-          if (!sensors || sensors.length === 0) return;
-
-          // Include broader set to match AlertsPage logic
-          const allSensorsToCheck = sensors.filter(s => ['ph', 'tds', 'water_level', 'air_temperature', 'humidity', 'light', 'turbidity', 'water_temperature'].includes(s.sensor_type));
-
-          await Promise.all(allSensorsToCheck.map(async (sensor) => {
-            try {
-              const sensorDataResponse = await getSensorData(sensor.id, 30);
-              const sensorReadings = sensorDataResponse.results || sensorDataResponse;
-              if (!sensorReadings || sensorReadings.length === 0) return;
-
-              // Check recent readings (last 24 hours worth)
-              const recentReadings = sensorReadings.filter(reading => {
-                if (!reading.created_at) return false;
-                const readingTime = new Date(reading.created_at);
-                const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                return readingTime > oneDayAgo;
-              });
-
-              recentReadings.forEach(reading => {
-                const readingKey = readingKeyOf(reading);
-                if (isAlertRead(readingKey)) return; // Skip if already read
-
-                const value = reading.value;
-                let hasAlert = false;
-                const numVal = Number(value);
-                if (!Number.isFinite(numVal)) return;
-                switch (sensor.sensor_type) {
-                  case 'ph': {
-                    const r = classifyPH(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
-                  }
-                  case 'tds': {
-                    const r = classifyTDS(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
-                  }
-                  case 'air_temperature': {
-                    const r = classifyEnvTemp(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
-                  }
-                  case 'humidity': {
-                    const r = classifyHumidity(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
-                  }
-                  case 'light': {
-                    const r = classifyLight(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
-                  }
-                  case 'water_temperature': {
-                    const r = classifyWaterTemp(numVal, devicePlant); hasAlert = r.severity === 'critical' || r.severity === 'warning'; break;
-                  }
-                  case 'turbidity': {
-                    // >2100 none, 1800-2100 warning, <1800 critical
-                    if (numVal <= 2100) hasAlert = true; break;
-                  }
-                  case 'water_level': {
-                    if (numVal === 0 || numVal <= 40) hasAlert = true; break;
-                  }
-                  default: break;
-                }
-
-                if (hasAlert) {
-                  unreadCount++;
-                  perDevice[device.id] = (perDevice[device.id] || 0) + 1;
-                }
-              });
-            } catch (err) {
-              console.warn('Error checking sensor data for alerts:', err);
-            }
-          }));
-        } catch (err) {
-          console.warn('Error checking device for alerts:', err);
-        }
-      }));
-
-      return { total: unreadCount, perDevice };
-    } catch (err) {
-      console.warn('Error counting unread alerts:', err);
-      return { total: 0, perDevice: {} };
-    }
-  };
 
   // Fetch data on component mount and when time range changes
   // Initial fetch (only once) and then refetch when timeRange changes for history-specific data if needed
@@ -695,14 +578,7 @@ export default function Dashboard() {
             });
           }
 
-          // Increment unread counts only when a NEW alert meta was generated for this device
-          if (device_id && computedAlertMeta) {
-            setPerDeviceUnreadCounts(prev => {
-              const current = prev[device_id] || 0;
-              return { ...prev, [device_id]: current + 1 };
-            });
-            setUnreadAlertsCount(prev => prev + 1);
-          }
+          // Unread counts are now managed by the realtime store automatically
 
           // Fallback: if pH exists in backend reading meta but not updatedSensors OR huge discrepancy (>2 pH units) vs existing, trigger targeted refetch
           try {
@@ -766,71 +642,7 @@ export default function Dashboard() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Count unread alerts when devices data is loaded
-  useEffect(() => {
-    if (!loadingInitial && devices.length > 0) {
-      const fetchAlertCount = async () => {
-        const result = await countUnreadAlerts();
-        setUnreadAlertsCount(result.total);
-        setPerDeviceUnreadCounts(result.perDevice || {});
-      };
-      fetchAlertCount();
-    }
-  }, [loadingInitial, devices]);
-
-  // Recompute alert card text & nav unread count reactively when devicesData updates (realtime pH / sensor changes)
-  useEffect(() => {
-    if (!devices || devices.length === 0) return;
-    const nextPerDevice = {};
-    devices.forEach(d => {
-      const dd = devicesData[d.id];
-      if (!dd) return;
-      const s = { ...(dd.sensors || {}), ...(dd.environment || {}) };
-      if (typeof s.tds === 'number' && (s.tds < 300 || s.tds > 1500)) nextPerDevice[d.id] = 1;
-      else if (typeof s.ph === 'number' && (s.ph < 5.5 || s.ph > 6.5)) nextPerDevice[d.id] = 1;
-      else if (typeof s.waterLevel === 'number' && s.waterLevel < 20) nextPerDevice[d.id] = 1;
-      else if (typeof s.temperature === 'number' && (s.temperature < 18 || s.temperature > 28)) nextPerDevice[d.id] = 1;
-    });
-    setPerDeviceUnreadCounts(nextPerDevice);
-    setUnreadAlertsCount(Object.values(nextPerDevice).reduce((a,b)=>a+(b||0),0));
-  }, [devicesData, devices]);
-
-  // Refresh alert count when returning to dashboard (window focus)
-  useEffect(() => {
-    const handleWindowFocus = async () => {
-      if (!loadingInitial && devices.length > 0) {
-        const result = await countUnreadAlerts();
-        setUnreadAlertsCount(result.total);
-        setPerDeviceUnreadCounts(result.perDevice || {});
-      }
-    };
-    const handleAlertsReadUpdated = async () => {
-      // Recompute when AlertsPage marks items as read
-      if (!loadingInitial && devices.length > 0) {
-        const result = await countUnreadAlerts();
-        setUnreadAlertsCount(result.total);
-        setPerDeviceUnreadCounts(result.perDevice || {});
-      }
-    };
-
-    window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('alerts-read-updated', handleAlertsReadUpdated);
-    return () => {
-      window.removeEventListener('focus', handleWindowFocus);
-      window.removeEventListener('alerts-read-updated', handleAlertsReadUpdated);
-    };
-  }, [loadingInitial, devices]);
-
-  // Recalculate unread counts whenever route returns to /dashboard (covers SPA navigation back from alerts)
-  useEffect(() => {
-    if (location.pathname === '/dashboard' && !loadingInitial && devices.length > 0) {
-      (async () => {
-        const result = await countUnreadAlerts();
-        setUnreadAlertsCount(result.total);
-        setPerDeviceUnreadCounts(result.perDevice || {});
-      })();
-    }
-  }, [location.pathname, loadingInitial, devices]);
+  // Unread counts are now managed by the realtime store automatically
 
   // Floating Action Button (FAB) draggable state
   const fabRef = useRef(null);
