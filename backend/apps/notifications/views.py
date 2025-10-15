@@ -147,11 +147,37 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
     def alerts(self, request):
         """
         Get user's alerts/notifications with filtering and pagination
+        Only shows alerts for devices that the user owns or has access to
         Supports query params: type, status, device, limit, page
         """
         try:
-            # Base queryset - user's notification logs
-            queryset = NotificationLog.objects.filter(user=request.user)
+            # Get user's owned devices first
+            from apps.devices.models import Device, DeviceCollaboration
+            user_devices = Device.objects.filter(
+                bound_email=request.user.email
+            ).values_list('id', flat=True)
+            
+            # Also get devices where user is a collaborator
+            collaborator_devices = DeviceCollaboration.objects.filter(
+                collaborator_email=request.user.email,
+                status=DeviceCollaboration.Status.ACTIVE
+            ).values_list('device_id', flat=True)
+            
+            # Combine owned and collaborator devices
+            accessible_device_ids = list(user_devices) + list(collaborator_devices)
+            
+            if not accessible_device_ids:
+                # User has no devices, return empty alerts
+                return Response({
+                    'count': 0,
+                    'alerts': []
+                })
+
+            # Base queryset - user's notification logs for accessible devices only
+            queryset = NotificationLog.objects.filter(
+                user=request.user,
+                metadata__device_id__in=accessible_device_ids
+            )
 
             # Filter by notification type (critical, warning, info)
             notification_type = request.GET.get('type')
@@ -163,10 +189,18 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
             if status_filter:
                 queryset = queryset.filter(status=status_filter)
 
-            # Filter by device (from metadata)
+            # Filter by specific device (from metadata)
             device_id = request.GET.get('device')
             if device_id:
-                queryset = queryset.filter(metadata__device_id=device_id)
+                # Ensure user has access to this device
+                if int(device_id) in accessible_device_ids:
+                    queryset = queryset.filter(metadata__device_id=device_id)
+                else:
+                    # User doesn't have access to this device
+                    return Response({
+                        'count': 0,
+                        'alerts': []
+                    })
 
             # Limit results
             limit = request.GET.get('limit', 50)
@@ -226,6 +260,8 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
                     'metadata': alert.metadata
                 })
 
+            logger.info(f"User {request.user.email} requested alerts: {len(alert_data)} alerts for {len(accessible_device_ids)} accessible devices")
+            
             return Response({
                 'count': len(alert_data),
                 'alerts': alert_data

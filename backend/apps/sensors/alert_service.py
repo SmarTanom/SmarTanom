@@ -55,9 +55,9 @@ class SensorAlertService:
             logger.debug(f"Device {device.id} has no bound user, skipping notification")
             return None
 
-        # Get user object from email
+        # Get user object from email (optimized lookup)
         try:
-            user = User.objects.get(email=user_email)
+            user = User.objects.only('id', 'email').get(email=user_email)
         except User.DoesNotExist:
             logger.warning(f"User with email {user_email} not found for device {device.id}")
             return None
@@ -77,7 +77,7 @@ class SensorAlertService:
             f"severity={severity}"
         )
 
-        # Broadcast alert via WebSocket to all connected clients
+        # Broadcast alert via WebSocket to appropriate connected clients
         from channels.layers import get_channel_layer
         from asgiref.sync import async_to_sync
         from django.utils import timezone
@@ -101,7 +101,7 @@ class SensorAlertService:
                 }
             }
 
-            # Broadcast to global devices group
+            # Broadcast to global devices group (for admins and dashboard)
             async_to_sync(channel_layer.group_send)(
                 "devices",
                 {
@@ -110,7 +110,7 @@ class SensorAlertService:
                 }
             )
 
-            # Broadcast to user-specific channel if device is bound
+            # Broadcast to device owner's specific channel only
             if user:
                 async_to_sync(channel_layer.group_send)(
                     f"user_{user.id}",
@@ -119,6 +119,9 @@ class SensorAlertService:
                         "payload": alert_payload
                     }
                 )
+                logger.info(f"[WebSocket] Alert broadcasted to device owner {user.email} for device {device.device_serial}")
+            else:
+                logger.info(f"[WebSocket] Alert broadcasted to global group only (no device owner) for device {device.device_serial}")
 
         # Create NotificationLog entry for the alert
         from apps.notifications.models import NotificationLog
@@ -158,17 +161,21 @@ class SensorAlertService:
         else:
             logger.warning(f"No result returned from PushNotificationService for {user.email}")
 
-        # Always broadcast to admins who opted in to receive all device alerts (email and/or push)
-        try:
-            PushNotificationService.send_to_all_admins(
-                title=f"🌱 {title}",
-                message=body,
-                notification_type=severity,
-                url=f"/alerts?device={device.id}",
-                data={'device_id': device.id, 'alert_type': severity}
-            )
-        except Exception as e:
-            logger.error(f"Failed to broadcast alert to admins: {e}")
+        # Only broadcast to admins if this is a critical alert or if it's an unbound device
+        # For user-owned devices, only send to the device owner to avoid spam
+        if severity == 'critical' or not device.is_bound:
+            try:
+                PushNotificationService.send_to_all_admins(
+                    title=f"🌱 {title}",
+                    message=body,
+                    notification_type=severity,
+                    url=f"/alerts?device={device.id}",
+                    data={'device_id': device.id, 'alert_type': severity}
+                )
+            except Exception as e:
+                logger.error(f"Failed to broadcast alert to admins: {e}")
+        else:
+            logger.info(f"Skipping admin broadcast for {severity} alert on user-owned device {device.id}")
 
         return body
 

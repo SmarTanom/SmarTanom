@@ -424,8 +424,26 @@ export const useRealtimeStore = create(persist((set, get) => ({
     console.log('[RealtimeStore] Connecting to WebSocket...');
     set({ wsStatus: 'connecting', wsLastError: null });
     
-    // Connect WebSocket client
-    wsClient.connect();
+    // Get current user ID for user-specific WebSocket connection
+    const getCurrentUserId = () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+          // Decode JWT token to get user ID
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          return payload.user_id || payload.id;
+        }
+      } catch (e) {
+        console.warn('[RealtimeStore] Could not get user ID from token:', e);
+      }
+      return null;
+    };
+    
+    const userId = getCurrentUserId();
+    console.log('[RealtimeStore] Connecting with user ID:', userId);
+    
+    // Connect WebSocket client with user ID for user-specific channel
+    wsClient.connect(userId);
     
     // Subscribe to WebSocket messages
     const unsub = wsClient.subscribe(msg => {

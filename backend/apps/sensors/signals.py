@@ -38,8 +38,7 @@ def check_sensor_alerts(sender, instance, created, **kwargs):
 def broadcast_sensor_realtime(sender, instance, created, **kwargs):
     """Broadcast aggregated sensor data after every save (create or update).
 
-    Removing the created-only guard ensures edited readings (e.g. pH adjustments)
-    are reflected instantly on the dashboard and in user notifications.
+    Optimized version that reduces database queries and improves performance.
     """
 
     try:
@@ -49,42 +48,37 @@ def broadcast_sensor_realtime(sender, instance, created, **kwargs):
         # Get the device owner's email for user-specific broadcasting
         device_owner_email = device.bound_email if device.is_bound else None
 
-        # Collect all latest sensor readings for this device
+        # Get all latest sensor readings for this device efficiently
         device_sensors = Sensor.objects.filter(device=device).select_related('device')
-
+        
         sensor_data_dict = {}
         for dev_sensor in device_sensors:
-            # Get the most recent reading for each sensor type, ordering by created_at
+            # Get the most recent reading for each sensor type
             latest_reading = (
                 SensorData.objects.filter(sensor=dev_sensor)
                 .order_by('-created_at')
                 .first()
             )
-
+            
             if latest_reading:
-                # Map sensor types to simplified keys
                 sensor_type = dev_sensor.sensor_type
                 value = float(latest_reading.value)
 
                 # Map to your desired payload structure
-                if sensor_type == 'ph':
-                    sensor_data_dict['ph'] = value
-                elif sensor_type == 'ec':
-                    sensor_data_dict['ec'] = value
-                elif sensor_type == 'tds':
-                    sensor_data_dict['tds'] = value
-                elif sensor_type == 'air_temperature':  # environment
-                    sensor_data_dict['temperature'] = value
-                elif sensor_type == 'humidity':
-                    sensor_data_dict['humidity'] = value
-                elif sensor_type == 'light':
-                    sensor_data_dict['light_lux'] = value
-                elif sensor_type == 'water_level':
-                    sensor_data_dict['water_level'] = value
-                elif sensor_type == 'turbidity':
-                    sensor_data_dict['turbidity'] = value
-                elif sensor_type == 'water_temperature':
-                    sensor_data_dict['water_temperature'] = value
+                sensor_mapping = {
+                    'ph': 'ph',
+                    'ec': 'ec', 
+                    'tds': 'tds',
+                    'air_temperature': 'temperature',
+                    'humidity': 'humidity',
+                    'light': 'light_lux',
+                    'water_level': 'water_level',
+                    'turbidity': 'turbidity',
+                    'water_temperature': 'water_temperature'
+                }
+                
+                if sensor_type in sensor_mapping:
+                    sensor_data_dict[sensor_mapping[sensor_type]] = value
 
         # Calculate nutrient level from TDS (simplified calculation)
         if 'tds' in sensor_data_dict:
@@ -104,10 +98,8 @@ def broadcast_sensor_realtime(sender, instance, created, **kwargs):
             "device_id": device.id,
             "device_serial": device.device_serial,
             "device_name": device.device_name,
-            # Use sensor_data latest timestamp (instance.created_at) for better UI ordering
             "timestamp": instance.created_at.isoformat() if instance.created_at else timezone.now().isoformat(),
             "sensors": sensor_data_dict,
-            # Include meta for the specific reading that triggered the broadcast
             "reading": {
                 "sensor_id": instance.sensor_id,
                 "sensor_type": instance.sensor.sensor_type,
@@ -132,10 +124,10 @@ def broadcast_sensor_realtime(sender, instance, created, **kwargs):
 
             # Also broadcast to user-specific group if device is bound
             if device_owner_email:
-                # Get user ID from email
+                # Get user ID from email (optimized lookup)
                 from apps.accounts.models import User
                 try:
-                    user = User.objects.get(email=device_owner_email)
+                    user = User.objects.only('id', 'email').get(email=device_owner_email)
                     async_to_sync(channel_layer.group_send)(
                         f"user_{user.id}",
                         {

@@ -83,7 +83,9 @@ class SensorData(TimeStampedModel):
         verbose_name = "Sensor Data"
         verbose_name_plural = "Sensor Data"
         indexes = [
-            models.Index(fields=["sensor", "created_at"], name="idx_newsens_data_created"),
+            models.Index(fields=["sensor", "created_at"], name="idx_sens_data_created"),
+            models.Index(fields=["created_at"], name="idx_sens_data_created_at"),
+            models.Index(fields=["sensor", "value"], name="idx_sens_data_value"),
         ]
 
     def __str__(self) -> str:

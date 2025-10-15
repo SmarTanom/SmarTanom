@@ -64,7 +64,7 @@ class WebSocketClient {
     };
   }
 
-  connect() {
+  connect(userId = null) {
     if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
       console.log('[WebSocket] Already connected or connecting');
       return;
@@ -72,7 +72,11 @@ class WebSocketClient {
 
     this.isConnecting = true;
     this.setStatus('connecting');
-    const wsUrl = `${WS_BASE_URL}/ws/devices/`;
+    
+    // Use user-specific endpoint if userId is provided, otherwise use global devices endpoint
+    const wsUrl = userId 
+      ? `${WS_BASE_URL}/ws/user/${userId}/`
+      : `${WS_BASE_URL}/ws/devices/`;
     console.log('[WebSocket] Connecting to:', wsUrl);
 
     try {
