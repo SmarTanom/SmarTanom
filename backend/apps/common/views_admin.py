@@ -240,6 +240,97 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             )
 
     @action(detail=False, methods=['get'])
+    def alerts(self, request):
+        """
+        Get all notification logs/alerts for admin panel with filtering
+        Supports query params: type, status, device, user, limit
+        """
+        try:
+            # Base queryset - all notification logs
+            queryset = NotificationLog.objects.select_related('user').all()
+
+            # Filter by notification type (critical, warning, info)
+            notification_type = request.query_params.get('type')
+            if notification_type:
+                queryset = queryset.filter(notification_type=notification_type)
+
+            # Filter by status (sent, failed)
+            status_filter = request.query_params.get('status')
+            if status_filter:
+                queryset = queryset.filter(status=status_filter)
+
+            # Filter by device (from metadata)
+            device_id = request.query_params.get('device')
+            if device_id:
+                queryset = queryset.filter(metadata__device_id=device_id)
+
+            # Filter by user
+            user_id = request.query_params.get('user')
+            if user_id:
+                queryset = queryset.filter(user_id=user_id)
+
+            # Limit results
+            limit = request.query_params.get('limit', 100)
+            try:
+                limit = int(limit)
+                limit = min(limit, 500)  # Max 500 records
+            except ValueError:
+                limit = 100
+
+            # Order by most recent first
+            alerts = queryset.order_by('-sent_at')[:limit]
+
+            # Format response
+            alert_data = []
+            for alert in alerts:
+                # Extract device info from metadata
+                device_info = None
+                if alert.metadata and 'device_id' in alert.metadata:
+                    device_id = alert.metadata.get('device_id')
+                    try:
+                        device = Device.objects.get(id=device_id)
+                        device_info = {
+                            'id': device.id,
+                            'serial': device.device_serial,
+                            'name': device.device_name or f'Device {device.device_serial}'
+                        }
+                    except Device.DoesNotExist:
+                        device_info = {
+                            'id': device_id,
+                            'serial': f'DEV{device_id:03d}',
+                            'name': f'Device {device_id}'
+                        }
+
+                alert_data.append({
+                    'id': alert.id,
+                    'type': alert.notification_type,
+                    'title': alert.title,
+                    'message': alert.message,
+                    'status': 'read' if alert.status == 'sent' else 'unread',
+                    'resolved': alert.status == 'sent',
+                    'device': device_info,
+                    'user': {
+                        'id': alert.user.id,
+                        'email': alert.user.email,
+                        'name': alert.user.full_name or alert.user.email.split('@')[0]
+                    },
+                    'timestamp': alert.sent_at.isoformat(),
+                    'metadata': alert.metadata
+                })
+
+            return Response({
+                'count': len(alert_data),
+                'alerts': alert_data
+            })
+
+        except Exception as e:
+            logger.error(f"Error fetching admin alerts: {e}", exc_info=True)
+            return Response(
+                {'error': 'Failed to fetch alerts'},
+                status=500
+            )
+
+    @action(detail=False, methods=['get'])
     def users(self, request):
         """
         Get all users with their device counts for admin user management

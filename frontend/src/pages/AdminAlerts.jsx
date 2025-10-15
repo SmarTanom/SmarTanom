@@ -18,9 +18,12 @@ import {
   Users,
   Settings,
   Loader2,
-  Bell
+  Bell,
+  RefreshCw
 } from 'lucide-react';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
+import { getAdminAlerts } from '../services/api/admin';
+import { wsClient } from '../services/websocketClient';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminAlerts.css';
@@ -28,6 +31,7 @@ import '../assets/styles/AdminAlerts.css';
 export default function AdminAlerts() {
   const navigate = useNavigate();
   const stats = useAdminRealtimeStore((state) => state.adminStats);
+  const connectAdminWS = useAdminRealtimeStore((state) => state.connectAdminWS);
 
   // State management
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,65 +41,79 @@ export default function AdminAlerts() {
   const [dateFilter, setDateFilter] = useState('all');
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Mock alerts data - in production, this would come from API/WebSocket
-  const [alerts, setAlerts] = useState([
-    {
-      id: 1,
-      type: 'critical',
-      device: 'Reservoir Tank A',
-      deviceId: 'DEV001',
-      title: 'Critical Water Level',
-      message: 'Water level has dropped below critical threshold (10%). Immediate action required.',
-      timestamp: new Date(Date.now() - 30 * 60000), // 30 mins ago
-      status: 'unread',
-      resolved: false
-    },
-    {
-      id: 2,
-      type: 'warning',
-      device: 'Sensor Hub B',
-      deviceId: 'DEV002',
-      title: 'Sensor Connectivity Issue',
-      message: 'Intermittent connection detected. Signal strength below optimal range.',
-      timestamp: new Date(Date.now() - 2 * 3600000), // 2 hours ago
-      status: 'unread',
-      resolved: false
-    },
-    {
-      id: 3,
-      type: 'info',
-      device: 'Smart Monitor C',
-      deviceId: 'DEV003',
-      title: 'Maintenance Schedule',
-      message: 'Routine maintenance is due in 7 days. Schedule service to ensure optimal performance.',
-      timestamp: new Date(Date.now() - 24 * 3600000), // 1 day ago
-      status: 'read',
-      resolved: false
-    },
-    {
-      id: 4,
-      type: 'critical',
-      device: 'Pump Station D',
-      deviceId: 'DEV004',
-      title: 'Pump Failure Detected',
-      message: 'Primary pump has stopped responding. Backup pump activated automatically.',
-      timestamp: new Date(Date.now() - 15 * 60000), // 15 mins ago
-      status: 'unread',
-      resolved: false
-    },
-    {
-      id: 5,
-      type: 'warning',
-      device: 'Flow Meter E',
-      deviceId: 'DEV005',
-      title: 'Abnormal Flow Rate',
-      message: 'Flow rate exceeds normal parameters. Possible leak or malfunction detected.',
-      timestamp: new Date(Date.now() - 6 * 3600000), // 6 hours ago
-      status: 'read',
-      resolved: true
+  // Real alerts data from backend
+  const [alerts, setAlerts] = useState([]);
+
+  // Fetch alerts from backend
+  useEffect(() => {
+    fetchAlerts();
+
+    // Connect to WebSocket for real-time updates
+    wsClient.connect();
+    const unsubscribeWS = connectAdminWS();
+
+    // Listen for notification events using subscribe
+    const handleNotificationEvent = (data) => {
+      // Check if the event is related to notifications or alerts
+      if (data.type === 'notification_sent' ||
+          data.type === 'alert_triggered' ||
+          data.action === 'notification_sent') {
+        // Refresh alerts when a new notification is sent
+        console.log('[AdminAlerts] Notification event received, refreshing alerts...');
+        fetchAlerts(true);
+      }
+    };
+
+    const unsubscribeNotifications = wsClient.subscribe(handleNotificationEvent);
+
+    return () => {
+      unsubscribeWS();
+      unsubscribeNotifications();
+    };
+  }, [connectAdminWS]);
+
+  const fetchAlerts = async (showRefreshIndicator = false) => {
+    try {
+      if (showRefreshIndicator) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      const response = await getAdminAlerts({ limit: 500 });
+
+      // Transform backend data to match frontend format
+      const transformedAlerts = response.alerts.map(alert => ({
+        id: alert.id,
+        type: alert.type,
+        device: alert.device?.name || 'Unknown Device',
+        deviceId: alert.device?.serial || alert.device?.id || 'N/A',
+        title: alert.title,
+        message: alert.message,
+        timestamp: new Date(alert.timestamp),
+        status: alert.status,
+        resolved: alert.resolved,
+        user: alert.user,
+        metadata: alert.metadata
+      }));
+
+      setAlerts(transformedAlerts);
+    } catch (err) {
+      console.error('Error fetching alerts:', err);
+      setError('Failed to load alerts. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  ]);
+  };
+
+  const handleRefresh = () => {
+    fetchAlerts(true);
+  };
 
   // Filter alerts based on all criteria
   const filteredAlerts = alerts.filter(alert => {
@@ -134,7 +152,9 @@ export default function AdminAlerts() {
   });
 
   // Get unique devices for filter dropdown
-  const devices = [...new Set(alerts.map(a => ({ id: a.deviceId, name: a.device })))];
+  const devices = Array.from(
+    new Map(alerts.map(a => [a.deviceId, { id: a.deviceId, name: a.device }])).values()
+  );
 
   // Calculate filter counts
   const counts = {
@@ -257,6 +277,35 @@ export default function AdminAlerts() {
 
       {/* Main content */}
       <main className="admin-main">
+      {loading ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+          <div style={{ textAlign: 'center' }}>
+            <Loader2 size={48} className="spinner" style={{ color: '#339432', animation: 'spin 1s linear infinite' }} />
+            <p style={{ marginTop: '16px', color: '#6f8876' }}>Loading alerts...</p>
+          </div>
+        </div>
+      ) : error ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+          <div style={{ textAlign: 'center', maxWidth: '400px' }}>
+            <AlertTriangle size={48} style={{ color: '#ef4444' }} />
+            <p style={{ marginTop: '16px', color: '#dc2626', fontWeight: 600 }}>{error}</p>
+            <button
+              onClick={fetchAlerts}
+              style={{
+                marginTop: '16px',
+                padding: '8px 16px',
+                background: '#339432',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="admin-alerts-page">
         {/* Header */}
         <header className="alerts-page-header">
@@ -266,6 +315,26 @@ export default function AdminAlerts() {
               <p className="page-subtitle">Monitor and manage all system notifications</p>
             </div>
             <div className="header-stats">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                style={{
+                  padding: '8px 12px',
+                  background: refreshing ? '#8BA797' : '#339432',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: refreshing ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginRight: '12px',
+                  fontWeight: 600
+                }}
+              >
+                <RefreshCw size={16} className={refreshing ? 'spinner' : ''} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
               <div className="stat-badge critical">
                 <AlertTriangle size={16} />
                 <span>{counts.critical} Critical</span>
@@ -371,8 +440,8 @@ export default function AdminAlerts() {
               <label>Device</label>
               <select value={deviceFilter} onChange={(e) => setDeviceFilter(e.target.value)}>
                 <option value="all">All Devices</option>
-                {devices.map(device => (
-                  <option key={device.id} value={device.id}>{device.name}</option>
+                {devices.map((device, index) => (
+                  <option key={`${device.id}-${index}`} value={device.id}>{device.name}</option>
                 ))}
               </select>
             </div>
@@ -557,6 +626,7 @@ export default function AdminAlerts() {
           </div>
         )}
       </div>
+      )}
       </main>
     </div>
   );

@@ -196,6 +196,35 @@ export const deleteUser = async (userId) => {
   }
 };
 
+/**
+ * Fetch all notification logs/alerts for admin panel
+ * @param {Object} filters - Optional filters (type, status, device, user, limit)
+ * @returns {Promise<Object>} Alerts data with count and alerts array
+ */
+export const getAdminAlerts = async (filters = {}) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const params = new URLSearchParams();
+
+    if (filters.type) params.append('type', filters.type);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.device) params.append('device', filters.device);
+    if (filters.user) params.append('user', filters.user);
+    if (filters.limit) params.append('limit', filters.limit);
+
+    const queryString = params.toString();
+    const url = `/api/admin/dashboard/alerts/${queryString ? '?' + queryString : ''}`;
+
+    const response = await apiClient.get(url, {
+      authToken: token
+    });
+    return response;
+  } catch (error) {
+    console.error('Error fetching admin alerts:', error);
+    throw error;
+  }
+};
+
 export default {
   getAdminStats,
   getRecentActivity,
@@ -206,5 +235,6 @@ export default {
   updateAdminProfile,
   updateAdminPreferences,
   getUserDevices,
-  deleteUser
+  deleteUser,
+  getAdminAlerts
 };

@@ -16,6 +16,7 @@ import {
 	Plus,
 	Users,
 	Settings,
+	Bell,
 	Search,
 	Leaf,
 	Download,
@@ -992,6 +993,10 @@ export default function AdminDevices() {
 					<button className="side-link" onClick={() => navigate('/admin')}>
 						<LayoutDashboard size={18} />
 						<span>Dashboard</span>
+					</button>
+					<button className="side-link" onClick={() => navigate('/admin/alerts')}>
+						<Bell size={18} />
+						<span>Alerts</span>
 					</button>
 					<button className="side-link active" onClick={() => navigate('/admin/devices')}>
 						<Boxes size={18} />

@@ -198,6 +198,10 @@ function AdminSettings() {
 						<LayoutDashboard size={18} />
 						<span>Dashboard</span>
 					</button>
+					<button className="side-link" onClick={() => navigate('/admin/alerts')}>
+						<Bell size={18} />
+						<span>Alerts</span>
+					</button>
 					<button className="side-link" onClick={() => navigate('/admin/devices')}>
 						<Boxes size={18} />
 						<span>Devices</span>
