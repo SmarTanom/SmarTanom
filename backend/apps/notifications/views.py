@@ -143,6 +143,163 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
         """Users can only see their own notification logs."""
         return NotificationLog.objects.filter(user=self.request.user)
 
+    @action(detail=False, methods=['get'])
+    def alerts(self, request):
+        """
+        Get user's alerts/notifications with filtering and pagination
+        Supports query params: type, status, device, limit, page
+        """
+        try:
+            # Base queryset - user's notification logs
+            queryset = NotificationLog.objects.filter(user=request.user)
+
+            # Filter by notification type (critical, warning, info)
+            notification_type = request.GET.get('type')
+            if notification_type:
+                queryset = queryset.filter(notification_type=notification_type)
+
+            # Filter by status (sent, failed)
+            status_filter = request.GET.get('status')
+            if status_filter:
+                queryset = queryset.filter(status=status_filter)
+
+            # Filter by device (from metadata)
+            device_id = request.GET.get('device')
+            if device_id:
+                queryset = queryset.filter(metadata__device_id=device_id)
+
+            # Limit results
+            limit = request.GET.get('limit', 50)
+            try:
+                limit = int(limit)
+                limit = min(limit, 200)  # Max 200 records for user endpoint
+            except ValueError:
+                limit = 50
+
+            # Order by most recent first
+            alerts = queryset.order_by('-sent_at')[:limit]
+
+            # Format response to match frontend expectations
+            alert_data = []
+            for alert in alerts:
+                # Extract device info from metadata
+                device_info = None
+                if alert.metadata and 'device_id' in alert.metadata:
+                    device_id = alert.metadata.get('device_id')
+                    try:
+                        from apps.devices.models import Device
+                        device = Device.objects.get(id=device_id)
+                        device_info = {
+                            'id': device.id,
+                            'serial': device.device_serial,
+                            'name': device.device_name or f'Device {device.device_serial}'
+                        }
+                    except Device.DoesNotExist:
+                        device_info = {
+                            'id': device_id,
+                            'serial': f'DEV{device_id:03d}',
+                            'name': f'Device {device_id}'
+                        }
+
+                # Map notification type to severity for frontend compatibility
+                severity_mapping = {
+                    'critical': 'critical',
+                    'alert': 'critical', 
+                    'warning': 'warning',
+                    'info': 'info',
+                    'success': 'info'
+                }
+                severity = severity_mapping.get(alert.notification_type, 'info')
+
+                alert_data.append({
+                    'id': alert.id,
+                    'reading_id': alert.id,  # Use alert ID as reading_id for compatibility
+                    'device_id': device_id,
+                    'title': alert.title,
+                    'body': alert.message,
+                    'severity': severity,
+                    'type': alert.notification_type,
+                    'is_read': alert.status == 'sent',  # Consider sent as read
+                    'timestamp': alert.sent_at.isoformat(),
+                    'created_at': alert.sent_at.isoformat(),
+                    'device': device_info,
+                    'metadata': alert.metadata
+                })
+
+            return Response({
+                'count': len(alert_data),
+                'alerts': alert_data
+            })
+
+        except Exception as e:
+            logger.error(f"Error fetching user alerts: {e}", exc_info=True)
+            return Response(
+                {'error': 'Failed to fetch alerts'},
+                status=500
+            )
+
+    @action(detail=False, methods=['post'])
+    def mark_read(self, request):
+        """
+        Mark specific alerts as read
+        Expects: { "alert_ids": [1, 2, 3] }
+        """
+        try:
+            alert_ids = request.data.get('alert_ids', [])
+            if not alert_ids:
+                return Response(
+                    {'error': 'alert_ids is required'},
+                    status=400
+                )
+
+            # Update alerts for this user
+            updated_count = NotificationLog.objects.filter(
+                user=request.user,
+                id__in=alert_ids
+            ).update(status='sent')  # Mark as sent (read)
+
+            logger.info(f"Marked {updated_count} alerts as read for user {request.user.email}")
+
+            return Response({
+                'success': True,
+                'message': f'Marked {updated_count} alerts as read',
+                'updated_count': updated_count
+            })
+
+        except Exception as e:
+            logger.error(f"Error marking alerts as read: {e}", exc_info=True)
+            return Response(
+                {'error': 'Failed to mark alerts as read'},
+                status=500
+            )
+
+    @action(detail=False, methods=['post'])
+    def mark_all_read(self, request):
+        """
+        Mark all alerts as read for the user
+        """
+        try:
+            # Update all alerts for this user
+            updated_count = NotificationLog.objects.filter(
+                user=request.user,
+                status='failed'  # Only update failed ones to sent
+            ).update(status='sent')
+
+            logger.info(f"Marked all {updated_count} alerts as read for user {request.user.email}")
+
+            return Response({
+                'success': True,
+                'message': f'Marked all {updated_count} alerts as read',
+                'updated_count': updated_count
+            })
+
+        except Exception as e:
+            logger.error(f"Error marking all alerts as read: {e}", exc_info=True)
+            return Response(
+                {'error': 'Failed to mark all alerts as read'},
+                status=500
+            )
+
 
 class NotificationPreferencesViewSet(viewsets.ModelViewSet):
     """API endpoints for managing notification preferences."""

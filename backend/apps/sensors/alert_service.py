@@ -120,6 +120,27 @@ class SensorAlertService:
                     }
                 )
 
+        # Create NotificationLog entry for the alert
+        from apps.notifications.models import NotificationLog
+        try:
+            notification_log = NotificationLog.objects.create(
+                user=user,
+                notification_type=severity,
+                title=title,
+                message=body,
+                status='sent',
+                metadata={
+                    'device_id': device.id,
+                    'device_serial': device.device_serial,
+                    'sensor_type': sensor_type,
+                    'sensor_value': float(value),
+                    'alert_id': sensor_data.id
+                }
+            )
+            logger.info(f"Created NotificationLog entry {notification_log.id} for alert: {title}")
+        except Exception as e:
+            logger.error(f"Failed to create NotificationLog entry: {e}")
+
         # Send push/email notification to device owner
         result = PushNotificationService.send_alert_notification(
             user=user,

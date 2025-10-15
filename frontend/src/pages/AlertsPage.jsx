@@ -33,6 +33,7 @@ export default function AlertsPage() {
   const markAlertAsRead = useRealtimeStore(state => state.markAlertAsRead);
   const connectWS = useRealtimeStore(state => state.connectWS);
   const fetchInitial = useRealtimeStore(state => state.fetchInitial);
+  const fetchAlerts = useRealtimeStore(state => state.fetchAlerts);
 
   // Initialize store and connect WebSocket
   useEffect(() => {
@@ -44,8 +45,13 @@ export default function AlertsPage() {
         return;
       }
 
-      // Trigger store's initial device fetch
+      console.log('[AlertsPage] Initializing alerts...');
+      
+      // Trigger store's initial device fetch (includes alerts)
       await fetchInitial();
+      
+      // Also explicitly fetch alerts to ensure we have the latest data
+      await fetchAlerts();
     };
 
     initAlerts();
@@ -54,9 +60,15 @@ export default function AlertsPage() {
     const unsub = connectWS();
     
     return () => {
+      console.log('[AlertsPage] Cleaning up...');
       unsub && unsub();
     };
-  }, [fetchInitial, connectWS, navigate]);
+  }, [fetchInitial, fetchAlerts, connectWS, navigate]);
+
+  // Add refresh function for alerts
+  const handleRefresh = async () => {
+    await fetchAlerts();
+  };
 
   // Helper functions for alert display
   const getSeverityIcon = (severity) => {

@@ -258,7 +258,7 @@ class PushNotificationService:
                 email.attach_alternative(html_content, "text/html")
                 email.send(fail_silently=False)
 
-                logger.info(f"Email notification sent to {user.email}: {title}")
+                logger.info(f"Email notification sent to {user.email}: {title.replace('🌱 ', '')}")
         except Exception as e:
             logger.error(f"Failed to send email notification to {user.email}: {e}")
 

@@ -4,6 +4,7 @@ import { wsClient } from '../services/websocketClient';
 import { getUserDevices } from '../services/api/devices';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors';
 import { getDeviceReservoirs } from '../services/api/reservoirs';
+import { getUserAlerts, markAlertsAsRead, markAllAlertsAsRead } from '../services/api/userAlerts';
 
 // Helper utilities replicated minimally (consider DRY refactor later)
 const generateAlertText = (s) => {
@@ -108,39 +109,46 @@ export const useRealtimeStore = create(persist((set, get) => ({
   wsLastError: null,
   loadingInitial: false,
   errorInitial: null,
+  loadingAlerts: false,
+  errorAlerts: null,
 
   // --- Actions ---
   fetchInitial: async () => {
     try {
       set({ loadingInitial: true, errorInitial: null });
+      console.log('[RealtimeStore] Fetching initial data...');
+      
       const devicesResp = await getUserDevices();
       const devices = devicesResp.results || devicesResp || [];
+      console.log('[RealtimeStore] Loaded', devices.length, 'devices');
+      
       const deviceData = { ...get().deviceData };
+      
       for (const d of devices) {
         try {
+          console.log('[RealtimeStore] Processing device', d.id, d.device_name);
+          
           const [sensorsResp, reservoirsResp] = await Promise.all([
             getDeviceSensors(d.id),
             getDeviceReservoirs(d.id)
           ]);
           const sensors = sensorsResp.results || sensorsResp || [];
-            const sensorDataMap = {};
-            // fetch recent readings per sensor
-            await Promise.all(sensors.map(async (s) => {
-              try {
-                const dataResp = await getSensorData(s.id, 60);
-                const list = dataResp.results || dataResp || [];
-                sensorDataMap[s.id] = list;
-              } catch { sensorDataMap[s.id] = []; }
-            }));
+          const sensorDataMap = {};
+          
+          // fetch recent readings per sensor
+          await Promise.all(sensors.map(async (s) => {
+            try {
+              const dataResp = await getSensorData(s.id, 60);
+              const list = dataResp.results || dataResp || [];
+              sensorDataMap[s.id] = list;
+            } catch (e) {
+              console.warn('[RealtimeStore] Failed to fetch sensor data for', s.id, e);
+              sensorDataMap[s.id] = [];
+            }
+          }));
+          
           // build latest snapshot
           const latest = {};
-          Object.values(sensorDataMap).forEach(list => {
-            list.forEach(r => {
-              if (!r || r.value == null) return;
-              // map by sensor_type using a reverse lookup from sensors
-            });
-          });
-          // simple mapping via sensors array for latest value only
           sensors.forEach(s => {
             const arr = sensorDataMap[s.id] || [];
             if (!arr.length) return;
@@ -159,6 +167,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
               }
             }
           });
+          
           let lastUpdate = null;
           Object.values(sensorDataMap).forEach(list => list.forEach(r => {
             if (r?.created_at) {
@@ -166,7 +175,18 @@ export const useRealtimeStore = create(persist((set, get) => ({
               if (!lastUpdate || t > lastUpdate) lastUpdate = t;
             }
           }));
+          
           const { connectivity, lastSync } = getConnectivityStatus(lastUpdate);
+          const alertText = generateAlertText({
+            ph: latest.ph, 
+            tds: latest.tds, 
+            waterLevel: latest.waterLevel, 
+            temperature: latest.temperature, 
+            turbidity: latest.turbidity, 
+            light: latest.light, 
+            humidity: latest.humidity
+          });
+          
           deviceData[d.id] = {
             sensors: {
               ph: latest.ph,
@@ -181,32 +201,135 @@ export const useRealtimeStore = create(persist((set, get) => ({
               light: latest.light,
             },
             nutrientText: getNutrientStatus(latest.tds),
-            alertText: generateAlertText({
-              ph: latest.ph, tds: latest.tds, waterLevel: latest.waterLevel, temperature: latest.temperature, turbidity: latest.turbidity, light: latest.light, humidity: latest.humidity
-            }),
+            alertText,
             connectivity,
             lastSyncLabel: lastSync,
+            lastUpdate: lastUpdate?.toISOString(),
             phHistory: [], // optional: populated lazily in page
             phLabels: [],
           };
+          
+          console.log('[RealtimeStore] Device', d.id, 'data:', {
+            sensors: deviceData[d.id].sensors,
+            alertText,
+            connectivity
+          });
         } catch (e) {
           console.warn('[RealtimeStore] Failed device fetch', d.id, e);
           deviceData[d.id] = deviceData[d.id] || {};
         }
       }
+      
+      // Fetch alerts from backend
+      console.log('[RealtimeStore] Fetching alerts...');
+      await get().fetchAlerts();
+      
       set({ devices, deviceData, loadingInitial: false });
+      console.log('[RealtimeStore] Initial data fetch completed');
     } catch (e) {
+      console.error('[RealtimeStore] Failed to fetch initial data:', e);
       set({ errorInitial: 'Failed to load devices', loadingInitial: false });
+    }
+  },
+
+  fetchAlerts: async () => {
+    try {
+      set({ loadingAlerts: true, errorAlerts: null });
+      console.log('[RealtimeStore] Fetching alerts from backend...');
+      
+      const response = await getUserAlerts({ limit: 200 });
+      console.log('[RealtimeStore] Alerts response:', response);
+      
+      const alerts = response.alerts || [];
+      console.log('[RealtimeStore] Processing', alerts.length, 'alerts');
+      
+      // Group alerts by device_id
+      const deviceAlerts = {};
+      const unreadCounts = {};
+      const latestAlerts = {};
+      let totalUnread = 0;
+      
+      alerts.forEach(alert => {
+        // Handle different alert data structures from backend
+        const deviceId = alert.device_id || alert.device?.id;
+        if (!deviceId) {
+          console.warn('[RealtimeStore] Alert missing device_id:', alert);
+          return;
+        }
+        
+        if (!deviceAlerts[deviceId]) {
+          deviceAlerts[deviceId] = [];
+        }
+        
+        // Normalize alert data structure
+        const normalizedAlert = {
+          id: alert.id,
+          reading_id: alert.reading_id || alert.id,
+          device_id: deviceId,
+          title: alert.title || alert.message,
+          body: alert.body || alert.message,
+          severity: alert.severity || alert.type || 'info',
+          timestamp: alert.timestamp || alert.created_at,
+          is_read: alert.is_read || false,
+          sensor_type: alert.sensor_type,
+          value: alert.value
+        };
+        
+        // Add alert to device's alert list
+        deviceAlerts[deviceId].push(normalizedAlert);
+        
+        // Update unread counts
+        if (!normalizedAlert.is_read) {
+          unreadCounts[deviceId] = (unreadCounts[deviceId] || 0) + 1;
+          totalUnread += 1;
+        }
+        
+        // Update latest alert for this device
+        const alertTime = new Date(normalizedAlert.timestamp);
+        if (!latestAlerts[deviceId] || alertTime > new Date(latestAlerts[deviceId].at)) {
+          latestAlerts[deviceId] = {
+            title: normalizedAlert.title,
+            body: normalizedAlert.body,
+            severity: normalizedAlert.severity,
+            at: normalizedAlert.timestamp
+          };
+        }
+      });
+      
+      console.log('[RealtimeStore] Processed alerts:', {
+        deviceAlerts: Object.keys(deviceAlerts).length,
+        totalUnread,
+        latestAlerts: Object.keys(latestAlerts).length
+      });
+      
+      set({ 
+        deviceAlerts, 
+        unreadCounts, 
+        totalUnread, 
+        latestAlerts, 
+        loadingAlerts: false 
+      });
+    } catch (err) {
+      console.error('[RealtimeStore] Failed to fetch alerts:', err);
+      set({ errorAlerts: err.message, loadingAlerts: false });
     }
   },
 
   applyRealtime: (payload) => {
     const { device_id, sensors, timestamp, reading } = payload || {};
-    if (!device_id || !sensors) return;
+    if (!device_id || !sensors) {
+      console.warn('[RealtimeStore] Invalid realtime payload:', payload);
+      return;
+    }
+    
+    console.log('[RealtimeStore] Applying realtime update for device', device_id, ':', sensors);
+    
     set(state => {
       const existing = state.deviceData[device_id] || {};
       const nextSensors = { ...(existing.sensors || {}) };
       const nextEnv = { ...(existing.environment || {}) };
+      
+      // Update sensor values
       if (sensors.ph !== undefined) nextSensors.ph = sensors.ph;
       if (sensors.ec !== undefined) nextSensors.ec = sensors.ec;
       if (sensors.tds !== undefined) nextSensors.tds = sensors.tds;
@@ -216,6 +339,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
       if (sensors.humidity !== undefined) nextEnv.humidity = sensors.humidity;
       if (sensors.light_lux !== undefined) nextEnv.light = sensors.light_lux;
 
+      // Recalculate derived values
       const nutrientText = getNutrientStatus(nextSensors.tds);
       const alertText = generateAlertText({
         ph: nextSensors.ph,
@@ -226,26 +350,49 @@ export const useRealtimeStore = create(persist((set, get) => ({
         light: nextEnv.light,
         humidity: nextEnv.humidity
       });
-      // classify simple severity for badge
+      
+      // Update connectivity status
+      const { connectivity, lastSync } = getConnectivityStatus(timestamp);
+      
+      // Update latest alert if there's an alert condition
       let alertMeta = null;
       const nowIso = new Date(timestamp || Date.now()).toISOString();
       if (alertText && alertText !== 'All systems normal') {
-        alertMeta = { title: alertText.split(' - ')[0], body: alertText, severity: /Too High|Too Low|Outside|below|above/i.test(alertText) ? 'critical' : 'warning', at: nowIso };
+        alertMeta = { 
+          title: alertText.split(' - ')[0], 
+          body: alertText, 
+          severity: /Too High|Too Low|Outside|below|above|Critically|Empty/i.test(alertText) ? 'critical' : 'warning', 
+          at: nowIso 
+        };
       }
+      
       const latestAlerts = { ...state.latestAlerts };
       if (alertMeta) {
         const prevMeta = latestAlerts[device_id];
-        if (!prevMeta || prevMeta.at < alertMeta.at) {
+        if (!prevMeta || new Date(alertMeta.at) > new Date(prevMeta.at)) {
           latestAlerts[device_id] = alertMeta;
         }
       }
-      // unread counts: increment per device if new alert meta
+      
+      // Update unread counts if new alert
       const unreadCounts = { ...state.unreadCounts };
       let totalUnread = state.totalUnread;
       if (alertMeta) {
-        unreadCounts[device_id] = (unreadCounts[device_id] || 0) + 1;
-        totalUnread += 1;
+        const prevMeta = state.latestAlerts[device_id];
+        if (!prevMeta || new Date(alertMeta.at) > new Date(prevMeta.at)) {
+          unreadCounts[device_id] = (unreadCounts[device_id] || 0) + 1;
+          totalUnread += 1;
+        }
       }
+      
+      console.log('[RealtimeStore] Updated device data for', device_id, ':', {
+        sensors: nextSensors,
+        environment: nextEnv,
+        alertText,
+        nutrientText,
+        connectivity
+      });
+      
       return {
         deviceData: {
           ...state.deviceData,
@@ -255,6 +402,8 @@ export const useRealtimeStore = create(persist((set, get) => ({
             environment: nextEnv,
             nutrientText,
             alertText,
+            connectivity,
+            lastSyncLabel: lastSync,
             lastUpdate: timestamp,
           }
         },
@@ -266,18 +415,66 @@ export const useRealtimeStore = create(persist((set, get) => ({
   },
 
   connectWS: () => {
-    if (get().wsStatus === 'connected' || get().wsStatus === 'connecting') return;
+    const currentStatus = get().wsStatus;
+    if (currentStatus === 'connected' || currentStatus === 'connecting') {
+      console.log('[RealtimeStore] WebSocket already connected or connecting');
+      return () => {}; // Return empty cleanup function
+    }
+    
+    console.log('[RealtimeStore] Connecting to WebSocket...');
     set({ wsStatus: 'connecting', wsLastError: null });
+    
+    // Connect WebSocket client
     wsClient.connect();
+    
+    // Subscribe to WebSocket messages
     const unsub = wsClient.subscribe(msg => {
+      console.log('[RealtimeStore] WebSocket message received:', msg);
+      
       if (msg?.type === 'sensor.update') {
+        console.log('[RealtimeStore] Processing sensor update:', msg);
         get().applyRealtime(msg);
       } else if (msg?.type === 'alert.new') {
+        console.log('[RealtimeStore] Processing new alert:', msg);
         get().handleNewAlert(msg);
+      } else if (msg?.type === 'alert_update') {
+        // Handle alert updates from WebSocket
+        const payload = msg.payload;
+        if (payload?.type === 'alert.new') {
+          console.log('[RealtimeStore] Processing alert update payload:', payload);
+          get().handleNewAlert(payload);
+        }
       }
     });
-    // naive: rely on existing client logs; no direct status callbacks exposed currently
-    return unsub;
+    
+    // Subscribe to WebSocket status changes
+    const statusUnsub = wsClient.onStatusChange((status) => {
+      console.log('[RealtimeStore] WebSocket status changed to:', status);
+      set({ wsStatus: status });
+      
+      if (status === 'connected') {
+        // Refresh data when connection is established
+        console.log('[RealtimeStore] WebSocket connected, refreshing data...');
+        // Only refresh if we don't have data yet or if it's been a while
+        const state = get();
+        if (state.devices.length === 0 || !state.deviceData || Object.keys(state.deviceData).length === 0) {
+          get().fetchInitial();
+        } else {
+          // Just refresh alerts to ensure we have the latest
+          get().fetchAlerts();
+        }
+      } else if (status === 'disconnected') {
+        console.log('[RealtimeStore] WebSocket disconnected');
+        set({ wsLastError: 'Connection lost' });
+      }
+    });
+    
+    // Return cleanup function
+    return () => {
+      console.log('[RealtimeStore] Cleaning up WebSocket subscriptions');
+      unsub();
+      statusUnsub();
+    };
   },
 
   handleNewAlert: (payload) => {
@@ -328,53 +525,76 @@ export const useRealtimeStore = create(persist((set, get) => ({
     });
   },
 
-  markAlertAsRead: (deviceId, readingId) => {
-    set(state => {
-      const deviceAlerts = { ...state.deviceAlerts };
-      const alerts = deviceAlerts[deviceId] || [];
+  markAlertAsRead: async (deviceId, readingId) => {
+    try {
+      // Call backend API to mark alert as read
+      await markAlertsAsRead([readingId]);
+      
+      // Update local state
+      set(state => {
+        const deviceAlerts = { ...state.deviceAlerts };
+        const alerts = deviceAlerts[deviceId] || [];
 
-      const updatedAlerts = alerts.map(alert => {
-        if (alert.reading_id === readingId && !alert.is_read) {
-          return { ...alert, is_read: true };
+        const updatedAlerts = alerts.map(alert => {
+          if (alert.reading_id === readingId && !alert.is_read) {
+            return { ...alert, is_read: true };
+          }
+          return alert;
+        });
+
+        deviceAlerts[deviceId] = updatedAlerts;
+
+        // Update unread count
+        const unreadCounts = { ...state.unreadCounts };
+        if (unreadCounts[deviceId] > 0) {
+          unreadCounts[deviceId] -= 1;
         }
-        return alert;
+
+        return {
+          deviceAlerts,
+          unreadCounts,
+          totalUnread: Math.max(0, state.totalUnread - 1),
+        };
       });
-
-      deviceAlerts[deviceId] = updatedAlerts;
-
-      // Update unread count
-      const unreadCounts = { ...state.unreadCounts };
-      if (unreadCounts[deviceId] > 0) {
-        unreadCounts[deviceId] -= 1;
-      }
-
-      return {
-        deviceAlerts,
-        unreadCounts,
-        totalUnread: Math.max(0, state.totalUnread - 1),
-      };
-    });
+    } catch (err) {
+      console.error('Failed to mark alert as read:', err);
+    }
   },
 
-  markAllDeviceAlertsRead: (deviceId) => {
-    set(state => {
-      const deviceAlerts = { ...state.deviceAlerts };
-      const alerts = deviceAlerts[deviceId] || [];
+  markAllDeviceAlertsRead: async (deviceId) => {
+    try {
+      // Get unread alert IDs for this device
+      const state = get();
+      const alerts = state.deviceAlerts[deviceId] || [];
+      const unreadAlertIds = alerts.filter(a => !a.is_read).map(a => a.reading_id);
+      
+      if (unreadAlertIds.length > 0) {
+        // Call backend API to mark alerts as read
+        await markAlertsAsRead(unreadAlertIds);
+      }
+      
+      // Update local state
+      set(state => {
+        const deviceAlerts = { ...state.deviceAlerts };
+        const alerts = deviceAlerts[deviceId] || [];
 
-      const unreadCount = alerts.filter(a => !a.is_read).length;
+        const unreadCount = alerts.filter(a => !a.is_read).length;
 
-      const updatedAlerts = alerts.map(alert => ({ ...alert, is_read: true }));
-      deviceAlerts[deviceId] = updatedAlerts;
+        const updatedAlerts = alerts.map(alert => ({ ...alert, is_read: true }));
+        deviceAlerts[deviceId] = updatedAlerts;
 
-      const unreadCounts = { ...state.unreadCounts };
-      unreadCounts[deviceId] = 0;
+        const unreadCounts = { ...state.unreadCounts };
+        unreadCounts[deviceId] = 0;
 
-      return {
-        deviceAlerts,
-        unreadCounts,
-        totalUnread: Math.max(0, state.totalUnread - unreadCount),
-      };
-    });
+        return {
+          deviceAlerts,
+          unreadCounts,
+          totalUnread: Math.max(0, state.totalUnread - unreadCount),
+        };
+      });
+    } catch (err) {
+      console.error('Failed to mark all device alerts as read:', err);
+    }
   },
 }), {
   name: 'realtime-store',
