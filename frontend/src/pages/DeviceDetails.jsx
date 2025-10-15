@@ -26,6 +26,8 @@ import {
 import { getDeviceById, uploadPlantPhoto } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 import { getDeviceReservoirs } from '../services/api/reservoirs.js';
+import { useRealtimeStore } from '../store/realtimeStore';
+import { wsClient } from '../services/websocketClient';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -105,6 +107,11 @@ export default function DeviceDetails() {
   const [logEntries, setLogEntries] = useState([]);
   const [reservoir, setReservoir] = useState(null);
 
+  // Real-time data integration
+  const deviceData = useRealtimeStore(state => state.deviceData[deviceId]);
+  const connectWS = useRealtimeStore(state => state.connectWS);
+  const fetchInitial = useRealtimeStore(state => state.fetchInitial);
+
   // Plant photo change states
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
@@ -158,6 +165,30 @@ export default function DeviceDetails() {
     fetchDevice();
     return () => { mounted = false; };
   }, [deviceId, location.state]);
+
+  // Initialize real-time data and WebSocket connection
+  useEffect(() => {
+    const initRealtime = async () => {
+      // Check authentication first
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      // Initialize real-time store
+      await fetchInitial();
+    };
+
+    initRealtime();
+    
+    // Connect to WebSocket for real-time updates
+    const unsub = connectWS();
+    
+    return () => {
+      unsub && unsub();
+    };
+  }, [fetchInitial, connectWS, navigate]);
 
   // Build alert entries for this device in the Log tab
   useEffect(() => {
