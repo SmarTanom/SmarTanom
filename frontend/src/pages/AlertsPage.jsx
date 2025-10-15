@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../assets/styles/AlertsPage.css';
 import {
@@ -14,149 +14,773 @@ import {
   Sprout,
   ChevronRight,
   Filter,
-  Bell,
-  CheckCircle
+  Bell
 } from 'lucide-react';
 
-import { useRealtimeStore } from '../store/realtimeStore';
+import { getUserDevices } from '../services/api/devices.js';
+import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
+import { getDeviceReservoirs } from '../services/api/reservoirs.js';
+import { listPlants } from '../services/api/plants.js';
+
+// Local persistence for read alerts (database alerts only)
+const READ_STORAGE_KEY = 'alerts.readingIds';
+
+function loadIdSet(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (_e) {
+    return new Set();
+  }
+}
+
+function saveIdSet(key, set) {
+  try {
+    localStorage.setItem(key, JSON.stringify(Array.from(set)));
+  } catch (_e) {
+    // ignore
+  }
+}
+
+function isPersistedRead(alert) {
+  const readingIds = loadIdSet(READ_STORAGE_KEY);
+  if (alert && alert.readingId && readingIds.has(alert.readingId)) return true;
+  return false;
+}
+
+function persistMarkRead(alert) {
+  if (!alert || !alert.readingId) return;
+  const s = loadIdSet(READ_STORAGE_KEY);
+  s.add(alert.readingId);
+  saveIdSet(READ_STORAGE_KEY, s);
+  try {
+    window.dispatchEvent(new Event('alerts-read-updated'));
+  } catch (_e) { }
+}
+
+// Helper: format a ISO date string to a relative time (minutes/hours/days ago)
+function relativeTimeFromISO(iso) {
+  try {
+    const then = new Date(iso);
+    if (Number.isNaN(then.getTime())) return 'just now';
+    const now = new Date();
+    const diffMs = now - then;
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return 'just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? '' : 's'} ago`;
+    const diffHours = Math.floor(diffMin / 60);
+    if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+    // For older dates, show short locale date
+    return then.toLocaleDateString();
+  } catch (e) {
+    return 'just now';
+  }
+}
+
+// Removed static TDS thresholds. We now derive ppm_min/ppm_max from Plant table
+// per reservoir (device bound to a plant via its active reservoir). We treat a
+// reading as:
+// - critical when value < ppm_min or value > ppm_max
+// - warning when value is within proximity buffer of either bound.
+// Proximity buffer default: 10% of range (bounded min 50 ppm, max 200 ppm) or
+// can be adjusted here if UX needs tuning.
+const DEFAULT_PROXIMITY_MIN = 50; // ppm
+const DEFAULT_PROXIMITY_MAX = 200; // ppm
+
+// Generic proximity buffer (10% span clamped) for any numeric range
+function computeProximityBuffer(min, max) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return { low: DEFAULT_PROXIMITY_MIN, high: DEFAULT_PROXIMITY_MIN };
+  const span = Math.max(0, max - min);
+  const base = span * 0.1; // 10%
+  const buf = Math.min(DEFAULT_PROXIMITY_MAX, Math.max(DEFAULT_PROXIMITY_MIN, base));
+  return { low: buf, high: buf };
+}
+
+function classifyValue(value, min, max) {
+  if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max)) {
+    return { severity: 'none', reason: null };
+  }
+  const { low: proxLow, high: proxHigh } = computeProximityBuffer(min, max);
+  if (value < min) return { severity: 'critical', reason: 'below_min', proxLow, proxHigh };
+  if (value > max) return { severity: 'critical', reason: 'above_max', proxLow, proxHigh };
+  if (value <= min + proxLow) return { severity: 'warning', reason: 'near_min', proxLow, proxHigh };
+  if (value >= max - proxHigh) return { severity: 'warning', reason: 'near_max', proxLow, proxHigh };
+  return { severity: 'none', reason: null, proxLow, proxHigh };
+}
+
+function classifyTDS(value, plant) {
+  if (!plant) return { severity: 'none', reason: null };
+  return classifyValue(Number(value), plant.ppm_min, plant.ppm_max);
+}
+
+function classifyPH(value, plant) {
+  if (!plant) return { severity: 'none', reason: null };
+  return classifyValue(Number(value), plant.ph_min, plant.ph_max);
+}
+
+function classifyWaterTemp(value, plant) {
+  if (!plant) return { severity: 'none', reason: null };
+  return classifyValue(Number(value), plant.water_temp_min, plant.water_temp_max);
+}
+
+function classifyLight(value, plant) {
+  if (!plant) return { severity: 'none', reason: null };
+  return classifyValue(Number(value), plant.light_min, plant.light_max);
+}
+
+function classifyEnvTemp(value, plant) {
+  if (!plant) return { severity: 'none', reason: null };
+  return classifyValue(Number(value), plant.environment_temp_min, plant.environment_temp_max);
+}
+
+function classifyHumidity(value, plant) {
+  if (!plant) return { severity: 'none', reason: null };
+  return classifyValue(Number(value), plant.humidity_min, plant.humidity_max);
+}
+
+// Brand color constant
+const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
+
+// Plant specific recommendation templates.
+// These strings should stay SHORT (UI constraint) and action-oriented.
+// Keyed by plant_name (case-sensitive to match API) then by sensor domain + reason.
+// You can safely extend this object with more plant types without touching logic below.
+const PLANT_RECOMMENDATION_TEMPLATES = {
+  Lettuce: {
+    general: 'Keep roots cool and solution well oxygenated.',
+    ph: {
+      below_min: 'Raise slowly to avoid nutrient lockout; aim 5.8–6.2.',
+      above_max: 'Slightly high pH can reduce iron uptake; adjust 0.2 at a time.',
+      near_min: 'Trend downward? Buffer with small pH Up dose.',
+      near_max: 'Monitor — drifting high may cause tip burn risk.'
+    },
+    tds: {
+      below_min: 'Increase EC gradually (no more than +100 ppm per adjustment).',
+      above_max: 'Dilute to avoid bitterness; target mid‑range.',
+      near_min: 'Plan a mild nutrient top-up soon.',
+      near_max: 'If leaves pale or edges curl, dilute slightly.'
+    },
+    light: {
+      below_min: 'Add supplemental light or reduce canopy shading.',
+      above_max: 'Too intense light can cause tip burn; raise fixture or diffuse.',
+      near_min: 'Consider extending photoperiod if growth slows.',
+      near_max: 'Watch for leaf edge curl — may need to raise lights.'
+    },
+    environment_temp: {
+      below_min: 'Cool air slows growth — ensure adequate circulation but avoid drafts.',
+      above_max: 'High heat risks bolting — increase ventilation or shading.',
+      near_min: 'If trend continues, pre‑warm incoming air.',
+      near_max: 'Improve airflow to stabilize temperature.'
+    },
+    water_temperature: {
+      below_min: 'Cold roots slow nutrient uptake — insulate reservoir.',
+      above_max: 'Warm solution lowers dissolved oxygen; consider chilling.',
+      near_min: 'Monitor nightly lows; add insulation if dropping further.',
+      near_max: 'Aerate more or partially replace with cooler water.'
+    },
+    humidity: {
+      below_min: 'Low RH increases transpiration — add gentle misting.',
+      above_max: 'High RH risks mildew — add airflow / dehumidify.',
+      near_min: 'If leaves wilt mid‑day, raise RH slightly.',
+      near_max: 'Ensure leaves dry before dark period.'
+    }
+  },
+  Basil: {
+    general: 'Ensure consistent pruning to encourage airflow.',
+    ph: {
+      below_min: 'Low pH can mute aroma compounds — raise gradually.',
+      above_max: 'High pH reduces micronutrient availability — adjust slowly.',
+      near_min: 'Stabilize with small pH Up micro‑dose.',
+      near_max: 'If trending higher, perform partial dilution.'
+    },
+    tds: {
+      below_min: 'Slight boost supports leaf mass; add balanced nutrients.',
+      above_max: 'Excess salts can dull flavor — dilute 10–20%.',
+      near_min: 'Consider mild feed if new growth is pale.',
+      near_max: 'Maintain airflow; high EC plus heat stresses basil.'
+    },
+    light: {
+      below_min: 'Increase PPFD for compact, aromatic growth.',
+      above_max: 'Too much light may cause chlorosis — raise fixture.',
+      near_min: 'Extend photoperiod a little for fuller canopy.',
+      near_max: 'Watch for leaf curl; diffuse if necessary.'
+    },
+    environment_temp: {
+      below_min: 'Basil slows < optimal temp — avoid cold drafts.',
+      above_max: 'High heat + high RH invites fungus — vent promptly.',
+      near_min: 'If nights are cool, buffer with thermal mass.',
+      near_max: 'Improve evaporative cooling or shading.'
+    },
+    water_temperature: {
+      below_min: 'Cool solution reduces root vigor — gently warm.',
+      above_max: 'Warm solution invites pathogen pressure — cool it.',
+      near_min: 'Insulate lines if chill is recurring.',
+      near_max: 'Increase aeration to maintain oxygen.'
+    },
+    humidity: {
+      below_min: 'Low RH can stunt tender tips — raise slightly.',
+      above_max: 'Prone to downy mildew — dehumidify now.',
+      near_min: 'Monitor leaf edge dry‑out.',
+      near_max: 'Ensure canopy dries before dark.'
+    }
+  }
+};
+
+function enrichAlertMessage(plantInfo, sensorType, classificationReason, baseMessage) {
+  if (!plantInfo) return baseMessage;
+  const name = plantInfo.plant_name;
+  const tips = PLANT_RECOMMENDATION_TEMPLATES[name];
+  if (!tips) return baseMessage; // no specific template
+  // Map sensor type to domain key used in templates
+  const domainMap = {
+    ph: 'ph',
+    tds: 'tds',
+    light: 'light',
+    humidity: 'humidity',
+    air_temperature: 'environment_temp',
+    water_temperature: 'water_temperature'
+  };
+  const domain = domainMap[sensorType];
+  let extra = '';
+  if (domain && tips[domain]) {
+    const domainTips = tips[domain];
+    extra = domainTips[classificationReason] || '';
+  }
+  if (!extra && tips.general) extra = tips.general;
+  if (!extra) return baseMessage;
+  // Append with separator if not already present
+  return `${baseMessage} Recommendation: ${extra}`;
+}
 
 export default function AlertsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const deviceId = searchParams.get('deviceId'); // Get device filter from URL
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'critical'
-  
-  // Use realtime store for alerts data
-  const devices = useRealtimeStore(state => state.devices);
-  const deviceAlerts = useRealtimeStore(state => state.deviceAlerts);
-  const markAllDeviceAlertsRead = useRealtimeStore(state => state.markAllDeviceAlertsRead);
-  const markAlertAsRead = useRealtimeStore(state => state.markAlertAsRead);
-  const connectWS = useRealtimeStore(state => state.connectWS);
-  const fetchInitial = useRealtimeStore(state => state.fetchInitial);
-  const fetchAlerts = useRealtimeStore(state => state.fetchAlerts);
+  // Alerts state initialized as empty - only real database alerts will be shown
+  const [alerts, setAlerts] = useState([]);
+  const [filteredDeviceName, setFilteredDeviceName] = useState(null); // Store device name when filtering
 
-  // Initialize store and connect WebSocket
-  useEffect(() => {
-    const initAlerts = async () => {
-      // Check authentication first
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
+  // On first mount, apply persisted read flags to initial alerts
+  React.useEffect(() => {
+    setAlerts(prev => prev.map(a => ({ ...a, read: isPersistedRead(a) || a.read }))); // preserve existing read true
+  }, []);
 
-      console.log('[AlertsPage] Initializing alerts...');
-      
-      // Trigger store's initial device fetch (includes alerts)
-      await fetchInitial();
-      
-      // Also explicitly fetch alerts to ensure we have the latest data
-      await fetchAlerts();
-    };
+  // On mount: fetch user's bound devices -> map devices to active reservoir plant -> fetch sensors & readings
+  React.useEffect(() => {
+    let mounted = true;
+    const fetchRecentReadings = async () => {
+      try {
+        const devicesResp = await getUserDevices();
+        const devices = devicesResp && devicesResp.results ? devicesResp.results : devicesResp;
+        if (!devices || devices.length === 0) return;
 
-    initAlerts();
-    
-    // Connect to WebSocket for real-time updates
-    const unsub = connectWS();
-    
-    return () => {
-      console.log('[AlertsPage] Cleaning up...');
-      unsub && unsub();
-    };
-  }, [fetchInitial, fetchAlerts, connectWS, navigate]);
+        // We'll collect out-of-range pH readings (low <6 or high >7) across all devices
+        const abnormalReadings = [];
 
-  // Add refresh function for alerts
-  const handleRefresh = async () => {
-    await fetchAlerts();
-  };
+        // Fetch plant catalog once (public endpoint)
+        let plantCatalog = [];
+        try {
+          const plantResp = await listPlants();
+          plantCatalog = plantResp && plantResp.results ? plantResp.results : plantResp;
+        } catch (e) {
+          // Non-fatal
+          console.warn('AlertsPage: failed to fetch plant catalog', e);
+        }
 
-  // Helper functions for alert display
-  const getSeverityIcon = (severity) => {
-    switch (severity) {
-      case 'critical':
-        return <AlertCircle className="alert-icon alert-icon-critical" size={20} />;
-      case 'warning':
-        return <TriangleAlert className="alert-icon alert-icon-warning" size={20} />;
-      default:
-        return <AlertCircle className="alert-icon alert-icon-info" size={20} />;
-    }
-  };
+        // Helper to get plant object for a given plant_name or id
+        const findPlant = (reservoir) => {
+          if (!reservoir) return null;
+          // reservoir.plant_type is plant.plant_name (serializer alias)
+          const name = reservoir.plant_type || reservoir.plant;
+          if (!name) return null;
+          return plantCatalog.find(p => p.plant_name === name) || null;
+        };
 
-  const formatTimeAgo = (timestamp) => {
-    try {
-      const now = new Date();
-      const then = new Date(timestamp);
-      const diffMs = now - then;
-      const diffSec = Math.floor(diffMs / 1000);
+        // Filter devices if deviceId is specified
+        const devicesToCheck = deviceId
+          ? devices.filter(device => device.id.toString() === deviceId)
+          : devices;
 
-      if (diffSec < 60) return 'just now';
-      const diffMin = Math.floor(diffSec / 60);
-      if (diffMin < 60) return `${diffMin}m ago`;
-      const diffHours = Math.floor(diffMin / 60);
-      if (diffHours < 24) return `${diffHours}h ago`;
-      const diffDays = Math.floor(diffHours / 24);
-      return `${diffDays}d ago`;
-    } catch {
-      return 'recently';
-    }
-  };
+        // Set filtered device name for display
+        if (deviceId && devicesToCheck.length > 0) {
+          const device = devicesToCheck[0];
+          const deviceName = device.device_name || device.plant_name || `Device ${device.device_serial}`;
+          setFilteredDeviceName(deviceName);
+          console.log(`🔍 Filtering alerts for device: "${deviceName}" (ID: ${deviceId})`);
+        } else {
+          setFilteredDeviceName(null);
+          if (deviceId) {
+            console.warn(`⚠️ Device ID ${deviceId} not found in user's devices`);
+          } else {
+            console.log('📋 Showing alerts for all devices');
+          }
+        }
 
-  const handleMarkAllRead = () => {
-    if (deviceId) {
-      markAllDeviceAlertsRead(deviceId);
-    } else {
-      // Mark all alerts as read for all devices
-      devices.forEach(device => {
-        markAllDeviceAlertsRead(device.id);
-      });
-    }
-  };
+        // For each device (filtered if needed), fetch its reservoirs to resolve plant ranges, then sensors & readings
+        await Promise.all(devicesToCheck.map(async (device) => {
+          try {
+            if (!device || !device.id) return;
+            // Load reservoirs for device (to access plant association). Use first active reservoir heuristically.
+            let devicePlant = null;
+            try {
+              const resResp = await getDeviceReservoirs(device.id);
+              const reservoirs = resResp && resResp.results ? resResp.results : resResp;
+              if (Array.isArray(reservoirs) && reservoirs.length > 0) {
+                // Choose reservoir with latest start_date or latest created_at as 'active'
+                const active = [...reservoirs].sort((a, b) => {
+                  const da = new Date(a.start_date || a.created_at || 0).getTime();
+                  const db = new Date(b.start_date || b.created_at || 0).getTime();
+                  return db - da;
+                })[0];
+                devicePlant = findPlant(active);
+              }
+            } catch (e) {
+              console.warn('AlertsPage: failed to fetch reservoirs for device', device.id, e);
+            }
+            const sensorsResp = await getDeviceSensors(device.id);
+            const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
+            if (!sensors || sensors.length === 0) return;
 
-  const handleMarkAsRead = (alert) => {
-    if (alert.device_id && alert.reading_id) {
-      markAlertAsRead(alert.device_id, alert.reading_id);
-    }
-  };
+            // Consider pH, water_level, tds, turbidity, light, humidity and air_temperature (DHT22) sensors
+            // Backend uses 'air_temperature' for DHT22 (air temp + humidity)
+            const relevantSensors = sensors.filter(s => ['ph', 'water_level', 'tds', 'turbidity', 'light', 'humidity', 'air_temperature', 'water_temperature'].includes(s.sensor_type));
+            if (!relevantSensors || relevantSensors.length === 0) return;
 
-  // Get all alerts from all devices or filter by deviceId
-  const getAllAlerts = () => {
-    if (deviceId) {
-      return deviceAlerts[deviceId] || [];
-    }
-    
-    // Combine alerts from all devices
-    const allAlerts = [];
-    Object.entries(deviceAlerts).forEach(([devId, alerts]) => {
-      alerts.forEach(alert => {
-        allAlerts.push({
-          ...alert,
-          device_id: devId,
-          device_name: devices.find(d => d.id === devId)?.device_name || devices.find(d => d.id === devId)?.plant_name || `Device ${devId}`
+            // Fetch recent sensor data for each relevant sensor so we can show multiple alerts
+            await Promise.all(relevantSensors.map(async (sensor) => {
+              try {
+                const dataResp = await getSensorData(sensor.id, 60);
+                const data = dataResp && dataResp.results ? dataResp.results : dataResp;
+                const readings = Array.isArray(data) ? data : (data ? [data] : []);
+
+                readings.forEach(r => {
+                  const val = r && typeof r.value !== 'undefined' ? r.value : null;
+                  if (val === null) return;
+
+                  if (sensor.sensor_type === 'ph') {
+                    const { severity } = classifyPH(Number(val), devicePlant);
+                    if (severity === 'critical' || severity === 'warning') {
+                      abnormalReadings.push({ device, sensor, reading: r, plant: devicePlant });
+                    }
+                  } else if (sensor.sensor_type === 'water_level') {
+                    // Water level: 0 -> critical; <=40 -> warning
+                    if (val === 0 || val <= 40) {
+                      abnormalReadings.push({ device, sensor, reading: r });
+                    }
+                  } else if (sensor.sensor_type === 'tds') {
+                    // Dynamic plant-driven classification
+                    const { severity } = classifyTDS(Number(val), devicePlant);
+                    if (severity === 'critical' || severity === 'warning') {
+                      abnormalReadings.push({ device, sensor, reading: r, plant: devicePlant });
+                    }
+                  } else if (sensor.sensor_type === 'turbidity') {
+                    // Turbidity classification:
+                    // raw > 2100 => Clear (no alert)
+                    // raw > 1800 => Cloudy (warning)
+                    // else => Turbid (critical)
+                    const raw = Number(val);
+                    if (raw > 2100) {
+                      // Clear — do not push an alert
+                    } else if (raw > 1800) {
+                      // Cloudy — warning
+                      abnormalReadings.push({ device, sensor, reading: r });
+                    } else {
+                      // Turbid — critical
+                      abnormalReadings.push({ device, sensor, reading: r });
+                    }
+                  } else if (sensor.sensor_type === 'light') {
+                    const { severity } = classifyLight(Number(val), devicePlant);
+                    if (severity === 'critical' || severity === 'warning') {
+                      abnormalReadings.push({ device, sensor, reading: r, plant: devicePlant });
+                    }
+                  } else if (sensor.sensor_type === 'humidity') {
+                    const { severity } = classifyHumidity(Number(val), devicePlant);
+                    if (severity === 'critical' || severity === 'warning') {
+                      abnormalReadings.push({ device, sensor, reading: r, plant: devicePlant });
+                    }
+                  } else if (sensor.sensor_type === 'air_temperature') {
+                    const { severity } = classifyEnvTemp(Number(val), devicePlant);
+                    if (severity === 'critical' || severity === 'warning') {
+                      abnormalReadings.push({ device, sensor, reading: r, plant: devicePlant });
+                    }
+                  } else if (sensor.sensor_type === 'water_temperature') {
+                    const { severity } = classifyWaterTemp(Number(val), devicePlant);
+                    if (severity === 'critical' || severity === 'warning') {
+                      abnormalReadings.push({ device, sensor, reading: r, plant: devicePlant });
+                    }
+                  }
+                });
+              } catch (e) {
+                // ignore sensor-level failures
+                // eslint-disable-next-line no-console
+                console.warn('AlertsPage: failed to fetch data for sensor', sensor && sensor.id, e);
+              }
+            }));
+
+          } catch (e) {
+            // ignore device-level failures
+            // eslint-disable-next-line no-console
+            console.warn('AlertsPage: failed to fetch sensors/data for device', device && device.id, e);
+          }
+        }));
+
+        if (!mounted) return;
+
+        if (abnormalReadings.length === 0) return;
+
+        // Build alerts for each out-of-range reading, avoiding duplicates by reading id/timestamp
+        setAlerts(prev => {
+          const next = [...prev];
+          // find numeric id base
+          let nextId = Math.max(0, ...next.map(a => Number(a.id) || 0)) + 1;
+
+          abnormalReadings
+            // sort newest-first by reading.created_at (if available)
+            .sort((a, b) => {
+              const ta = a.reading && (a.reading.created_at || a.reading.timestamp) ? new Date(a.reading.created_at || a.reading.timestamp).getTime() : 0;
+              const tb = b.reading && (b.reading.created_at || b.reading.timestamp) ? new Date(b.reading.created_at || b.reading.timestamp).getTime() : 0;
+              return tb - ta;
+            })
+            .forEach(({ device, sensor, reading, plant }) => {
+              const readingKey = reading.id || reading.created_at || reading.timestamp || JSON.stringify(reading);
+              // skip if already represented
+              const exists = next.some(a => a.readingId && a.readingId === readingKey);
+              if (exists) return;
+
+              const latestIso = reading.created_at || reading.timestamp || new Date().toISOString();
+              const val = reading.value;
+
+              // Determine alert content based on sensor type
+              let title = 'Alert';
+              let type = 'warning';
+              let message = '';
+              let icon = 'droplet';
+              if (reading && reading.sensor_type && reading.sensor_type === 'water_level') {
+                // Some backends put sensor_type on sensor object; however our local 'sensor' object is available as well.
+              }
+
+              if (sensor && sensor.sensor_type === 'ph') {
+                const plantInfo = plant;
+                const min = plantInfo?.ph_min;
+                const max = plantInfo?.ph_max;
+                const classification = classifyPH(Number(val), plantInfo);
+                let classificationReason = classification.reason;
+                icon = 'droplet';
+                if (classification.severity === 'critical') {
+                  if (classification.reason === 'below_min') {
+                    type = 'critical';
+                    title = 'pH below optimal range';
+                    message = `pH is ${val} — below optimal range (${min}–${max}) for ${plantInfo?.plant_name || 'this plant'}. Raise pH slowly using pH Up; mix thoroughly and re-test.`;
+                  } else if (classification.reason === 'above_max') {
+                    type = 'critical';
+                    title = 'pH above optimal range';
+                    message = `pH is ${val} — above optimal range (${min}–${max}) for ${plantInfo?.plant_name || 'this plant'}. Lower pH gradually using pH Down; mix thoroughly and re-test.`;
+                  }
+                } else if (classification.severity === 'warning') {
+                  if (classification.reason === 'near_min') {
+                    type = 'warning';
+                    title = 'pH nearing lower limit';
+                    message = `pH is ${val}, approaching ${min} for ${plantInfo?.plant_name || 'this plant'}. Monitor trend and adjust if it continues downward.`;
+                  } else if (classification.reason === 'near_max') {
+                    type = 'warning';
+                    title = 'pH nearing upper limit';
+                    message = `pH is ${val}, approaching ${max} for ${plantInfo?.plant_name || 'this plant'}. Monitor and plan gentle adjustment if rising further.`;
+                  }
+                }
+                message = enrichAlertMessage(plantInfo, 'ph', classificationReason, message);
+              } else if (sensor && sensor.sensor_type === 'water_level') {
+                const isEmpty = Number(val) === 0;
+                const isLowLevel = Number(val) <= 40 && Number(val) > 0;
+                title = isEmpty ? 'Water level empty' : 'Low water level';
+                type = isEmpty ? 'critical' : 'warning';
+                if (isEmpty) {
+                  message = `Water level is 0% — reservoir empty. Refill with fresh nutrient solution immediately, check pumps for priming issues, and inspect for leaks.`;
+                } else {
+                  message = `Water level is ${val}%. Low reservoir level (<=40%). Refill soon and verify auto-refill settings or inspect for slow leaks.`;
+                }
+                icon = 'droplet';
+              } else if (sensor && sensor.sensor_type === 'tds') {
+                const v = Number(val);
+                const plantInfo = plant;
+                const classification = classifyTDS(v, plantInfo);
+                let classificationReason = classification.reason;
+                const min = plantInfo ? plantInfo.ppm_min : undefined;
+                const max = plantInfo ? plantInfo.ppm_max : undefined;
+                if (classification.severity === 'critical') {
+                  if (classification.reason === 'below_min') {
+                    type = 'critical';
+                    title = 'TDS below optimal range';
+                    message = `TDS is ${v} ppm which is below the optimal range (${min}–${max} ppm) for ${plantInfo?.plant_name || 'this plant'}. Increase nutrient concentration gradually and re-test.`;
+                  } else if (classification.reason === 'above_max') {
+                    type = 'critical';
+                    title = 'TDS above optimal range';
+                    message = `TDS is ${v} ppm which is above the optimal range (${min}–${max} ppm) for ${plantInfo?.plant_name || 'this plant'}. Dilute or perform a partial drain/refill and re-test.`;
+                  }
+                } else if (classification.severity === 'warning') {
+                  if (classification.reason === 'near_min') {
+                    type = 'warning';
+                    title = 'TDS approaching low boundary';
+                    message = `TDS is ${v} ppm and nearing the lower limit (${min} ppm) for ${plantInfo?.plant_name || 'this plant'}. Monitor and consider a mild nutrient top-up.`;
+                  } else if (classification.reason === 'near_max') {
+                    type = 'warning';
+                    title = 'TDS approaching high boundary';
+                    message = `TDS is ${v} ppm and nearing the upper limit (${max} ppm) for ${plantInfo?.plant_name || 'this plant'}. Monitor and consider dilution if trend continues.`;
+                  }
+                } else {
+                  // Should not reach here since non-alerts filtered earlier
+                  title = 'TDS stable';
+                  type = 'info';
+                  message = `TDS is ${v} ppm within optimal range (${min}–${max} ppm).`;
+                }
+                icon = 'zap';
+                message = enrichAlertMessage(plantInfo, 'tds', classificationReason, message);
+              } else if (sensor && sensor.sensor_type === 'turbidity') {
+                const raw = Number(val);
+                if (raw > 2100) {
+                  // Clear — shouldn't appear because we filtered earlier, but provide fallback
+                  title = 'Water clarity OK';
+                  type = 'info';
+                  message = `Turbidity reading ${raw} — water is clear. No action required.`;
+                } else if (raw > 1800) {
+                  title = 'Water cloudy';
+                  type = 'warning';
+                  message = `Turbidity reading ${raw} — water is cloudy. Inspect filters, clean debris, and consider a partial water change if clarity does not improve.`;
+                } else {
+                  title = 'Water turbid';
+                  type = 'critical';
+                  message = `Turbidity reading ${raw} — water is turbid (high suspended solids). Perform a reservoir drain and refill, clean filters and tubing, and sanitize the reservoir if needed.`;
+                }
+                icon = 'waves';
+              } else if (sensor && sensor.sensor_type === 'light') {
+                const plantInfo = plant;
+                const min = plantInfo?.light_min;
+                const max = plantInfo?.light_max;
+                const lux = Number(val);
+                const classification = classifyLight(lux, plantInfo);
+                let classificationReason = classification.reason;
+                icon = 'sun';
+                if (classification.severity === 'critical') {
+                  if (classification.reason === 'below_min') {
+                    type = 'critical';
+                    title = 'Insufficient light';
+                    message = `Light is ${lux} lux — below optimal range (${min}–${max} lux) for ${plantInfo?.plant_name || 'this plant'}. Increase exposure or adjust lighting.`;
+                  } else if (classification.reason === 'above_max') {
+                    type = 'critical';
+                    title = 'Excessive light';
+                    message = `Light is ${lux} lux — above optimal range (${min}–${max} lux) for ${plantInfo?.plant_name || 'this plant'}. Provide shading or reduce supplemental lighting.`;
+                  }
+                } else if (classification.severity === 'warning') {
+                  if (classification.reason === 'near_min') {
+                    type = 'warning';
+                    title = 'Light nearing lower limit';
+                    message = `Light is ${lux} lux, approaching the lower bound (${min} lux) for ${plantInfo?.plant_name || 'this plant'}. Monitor and adjust if it trends lower.`;
+                  } else if (classification.reason === 'near_max') {
+                    type = 'warning';
+                    title = 'Light nearing upper limit';
+                    message = `Light is ${lux} lux, approaching the upper bound (${max} lux) for ${plantInfo?.plant_name || 'this plant'}. Monitor to prevent stress.`;
+                  }
+                }
+                message = enrichAlertMessage(plantInfo, 'light', classificationReason, message);
+              } else if (sensor && sensor.sensor_type === 'humidity') {
+                const plantInfo = plant;
+                const h = Number(val);
+                const min = plantInfo?.humidity_min;
+                const max = plantInfo?.humidity_max;
+                const classification = classifyHumidity(h, plantInfo);
+                let classificationReason = classification.reason;
+                icon = 'sprout';
+                if (classification.severity === 'critical') {
+                  if (classification.reason === 'below_min') {
+                    type = 'critical';
+                    title = 'Humidity below optimal range';
+                    message = `Humidity is ${h}% — below optimal range (${min}–${max}%) for ${plantInfo?.plant_name || 'this plant'}. Add humidity (misters, trays) and reduce excessive ventilation.`;
+                  } else if (classification.reason === 'above_max') {
+                    type = 'critical';
+                    title = 'Humidity above optimal range';
+                    message = `Humidity is ${h}% — above optimal range (${min}–${max}%) for ${plantInfo?.plant_name || 'this plant'}. Increase airflow or dehumidify to prevent mold.`;
+                  }
+                } else if (classification.severity === 'warning') {
+                  if (classification.reason === 'near_min') {
+                    type = 'warning';
+                    title = 'Humidity nearing lower limit';
+                    message = `Humidity is ${h}% and nearing ${min}% for ${plantInfo?.plant_name || 'this plant'}. Monitor to avoid plant stress.`;
+                  } else if (classification.reason === 'near_max') {
+                    type = 'warning';
+                    title = 'Humidity nearing upper limit';
+                    message = `Humidity is ${h}% and nearing ${max}% for ${plantInfo?.plant_name || 'this plant'}. Improve ventilation if trend continues.`;
+                  }
+                }
+                message = enrichAlertMessage(plantInfo, 'humidity', classificationReason, message);
+              } else if (sensor && sensor.sensor_type === 'air_temperature') {
+                const plantInfo = plant;
+                const t = Number(val);
+                const min = plantInfo?.environment_temp_min;
+                const max = plantInfo?.environment_temp_max;
+                const classification = classifyEnvTemp(t, plantInfo);
+                let classificationReason = classification.reason;
+                icon = 'thermometer';
+                if (classification.severity === 'critical') {
+                  if (classification.reason === 'below_min') {
+                    type = 'critical';
+                    title = 'Air temperature below optimal';
+                    message = `Air temperature is ${t}°C — below optimal (${min}–${max}°C) for ${plantInfo?.plant_name || 'this plant'}. Add heating or reduce drafts.`;
+                  } else if (classification.reason === 'above_max') {
+                    type = 'critical';
+                    title = 'Air temperature above optimal';
+                    message = `Air temperature is ${t}°C — above optimal (${min}–${max}°C) for ${plantInfo?.plant_name || 'this plant'}. Improve cooling, shading, or airflow.`;
+                  }
+                } else if (classification.severity === 'warning') {
+                  if (classification.reason === 'near_min') {
+                    type = 'warning';
+                    title = 'Air temp nearing lower limit';
+                    message = `Air temperature is ${t}°C, approaching ${min}°C for ${plantInfo?.plant_name || 'this plant'}. Monitor to avoid chilling stress.`;
+                  } else if (classification.reason === 'near_max') {
+                    type = 'warning';
+                    title = 'Air temp nearing upper limit';
+                    message = `Air temperature is ${t}°C, approaching ${max}°C for ${plantInfo?.plant_name || 'this plant'}. Enhance ventilation or shading.`;
+                  }
+                }
+                message = enrichAlertMessage(plantInfo, 'air_temperature', classificationReason, message);
+              } else if (sensor && sensor.sensor_type === 'water_temperature') {
+                const plantInfo = plant;
+                const wt = Number(val);
+                const min = plantInfo?.water_temp_min;
+                const max = plantInfo?.water_temp_max;
+                const classification = classifyWaterTemp(wt, plantInfo);
+                let classificationReason = classification.reason;
+                icon = 'thermometer';
+                if (classification.severity === 'critical') {
+                  if (classification.reason === 'below_min') {
+                    type = 'critical';
+                    title = 'Water temperature below optimal';
+                    message = `Water temperature is ${wt}°C — below optimal (${min}–${max}°C) for ${plantInfo?.plant_name || 'this plant'}. Add a heater or insulate reservoir.`;
+                  } else if (classification.reason === 'above_max') {
+                    type = 'critical';
+                    title = 'Water temperature above optimal';
+                    message = `Water temperature is ${wt}°C — above optimal (${min}–${max}°C) for ${plantInfo?.plant_name || 'this plant'}. Cool reservoir (chiller / frozen bottles) and increase circulation.`;
+                  }
+                } else if (classification.severity === 'warning') {
+                  if (classification.reason === 'near_min') {
+                    type = 'warning';
+                    title = 'Water temp nearing lower limit';
+                    message = `Water temp is ${wt}°C, approaching ${min}°C for ${plantInfo?.plant_name || 'this plant'}. Monitor and prepare heating if it drops further.`;
+                  } else if (classification.reason === 'near_max') {
+                    type = 'warning';
+                    title = 'Water temp nearing upper limit';
+                    message = `Water temp is ${wt}°C, approaching ${max}°C for ${plantInfo?.plant_name || 'this plant'}. Consider cooling actions to avoid root stress.`;
+                  }
+                }
+                message = enrichAlertMessage(plantInfo, 'water_temperature', classificationReason, message);
+              } else {
+                // fallback
+                title = 'Sensor alert';
+                type = 'warning';
+                message = `Sensor reading is ${val}. Review sensor placement, calibration and system status for guidance.`;
+              }
+
+              const alertObj = {
+                id: nextId++,
+                type,
+                icon: icon || 'droplet',
+                title,
+                device: device.device_name || device.device_serial || `Device ${device.id}`,
+                deviceId: device.id,
+                deviceSerial: device.device_serial || null,
+                message,
+                timestamp: relativeTimeFromISO(latestIso),
+                date: latestIso,
+                read: false,
+                // metadata for deduplication / tracking
+                readingId: readingKey,
+              };
+
+              // Set read state from persistence if this reading was previously read
+              if (isPersistedRead(alertObj)) {
+                alertObj.read = true;
+              }
+
+              // prepend so newest appear first
+              next.unshift(alertObj);
+            });
+
+          return next;
         });
-      });
-    });
-    
-    return allAlerts;
-  };
+      } catch (err) {
+        // Non-fatal; alerts page should still render (empty if no database alerts)
+        // eslint-disable-next-line no-console
+        console.warn('AlertsPage: failed to fetch recent pH readings', err);
+      }
+    };
 
-  const allAlerts = getAllAlerts();
-  const filteredDeviceName = deviceId ? devices.find(d => d.id === deviceId)?.device_name || devices.find(d => d.id === deviceId)?.plant_name : null;
+    fetchRecentReadings();
+    return () => { mounted = false; };
+  }, []);
 
-  // Filter alerts based on current filter
-  const filteredAlerts = allAlerts.filter(alert => {
-    if (filter === 'unread') return !alert.is_read;
-    if (filter === 'critical') return alert.severity === 'critical';
+  const filteredAlerts = alerts.filter(alert => {
+    if (filter === 'unread') return !alert.read;
+    if (filter === 'critical') return alert.type === 'critical';
     return true;
   });
 
-  // Sort alerts by timestamp (newest first)
+  // Ensure descending order by alert creation time
   const sortedAlerts = [...filteredAlerts].sort((a, b) => {
-    const ta = a && a.timestamp ? new Date(a.timestamp).getTime() : 0;
-    const tb = b && b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    const ta = a && a.date ? new Date(a.date).getTime() : 0;
+    const tb = b && b.date ? new Date(b.date).getTime() : 0;
     return tb - ta; // newest first
   });
 
-  const unreadCount = allAlerts.filter(a => !a.is_read).length;
+  const unreadCount = alerts.filter(a => !a.read).length;
+
+  const markAsRead = (alertId) => {
+    setAlerts(prev => prev.map(alert => {
+      if (alert.id === alertId) {
+        // persist
+        persistMarkRead(alert);
+        return { ...alert, read: true };
+      }
+      return alert;
+    }));
+  };
+
+  const markAllAsRead = () => {
+    setAlerts(prev => {
+      // persist all alerts currently present
+      prev.forEach(a => persistMarkRead(a));
+      try { window.dispatchEvent(new Event('alerts-read-updated')); } catch (_e) { }
+      return prev.map(alert => ({ ...alert, read: true }));
+    });
+  };
+
+  const handleAlertClick = (alert) => {
+    // Persist and update state immediately before navigating
+    try { persistMarkRead(alert); } catch (_e) { }
+    try { window.dispatchEvent(new Event('alerts-read-updated')); } catch (_e) { }
+    setAlerts(prev => prev.map(a => (a.id === alert.id ? { ...a, read: true } : a)));
+    navigate(`/device/${alert.deviceId}`, { state: { deviceId: alert.deviceId, deviceName: alert.device, deviceSerial: alert.deviceSerial } });
+  };
+
+  const getAlertIcon = (iconType) => {
+    switch (iconType) {
+      case 'droplet':
+        return <Droplets size={20} strokeWidth={2.5} />;
+      case 'zap':
+        return <Zap size={20} strokeWidth={2.5} />;
+      case 'thermometer':
+        return <Thermometer size={20} strokeWidth={2.5} />;
+      case 'sprout':
+        return <Sprout size={20} strokeWidth={2.5} />;
+      case 'sun':
+        return <Sun size={20} strokeWidth={2.5} />;
+      default:
+        return <AlertCircle size={20} strokeWidth={2.5} />;
+    }
+  };
 
   return (
     <div className="alerts-page-root">
@@ -164,26 +788,45 @@ export default function AlertsPage() {
       <header className="alerts-header">
         <div className="alerts-header-top">
           <h1 className="alerts-header-title">
-            <AlertCircle size={32} />
-            Alerts
-            {unreadCount > 0 && (
-              <span className="alerts-unread-badge">{unreadCount}</span>
-            )}
+            {deviceId && filteredDeviceName ? `${filteredDeviceName} Alerts` : 'Alerts'}
+            <Bell size={28} color="rgba(17, 17, 17, 0.86)" strokeWidth={2.5} />
           </h1>
           {unreadCount > 0 && (
+            <span className="alerts-unread-badge">{unreadCount}</span>
+          )}
+        </div>
+        <div className="alerts-header-actions">
+          {deviceId && (
             <button
-              className="mark-all-read-button"
-              onClick={handleMarkAllRead}
+              className="show-all-devices-button"
+              onClick={() => navigate('/alerts')}
+              style={{
+                background: 'none',
+                border: '1px solid rgba(51, 148, 50, 0.3)',
+                borderRadius: '6px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                color: 'rgba(51, 148, 50, 0.8)',
+                cursor: 'pointer',
+                marginRight: '12px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = 'rgba(51, 148, 50, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'none';
+              }}
             >
-              Mark all read
+              Show All Devices
+            </button>
+          )}
+          {unreadCount > 0 && (
+            <button className="mark-all-read-button" onClick={markAllAsRead}>
+              Mark all as read
             </button>
           )}
         </div>
-        {filteredDeviceName && (
-          <p style={{ color: '#8BA797', fontSize: '14px', margin: 0 }}>
-            Showing alerts for: {filteredDeviceName}
-          </p>
-        )}
       </header>
 
       {/* Filter buttons */}
@@ -223,43 +866,27 @@ export default function AlertsPage() {
           </div>
         ) : (
           <div className="alerts-list">
-            {sortedAlerts.map((alert, index) => (
-              <div
-                key={alert.reading_id || `${alert.timestamp}-${index}`}
-                className={`alert-item ${alert.severity || 'info'} ${alert.is_read ? 'read' : 'unread'}`}
+            {sortedAlerts.map((alert) => (
+              <article
+                key={alert.id}
+                className={`alert-item ${alert.type} ${alert.read ? 'read' : 'unread'}`}
+                onClick={() => handleAlertClick(alert)}
               >
-                <div className="alert-item-indicator"></div>
-                <div className={`alert-item-icon ${alert.severity || 'info'}`}>
-                  {getSeverityIcon(alert.severity)}
+                <div className="alert-item-indicator" />
+                <div className={`alert-item-icon ${alert.type}`}>
+                  {getAlertIcon(alert.icon)}
                 </div>
-
                 <div className="alert-item-content">
                   <div className="alert-item-header">
-                    <h4 className="alert-item-title">{alert.title}</h4>
-                    <div className="alert-item-meta">
-                      <span className={`alert-severity-badge ${alert.severity || 'info'}`}>
-                        {alert.severity || 'info'}
-                      </span>
-                      <span className="alert-item-time">{formatTimeAgo(alert.timestamp)}</span>
-                    </div>
+                    <h3 className="alert-item-title">{alert.title}</h3>
+                    {!alert.read && <span className="unread-dot" />}
                   </div>
-                  <p className="alert-item-body">{alert.body}</p>
-                  {alert.device_name && (
-                    <p className="alert-item-device">{alert.device_name}</p>
-                  )}
-                  {!alert.is_read && (
-                    <button
-                      className="mark-read-button"
-                      onClick={() => handleMarkAsRead(alert)}
-                      title="Mark as read"
-                    >
-                      <CheckCircle size={16} />
-                      Mark as read
-                    </button>
-                  )}
+                  <p className="alert-item-device">{alert.device}</p>
+                  <p className="alert-item-message">{alert.message}</p>
+                  <span className="alert-item-timestamp">{alert.timestamp}</span>
                 </div>
-
-              </div>
+                <ChevronRight size={20} color="#8BA797" className="alert-item-chevron" />
+              </article>
             ))}
           </div>
         )}
