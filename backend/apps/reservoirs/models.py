@@ -15,6 +15,7 @@ class Plant(TimeStampedModel):
 
     Columns (all NOT NULL):
     - plant_name
+    - ec_min / ec_max
     - ppm_min / ppm_max
     - ph_min / ph_max
     - water_temp_min / water_temp_max
@@ -24,6 +25,10 @@ class Plant(TimeStampedModel):
     """
 
     plant_name = models.CharField(max_length=100, unique=True)
+
+    # Electrical conductivity (mS/cm) ideal range
+    ec_min = models.FloatField(default=0.0)
+    ec_max = models.FloatField(default=0.0)
 
     ppm_min = models.FloatField()
     ppm_max = models.FloatField()
@@ -52,6 +57,8 @@ class Plant(TimeStampedModel):
 
     def clean(self):
         errors = {}
+        if self.ec_min > self.ec_max:
+            errors["ec_min"] = "ec_min cannot be greater than ec_max"
         if self.ppm_min > self.ppm_max:
             errors["ppm_min"] = "ppm_min cannot be greater than ppm_max"
         if self.ph_min > self.ph_max:
