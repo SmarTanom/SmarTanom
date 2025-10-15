@@ -148,25 +148,25 @@ function AdminCreate() {
 		} finally {
 			setIsCreating(false);
 		}
-	};	const closeSuccessModal = () => {
+	}; const closeSuccessModal = () => {
 		setCreatedDevice(null);
 		setQrCodeUrl('');
 	};
 
 	return (
-	<div className="admin-root">
-		{/* Sidebar navigation (desktop) */}
-		<aside className="admin-sidebar" aria-label="Admin sidebar">
-			<div className="brand">
-				<div className="brand-logo">
-					<img src={logoMarkWhite} alt="SmarTanom" />
+		<div className="admin-root">
+			{/* Sidebar navigation (desktop) */}
+			<aside className="admin-sidebar" aria-label="Admin sidebar">
+				<div className="brand">
+					<div className="brand-logo">
+						<img src={logoMarkWhite} alt="SmarTanom" />
+					</div>
+					<div className="brand-text">
+						<div className="brand-name">SmarTanom</div>
+						<div className="brand-subtitle">Dashboard</div>
+					</div>
 				</div>
-				<div className="brand-text">
-					<div className="brand-name">SmarTanom</div>
-					<div className="brand-subtitle">Dashboard</div>
-				</div>
-			</div>
-			<div className="side-nav-label">MENU</div>
+				<div className="side-nav-label">MENU</div>
 				<nav className="side-nav">
 					<button className="side-link" onClick={() => navigate('/admin')}>
 						<LayoutDashboard size={18} />
@@ -295,7 +295,7 @@ function AdminCreate() {
 								</li>
 								<li className="info-item">
 									<CheckCircle2 size={16} className="check-icon" />
-									<span>Ready for user binding via QR scan or email</span>
+									<span>Default sensors are created automatically and it's ready for user binding via QR or email</span>
 								</li>
 							</ul>
 						</div>

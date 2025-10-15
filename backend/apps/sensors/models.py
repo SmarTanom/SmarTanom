@@ -59,6 +59,7 @@ class Sensor(TimeStampedModel):
             default_units = {
                 self.SensorType.WATER_TEMPERATURE: "°C",
                 self.SensorType.HUMIDITY: "%",
+                self.SensorType.AIR_TEMPERATURE: "°C",
                 self.SensorType.PH: "pH",
                 self.SensorType.TDS: "ppm",
                 self.SensorType.EC: "mS/cm",

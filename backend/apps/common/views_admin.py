@@ -13,6 +13,7 @@ from apps.devices.models import Device, DeviceCollaboration
 from apps.accounts.models import User
 from apps.notifications.models import NotificationLog
 from apps.sensors.models import SensorData
+from apps.sensors.models import Sensor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -476,6 +477,31 @@ class AdminDashboardViewSet(viewsets.ViewSet):
 
             logger.info(f"Device created: {device.device_serial} by admin {request.user.email}")
 
+            # Automatically create a default set of sensors for the new device
+            default_sensor_types = [
+                Sensor.SensorType.PH,
+                Sensor.SensorType.TDS,
+                Sensor.SensorType.EC,
+                Sensor.SensorType.WATER_TEMPERATURE,
+                Sensor.SensorType.WATER_LEVEL,
+                Sensor.SensorType.TURBIDITY,
+                Sensor.SensorType.AIR_TEMPERATURE,
+                Sensor.SensorType.HUMIDITY,
+                Sensor.SensorType.LIGHT,
+            ]
+
+            created_sensors = []
+            for s_type in default_sensor_types:
+                try:
+                    # unit will auto-populate in Sensor.save() if blank
+                    sensor = Sensor.objects.create(device=device, sensor_type=s_type, unit="")
+                    created_sensors.append({'id': sensor.id, 'sensor_type': sensor.sensor_type, 'unit': sensor.unit})
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to create default sensor '{s_type}' for device {device.device_serial}: {e}",
+                        exc_info=True,
+                    )
+
             return Response({
                 'message': 'Device created successfully',
                 'device': {
@@ -486,7 +512,9 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                     'status': device.status,
                     'is_bound': device.is_bound,
                     'created_at': device.created_at
-                }
+                },
+                'sensors_created': len(created_sensors),
+                'sensors': created_sensors,
             }, status=201)
 
         except Exception as e:
