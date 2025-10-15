@@ -431,6 +431,7 @@ export default function Dashboard() {
   const connectWS = useRealtimeStore(s => s.connectWS);
   const latestAlerts = useRealtimeStore(s => s.latestAlerts);
   const totalUnread = useRealtimeStore(s => s.totalUnread);
+  const perDeviceUnreadCounts = useRealtimeStore(s => s.unreadCounts);
   const loadingInitial = useRealtimeStore(s => s.loadingInitial);
   const errorInitial = useRealtimeStore(s => s.errorInitial);
 
