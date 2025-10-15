@@ -1,4 +1,4 @@
-	import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, LogOut, Bell, Share2, Shield,
@@ -12,6 +12,7 @@ import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvi
 import { useAuth } from '../contexts/AuthContext.jsx';
 import PWAInstallButton from '../components/pwa/PWAInstallButton.jsx';
 import OtpInput from '../components/auth/OtpInput.jsx';
+import { useRealtimeStore } from '../store/realtimeStore';
 
 import { Toast } from '../components/ui/Toast.jsx';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
@@ -38,6 +39,7 @@ function formatMemberSince(dateString) {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const totalUnread = useRealtimeStore(s => s.totalUnread);
   const { logout } = useAuth();
   const [user, setUser] = useState(null);
   const [devices, setDevices] = useState([]);
@@ -239,8 +241,8 @@ export default function ProfilePage() {
   const loadDevicesForSharing = async () => {
     setDevicesLoading(true);
     try {
-  const devicesResponse = await getUserDevices();
-  const userDevices = (devicesResponse && (devicesResponse.results || devicesResponse)) || [];
+      const devicesResponse = await getUserDevices();
+      const userDevices = (devicesResponse && (devicesResponse.results || devicesResponse)) || [];
       if (Array.isArray(userDevices)) {
         setDevices(userDevices);
         console.log(`📱 Loaded ${userDevices.length} devices for sharing`);
@@ -427,7 +429,7 @@ export default function ProfilePage() {
 
     try {
       // Call API to share device
-  const result = await shareDevice(selectedDevice.id, shareEmail.trim(), 'view_only');
+      const result = await shareDevice(selectedDevice.id, shareEmail.trim(), 'view_only');
 
       console.log('✅ Device shared successfully:', result);
 
@@ -884,8 +886,8 @@ export default function ProfilePage() {
                       <span className="shared-email">{share.sharedWith}</span>
                       <span className={`shared-status ${share.status || 'active'}`}>
                         {share.status === 'pending' ? '⏳ Pending' :
-                         share.status === 'active' ? '✅ Active' :
-                         '❌ Inactive'}
+                          share.status === 'active' ? '✅ Active' :
+                            '❌ Inactive'}
                       </span>
                     </div>
                     <div className="shared-meta">
@@ -959,8 +961,29 @@ export default function ProfilePage() {
           <Leaf size={20} />
           <span>Tanom</span>
         </button>
-        <button className="nav-item" onClick={() => navigate('/alerts')}>
+        <button className="nav-item" onClick={() => navigate('/alerts')} style={{ position: 'relative' }}>
           <AlertCircle size={20} />
+          {totalUnread > 0 && (
+            <span className="nav-notification-badge" style={{
+              position: 'absolute',
+              top: '8px',
+              right: '18px',
+              backgroundColor: '#e74c3c',
+              color: 'white',
+              borderRadius: '50%',
+              width: '16px',
+              height: '16px',
+              fontSize: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              border: '2px solid white',
+              minWidth: '16px',
+            }}>
+              {totalUnread > 9 ? '9+' : totalUnread}
+            </span>
+          )}
           <span>Alerts</span>
         </button>
         <button className="nav-item active" aria-current="page">
@@ -987,34 +1010,35 @@ export default function ProfilePage() {
                 {(() => {
                   const ownedDevices = Array.isArray(devices) ? devices.filter(d => d?.is_owner) : [];
                   return (
-                <select
-                  className="form-select"
-                  value={selectedDevice?.id || ''}
-                  onChange={(e) => {
-                    const device = ownedDevices.find(d => d.id.toString() === e.target.value);
-                    setSelectedDevice(device);
-                  }}
-                  disabled={devicesLoading}
-                >
-                  <option value="">
-                    {devicesLoading ? 'Loading devices...' : 'Choose a device...'}
-                  </option>
-                  {ownedDevices.map(device => {
-                    const deviceName = device.device_name || device.plant_name || `Device ${device.device_serial}`;
-                    const deviceLabel = device.device_serial
-                      ? `${deviceName} (${device.device_serial})`
-                      : deviceName;
-                    return (
-                      <option key={device.id} value={device.id}>
-                        {deviceLabel}
+                    <select
+                      className="form-select"
+                      value={selectedDevice?.id || ''}
+                      onChange={(e) => {
+                        const device = ownedDevices.find(d => d.id.toString() === e.target.value);
+                        setSelectedDevice(device);
+                      }}
+                      disabled={devicesLoading}
+                    >
+                      <option value="">
+                        {devicesLoading ? 'Loading devices...' : 'Choose a device...'}
                       </option>
-                    );
-                  })}
-                  {!devicesLoading && ownedDevices.length === 0 && (
-                    <option value="" disabled>No devices found</option>
-                  )}
-                </select>
-                  );})()}
+                      {ownedDevices.map(device => {
+                        const deviceName = device.device_name || device.plant_name || `Device ${device.device_serial}`;
+                        const deviceLabel = device.device_serial
+                          ? `${deviceName} (${device.device_serial})`
+                          : deviceName;
+                        return (
+                          <option key={device.id} value={device.id}>
+                            {deviceLabel}
+                          </option>
+                        );
+                      })}
+                      {!devicesLoading && ownedDevices.length === 0 && (
+                        <option value="" disabled>No devices found</option>
+                      )}
+                    </select>
+                  );
+                })()}
                 {!devicesLoading && (Array.isArray(devices) ? devices.filter(d => d?.is_owner).length === 0 : true) && (
                   <p className="form-help-text" style={{ color: '#e74c3c' }}>
                     You don't have any devices to share. Bind a device first.

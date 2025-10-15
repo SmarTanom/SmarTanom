@@ -21,6 +21,7 @@ import { getUserDevices } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 import { getDeviceReservoirs } from '../services/api/reservoirs.js';
 import { listPlants } from '../services/api/plants.js';
+import { useRealtimeStore } from '../store/realtimeStore';
 
 // Local persistence for read alerts (database alerts only)
 const READ_STORAGE_KEY = 'alerts.readingIds';
@@ -259,6 +260,7 @@ function enrichAlertMessage(plantInfo, sensorType, classificationReason, baseMes
 
 export default function AlertsPage() {
   const navigate = useNavigate();
+  const totalUnread = useRealtimeStore(s => s.totalUnread);
   const [searchParams] = useSearchParams();
   const deviceId = searchParams.get('deviceId'); // Get device filter from URL
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'critical'
@@ -898,8 +900,29 @@ export default function AlertsPage() {
           <Leaf size={20} />
           <span>Tanom</span>
         </button>
-        <button className="nav-item active" aria-current="page">
+        <button className="nav-item active" aria-current="page" style={{ position: 'relative' }}>
           <AlertCircle size={20} />
+          {totalUnread > 0 && (
+            <span className="nav-notification-badge" style={{
+              position: 'absolute',
+              top: '8px',
+              right: '18px',
+              backgroundColor: '#e74c3c',
+              color: 'white',
+              borderRadius: '50%',
+              width: '16px',
+              height: '16px',
+              fontSize: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              border: '2px solid white',
+              minWidth: '16px',
+            }}>
+              {totalUnread > 9 ? '9+' : totalUnread}
+            </span>
+          )}
           <span>Alerts</span>
         </button>
         <button className="nav-item" onClick={() => navigate('/profile')}>
