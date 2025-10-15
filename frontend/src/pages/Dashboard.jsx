@@ -30,7 +30,6 @@ import { listPlants } from '../services/api/plants.js';
 import { authApi } from '../services/apiClient.js';
 import { wsClient } from '../services/websocketClient';
 import { useRealtimeStore } from '../store/realtimeStore';
-import RecentAlerts from '../components/RecentAlerts';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -1555,10 +1554,6 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* Recent Alerts Section - Real-time updates */}
-        {currentDevice && (
-          <RecentAlerts deviceId={currentDevice.id} maxAlerts={10} />
-        )}
 
         {/* Connectivity & Sync */}
         <section className="status-grid" aria-label="Status">
