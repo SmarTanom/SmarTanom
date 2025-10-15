@@ -66,7 +66,14 @@ export default function CodePage({ mode = 'signin' }) {
         if (resp?.token) {
           const loginResult = await login(resp.token, resp.user);
           if (loginResult.success) {
-            navigate('/dashboard');
+            // Check if there's a last visited page to restore
+            const lastPage = localStorage.getItem('lastVisitedPage');
+            if (lastPage && lastPage !== '/') {
+              console.log('[CodePage] Redirecting to last visited page:', lastPage);
+              navigate(lastPage, { replace: true });
+            } else {
+              navigate('/dashboard');
+            }
           } else {
             setError(loginResult.error || 'Login failed');
           }

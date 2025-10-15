@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../services/apiClient.js';
+import { clearPersistedPage } from '../hooks/usePagePersistence.js';
 
 const AuthContext = createContext(null);
 
@@ -122,6 +123,9 @@ export function AuthProvider({ children }) {
 
       // Clear local state
       localStorage.removeItem('authToken');
+
+      // Clear persisted page so user starts fresh on next login
+      clearPersistedPage();
 
       setAuthState({
         loading: false,

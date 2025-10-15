@@ -122,17 +122,31 @@ export default function EmailPage({ mode = 'signin' }) {
       }
       // Otherwise, after successful sign-in, fetch profile and route by role
       const token = resp?.token || localStorage.getItem('authToken');
+
+      // Check if there's a last visited page to restore (for regular users)
+      const lastPage = localStorage.getItem('lastVisitedPage');
       let target = '/dashboard';
+
       try {
         if (token) {
           const prof = await authApi.getProfile(token);
           const role = prof?.role || prof?.user?.role;
           const isAdmin = prof?.is_admin === true || prof?.user?.is_admin === true;
-          if (role === 'admin' || isAdmin) target = '/admin';
+
+          // Admin users always go to admin dashboard
+          if (role === 'admin' || isAdmin) {
+            target = '/admin';
+          }
+          // Regular users: restore last page if available
+          else if (lastPage && lastPage !== '/') {
+            console.log('[EmailPage] Redirecting to last visited page:', lastPage);
+            target = lastPage;
+          }
         }
       } catch (_) {
         // default to user dashboard if profile lookup fails
       }
+
       navigate(target, { replace: true });
     } catch (err){
       setStatusMsg('');

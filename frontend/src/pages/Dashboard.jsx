@@ -312,6 +312,27 @@ const generateAlertText = (sensors, plant) => {
     }
   }
 
+  // EC relative to plant target
+  if (typeof sensors.ec === 'number' && plant) {
+    const v = Number(sensors.ec);
+    const min = plant.ec_min;
+    const max = plant.ec_max;
+    const cls = classifyEC(v, plant);
+    if (cls.severity === 'critical') {
+      if (cls.reason === 'below_min') {
+        pushCandidate('critical', 4, `EC is ${v} mS/cm which is below the optimal range (${min}–${max} mS/cm) for ${plantName}. Increase nutrient concentration gradually and re-test.`);
+      } else if (cls.reason === 'above_max') {
+        pushCandidate('critical', 4, `EC is ${v} mS/cm which is above the optimal range (${min}–${max} mS/cm) for ${plantName}. Dilute or perform a partial drain/refill and re-test.`);
+      }
+    } else if (cls.severity === 'warning') {
+      if (cls.reason === 'near_min') {
+        pushCandidate('warning', 6.5, `EC is ${v} mS/cm and nearing the lower limit (${min} mS/cm) for ${plantName}. Monitor and consider a mild nutrient top-up.`);
+      } else if (cls.reason === 'near_max') {
+        pushCandidate('warning', 6.5, `EC is ${v} mS/cm and nearing the upper limit (${max} mS/cm) for ${plantName}. Monitor and consider dilution if trend continues.`);
+      }
+    }
+  }
+
   // Light relative to plant target
   if (typeof sensors.light === 'number' && plant) {
     const lux = Number(sensors.light);
@@ -459,6 +480,7 @@ function classifyValue(value, min, max) {
 }
 const classifyPH = (v, plant) => plant ? classifyValue(Number(v), plant.ph_min, plant.ph_max) : { severity: 'none' };
 const classifyTDS = (v, plant) => plant ? classifyValue(Number(v), plant.ppm_min, plant.ppm_max) : { severity: 'none' };
+const classifyEC = (v, plant) => plant ? classifyValue(Number(v), plant.ec_min, plant.ec_max) : { severity: 'none' };
 const classifyEnvTemp = (v, plant) => plant ? classifyValue(Number(v), plant.environment_temp_min, plant.environment_temp_max) : { severity: 'none' };
 const classifyHumidity = (v, plant) => plant ? classifyValue(Number(v), plant.humidity_min, plant.humidity_max) : { severity: 'none' };
 const classifyLight = (v, plant) => plant ? classifyValue(Number(v), plant.light_min, plant.light_max) : { severity: 'none' };
@@ -766,6 +788,12 @@ export default function Dashboard() {
       }
       const findPlant = (reservoir) => {
         if (!reservoir) return null;
+        // First check if reservoir already has full plant object with ranges
+        if (reservoir.plant && typeof reservoir.plant === 'object' && reservoir.plant.ph_min !== undefined) {
+          console.log('[Dashboard] Using plant data from reservoir object:', reservoir.plant.plant_name);
+          return reservoir.plant;
+        }
+        // Fallback: look up by name in catalog
         const name = reservoir.plant_type || reservoir.plant;
         if (!name) return null;
         return plantCatalog.find(p => p.plant_name === name) || null;
@@ -780,9 +808,25 @@ export default function Dashboard() {
             return db - da;
           })[0];
           devicePlant = findPlant(active);
+          console.log('[Dashboard] Active reservoir for device', deviceId, ':', active);
+          console.log('[Dashboard] Resolved plant:', devicePlant);
         }
       } catch (e) {
         console.warn('[Dashboard] Failed to resolve active reservoir/plant for device', deviceId, e);
+      }
+
+      // Fallback: if we couldn't resolve via reservoirs, try mapping the device's plant_name
+      if (!devicePlant) {
+        try {
+          const deviceMeta = devices.find(d => d.id === deviceId);
+          const devicePlantName = deviceMeta?.plant_name || deviceMeta?.plant?.plant_name;
+          if (devicePlantName && Array.isArray(plantCatalog)) {
+            const mapped = plantCatalog.find(p => p.plant_name === devicePlantName);
+            if (mapped) devicePlant = mapped;
+          }
+        } catch (_e) {
+          // ignore fallback errors
+        }
       }
       const sensorDataMap = {};
       if (Array.isArray(sensors) && sensors.length > 0) {
@@ -875,6 +919,19 @@ export default function Dashboard() {
   const handleDeviceInfoClick = (e, device) => {
     e.stopPropagation();
     if (!device || !device.id) return;
+
+    // Save the current device selection before navigating away
+    const idx = devices.findIndex(d => d.id === device.id);
+    if (idx >= 0) {
+      try {
+        localStorage.setItem('dashboard.activeDeviceIndex', idx.toString());
+        localStorage.setItem('dashboard.activeDeviceId', device.id.toString());
+        console.log(`[Dashboard] Saved device selection before navigating to device details: ${device.device_name || device.id}`);
+      } catch (e) {
+        console.warn('Failed to save device selection:', e);
+      }
+    }
+
     navigate(`/device/${device.id}`);
   };
 
@@ -1540,20 +1597,28 @@ export default function Dashboard() {
             )}
           </h3>
           <div className="alert-card-message" style={{
-            color: data?.alertText && data.alertText !== 'All systems normal' ?
-              (latestAlerts[currentDevice?.id]?.severity === 'critical' ? '#e74c3c' :
-                latestAlerts[currentDevice?.id]?.severity === 'warning' ? '#f59e0b' :
-                  '#339432') : 'rgba(17, 17, 17, 0.86)'
-          }}>{data?.alertText || 'All systems normal'}</div>
-          {latestAlerts[currentDevice?.id] && (
-            <div style={{ marginTop: '6px', fontSize: '11px', color: '#555' }} aria-live="polite">
-              <strong style={{
-                color: latestAlerts[currentDevice.id].severity === 'critical' ? '#e74c3c' :
-                  latestAlerts[currentDevice.id].severity === 'warning' ? '#f59e0b' :
-                    '#339432'
-              }}>{latestAlerts[currentDevice.id].title}:</strong> {latestAlerts[currentDevice.id].body}
-            </div>
-          )}
+            color: (() => {
+              // Determine color from latest alert or generated alert text
+              if (latestAlerts[currentDevice?.id]) {
+                const severity = latestAlerts[currentDevice.id].severity;
+                return severity === 'critical' ? '#e74c3c' : severity === 'warning' ? '#f59e0b' : '#339432';
+              }
+              if (data?.alertText && data.alertText !== 'All systems normal') {
+                // Parse severity from alert text keywords
+                const text = data.alertText.toLowerCase();
+                if (text.includes('critical') || text.includes('empty') || text.includes('0%')) return '#e74c3c';
+                if (text.includes('warning') || text.includes('low') || text.includes('high') || text.includes('approaching')) return '#f59e0b';
+                return '#339432';
+              }
+              return 'rgba(17, 17, 17, 0.86)';
+            })()
+          }}>
+            {/* Show latest alert from realtime store if available, otherwise fall back to generated alert text */}
+            {latestAlerts[currentDevice?.id]
+              ? `${latestAlerts[currentDevice.id].title}: ${latestAlerts[currentDevice.id].body}`
+              : (data?.alertText || 'All systems normal')
+            }
+          </div>
           {currentDevice && (
             <p style={{
               fontSize: '11px',
@@ -1598,7 +1663,54 @@ export default function Dashboard() {
             <div className="icon-circle">
               <Leaf size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
-            <span className="nutrient-text">{data ? (data.nutrientText || 'Loading...') : 'Loading...'}</span>
+            <span className="nutrient-text">
+              {(() => {
+                // Determine nutrient status using available sensor: prefer TDS (ppm); fallback to EC (mS/cm)
+                let plant = data?.plant || currentDevice?.plant;
+                if (!plant) {
+                  try {
+                    const name = currentDevice?.plant_name;
+                    const catalog = plantCatalogRef.current || [];
+                    if (name && Array.isArray(catalog)) {
+                      plant = catalog.find(p => p.plant_name === name) || null;
+                    }
+                  } catch (_e) { /* ignore */ }
+                }
+
+                const tdsValue = typeof data?.sensors?.tds === 'number' ? Number(data.sensors.tds) : null;
+                const ecValue = typeof data?.sensors?.ec === 'number' ? Number(data.sensors.ec) : null;
+
+                // Show "No sensor data" if no plant configured
+                if (!plant) {
+                  if (tdsValue === null && ecValue === null) return 'No sensor data';
+                  return 'No plant configured';
+                }
+
+                // If we have TDS value and plant has TDS ranges
+                if (Number.isFinite(tdsValue) && plant.ppm_min != null && plant.ppm_max != null) {
+                  const cls = classifyTDS(tdsValue, plant);
+                  if (cls.severity === 'critical') return tdsValue < plant.ppm_min ? 'Low (Add nutrients)' : 'High (Dilute solution)';
+                  if (cls.severity === 'warning') return tdsValue < plant.ppm_min ? 'Low (near min)' : 'High (near max)';
+                  return 'Optimal';
+                }
+
+                // If we have EC value and plant has EC ranges
+                if (Number.isFinite(ecValue) && plant.ec_min != null && plant.ec_max != null) {
+                  const cls = classifyEC(ecValue, plant);
+                  if (cls.severity === 'critical') return ecValue < plant.ec_min ? 'Low (Add nutrients)' : 'High (Dilute solution)';
+                  if (cls.severity === 'warning') return ecValue < plant.ec_min ? 'Low (near min)' : 'High (near max)';
+                  return 'Optimal';
+                }
+
+                // If we have sensor readings but no plant ranges
+                if (tdsValue !== null || ecValue !== null) {
+                  return 'Plant ranges not configured';
+                }
+
+                // No sensor readings available
+                return 'No sensor data';
+              })()}
+            </span>
           </div>
         </section>
 
@@ -1847,11 +1959,20 @@ export default function Dashboard() {
             const latestPh = data?.sensors?.ph; // real-time field updated by WebSocket
             const hasPh = typeof latestPh === 'number' && Number.isFinite(latestPh);
             const phVal = hasPh ? latestPh : null;
-            const plantObj = data?.plant || currentDevice?.plant;
+            let plantObj = data?.plant || currentDevice?.plant;
+            if (!plantObj) {
+              try {
+                const name = currentDevice?.plant_name;
+                const catalog = plantCatalogRef.current || [];
+                if (name && Array.isArray(catalog)) {
+                  plantObj = catalog.find(p => p.plant_name === name) || null;
+                }
+              } catch (_e) { /* ignore */ }
+            }
 
             // Enhanced status determination with plant-specific ranges
             const getPHStatus = (phValue) => {
-              if (!hasPh) return { status: 'Loading...', severity: 'none', color: '#8BA797' };
+              if (!hasPh) return { status: 'No Data', severity: 'none', color: '#8BA797' };
               // Use plant-specific ranges if available; otherwise neutral
               if (plantObj?.ph_min !== undefined && plantObj?.ph_max !== undefined) {
                 const phMin = Number(plantObj.ph_min);
@@ -1863,7 +1984,8 @@ export default function Dashboard() {
                 if (phValue >= phMax - buffer) return { status: 'High Warning', severity: 'warning', color: '#f59e0b' };
                 return { status: 'Optimal', severity: 'optimal', color: '#339432' };
               }
-              return { status: '—', severity: 'none', color: PRIMARY_GREEN };
+              // No plant ranges configured - show neutral status
+              return { status: 'Measuring', severity: 'none', color: PRIMARY_GREEN };
             };
 
             const phStatus = getPHStatus(phVal);
@@ -1885,22 +2007,59 @@ export default function Dashboard() {
                     <Activity size={16} color={phStatus.color} strokeWidth={2.5} />
                     <span className="ph-label">Current Level</span>
                   </div>
-                  <div className="ph-range-indicator">
+                    <div className="ph-range-indicator">
                     <div className="range-bar">
-                      <div className="optimal-range"></div>
+                      <div
+                        className="optimal-range"
+                        style={{
+                          display: (plantObj?.ph_min !== undefined && plantObj?.ph_max !== undefined) ? 'block' : 'none',
+                          left: (() => {
+                            if (plantObj?.ph_min !== undefined && plantObj?.ph_max !== undefined) {
+                              const phMin = Number(plantObj.ph_min);
+                              const phMax = Number(plantObj.ph_max);
+                              const visualMin = Math.max(0, phMin - 1);
+                              const visualMax = Math.min(14, phMax + 1);
+                              const span = visualMax - visualMin;
+                              const leftPct = ((phMin - visualMin) / span) * 100;
+                              return `${Math.max(0, Math.min(100, leftPct))}%`;
+                            }
+                            return '0%';
+                          })(),
+                          width: (() => {
+                            if (plantObj?.ph_min !== undefined && plantObj?.ph_max !== undefined) {
+                              const phMin = Number(plantObj.ph_min);
+                              const phMax = Number(plantObj.ph_max);
+                              const visualMin = Math.max(0, phMin - 1);
+                              const visualMax = Math.min(14, phMax + 1);
+                              const span = visualMax - visualMin;
+                              const widthPct = ((phMax - phMin) / span) * 100;
+                              return `${Math.max(0, Math.min(100, widthPct))}%`;
+                            }
+                            return '100%';
+                          })()
+                        }}
+                      ></div>
                       <div
                         className="current-marker"
                         style={{
+                          display: hasPh ? 'block' : 'none',
                           left: (() => {
                             if (!hasPh) return '50%';
                             if (plantObj?.ph_min !== undefined && plantObj?.ph_max !== undefined) {
                               const phMin = Number(plantObj.ph_min);
                               const phMax = Number(plantObj.ph_max);
-                              const span = Math.max(0.1, phMax - phMin);
-                              const pct = ((phVal - phMin) / span) * 100;
+
+                              // Calculate position based on extended range for visualization
+                              // Use a range from (min - 1) to (max + 1) for better visual distribution
+                              const visualMin = Math.max(0, phMin - 1);
+                              const visualMax = Math.min(14, phMax + 1);
+                              const span = visualMax - visualMin;
+                              const pct = ((phVal - visualMin) / span) * 100;
                               return `${Math.max(0, Math.min(100, pct))}%`;
                             }
-                            return '50%';
+                            // Without plant ranges, use 0-14 scale
+                            const pct = (phVal / 14) * 100;
+                            return `${Math.max(0, Math.min(100, pct))}%`;
                           })(),
                           backgroundColor: phStatus.color
                         }}
@@ -1908,20 +2067,34 @@ export default function Dashboard() {
                     </div>
                     <div className="range-labels">
                       <span>{(() => {
+                        // Left label: Show current pH if below min, otherwise show (min - 1) or min
                         if (!hasPh) return '--';
-                        if (plantObj?.ph_min !== undefined) return `${plantObj.ph_min}`;
-                        return '--';
+                        if (plantObj?.ph_min !== undefined) {
+                          const phMin = Number(plantObj.ph_min);
+                          if (phVal < phMin) {
+                            return phVal.toFixed(1); // Show actual low value
+                          }
+                          return Math.max(0, phMin - 1).toFixed(1);
+                        }
+                        return '0.0';
                       })()}</span>
                       <span style={{ fontWeight: '600', color: phStatus.color }}>
                         {plantObj?.ph_min !== undefined && plantObj?.ph_max !== undefined
-                          ? `${plantObj.ph_min}-${plantObj.ph_max}`
-                          : '—'
+                          ? `${plantObj.ph_min} - ${plantObj.ph_max}`
+                          : (hasPh ? phVal.toFixed(1) : '—')
                         }
                       </span>
                       <span>{(() => {
+                        // Right label: Show current pH if above max, otherwise show (max + 1) or max
                         if (!hasPh) return '--';
-                        if (plantObj?.ph_max !== undefined) return `${plantObj.ph_max}`;
-                        return '--';
+                        if (plantObj?.ph_max !== undefined) {
+                          const phMax = Number(plantObj.ph_max);
+                          if (phVal > phMax) {
+                            return phVal.toFixed(1); // Show actual high value
+                          }
+                          return Math.min(14, phMax + 1).toFixed(1);
+                        }
+                        return '14.0';
                       })()}</span>
                     </div>
                   </div>

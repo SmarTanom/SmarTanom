@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthFlowProvider } from './features/auth/AuthFlowContext.jsx';
@@ -7,6 +7,7 @@ import { AuthProvider } from './contexts/AuthContext.jsx';
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx';
 import PublicRoute from './components/auth/PublicRoute.jsx';
 import { initializePWA, setupNetworkHandling, setupInstallPrompt } from './utils/pwaInit.js';
+import { usePagePersistence, useRestoreLastPage } from './hooks/usePagePersistence.js';
 import LandingPage from './pages/LandingPage.jsx';
 import EmailPage from './pages/EmailPage.jsx';
 import CodePage from './pages/CodePage.jsx';
@@ -92,6 +93,17 @@ function useKeyboardViewport() {
   }, []);
 }
 
+/**
+ * Component to handle page persistence across refreshes
+ * Tracks current location and restores last visited page on mount
+ */
+function PagePersistenceManager() {
+  // Track page changes and save to localStorage
+  usePagePersistence();
+
+  return null; // This component only handles side effects
+}
+
 export default function App() {
   useKeyboardViewport();
 
@@ -142,9 +154,12 @@ export default function App() {
     };
 
     initPWA();
-  }, []); return (
+  }, []);
+
+  return (
     <AuthProvider>
       <AuthFlowProvider>
+        <PagePersistenceManager />
         <Routes>
           {/* Public routes - only accessible to non-authenticated users */}
           <Route

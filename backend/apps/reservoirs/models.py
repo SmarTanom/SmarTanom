@@ -28,6 +28,10 @@ class Plant(TimeStampedModel):
     ppm_min = models.FloatField()
     ppm_max = models.FloatField()
 
+    # EC (Electrical Conductivity) thresholds
+    ec_min = models.FloatField(default=0.0)
+    ec_max = models.FloatField(default=3.0)
+
     ph_min = models.FloatField()
     ph_max = models.FloatField()
 
@@ -54,6 +58,8 @@ class Plant(TimeStampedModel):
         errors = {}
         if self.ppm_min > self.ppm_max:
             errors["ppm_min"] = "ppm_min cannot be greater than ppm_max"
+        if self.ec_min > self.ec_max:
+            errors["ec_min"] = "ec_min cannot be greater than ec_max"
         if self.ph_min > self.ph_max:
             errors["ph_min"] = "ph_min cannot be greater than ph_max"
         if self.water_temp_min > self.water_temp_max:

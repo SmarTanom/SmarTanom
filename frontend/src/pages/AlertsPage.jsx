@@ -119,6 +119,11 @@ function classifyTDS(value, plant) {
   return classifyValue(Number(value), plant.ppm_min, plant.ppm_max);
 }
 
+function classifyEC(value, plant) {
+  if (!plant) return { severity: 'none', reason: null };
+  return classifyValue(Number(value), plant.ec_min, plant.ec_max);
+}
+
 function classifyPH(value, plant) {
   if (!plant) return { severity: 'none', reason: null };
   return classifyValue(Number(value), plant.ph_min, plant.ph_max);
@@ -166,6 +171,12 @@ const PLANT_RECOMMENDATION_TEMPLATES = {
       near_min: 'Plan a mild nutrient top-up soon.',
       near_max: 'If leaves pale or edges curl, dilute slightly.'
     },
+    ec: {
+      below_min: 'Increase EC gradually (0.2-0.3 mS/cm per adjustment).',
+      above_max: 'Dilute to avoid nutrient lockout; target mid‑range.',
+      near_min: 'Plan a mild nutrient top-up soon.',
+      near_max: 'Monitor for signs of nutrient burn.'
+    },
     light: {
       below_min: 'Add supplemental light or reduce canopy shading.',
       above_max: 'Too intense light can cause tip burn; raise fixture or diffuse.',
@@ -200,6 +211,12 @@ const PLANT_RECOMMENDATION_TEMPLATES = {
       near_max: 'If trending higher, perform partial dilution.'
     },
     tds: {
+      below_min: 'Slight boost supports leaf mass; add balanced nutrients.',
+      above_max: 'Excess salts can dull flavor — dilute 10–20%.',
+      near_min: 'Consider mild feed if new growth is pale.',
+      near_max: 'Maintain airflow; high EC plus heat stresses basil.'
+    },
+    ec: {
       below_min: 'Slight boost supports leaf mass; add balanced nutrients.',
       above_max: 'Excess salts can dull flavor — dilute 10–20%.',
       near_min: 'Consider mild feed if new growth is pale.',
@@ -241,6 +258,7 @@ function enrichAlertMessage(plantInfo, sensorType, classificationReason, baseMes
   const domainMap = {
     ph: 'ph',
     tds: 'tds',
+    ec: 'ec',
     light: 'light',
     humidity: 'humidity',
     air_temperature: 'environment_temp',
@@ -349,9 +367,9 @@ export default function AlertsPage() {
             const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
             if (!sensors || sensors.length === 0) return;
 
-            // Consider pH, water_level, tds, turbidity, light, humidity and air_temperature (DHT22) sensors
+            // Consider pH, water_level, tds, ec, turbidity, light, humidity and air_temperature (DHT22) sensors
             // Backend uses 'air_temperature' for DHT22 (air temp + humidity)
-            const relevantSensors = sensors.filter(s => ['ph', 'water_level', 'tds', 'turbidity', 'light', 'humidity', 'air_temperature', 'water_temperature'].includes(s.sensor_type));
+            const relevantSensors = sensors.filter(s => ['ph', 'water_level', 'tds', 'ec', 'turbidity', 'light', 'humidity', 'air_temperature', 'water_temperature'].includes(s.sensor_type));
             if (!relevantSensors || relevantSensors.length === 0) return;
 
             // Fetch recent sensor data for each relevant sensor so we can show multiple alerts
@@ -378,6 +396,12 @@ export default function AlertsPage() {
                   } else if (sensor.sensor_type === 'tds') {
                     // Dynamic plant-driven classification
                     const { severity } = classifyTDS(Number(val), devicePlant);
+                    if (severity === 'critical' || severity === 'warning') {
+                      abnormalReadings.push({ device, sensor, reading: r, plant: devicePlant });
+                    }
+                  } else if (sensor.sensor_type === 'ec') {
+                    // Dynamic plant-driven EC classification
+                    const { severity } = classifyEC(Number(val), devicePlant);
                     if (severity === 'critical' || severity === 'warning') {
                       abnormalReadings.push({ device, sensor, reading: r, plant: devicePlant });
                     }
@@ -542,6 +566,41 @@ export default function AlertsPage() {
                 }
                 icon = 'zap';
                 message = enrichAlertMessage(plantInfo, 'tds', classificationReason, message);
+              } else if (sensor && sensor.sensor_type === 'ec') {
+                const v = Number(val);
+                const plantInfo = plant;
+                const classification = classifyEC(v, plantInfo);
+                let classificationReason = classification.reason;
+                const min = plantInfo ? plantInfo.ec_min : undefined;
+                const max = plantInfo ? plantInfo.ec_max : undefined;
+                if (classification.severity === 'critical') {
+                  if (classification.reason === 'below_min') {
+                    type = 'critical';
+                    title = 'EC below optimal range';
+                    message = `EC is ${v} mS/cm which is below the optimal range (${min}–${max} mS/cm) for ${plantInfo?.plant_name || 'this plant'}. Increase nutrient concentration gradually and re-test.`;
+                  } else if (classification.reason === 'above_max') {
+                    type = 'critical';
+                    title = 'EC above optimal range';
+                    message = `EC is ${v} mS/cm which is above the optimal range (${min}–${max} mS/cm) for ${plantInfo?.plant_name || 'this plant'}. Dilute or perform a partial drain/refill and re-test.`;
+                  }
+                } else if (classification.severity === 'warning') {
+                  if (classification.reason === 'near_min') {
+                    type = 'warning';
+                    title = 'EC approaching low boundary';
+                    message = `EC is ${v} mS/cm and nearing the lower limit (${min} mS/cm) for ${plantInfo?.plant_name || 'this plant'}. Monitor and consider a mild nutrient top-up.`;
+                  } else if (classification.reason === 'near_max') {
+                    type = 'warning';
+                    title = 'EC approaching high boundary';
+                    message = `EC is ${v} mS/cm and nearing the upper limit (${max} mS/cm) for ${plantInfo?.plant_name || 'this plant'}. Monitor and consider dilution if trend continues.`;
+                  }
+                } else {
+                  // Should not reach here since non-alerts filtered earlier
+                  title = 'EC stable';
+                  type = 'info';
+                  message = `EC is ${v} mS/cm within optimal range (${min}–${max} mS/cm).`;
+                }
+                icon = 'zap';
+                message = enrichAlertMessage(plantInfo, 'ec', classificationReason, message);
               } else if (sensor && sensor.sensor_type === 'turbidity') {
                 const raw = Number(val);
                 if (raw > 2100) {

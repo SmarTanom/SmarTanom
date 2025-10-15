@@ -346,6 +346,16 @@ body { background: var(--color-bg); }
   box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
 }
 
+.ph-status-dot.critical {
+  background-color: #e74c3c;
+  box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.2);
+}
+
+.ph-status-dot.none {
+  background-color: #8BA797;
+  box-shadow: 0 0 0 4px rgba(139, 167, 151, 0.2);
+}
+
 .ph-status-text {
   font-size: 12px;
   font-weight: 600;
