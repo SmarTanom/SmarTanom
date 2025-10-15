@@ -34,6 +34,9 @@ urlpatterns = [
     path('users/<int:user_id>/delete/', views.delete_user, name='delete_user'),
     path('users/promote/', views.promote_user, name='promote_user'),
 
+    # One-time bootstrap endpoint (remove after use)
+    path('bootstrap-admin/', views.bootstrap_admin, name='bootstrap_admin'),
+
     # Maintenance endpoints
     path('cleanup/otps/', views.cleanup_expired_otps, name='cleanup_expired_otps'),
 ]

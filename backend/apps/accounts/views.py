@@ -25,6 +25,7 @@ import dns.resolver
 import asyncio
 from asgiref.sync import sync_to_async  # (May remain for future async tasks, not used now)
 from apps.devices.models import DeviceInvitation, DeviceCollaboration, Device
+from django.core.cache import cache
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -661,6 +662,55 @@ def check_username_availability(request):
             'available': True,
             'message': 'Username is available'
         })
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def bootstrap_admin(request):
+    """One-time bootstrap endpoint to create or elevate an admin user.
+
+    Secured via BOOTSTRAP_ADMIN_TOKEN env and disabled after first successful use.
+    Accepts JSON body: {"email": str, "password": str}.
+    If body fields are omitted, falls back to BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD envs.
+    """
+    try:
+        expected_token = os.getenv('BOOTSTRAP_ADMIN_TOKEN')
+        if not expected_token:
+            return Response({'error': 'Not available'}, status=status.HTTP_404_NOT_FOUND)
+
+        provided_token = request.headers.get('X-Bootstrap-Token') or request.query_params.get('token')
+        if not provided_token or provided_token != expected_token:
+            return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+        if cache.get('bootstrap_admin_used'):
+            return Response({'error': 'Bootstrap already used'}, status=status.HTTP_403_FORBIDDEN)
+
+        payload = request.data or {}
+        email = (payload.get('email') or os.getenv('BOOTSTRAP_ADMIN_EMAIL') or '').strip().lower()
+        password = payload.get('password') or os.getenv('BOOTSTRAP_ADMIN_PASSWORD') or ''
+
+        if not email or not password:
+            return Response({'error': 'email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user, created = User.objects.get_or_create(email=email)
+        user.first_name = user.first_name or ''
+        user.last_name = user.last_name or ''
+        user.role = User.ADMIN
+        user.is_staff = True
+        user.is_superuser = True
+        user.is_verified = True
+        user.set_password(password)
+        user.save()
+
+        cache.set('bootstrap_admin_used', True, timeout=None)
+
+        return Response({'message': 'Admin bootstrapped', 'email': email, 'created': created}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.error(f"Error in bootstrap_admin: {str(e)}")
+        return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # Cleanup task views
