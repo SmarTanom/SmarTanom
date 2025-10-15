@@ -19,7 +19,7 @@ class ReservoirAdmin(admin.ModelAdmin):
 @admin.register(Plant)
 class PlantAdmin(admin.ModelAdmin):
     list_display = (
-        'plant_name', 'ppm_min', 'ppm_max', 'ph_min', 'ph_max',
+        'plant_name', 'ppm_min', 'ppm_max', 'ec_min', 'ec_max', 'ph_min', 'ph_max',
         'water_temp_min', 'water_temp_max', 'light_min', 'light_max',
         'environment_temp_min', 'environment_temp_max', 'humidity_min', 'humidity_max',
         'created_at'
