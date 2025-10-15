@@ -1,0 +1,101 @@
+[
+  {
+    "model": "sensors.sensor",
+    "pk": 55,
+    "fields": {
+      "device": 23,
+      "sensor_type": "ph",
+      "unit": "pH",
+      "created_at": "2025-10-10T12:00:00.000Z",
+      "updated_at": "2025-10-10T12:00:00.000Z"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 56,
+    "fields": {
+      "device": 23,
+      "sensor_type": "tds",
+      "unit": "ppm",
+      "created_at": "2025-10-10T12:00:00.000Z",
+      "updated_at": "2025-10-10T12:00:00.000Z"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 57,
+    "fields": {
+      "device": 23,
+      "sensor_type": "ec",
+      "unit": "mS/cm",
+      "created_at": "2025-10-10T12:00:00.000Z",
+      "updated_at": "2025-10-10T12:00:00.000Z"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 58,
+    "fields": {
+      "device": 23,
+      "sensor_type": "water_temperature",
+      "unit": "°C",
+      "created_at": "2025-10-10T12:00:00.000Z",
+      "updated_at": "2025-10-10T12:00:00.000Z"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 59,
+    "fields": {
+      "device": 23,
+      "sensor_type": "water_level",
+      "unit": "%",
+      "created_at": "2025-10-10T12:00:00.000Z",
+      "updated_at": "2025-10-10T12:00:00.000Z"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 60,
+    "fields": {
+      "device": 23,
+      "sensor_type": "turbidity",
+      "unit": "NTU",
+      "created_at": "2025-10-10T12:00:00.000Z",
+      "updated_at": "2025-10-10T12:00:00.000Z"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 61,
+    "fields": {
+      "device": 23,
+      "sensor_type": "air_temperature",
+      "unit": "°C",
+      "created_at": "2025-10-10T12:00:00.000Z",
+      "updated_at": "2025-10-10T12:00:00.000Z"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 62,
+    "fields": {
+      "device": 23,
+      "sensor_type": "humidity",
+      "unit": "%",
+      "created_at": "2025-10-10T12:00:00.000Z",
+      "updated_at": "2025-10-10T12:00:00.000Z"
+    }
+  },
+  {
+    "model": "sensors.sensor",
+    "pk": 63,
+    "fields": {
+      "device": 23,
+      "sensor_type": "light",
+      "unit": "lux",
+      "created_at": "2025-10-10T12:00:00.000Z",
+      "updated_at": "2025-10-10T12:00:00.000Z"
+    }
+  }
+]
