@@ -643,14 +643,44 @@ export default function Dashboard() {
   const errorInitial = useRealtimeStore(s => s.errorInitial);
   const updateDeviceData = useRealtimeStore(s => s.updateDeviceData);
 
+  // Track if store has been hydrated from localStorage
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Check if store is hydrated on mount
+  useEffect(() => {
+    // Zustand persist rehydrates synchronously on store creation
+    // We need to wait a bit to ensure the hydration has completed and data is available
+    const timer = setTimeout(() => {
+      console.log('✅ Store hydration complete');
+      console.log('📦 Devices in store:', useRealtimeStore.getState().devices.length);
+      console.log('📦 Device data keys:', Object.keys(useRealtimeStore.getState().deviceData));
+      setIsHydrated(true);
+    }, 100); // Increased delay to ensure hydration is complete
+
+    return () => clearTimeout(timer);
+  }, []);
+
   // Current device selection must be defined before any effects/dependencies that reference it
   const currentDevice = devices[activeIdx];
   const data = currentDevice ? devicesData[currentDevice.id] : null;
+
+  // Debug logging for data availability
+  useEffect(() => {
+    if (currentDevice) {
+      console.log('🔍 Current device:', currentDevice.device_name || currentDevice.id);
+      console.log('🔍 Device data available:', !!data);
+      console.log('🔍 Device data sensors:', data?.sensors);
+      console.log('🔍 All devices data keys:', Object.keys(devicesData));
+    }
+  }, [currentDevice, data, devicesData]);
 
   // Latest reading for the first device's first sensor (useful for small widgets)
   const [firstSensorReading, setFirstSensorReading] = useState(null);
   const [displayName, setDisplayName] = useState('User');
   // Unread count comes from the realtime store (total across devices)
+
+  // Track last fetched device to prevent duplicate fetches
+  const lastFetchedDeviceRef = useRef(null);
 
   // Local pH history augmentation (store keeps latest values; we add historical series here)
   const [localPhData, setLocalPhData] = useState(() => {
@@ -722,12 +752,8 @@ export default function Dashboard() {
 
 
 
-  // Fetch data on component mount and when time range changes
-  // Initial fetch (only once) and then refetch when timeRange changes for history-specific data if needed
-  useEffect(() => {
-    // Only call full fetch once on mount for base snapshot
-    fetchInitial();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: Initial fetch is triggered in initDashboard above. Avoid duplicating here to prevent overwriting
+  // enriched device data (plant, pH history) populated by targeted fetches.
 
   // Time range change currently affects only local ph window history building (skip server refetch to avoid flicker)
 
@@ -744,7 +770,18 @@ export default function Dashboard() {
 
   // Always compute plant-aware alert text for the active device (independent of pH history caching)
   useEffect(() => {
-    if (currentDevice?.id) {
+    if (!currentDevice?.id) return;
+
+    const existing = devicesData[currentDevice.id];
+    const needsAugment = !existing || !existing.plant || !existing.phHistory || existing.phHistory.length === 0;
+    const isDifferentDevice = lastFetchedDeviceRef.current !== currentDevice.id;
+
+    if (isDifferentDevice || needsAugment) {
+      console.log(`📡 Device context changed or missing plant/history for ${currentDevice.id}. Fetching full device data...`, {
+        isDifferentDevice,
+        hasPlant: !!existing?.plant,
+        phPoints: existing?.phHistory?.length || 0
+      });
       fetchDeviceDataById(currentDevice.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -767,6 +804,10 @@ export default function Dashboard() {
   const fetchDeviceDataById = async (deviceId) => {
     try {
       if (!deviceId) return;
+
+      // Mark this device as fetched
+      lastFetchedDeviceRef.current = deviceId;
+
       const [sensorsResp, reservoirsResp] = await Promise.all([
         getDeviceSensors(deviceId),
         getDeviceReservoirs(deviceId)
@@ -1279,44 +1320,88 @@ export default function Dashboard() {
   }, [activeIdx, devices]);
 
   // When devices list changes (e.g., after fetch), restore saved device or validate current index
+  // Only run after store hydration to ensure deviceData is available
+  // Track if we've already restored to prevent multiple restoration attempts
+  const hasRestoredRef = useRef(false);
+
   useEffect(() => {
-    if (devices && devices.length > 0) {
-      try {
-        const savedIdx = parseInt(localStorage.getItem('dashboard.activeDeviceIndex') || '0', 10);
-        const savedDeviceId = localStorage.getItem('dashboard.activeDeviceId');
+    if (!isHydrated || !devices || devices.length === 0 || hasRestoredRef.current) return;
 
-        // First, try to find the device by ID (more reliable across refreshes)
-        if (savedDeviceId) {
-          const deviceIdxById = devices.findIndex(d => d.id.toString() === savedDeviceId);
-          if (deviceIdxById >= 0) {
-            console.log(`Restored device by ID: ${savedDeviceId} at index ${deviceIdxById}`);
-            setActiveIdx(deviceIdxById);
-            return;
-          }
-        }
+    console.log('🔄 Starting device restoration...');
+    hasRestoredRef.current = true;
 
-        // Fallback to saved index if valid for current device list
-        if (savedIdx >= 0 && savedIdx < devices.length) {
-          console.log(`Restored device by index: ${savedIdx}`);
-          setActiveIdx(savedIdx);
-        } else {
-          // If neither works, reset to first device
-          console.log('No valid saved device found, defaulting to first device');
-          setActiveIdx(0);
-          localStorage.setItem('dashboard.activeDeviceIndex', '0');
-          if (devices[0]) {
-            localStorage.setItem('dashboard.activeDeviceId', devices[0].id.toString());
-          }
+    try {
+      const savedIdx = parseInt(localStorage.getItem('dashboard.activeDeviceIndex') || '0', 10);
+      const savedDeviceId = localStorage.getItem('dashboard.activeDeviceId');
+
+      let restoredIdx = -1;
+
+      // First, try to find the device by ID (more reliable across refreshes)
+      if (savedDeviceId) {
+        const deviceIdxById = devices.findIndex(d => d.id.toString() === savedDeviceId);
+        if (deviceIdxById >= 0) {
+          console.log(`✅ Restored device by ID: ${savedDeviceId} at index ${deviceIdxById}`);
+          restoredIdx = deviceIdxById;
         }
-      } catch (e) {
-        console.warn('Failed to restore active device index:', e);
-        setActiveIdx(0);
       }
-    }
-  }, [devices.length]);
 
-  // Show loading state
-  if (loadingInitial) {
+      // Fallback to saved index if valid for current device list
+      if (restoredIdx < 0 && savedIdx >= 0 && savedIdx < devices.length) {
+        console.log(`✅ Restored device by index: ${savedIdx}`);
+        restoredIdx = savedIdx;
+      }
+
+      // If neither works, reset to first device
+      if (restoredIdx < 0) {
+        console.log('⚠️ No valid saved device found, defaulting to first device');
+        restoredIdx = 0;
+        localStorage.setItem('dashboard.activeDeviceIndex', '0');
+        if (devices[0]) {
+          localStorage.setItem('dashboard.activeDeviceId', devices[0].id.toString());
+        }
+      }
+
+      // Set the active index
+      setActiveIdx(restoredIdx);
+
+      // Immediately fetch data for the restored device to ensure it's displayed and plant-aware
+      const restoredDevice = devices[restoredIdx];
+      if (restoredDevice?.id) {
+        // Check if we already have data in the store
+        const existingData = devicesData[restoredDevice.id];
+
+        console.log(`🔍 Checking existing data for device ${restoredDevice.id}:`, {
+          hasData: !!existingData,
+          hasSensors: !!existingData?.sensors,
+          sensorsKeys: existingData?.sensors ? Object.keys(existingData.sensors) : [],
+          sensorValues: existingData?.sensors
+        });
+
+        // Determine if we must augment: plant missing or pH history missing
+        const hasValidSensorData = existingData?.sensors &&
+          Object.values(existingData.sensors).some(v => v !== undefined && v !== null);
+        const needsPlantOrPh = !existingData?.plant || !Array.isArray(existingData?.phHistory) || existingData.phHistory.length === 0;
+
+        if (!existingData || !hasValidSensorData || needsPlantOrPh) {
+          console.log(`🔄 Fetching enriched data for: ${restoredDevice.device_name || restoredDevice.id}`, {
+            hasValidSensorData,
+            hasPlant: !!existingData?.plant,
+            phPoints: existingData?.phHistory?.length || 0
+          });
+          // Use setTimeout to ensure this happens after the render
+          setTimeout(() => fetchDeviceDataById(restoredDevice.id), 50);
+        } else {
+          console.log(`✅ Using existing enriched data for: ${restoredDevice.device_name || restoredDevice.id}`);
+          // Mark as fetched
+          lastFetchedDeviceRef.current = restoredDevice.id;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to restore active device index:', e);
+      setActiveIdx(0);
+    }
+  }, [devices.length, isHydrated]);  // Show loading state while hydrating or loading initial data
+  if (!isHydrated || loadingInitial) {
     return (
       <div className="dashboard-root">
         <header className="dash-header" role="banner">

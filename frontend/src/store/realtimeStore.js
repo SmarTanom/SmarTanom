@@ -201,8 +201,12 @@ export const useRealtimeStore = create(persist((set, get) => ({
             humidity: latest.humidity
           });
 
+          const prev = deviceData[d.id] || {};
           deviceData[d.id] = {
+            // Preserve enriched fields if already set by the dashboard (plant, pH series)
+            ...prev,
             sensors: {
+              ...(prev.sensors || {}),
               ph: latest.ph,
               ec: latest.ec,
               tds: latest.tds,
@@ -210,6 +214,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
               turbidity: latest.turbidity,
             },
             environment: {
+              ...(prev.environment || {}),
               temperature: latest.temperature,
               humidity: latest.humidity,
               light: latest.light,
@@ -219,8 +224,10 @@ export const useRealtimeStore = create(persist((set, get) => ({
             connectivity,
             lastSyncLabel: lastSync,
             lastUpdate: lastUpdate?.toISOString(),
-            phHistory: [], // optional: populated lazily in page
-            phLabels: [],
+            // Keep any existing phHistory/phLabels if the page already fetched them
+            phHistory: Array.isArray(prev.phHistory) && prev.phHistory.length ? prev.phHistory : [],
+            phLabels: Array.isArray(prev.phLabels) && prev.phLabels.length ? prev.phLabels : [],
+            plant: prev.plant || undefined,
           };
 
           console.log('[RealtimeStore] Device', d.id, 'data:', {
