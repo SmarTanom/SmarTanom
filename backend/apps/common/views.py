@@ -20,10 +20,23 @@ class BaseAuthViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
 
-@api_view(["GET"])
+@api_view(["GET", "HEAD"])
 @permission_classes([AllowAny])
 def healthz(request):
-    """Health check endpoint to verify API and database status."""
+    """Health check endpoint to verify API and database status.
+
+    Supports both GET (with response body) and HEAD (lightweight, no body)
+    requests for uptime monitoring.
+    """
+    if request.method == "HEAD":
+        # Lightweight liveness probe with no body
+        try:
+            connections["default"].cursor()
+            return Response(status=200)
+        except OperationalError:
+            return Response(status=503)
+
+    # GET request with full status details
     db_ok = True
     try:
         connections["default"].cursor()
