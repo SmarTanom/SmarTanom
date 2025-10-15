@@ -66,6 +66,11 @@ const NotificationsPage = () => {
             critical: prefs.critical_alerts ?? true,
             warnings: prefs.warnings ?? true,
             info: prefs.info ?? true
+          },
+          quietHours: {
+            enabled: prefs.quiet_hours_enabled ?? false,
+            start: prefs.quiet_hours_start ?? '22:00',
+            end: prefs.quiet_hours_end ?? '07:00'
           }
         }));
       } catch (error) {
@@ -203,17 +208,48 @@ const NotificationsPage = () => {
         }
       }));
     } else if (category === 'quietHours') {
+      const newValue = key === 'enabled' ? !notifications.quietHours[key] : notifications.quietHours[key];
       setNotifications(prev => ({
         ...prev,
         quietHours: {
           ...prev.quietHours,
-          [key]: key === 'enabled' ? !prev.quietHours[key] : prev.quietHours[key]
+          [key]: newValue
         }
       }));
+
+      // Save to backend
+      setPreferencesLoading(prev => ({ ...prev, quietHours: true }));
+      try {
+        const preferences = {
+          critical_alerts: notifications.alerts.critical,
+          warnings: notifications.alerts.warnings,
+          info: notifications.alerts.info,
+          email_enabled: notifications.emailEnabled,
+          quiet_hours_enabled: key === 'enabled' ? newValue : notifications.quietHours.enabled,
+          quiet_hours_start: notifications.quietHours.start,
+          quiet_hours_end: notifications.quietHours.end
+        };
+
+        await updateNotificationPreferences(preferences);
+        showToast(`Quiet hours ${newValue ? 'enabled' : 'disabled'}`, 'success');
+      } catch (error) {
+        console.error('Failed to update quiet hours preferences:', error);
+        // Revert on error
+        setNotifications(prev => ({
+          ...prev,
+          quietHours: {
+            ...prev.quietHours,
+            [key]: !newValue
+          }
+        }));
+        showToast('Failed to update quiet hours preferences', 'error');
+      } finally {
+        setPreferencesLoading(prev => ({ ...prev, quietHours: false }));
+      }
     }
   };
 
-  const handleTimeChange = (type, value) => {
+  const handleTimeChange = async (type, value) => {
     setNotifications(prev => ({
       ...prev,
       quietHours: {
@@ -221,6 +257,36 @@ const NotificationsPage = () => {
         [type]: value
       }
     }));
+
+    // Save to backend
+    setPreferencesLoading(prev => ({ ...prev, quietHoursTime: true }));
+    try {
+      const preferences = {
+        critical_alerts: notifications.alerts.critical,
+        warnings: notifications.alerts.warnings,
+        info: notifications.alerts.info,
+        email_enabled: notifications.emailEnabled,
+        quiet_hours_enabled: notifications.quietHours.enabled,
+        quiet_hours_start: type === 'start' ? value : notifications.quietHours.start,
+        quiet_hours_end: type === 'end' ? value : notifications.quietHours.end
+      };
+
+      await updateNotificationPreferences(preferences);
+      showToast(`Quiet hours ${type} time updated`, 'success');
+    } catch (error) {
+      console.error('Failed to update quiet hours time:', error);
+      // Revert on error
+      setNotifications(prev => ({
+        ...prev,
+        quietHours: {
+          ...prev.quietHours,
+          [type]: notifications.quietHours[type]
+        }
+      }));
+      showToast('Failed to update quiet hours time', 'error');
+    } finally {
+      setPreferencesLoading(prev => ({ ...prev, quietHoursTime: false }));
+    }
   };
 
   return (
@@ -501,8 +567,11 @@ const NotificationsPage = () => {
                 type="checkbox"
                 checked={notifications.quietHours.enabled}
                 onChange={() => handleToggle('quietHours', 'enabled')}
+                disabled={preferencesLoading.quietHours}
               />
-              <span className="toggle-slider"></span>
+              <span className="toggle-slider">
+                {preferencesLoading.quietHours && <Loader size={12} className="spinner" />}
+              </span>
             </label>
           </div>
 
@@ -515,6 +584,7 @@ const NotificationsPage = () => {
                   className="time-input"
                   value={notifications.quietHours.start}
                   onChange={(e) => handleTimeChange('start', e.target.value)}
+                  disabled={preferencesLoading.quietHoursTime}
                 />
               </div>
               <div className="time-picker-group">
@@ -524,8 +594,15 @@ const NotificationsPage = () => {
                   className="time-input"
                   value={notifications.quietHours.end}
                   onChange={(e) => handleTimeChange('end', e.target.value)}
+                  disabled={preferencesLoading.quietHoursTime}
                 />
               </div>
+              {preferencesLoading.quietHoursTime && (
+                <div className="time-picker-loading">
+                  <Loader size={16} className="spinner" />
+                  <span>Updating time...</span>
+                </div>
+              )}
             </div>
           )}
         </section>

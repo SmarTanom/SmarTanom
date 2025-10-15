@@ -43,12 +43,15 @@ class PushNotificationService:
         Returns:
             Dictionary with success and failure counts
         """
-        # Check user preferences - skip if user disabled this notification type
+        # Check user preferences - skip if user disabled this notification type or in quiet hours
         try:
             # Check NotificationPreferences (actual delivery settings)
             preferences = NotificationPreferences.objects.get(user=user)
-            if not preferences.allows_notification_type(notification_type):
-                logger.info(f"User {user.email} has disabled {notification_type} notifications")
+            if not preferences.should_send_notification(notification_type):
+                if preferences.is_quiet_hours():
+                    logger.info(f"User {user.email} is in quiet hours, skipping {notification_type} notification")
+                else:
+                    logger.info(f"User {user.email} has disabled {notification_type} notifications")
                 return {'sent': 0, 'failed': 0, 'skipped': True}
         except NotificationPreferences.DoesNotExist:
             # No preferences set, allow all notifications by default

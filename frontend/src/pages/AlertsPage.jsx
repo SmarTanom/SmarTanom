@@ -30,6 +30,7 @@ export default function AlertsPage() {
   const devices = useRealtimeStore(state => state.devices);
   const deviceAlerts = useRealtimeStore(state => state.deviceAlerts);
   const markAllDeviceAlertsRead = useRealtimeStore(state => state.markAllDeviceAlertsRead);
+  const markAlertAsRead = useRealtimeStore(state => state.markAlertAsRead);
   const connectWS = useRealtimeStore(state => state.connectWS);
   const fetchInitial = useRealtimeStore(state => state.fetchInitial);
 
@@ -96,6 +97,12 @@ export default function AlertsPage() {
       devices.forEach(device => {
         markAllDeviceAlertsRead(device.id);
       });
+    }
+  };
+
+  const handleMarkAsRead = (alert) => {
+    if (alert.device_id && alert.reading_id) {
+      markAlertAsRead(alert.device_id, alert.reading_id);
     }
   };
 
@@ -227,6 +234,16 @@ export default function AlertsPage() {
                   <p className="alert-item-body">{alert.body}</p>
                   {alert.device_name && (
                     <p className="alert-item-device">{alert.device_name}</p>
+                  )}
+                  {!alert.is_read && (
+                    <button
+                      className="mark-read-button"
+                      onClick={() => handleMarkAsRead(alert)}
+                      title="Mark as read"
+                    >
+                      <CheckCircle size={16} />
+                      Mark as read
+                    </button>
                   )}
                 </div>
 

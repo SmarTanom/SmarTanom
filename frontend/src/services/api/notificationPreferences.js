@@ -29,6 +29,10 @@ export const getNotificationPreferences = async () => {
  * @param {boolean} preferences.critical_alerts - Receive critical alerts
  * @param {boolean} preferences.warnings - Receive warnings
  * @param {boolean} preferences.info - Receive info notifications
+ * @param {boolean} preferences.email_enabled - Receive email notifications
+ * @param {boolean} preferences.quiet_hours_enabled - Enable quiet hours
+ * @param {string} preferences.quiet_hours_start - Quiet hours start time (HH:MM)
+ * @param {string} preferences.quiet_hours_end - Quiet hours end time (HH:MM)
  * @returns {Promise<Object>}
  */
 export const updateNotificationPreferences = async (preferences) => {

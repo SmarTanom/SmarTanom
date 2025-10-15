@@ -170,6 +170,22 @@ class NotificationPreferences(models.Model):
         help_text="Receive alerts via email"
     )
 
+    # Quiet Hours settings
+    quiet_hours_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable quiet hours to silence non-critical notifications"
+    )
+    
+    quiet_hours_start = models.TimeField(
+        default='22:00',
+        help_text="Start time for quiet hours (24-hour format)"
+    )
+    
+    quiet_hours_end = models.TimeField(
+        default='07:00',
+        help_text="End time for quiet hours (24-hour format)"
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -194,3 +210,33 @@ class NotificationPreferences(models.Model):
             'success': self.info,  # Success treated as info
         }
         return type_mapping.get(notification_type, True)
+
+    def is_quiet_hours(self):
+        """Check if current time is within quiet hours."""
+        if not self.quiet_hours_enabled:
+            return False
+        
+        from django.utils import timezone
+        from datetime import datetime, time
+        
+        now = timezone.now().time()
+        start = self.quiet_hours_start
+        end = self.quiet_hours_end
+        
+        # Handle quiet hours that span midnight (e.g., 22:00 to 07:00)
+        if start > end:
+            return now >= start or now <= end
+        else:
+            return start <= now <= end
+
+    def should_send_notification(self, notification_type):
+        """Check if notification should be sent based on preferences and quiet hours."""
+        # Always allow critical notifications during quiet hours
+        if notification_type in ['critical', 'alert']:
+            return self.allows_notification_type(notification_type)
+        
+        # Check if we're in quiet hours for non-critical notifications
+        if self.is_quiet_hours():
+            return False
+        
+        return self.allows_notification_type(notification_type)
