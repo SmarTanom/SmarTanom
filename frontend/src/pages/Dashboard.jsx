@@ -97,10 +97,13 @@ const transformSensorData = (sensors, sensorDataMap) => {
 // by created_at so the overwrite logic always leaves the true latest value; prevents stale value after refresh.
 const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
   if (!phSensorId || !sensorDataMap[phSensorId]) {
+    console.log('[Dashboard] No pH sensor data available:', { phSensorId, hasData: !!sensorDataMap[phSensorId] });
     return null;
   }
 
   const phDataRaw = sensorDataMap[phSensorId] || [];
+  console.log(`[Dashboard] Processing ${phDataRaw.length} pH readings for ${timeRange} view`);
+  
   // Sort ascending by created_at to ensure later overwrite wins are actual latest
   const phData = [...phDataRaw].sort((a,b) => {
     const ta = a?.created_at ? new Date(a.created_at).getTime() : 0;
@@ -155,6 +158,7 @@ const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
   }
 
   // Fill with the LAST reading in each period (latest wins)
+  let validReadings = 0;
   phData.forEach(d => {
     if (!d || !d.created_at) return;
     try {
@@ -165,12 +169,15 @@ const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
       if (!Number.isFinite(value)) return;
       // Latest always overwrites (so the last iteration for that bucket wins)
       dateMap[dateKey] = value;
+      validReadings++;
     } catch (_e) {
       // Ignore malformed date/value
     }
   });
 
-  return Object.values(dateMap);
+  const result = Object.values(dateMap);
+  console.log(`[Dashboard] Generated pH history: ${validReadings} valid readings, ${result.filter(v => v !== null).length} non-null periods`);
+  return result;
 };
 
 // Helper function to get pH labels based on time range
@@ -249,6 +256,9 @@ const generateAlertText = (sensors) => {
   if (typeof sensors.ph === 'number') {
     if (sensors.ph < 5.5) alerts.push('pH too low - adjust up');
     else if (sensors.ph > 6.5) alerts.push('pH trending high - check solution');
+    // Handle extreme pH values
+    if (sensors.ph < 4.0) alerts.push('Critical: pH extremely low - immediate action required');
+    if (sensors.ph > 8.0) alerts.push('Critical: pH extremely high - immediate action required');
   }
   if (typeof sensors.waterLevel === 'number') {
     if (sensors.waterLevel < 20) alerts.push('Water level below threshold');
@@ -432,6 +442,15 @@ export default function Dashboard() {
   const handleTimeRangeChange = (newTimeRange) => {
     setTimeRange(newTimeRange);
     setPhWindows({}); // Reset all device windows
+    
+    // Check if we need to refresh pH data for current device
+    if (currentDevice) {
+      const savedData = localPhData[currentDevice.id];
+      if (!savedData || savedData.timeRange !== newTimeRange) {
+        console.log(`[Dashboard] Time range changed to ${newTimeRange}, refreshing pH data for device ${currentDevice.id}`);
+        fetchDeviceDataById(currentDevice.id);
+      }
+    }
   };
 
   // Helper function to clear saved device persistence (useful for debugging)
@@ -465,11 +484,39 @@ export default function Dashboard() {
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
 
   // Local pH history augmentation (store keeps latest values; we add historical series here)
-  const [localPhData, setLocalPhData] = useState({}); // { [deviceId]: { phHistory, phLabels } }
+  const [localPhData, setLocalPhData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dashboard.phData');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.warn('Failed to load pH data from localStorage:', e);
+      return {};
+    }
+  }); // { [deviceId]: { phHistory, phLabels, lastFetch } }
 
   // Shared helper to compute a stable reading key (match AlertsPage logic)
   const readingKeyOf = (reading) => {
     return (reading && (reading.id || reading.created_at || reading.timestamp)) || JSON.stringify(reading || {});
+  };
+
+  // Helper to persist pH data to localStorage
+  const persistPhData = (deviceId, phHistory, phLabels, timeRange) => {
+    try {
+      const updatedData = {
+        ...localPhData,
+        [deviceId]: {
+          phHistory,
+          phLabels,
+          timeRange,
+          lastFetch: Date.now()
+        }
+      };
+      setLocalPhData(updatedData);
+      localStorage.setItem('dashboard.phData', JSON.stringify(updatedData));
+      console.log(`[Dashboard] Persisted pH data for device ${deviceId}:`, phHistory?.length || 0, 'points');
+    } catch (e) {
+      console.warn('Failed to persist pH data:', e);
+    }
   };
 
   // Initialize store and fetch profile on mount
@@ -696,10 +743,22 @@ export default function Dashboard() {
       if (Array.isArray(sensors) && sensors.length > 0) {
         const sensorDataPromises = sensors.map(async (sensor) => {
           try {
-            const resp = await getSensorData(sensor.id);
+            // Fetch comprehensive data based on time range
+            let limit = 50; // default
+            if (sensor.sensor_type === 'ph') {
+              // Fetch more data for pH sensors based on time range
+              switch (timeRange) {
+                case 'weeks': limit = 200; break; // 20 weeks * ~10 readings per week
+                case 'months': limit = 300; break; // 12 months * ~25 readings per month
+                default: limit = 150; break; // 30 days * ~5 readings per day
+              }
+            }
+            const resp = await getSensorData(sensor.id, limit);
             const data = resp && resp.results ? resp.results : resp;
+            console.log(`[Dashboard] Fetched ${sensor.sensor_type} sensor data:`, data?.length || 0, `records (limit: ${limit})`);
             return { sensorId: sensor.id, data: Array.isArray(data) ? data : (data ? [data] : []) };
           } catch (_e) {
+            console.warn(`Failed to fetch data for sensor ${sensor.id}:`, _e);
             return { sensorId: sensor.id, data: [] };
           }
         });
@@ -708,8 +767,15 @@ export default function Dashboard() {
       }
       const transformedSensors = transformSensorData(sensors || [], sensorDataMap);
       const phSensor = Array.isArray(sensors) ? sensors.find(s => s.sensor_type === 'ph') : null;
+      console.log('[Dashboard] pH sensor found:', phSensor?.id, 'with data:', sensorDataMap[phSensor?.id]?.length || 0);
       const phHistory = getPHHistory(sensorDataMap, phSensor?.id, timeRange);
       const phLabels = getPHLabels(sensorDataMap, phSensor?.id, timeRange);
+      console.log('[Dashboard] Generated pH history:', phHistory?.length || 0, 'points');
+      
+      // Persist pH data to localStorage
+      if (phHistory && phHistory.length > 0) {
+        persistPhData(deviceId, phHistory, phLabels, timeRange);
+      }
       let lastSensorUpdate = null;
       Object.values(sensorDataMap).forEach(arr => {
         if (Array.isArray(arr)) {
@@ -994,11 +1060,16 @@ export default function Dashboard() {
     return Math.min(Math.max(0, base), maxStart);
   }, [currentDevice, phWindows, maxStart]);
   const phHistoryDisplay = useMemo(() => {
-    if (!mergedData || !Array.isArray(mergedData.phHistory)) return [];
+    if (!mergedData || !Array.isArray(mergedData.phHistory)) {
+      console.log('[Dashboard] No pH history data available:', mergedData);
+      return [];
+    }
     // Show 10-day window from the 30-day dataset based on currentStart
     const start = Math.max(0, currentStart);
     const end = Math.min(mergedData.phHistory.length, start + PH_WINDOW_SIZE);
-    return mergedData.phHistory.slice(start, end);
+    const result = mergedData.phHistory.slice(start, end);
+    console.log('[Dashboard] pH history display:', result);
+    return result;
   }, [mergedData, currentStart]);
   const phLabelsDisplay = useMemo(() => {
     if (!mergedData || !Array.isArray(mergedData.phLabels)) return [];
@@ -1038,12 +1109,24 @@ export default function Dashboard() {
 
   // Update default window when device changes or total increases and nothing saved
   useEffect(() => {
-    if (!currentDevice || phTotal === 0) return;
+    if (!currentDevice) return;
+    
+    // Check if we have persisted pH data for this device
+    const savedData = localPhData[currentDevice.id];
+    if (savedData && savedData.timeRange === timeRange) {
+      console.log(`[Dashboard] Using persisted pH data for device ${currentDevice.id}:`, savedData.phHistory?.length || 0, 'points');
+    } else {
+      // Fetch fresh pH data if we don't have it or time range changed
+      console.log(`[Dashboard] Fetching fresh pH data for device ${currentDevice.id} (timeRange: ${timeRange})`);
+      fetchDeviceDataById(currentDevice.id);
+    }
+    
+    if (phTotal === 0) return;
     setPhWindows(prev => {
       if (typeof prev[currentDevice.id] === 'number') return prev; // keep user's position
       return { ...prev, [currentDevice.id]: maxStart };
     });
-  }, [currentDevice, phTotal, maxStart]);
+  }, [currentDevice, phTotal, maxStart, timeRange]);
 
   const canPrev = phTotal > PH_WINDOW_SIZE && currentStart > 0;
   const canNext = phTotal > PH_WINDOW_SIZE && currentStart < maxStart;
@@ -1339,9 +1422,9 @@ export default function Dashboard() {
           <div className="alert-card-top">
             <div className="icon-circle" style={{ position: 'relative' }}>
               <AlertCircle size={20} color={
-                (perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && latestAlerts[currentDevice?.id] ? 
-                  (latestAlerts[currentDevice.id].severity === 'critical' ? '#e74c3c' : 
-                   latestAlerts[currentDevice.id].severity === 'warning' ? '#f59e0b' : 
+                data?.alertText && data.alertText !== 'All systems normal' ? 
+                  (latestAlerts[currentDevice?.id]?.severity === 'critical' ? '#e74c3c' : 
+                   latestAlerts[currentDevice?.id]?.severity === 'warning' ? '#f59e0b' : 
                    '#339432') : PRIMARY_GREEN
               } strokeWidth={2.5} />
               {(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && (
@@ -1349,9 +1432,10 @@ export default function Dashboard() {
                   position: 'absolute',
                   top: '-4px',
                   right: '-4px',
-                  backgroundColor: latestAlerts[currentDevice?.id]?.severity === 'critical' ? '#e74c3c' : 
-                                   latestAlerts[currentDevice?.id]?.severity === 'warning' ? '#f59e0b' : 
-                                   '#339432',
+                  backgroundColor: data?.alertText && data.alertText !== 'All systems normal' ? 
+                    (latestAlerts[currentDevice?.id]?.severity === 'critical' ? '#e74c3c' : 
+                     latestAlerts[currentDevice?.id]?.severity === 'warning' ? '#f59e0b' : 
+                     '#339432') : '#e74c3c',
                   color: 'white',
                   borderRadius: '50%',
                   width: '16px',
@@ -1376,9 +1460,10 @@ export default function Dashboard() {
             {currentDevice ? `${currentDevice.device_name || currentDevice.plant_name || 'Device'} Alerts` : 'Alert Summary'}
             {(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && (
               <span style={{ 
-                color: latestAlerts[currentDevice?.id]?.severity === 'critical' ? '#e74c3c' : 
-                       latestAlerts[currentDevice?.id]?.severity === 'warning' ? '#f59e0b' : 
-                       '#339432', 
+                color: data?.alertText && data.alertText !== 'All systems normal' ? 
+                  (latestAlerts[currentDevice?.id]?.severity === 'critical' ? '#e74c3c' : 
+                   latestAlerts[currentDevice?.id]?.severity === 'warning' ? '#f59e0b' : 
+                   '#339432') : '#e74c3c', 
                 fontWeight: 'bold', 
                 marginLeft: '8px' 
               }}>
@@ -1387,11 +1472,11 @@ export default function Dashboard() {
             )}
           </h3>
           <div className="alert-card-message" style={{
-            color: (perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && latestAlerts[currentDevice?.id] ? 
-              (latestAlerts[currentDevice.id].severity === 'critical' ? '#e74c3c' : 
-               latestAlerts[currentDevice.id].severity === 'warning' ? '#f59e0b' : 
+            color: data?.alertText && data.alertText !== 'All systems normal' ? 
+              (latestAlerts[currentDevice?.id]?.severity === 'critical' ? '#e74c3c' : 
+               latestAlerts[currentDevice?.id]?.severity === 'warning' ? '#f59e0b' : 
                '#339432') : 'rgba(17, 17, 17, 0.86)'
-          }}>{(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 ? (data?.alertText || 'All systems normal') : 'All systems normal'}</div>
+          }}>{data?.alertText || 'All systems normal'}</div>
           {latestAlerts[currentDevice?.id] && (
             <div style={{ marginTop: '6px', fontSize: '11px', color: '#555' }} aria-live="polite">
               <strong style={{ 
@@ -1670,7 +1755,9 @@ export default function Dashboard() {
                 }}>
                   {phHistoryDisplay && phHistoryDisplay.length > 0
                     ? phHistoryDisplay.map((v, i) => <PHBar key={i} v={v} i={i} min={phScale.min} max={phScale.max} plant={currentDevice?.plant} />)
-                    : <div style={{ color: '#999', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', zIndex: 3 }}>Loading...</div>}
+                    : <div style={{ color: '#999', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', zIndex: 3 }}>
+                        {mergedData && mergedData.phHistory && mergedData.phHistory.length === 0 ? 'No pH data available' : 'Loading pH data...'}
+                      </div>}
                 </div>
               </div>
               <div className="ph-x-axis" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0', gap: '2px' }}>

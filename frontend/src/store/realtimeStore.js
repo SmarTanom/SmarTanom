@@ -16,6 +16,9 @@ const generateAlertText = (s) => {
   if (typeof s.ph === 'number') {
     if (s.ph < 5.5) alerts.push('pH too low - adjust up');
     else if (s.ph > 6.5) alerts.push('pH trending high - check solution');
+    // Handle extreme pH values
+    if (s.ph < 4.0) alerts.push('Critical: pH extremely low - immediate action required');
+    if (s.ph > 8.0) alerts.push('Critical: pH extremely high - immediate action required');
   }
   if (typeof s.waterLevel === 'number' && s.waterLevel < 20) alerts.push('Water level below threshold');
   if (typeof s.temperature === 'number' && (s.temperature < 18 || s.temperature > 28)) alerts.push('Temperature outside optimal range');
