@@ -15,8 +15,7 @@ import {
   ChevronRight,
   Filter,
   Bell,
-  CheckCircle,
-  X
+  CheckCircle
 } from 'lucide-react';
 
 import { useRealtimeStore } from '../store/realtimeStore';
@@ -30,7 +29,6 @@ export default function AlertsPage() {
   // Use realtime store for alerts data
   const devices = useRealtimeStore(state => state.devices);
   const deviceAlerts = useRealtimeStore(state => state.deviceAlerts);
-  const markAlertAsRead = useRealtimeStore(state => state.markAlertAsRead);
   const markAllDeviceAlertsRead = useRealtimeStore(state => state.markAllDeviceAlertsRead);
   const connectWS = useRealtimeStore(state => state.connectWS);
   const fetchInitial = useRealtimeStore(state => state.fetchInitial);
@@ -71,17 +69,6 @@ export default function AlertsPage() {
     }
   };
 
-  const getSeverityClass = (severity) => {
-    switch (severity) {
-      case 'critical':
-        return 'alert-item-critical';
-      case 'warning':
-        return 'alert-item-warning';
-      default:
-        return 'alert-item-info';
-    }
-  };
-
   const formatTimeAgo = (timestamp) => {
     try {
       const now = new Date();
@@ -98,13 +85,6 @@ export default function AlertsPage() {
       return `${diffDays}d ago`;
     } catch {
       return 'recently';
-    }
-  };
-
-  const handleMarkAsRead = (deviceId, readingId, e) => {
-    e.stopPropagation();
-    if (deviceId && readingId) {
-      markAlertAsRead(deviceId, readingId);
     }
   };
 
@@ -227,16 +207,22 @@ export default function AlertsPage() {
             {sortedAlerts.map((alert, index) => (
               <div
                 key={alert.reading_id || `${alert.timestamp}-${index}`}
-                className={`alert-item ${getSeverityClass(alert.severity)} ${alert.is_read ? 'alert-item-read' : 'alert-item-unread'}`}
+                className={`alert-item ${alert.severity || 'info'} ${alert.is_read ? 'read' : 'unread'}`}
               >
-                <div className="alert-item-icon">
+                <div className="alert-item-indicator"></div>
+                <div className={`alert-item-icon ${alert.severity || 'info'}`}>
                   {getSeverityIcon(alert.severity)}
                 </div>
 
                 <div className="alert-item-content">
                   <div className="alert-item-header">
                     <h4 className="alert-item-title">{alert.title}</h4>
-                    <span className="alert-item-time">{formatTimeAgo(alert.timestamp)}</span>
+                    <div className="alert-item-meta">
+                      <span className={`alert-severity-badge ${alert.severity || 'info'}`}>
+                        {alert.severity || 'info'}
+                      </span>
+                      <span className="alert-item-time">{formatTimeAgo(alert.timestamp)}</span>
+                    </div>
                   </div>
                   <p className="alert-item-body">{alert.body}</p>
                   {alert.device_name && (
@@ -244,16 +230,6 @@ export default function AlertsPage() {
                   )}
                 </div>
 
-                {!alert.is_read && (
-                  <button
-                    className="alert-item-mark-read"
-                    onClick={(e) => handleMarkAsRead(alert.device_id, alert.reading_id, e)}
-                    title="Mark as read"
-                    aria-label="Mark alert as read"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
               </div>
             ))}
           </div>

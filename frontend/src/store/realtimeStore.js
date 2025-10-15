@@ -9,19 +9,75 @@ import { getDeviceReservoirs } from '../services/api/reservoirs';
 const generateAlertText = (s) => {
   if (!s) return 'All systems normal';
   const alerts = [];
+  
+  // TDS alerts (matching backend: TDS_MIN=800, TDS_MAX=1500, TDS_WARNING_LOW=999, TDS_WARNING_HIGH=1301)
   if (typeof s.tds === 'number') {
-    if (s.tds < 300) alerts.push('TDS too low (Inadequate nutrients)');
-    else if (s.tds > 1500) alerts.push('TDS too high (Dilute solution)');
+    if (s.tds < 800) {
+      alerts.push(`TDS Critically Low: ${Math.round(s.tds)} ppm (below 800). Solution too weak - increase nutrients`);
+    } else if (s.tds < 999) {
+      alerts.push(`TDS Low Warning: ${Math.round(s.tds)} ppm (approaching lower bound). Monitor and consider topping up`);
+    } else if (s.tds > 1500) {
+      alerts.push(`TDS Critically High: ${Math.round(s.tds)} ppm (above 1500). Solution too concentrated - drain/refill`);
+    } else if (s.tds > 1301) {
+      alerts.push(`TDS High Warning: ${Math.round(s.tds)} ppm (approaching upper bound). Consider diluting solution`);
+    }
   }
+  
+  // pH alerts (matching backend: PH_MIN=5.5, PH_MAX=6.5)
   if (typeof s.ph === 'number') {
-    if (s.ph < 5.5) alerts.push('pH too low - adjust up');
-    else if (s.ph > 6.5) alerts.push('pH trending high - check solution');
+    if (s.ph < 5.5) {
+      alerts.push(`Low pH Detected: ${s.ph.toFixed(1)} (below 5.5). Raise pH using pH Up solution`);
+    } else if (s.ph > 6.5) {
+      alerts.push(`High pH Detected: ${s.ph.toFixed(1)} (above 6.5). Lower pH using pH Down solution`);
+    }
     // Handle extreme pH values
     if (s.ph < 4.0) alerts.push('Critical: pH extremely low - immediate action required');
     if (s.ph > 8.0) alerts.push('Critical: pH extremely high - immediate action required');
   }
-  if (typeof s.waterLevel === 'number' && s.waterLevel < 20) alerts.push('Water level below threshold');
-  if (typeof s.temperature === 'number' && (s.temperature < 18 || s.temperature > 28)) alerts.push('Temperature outside optimal range');
+  
+  // Water level alerts (matching backend: WATER_LEVEL_CRITICAL=0, WATER_LEVEL_WARNING=40)
+  if (typeof s.waterLevel === 'number') {
+    if (s.waterLevel === 0) {
+      alerts.push('Water Level Empty: Reservoir empty - refill immediately and check pumps');
+    } else if (s.waterLevel <= 40) {
+      alerts.push(`Low Water Level: ${Math.round(s.waterLevel)}% (below 40%). Refill soon and verify auto-refill`);
+    }
+  }
+  
+  // Air temperature alerts (matching backend: AIR_TEMP_MIN=18, AIR_TEMP_MAX=26)
+  if (typeof s.temperature === 'number') {
+    if (s.temperature < 18) {
+      alerts.push(`Low Air Temperature: ${s.temperature.toFixed(1)}°C (below 18°C). Increase heating or insulation`);
+    } else if (s.temperature > 26) {
+      alerts.push(`High Air Temperature: ${s.temperature.toFixed(1)}°C (above 26°C). Improve ventilation or add cooling`);
+    }
+  }
+  
+  // Turbidity alerts (matching backend: TURBIDITY_CLEAR=2100, TURBIDITY_CLOUDY=1800)
+  if (typeof s.turbidity === 'number') {
+    if (s.turbidity <= 1800) {
+      alerts.push(`Water Turbid: ${Math.round(s.turbidity)} (turbid). Drain/refill and clean filters`);
+    } else if (s.turbidity <= 2100) {
+      alerts.push(`Water Cloudy: ${Math.round(s.turbidity)} (cloudy range). Clean filters and consider partial water change`);
+    }
+  }
+  
+  // Light alerts (matching backend: LIGHT_HIGH=1500)
+  if (typeof s.light === 'number') {
+    if (s.light > 1500) {
+      alerts.push(`Very Bright Light: ${Math.round(s.light)} lux (above 1500). Provide shading or reduce lighting`);
+    }
+  }
+  
+  // Humidity alerts (matching backend: HUMIDITY_MIN=50, HUMIDITY_MAX=70)
+  if (typeof s.humidity === 'number') {
+    if (s.humidity < 50) {
+      alerts.push(`Low Humidity: ${Math.round(s.humidity)}% (below 50%). Increase humidity with misters or humidifier`);
+    } else if (s.humidity > 70) {
+      alerts.push(`High Humidity: ${Math.round(s.humidity)}% (above 70%). Improve ventilation or dehumidify`);
+    }
+  }
+  
   return alerts.length ? alerts[0] : 'All systems normal';
 };
 
@@ -126,7 +182,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
             },
             nutrientText: getNutrientStatus(latest.tds),
             alertText: generateAlertText({
-              ph: latest.ph, tds: latest.tds, waterLevel: latest.waterLevel, temperature: latest.temperature
+              ph: latest.ph, tds: latest.tds, waterLevel: latest.waterLevel, temperature: latest.temperature, turbidity: latest.turbidity, light: latest.light, humidity: latest.humidity
             }),
             connectivity,
             lastSyncLabel: lastSync,
@@ -165,7 +221,10 @@ export const useRealtimeStore = create(persist((set, get) => ({
         ph: nextSensors.ph,
         tds: nextSensors.tds,
         waterLevel: nextSensors.waterLevel,
-        temperature: nextEnv.temperature
+        temperature: nextEnv.temperature,
+        turbidity: nextSensors.turbidity,
+        light: nextEnv.light,
+        humidity: nextEnv.humidity
       });
       // classify simple severity for badge
       let alertMeta = null;

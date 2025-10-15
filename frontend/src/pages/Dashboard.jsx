@@ -244,28 +244,79 @@ const getConnectivityStatus = (lastSensorUpdate) => {
   }
 };
 
-// Helper function to generate alert text based on sensor values (now includes low thresholds)
+// Helper function to generate alert text based on sensor values (matches backend thresholds)
 const generateAlertText = (sensors) => {
   if (!sensors) return 'All systems normal';
   const alerts = [];
 
+  // TDS alerts (matching backend: TDS_MIN=800, TDS_MAX=1500, TDS_WARNING_LOW=999, TDS_WARNING_HIGH=1301)
   if (typeof sensors.tds === 'number') {
-    if (sensors.tds < 300) alerts.push('TDS too low (Inadequate nutrients)');
-    else if (sensors.tds > 1500) alerts.push('TDS too high (Dilute solution)');
+    if (sensors.tds < 800) {
+      alerts.push(`TDS Critically Low: ${Math.round(sensors.tds)} ppm (below 800). Solution too weak - increase nutrients`);
+    } else if (sensors.tds < 999) {
+      alerts.push(`TDS Low Warning: ${Math.round(sensors.tds)} ppm (approaching lower bound). Monitor and consider topping up`);
+    } else if (sensors.tds > 1500) {
+      alerts.push(`TDS Critically High: ${Math.round(sensors.tds)} ppm (above 1500). Solution too concentrated - drain/refill`);
+    } else if (sensors.tds > 1301) {
+      alerts.push(`TDS High Warning: ${Math.round(sensors.tds)} ppm (approaching upper bound). Consider diluting solution`);
+    }
   }
+
+  // pH alerts (matching backend: PH_MIN=5.5, PH_MAX=6.5)
   if (typeof sensors.ph === 'number') {
-    if (sensors.ph < 5.5) alerts.push('pH too low - adjust up');
-    else if (sensors.ph > 6.5) alerts.push('pH trending high - check solution');
+    if (sensors.ph < 5.5) {
+      alerts.push(`Low pH Detected: ${sensors.ph.toFixed(1)} (below 5.5). Raise pH using pH Up solution`);
+    } else if (sensors.ph > 6.5) {
+      alerts.push(`High pH Detected: ${sensors.ph.toFixed(1)} (above 6.5). Lower pH using pH Down solution`);
+    }
     // Handle extreme pH values
     if (sensors.ph < 4.0) alerts.push('Critical: pH extremely low - immediate action required');
     if (sensors.ph > 8.0) alerts.push('Critical: pH extremely high - immediate action required');
   }
+
+  // Water level alerts (matching backend: WATER_LEVEL_CRITICAL=0, WATER_LEVEL_WARNING=40)
   if (typeof sensors.waterLevel === 'number') {
-    if (sensors.waterLevel < 20) alerts.push('Water level below threshold');
+    if (sensors.waterLevel === 0) {
+      alerts.push('Water Level Empty: Reservoir empty - refill immediately and check pumps');
+    } else if (sensors.waterLevel <= 40) {
+      alerts.push(`Low Water Level: ${Math.round(sensors.waterLevel)}% (below 40%). Refill soon and verify auto-refill`);
+    }
   }
+
+  // Air temperature alerts (matching backend: AIR_TEMP_MIN=18, AIR_TEMP_MAX=26)
   if (typeof sensors.temperature === 'number') {
-    if (sensors.temperature < 18 || sensors.temperature > 28) alerts.push('Temperature outside optimal range');
+    if (sensors.temperature < 18) {
+      alerts.push(`Low Air Temperature: ${sensors.temperature.toFixed(1)}°C (below 18°C). Increase heating or insulation`);
+    } else if (sensors.temperature > 26) {
+      alerts.push(`High Air Temperature: ${sensors.temperature.toFixed(1)}°C (above 26°C). Improve ventilation or add cooling`);
+    }
   }
+
+  // Turbidity alerts (matching backend: TURBIDITY_CLEAR=2100, TURBIDITY_CLOUDY=1800)
+  if (typeof sensors.turbidity === 'number') {
+    if (sensors.turbidity <= 1800) {
+      alerts.push(`Water Turbid: ${Math.round(sensors.turbidity)} (turbid). Drain/refill and clean filters`);
+    } else if (sensors.turbidity <= 2100) {
+      alerts.push(`Water Cloudy: ${Math.round(sensors.turbidity)} (cloudy range). Clean filters and consider partial water change`);
+    }
+  }
+
+  // Light alerts (matching backend: LIGHT_HIGH=1500)
+  if (typeof sensors.light === 'number') {
+    if (sensors.light > 1500) {
+      alerts.push(`Very Bright Light: ${Math.round(sensors.light)} lux (above 1500). Provide shading or reduce lighting`);
+    }
+  }
+
+  // Humidity alerts (matching backend: HUMIDITY_MIN=50, HUMIDITY_MAX=70)
+  if (typeof sensors.humidity === 'number') {
+    if (sensors.humidity < 50) {
+      alerts.push(`Low Humidity: ${Math.round(sensors.humidity)}% (below 50%). Increase humidity with misters or humidifier`);
+    } else if (sensors.humidity > 70) {
+      alerts.push(`High Humidity: ${Math.round(sensors.humidity)}% (above 70%). Improve ventilation or dehumidify`);
+    }
+  }
+
   return alerts.length > 0 ? alerts[0] : 'All systems normal';
 };
 
@@ -588,18 +639,36 @@ export default function Dashboard() {
             ...(sensors.water_level !== undefined && { waterLevel: sensors.water_level }),
             ...(sensors.temperature !== undefined && { temperature: sensors.temperature }),
           };
-          if (typeof tempCombined.tds === 'number' && tempCombined.tds < 300) {
-            computedAlertMeta = { title: 'TDS Too Low', body: `TDS is ${Math.round(tempCombined.tds)} ppm (low)`, severity: 'warning', at: nowIso };
+          if (typeof tempCombined.tds === 'number' && tempCombined.tds < 800) {
+            computedAlertMeta = { title: 'TDS Critically Low', body: `TDS is ${Math.round(tempCombined.tds)} ppm (below 800). Solution too weak - increase nutrients`, severity: 'critical', at: nowIso };
+          } else if (typeof tempCombined.tds === 'number' && tempCombined.tds < 999) {
+            computedAlertMeta = { title: 'TDS Low Warning', body: `TDS is ${Math.round(tempCombined.tds)} ppm (approaching lower bound). Monitor and consider topping up`, severity: 'warning', at: nowIso };
           } else if (typeof tempCombined.tds === 'number' && tempCombined.tds > 1500) {
-            computedAlertMeta = { title: 'TDS Too High', body: `TDS is ${Math.round(tempCombined.tds)} ppm (high)`, severity: 'warning', at: nowIso };
+            computedAlertMeta = { title: 'TDS Critically High', body: `TDS is ${Math.round(tempCombined.tds)} ppm (above 1500). Solution too concentrated - drain/refill`, severity: 'critical', at: nowIso };
+          } else if (typeof tempCombined.tds === 'number' && tempCombined.tds > 1301) {
+            computedAlertMeta = { title: 'TDS High Warning', body: `TDS is ${Math.round(tempCombined.tds)} ppm (approaching upper bound). Consider diluting solution`, severity: 'warning', at: nowIso };
           } else if (typeof tempCombined.ph === 'number' && tempCombined.ph < 5.5) {
-            computedAlertMeta = { title: 'pH Low', body: `pH is ${tempCombined.ph.toFixed(1)} (low)`, severity: 'critical', at: nowIso };
+            computedAlertMeta = { title: 'Low pH Detected', body: `pH is ${tempCombined.ph.toFixed(1)} (below 5.5). Raise pH using pH Up solution`, severity: 'critical', at: nowIso };
           } else if (typeof tempCombined.ph === 'number' && tempCombined.ph > 6.5) {
-            computedAlertMeta = { title: 'pH High', body: `pH is ${tempCombined.ph.toFixed(1)} (high)`, severity: 'critical', at: nowIso };
-          } else if (typeof tempCombined.waterLevel === 'number' && tempCombined.waterLevel < 20) {
-            computedAlertMeta = { title: 'Water Level Low', body: `Water level ${Math.round(tempCombined.waterLevel)}% (low)`, severity: 'warning', at: nowIso };
-          } else if (typeof tempCombined.temperature === 'number' && (tempCombined.temperature < 18 || tempCombined.temperature > 28)) {
-            computedAlertMeta = { title: 'Temperature Out of Range', body: `Temp ${tempCombined.temperature.toFixed(1)}°C`, severity: 'warning', at: nowIso };
+            computedAlertMeta = { title: 'High pH Detected', body: `pH is ${tempCombined.ph.toFixed(1)} (above 6.5). Lower pH using pH Down solution`, severity: 'critical', at: nowIso };
+          } else if (typeof tempCombined.waterLevel === 'number' && tempCombined.waterLevel === 0) {
+            computedAlertMeta = { title: 'Water Level Empty', body: `Water level 0% - reservoir empty. Refill immediately and check pumps`, severity: 'critical', at: nowIso };
+          } else if (typeof tempCombined.waterLevel === 'number' && tempCombined.waterLevel <= 40) {
+            computedAlertMeta = { title: 'Low Water Level', body: `Water level ${Math.round(tempCombined.waterLevel)}% (below 40%). Refill soon and verify auto-refill`, severity: 'warning', at: nowIso };
+          } else if (typeof tempCombined.temperature === 'number' && tempCombined.temperature < 18) {
+            computedAlertMeta = { title: 'Low Air Temperature', body: `Air temperature ${tempCombined.temperature.toFixed(1)}°C (below 18°C). Increase heating or insulation`, severity: 'warning', at: nowIso };
+          } else if (typeof tempCombined.temperature === 'number' && tempCombined.temperature > 26) {
+            computedAlertMeta = { title: 'High Air Temperature', body: `Air temperature ${tempCombined.temperature.toFixed(1)}°C (above 26°C). Improve ventilation or add cooling`, severity: 'warning', at: nowIso };
+          } else if (typeof tempCombined.turbidity === 'number' && tempCombined.turbidity <= 1800) {
+            computedAlertMeta = { title: 'Water Turbid', body: `Turbidity ${Math.round(tempCombined.turbidity)} (turbid). Drain/refill and clean filters`, severity: 'critical', at: nowIso };
+          } else if (typeof tempCombined.turbidity === 'number' && tempCombined.turbidity <= 2100) {
+            computedAlertMeta = { title: 'Water Cloudy', body: `Turbidity ${Math.round(tempCombined.turbidity)} (cloudy range). Clean filters and consider partial water change`, severity: 'warning', at: nowIso };
+          } else if (typeof tempCombined.light === 'number' && tempCombined.light > 1500) {
+            computedAlertMeta = { title: 'Very Bright Light', body: `Light ${Math.round(tempCombined.light)} lux (above 1500). Provide shading or reduce lighting`, severity: 'critical', at: nowIso };
+          } else if (typeof tempCombined.humidity === 'number' && tempCombined.humidity < 50) {
+            computedAlertMeta = { title: 'Low Humidity', body: `Humidity ${Math.round(tempCombined.humidity)}% (below 50%). Increase humidity with misters or humidifier`, severity: 'warning', at: nowIso };
+          } else if (typeof tempCombined.humidity === 'number' && tempCombined.humidity > 70) {
+            computedAlertMeta = { title: 'High Humidity', body: `Humidity ${Math.round(tempCombined.humidity)}% (above 70%). Improve ventilation or dehumidify`, severity: 'warning', at: nowIso };
           }
 
           // Store already handles sensor value updates via applyRealtime; we only augment pH history locally
