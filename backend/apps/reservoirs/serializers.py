@@ -48,8 +48,6 @@ class PlantSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "plant_name",
-            "ec_min",
-            "ec_max",
             "ppm_min",
             "ppm_max",
             "ph_min",
