@@ -17,10 +17,11 @@ class SensorAlertService:
     # Threshold definitions matching frontend AlertsPage.jsx
     PH_MIN = 5.5
     PH_MAX = 6.5
+    # Default TDS thresholds (used only as fallback when no plant is associated)
     TDS_MIN = 800
     TDS_MAX = 1500
-    TDS_WARNING_LOW = 999  # 800-999: warning
-    TDS_WARNING_HIGH = 1301  # 1301-1500: warning
+    TDS_WARNING_LOW = 999  # 800-999: warning (fallback)
+    TDS_WARNING_HIGH = 1301  # 1301-1500: warning (fallback)
     WATER_LEVEL_CRITICAL = 0
     WATER_LEVEL_WARNING = 40
     AIR_TEMP_MIN = 18
@@ -62,7 +63,42 @@ class SensorAlertService:
             logger.warning(f"User with email {user_email} not found for device {device.id}")
             return None
 
-        alert_info = SensorAlertService._detect_alert(sensor_type, value)
+        # Derive plant-aware thresholds when possible
+        plant_ranges = None
+        try:
+            if sensor_type in {"tds", "ec", "ph", "water_temperature", "light", "humidity", "air_temperature"}:
+                # Resolve the most recent reservoir for this device to get plant ranges
+                from apps.reservoirs.models import Reservoir
+                reservoir = (
+                    Reservoir.objects.select_related("plant")
+                    .filter(device=device)
+                    .order_by("-start_date", "-created_at")
+                    .first()
+                )
+                plant = getattr(reservoir, "plant", None) if reservoir else None
+                if plant:
+                    plant_ranges = {
+                        "ppm_min": float(plant.ppm_min),
+                        "ppm_max": float(plant.ppm_max),
+                        "ec_min": float(plant.ec_min),
+                        "ec_max": float(plant.ec_max),
+                        "ph_min": float(plant.ph_min),
+                        "ph_max": float(plant.ph_max),
+                        "water_temp_min": float(plant.water_temp_min),
+                        "water_temp_max": float(plant.water_temp_max),
+                        "light_min": float(plant.light_min),
+                        "light_max": float(plant.light_max),
+                        "environment_temp_min": float(plant.environment_temp_min),
+                        "environment_temp_max": float(plant.environment_temp_max),
+                        "humidity_min": float(plant.humidity_min),
+                        "humidity_max": float(plant.humidity_max),
+                        "plant_name": plant.plant_name,
+                    }
+        except Exception:
+            # Non-fatal; fall back to static thresholds
+            plant_ranges = None
+
+        alert_info = SensorAlertService._detect_alert(sensor_type, value, plant_ranges)
 
         if not alert_info:
             return None
@@ -180,7 +216,7 @@ class SensorAlertService:
         return body
 
     @staticmethod
-    def _detect_alert(sensor_type: str, value: float) -> Optional[dict]:
+    def _detect_alert(sensor_type: str, value: float, plant_ranges: Optional[dict] = None) -> Optional[dict]:
         """
         Detect if a sensor value breaches thresholds.
 
@@ -211,40 +247,52 @@ class SensorAlertService:
 
         # TDS alerts
         elif sensor_type == "tds":
-            if value < SensorAlertService.TDS_MIN:
+            # Use plant-aware ranges if available; otherwise fallback to static
+            ppm_min = plant_ranges.get("ppm_min") if plant_ranges else SensorAlertService.TDS_MIN
+            ppm_max = plant_ranges.get("ppm_max") if plant_ranges else SensorAlertService.TDS_MAX
+            # Compute symmetric proximity buffer: 10% of span clamped to [50, 200]
+            span = max(0.0, float(ppm_max) - float(ppm_min))
+            base_buf = span * 0.1
+            buf = max(50.0, min(200.0, base_buf))
+
+            if value < ppm_min:
                 return {
                     "severity": "critical",
-                    "title": "TDS Critically Low",
+                    "title": "TDS below optimal range",
                     "body": (
-                        f"TDS is {value:.0f} ppm (below {SensorAlertService.TDS_MIN}). "
-                        "Solution is too weak. Increase nutrient concentration and re-check."
+                        f"TDS is {value:.0f} ppm which is below the optimal range ({ppm_min:.0f}–{ppm_max:.0f} ppm)"
+                        + (f" for {plant_ranges.get('plant_name')}" if plant_ranges and plant_ranges.get("plant_name") else "")
+                        + ". Increase nutrient concentration gradually and re-check."
                     ),
                 }
-            elif value < SensorAlertService.TDS_WARNING_LOW:
+            elif value <= (ppm_min + buf):
                 return {
                     "severity": "warning",
-                    "title": "TDS Low Warning",
+                    "title": "TDS approaching low boundary",
                     "body": (
-                        f"TDS is {value:.0f} ppm (approaching lower bound). "
-                        "Monitor and consider topping up nutrients."
+                        f"TDS is {value:.0f} ppm and nearing the lower limit ({ppm_min:.0f} ppm)"
+                        + (f" for {plant_ranges.get('plant_name')}" if plant_ranges and plant_ranges.get("plant_name") else "")
+                        + ". Monitor and consider a mild nutrient top-up."
                     ),
                 }
-            elif value > SensorAlertService.TDS_MAX:
+            elif value > ppm_max:
                 return {
                     "severity": "critical",
-                    "title": "TDS Critically High",
+                    "title": "TDS above optimal range",
                     "body": (
-                        f"TDS is {value:.0f} ppm (above {SensorAlertService.TDS_MAX}). "
-                        "Solution is too concentrated. Drain/refill with fresh solution."
+                        f"TDS is {value:.0f} ppm which is above the optimal range ({ppm_max:.0f} ppm max)"
+                        + (f" for {plant_ranges.get('plant_name')}" if plant_ranges and plant_ranges.get("plant_name") else "")
+                        + ". Dilute or perform a partial drain/refill and re-check."
                     ),
                 }
-            elif value > SensorAlertService.TDS_WARNING_HIGH:
+            elif value >= (ppm_max - buf):
                 return {
                     "severity": "warning",
-                    "title": "TDS High Warning",
+                    "title": "TDS approaching high boundary",
                     "body": (
-                        f"TDS is {value:.0f} ppm (approaching upper bound). "
-                        "Consider diluting the solution or reducing dosing frequency."
+                        f"TDS is {value:.0f} ppm and nearing the upper limit ({ppm_max:.0f} ppm)"
+                        + (f" for {plant_ranges.get('plant_name')}" if plant_ranges and plant_ranges.get("plant_name") else "")
+                        + ". Monitor and consider dilution if trend continues."
                     ),
                 }
 
