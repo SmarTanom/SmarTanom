@@ -319,11 +319,8 @@ SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
 
 # Email backend selection
 if SENDGRID_API_KEY:
-    # Use django-sendgrid-v5 backend when API key is available
-    EMAIL_BACKEND = 'django_sendgrid_v5.backends.EmailBackend'
-    # Configure SendGrid settings for deliverability (anti-spam)
-    SENDGRID_SANDBOX_MODE_IN_DEBUG = False
-    SENDGRID_ECHO_TO_STDOUT = DEBUG
+    # Use custom SendGrid backend when API key is available
+    EMAIL_BACKEND = 'apps.common.email_backend.SendGridBackend'
 else:
     # Fallback to console backend for development
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
