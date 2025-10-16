@@ -7,8 +7,8 @@ services:
     rootDir: backend
     # Commands are run relative to rootDir, so don't `cd backend` here.
     buildCommand: "pip install -r requirements.txt"
-    # Run migrations, collectstatic, then start gunicorn. Keep paths relative to backend/.
-    startCommand: "python manage.py migrate --noinput && python manage.py load_initial_data && python manage.py collectstatic --noinput --clear && gunicorn smartanom.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 30"
+    # Render will automatically use the Procfile in the rootDir (backend/)
+    # to determine the start command.
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: smartanom.settings
