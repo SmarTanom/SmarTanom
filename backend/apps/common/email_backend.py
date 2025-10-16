@@ -6,7 +6,7 @@ import logging
 from django.conf import settings
 from django.core.mail.backends.base import BaseEmailBackend
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content
+from sendgrid.helpers.mail import Mail
 
 logger = logging.getLogger(__name__)
 
@@ -50,35 +50,33 @@ class SendGridBackend(BaseEmailBackend):
             return False
 
         try:
-            from_email = Email(email_message.from_email)
-            to_emails = [To(email) for email in email_message.recipients()]
-            subject = email_message.subject
+            subject = email_message.subject or ""
+            from_email = email_message.from_email or getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+            to_emails = email_message.recipients()
 
-            # Use HTML content if available, otherwise use plain text
+            # Determine plain text and HTML content
+            plain_text_content = email_message.body or ""
+            html_content = None
+
             if hasattr(email_message, 'alternatives') and email_message.alternatives:
-                # HTML content from alternatives
-                html_content = None
-                for content, mimetype in email_message.alternatives:
-                    if mimetype == 'text/html':
-                        html_content = content
+                for alt_content, mimetype in email_message.alternatives:
+                    if mimetype == 'text/html' and alt_content:
+                        html_content = alt_content
                         break
 
-                if html_content:
-                    content = Content("text/html", html_content)
-                else:
-                    content = Content("text/plain", email_message.body)
-            else:
-                # Plain text only
-                content = Content("text/plain", email_message.body)
-
-            # Create the mail object
+            # Build the Mail object using raw strings (not Content objects)
             mail = Mail(
                 from_email=from_email,
-                to_emails=to_emails[0] if len(to_emails) == 1 else to_emails,
+                to_emails=to_emails,
                 subject=subject,
-                html_content=content if content.type == "text/html" else None,
-                plain_text_content=email_message.body if content.type == "text/html" else content
+                plain_text_content=plain_text_content if plain_text_content else None,
+                html_content=html_content,
             )
+
+            # Propagate reply-to if provided
+            if getattr(email_message, 'reply_to', None):
+                # SendGrid Mail supports a single reply_to string or object
+                mail.reply_to = email_message.reply_to[0] if len(email_message.reply_to) == 1 else email_message.reply_to[0]
 
             # Send the email
             response = self.client.send(mail)
