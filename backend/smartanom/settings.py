@@ -314,13 +314,29 @@ ADMIN_URL = os.getenv("ADMIN_URL", "admin/")
 AUTH_USER_MODEL = 'accounts.User'
 
 # Email Configuration
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+# SendGrid configuration (production)
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
+
+# Email backend selection
+if SENDGRID_API_KEY:
+    # Use django-sendgrid-v5 backend when API key is available
+    EMAIL_BACKEND = 'django_sendgrid_v5.backends.EmailBackend'
+    # Configure SendGrid settings for deliverability (anti-spam)
+    SENDGRID_SANDBOX_MODE_IN_DEBUG = False
+    SENDGRID_ECHO_TO_STDOUT = DEBUG
+else:
+    # Fallback to console backend for development
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# SMTP settings (fallback, not used with SendGrid)
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@smartanom.com')
+
+# From email (must be verified in SendGrid for production)
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'smartanom01@gmail.com')
 
 # OTP Configuration
 OTP_EXPIRE_MINUTES = int(os.getenv('OTP_EXPIRE_MINUTES', '5'))

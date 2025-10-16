@@ -80,32 +80,81 @@ def send_otp_email(email, code, purpose='login', device_name=None):
         html_message = render_to_string('emails/device_revoke_otp_email.html', context)
         plain_message = render_to_string('emails/device_revoke_otp_email.txt', context)
     else:
-        # Default template for other purposes
+        # Default template for other purposes - optimized to avoid spam
         html_message = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px;">
-                <h2 style="color: #333; text-align: center;">SmarTanom</h2>
-                <h3 style="color: #666;">Your verification code</h3>
-                <div style="background-color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                    <h1 style="color: #007bff; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
-                </div>
-                <p style="color: #666;">This code will expire in {expire_minutes} minute(s).</p>
-                <p style="color: #666;">If you didn't request this code, please ignore this email.</p>
-                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="color: #999; font-size: 12px; text-align: center;">
-                    This is an automated message from SmarTanom. Please do not reply.
-                </p>
-            </div>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Your Verification Code</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f4;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f4f4;">
+                <tr>
+                    <td style="padding: 40px 20px;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <!-- Header -->
+                            <tr>
+                                <td style="padding: 40px 40px 20px; text-align: center; border-bottom: 3px solid #007bff;">
+                                    <h1 style="margin: 0; color: #007bff; font-size: 28px; font-weight: 600;">SmarTanom</h1>
+                                    <p style="margin: 10px 0 0; color: #666; font-size: 14px;">Smart Water Tank Monitoring System</p>
+                                </td>
+                            </tr>
+                            <!-- Content -->
+                            <tr>
+                                <td style="padding: 40px;">
+                                    <h2 style="margin: 0 0 20px; color: #333; font-size: 24px; font-weight: 600;">Your Verification Code</h2>
+                                    <p style="margin: 0 0 30px; color: #666; font-size: 16px; line-height: 1.5;">
+                                        Use the following code to complete your {purpose} request:
+                                    </p>
+                                    <!-- OTP Code Box -->
+                                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                        <tr>
+                                            <td style="background-color: #f8f9fa; border: 2px dashed #007bff; border-radius: 8px; padding: 30px; text-align: center;">
+                                                <span style="font-size: 40px; font-weight: 700; color: #007bff; letter-spacing: 8px; font-family: 'Courier New', monospace;">{code}</span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                    <p style="margin: 30px 0 20px; color: #666; font-size: 14px; line-height: 1.5;">
+                                        <strong>Important:</strong> This code will expire in <strong>{expire_minutes} minute(s)</strong>.
+                                    </p>
+                                    <p style="margin: 0 0 20px; color: #666; font-size: 14px; line-height: 1.5;">
+                                        If you did not request this code, please ignore this email or contact support if you have concerns.
+                                    </p>
+                                </td>
+                            </tr>
+                            <!-- Footer -->
+                            <tr>
+                                <td style="padding: 30px 40px; background-color: #f8f9fa; border-top: 1px solid #e9ecef; border-radius: 0 0 8px 8px;">
+                                    <p style="margin: 0 0 10px; color: #999; font-size: 12px; text-align: center; line-height: 1.5;">
+                                        This is an automated message from SmarTanom. Please do not reply to this email.
+                                    </p>
+                                    <p style="margin: 0; color: #999; font-size: 12px; text-align: center;">
+                                        &copy; {timezone.now().year} SmarTanom. All rights reserved.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
         </body>
         </html>
         """
 
         plain_message = (
-            "SmarTanom - Your verification code\n\n"
-            f"Your verification code is: {code}\n\n"
+            "SmarTanom - Your Verification Code\n"
+            "=" * 50 + "\n\n"
+            f"Hello,\n\n"
+            f"Use the following code to complete your {purpose} request:\n\n"
+            f"CODE: {code}\n\n"
             f"This code will expire in {expire_minutes} minute(s).\n\n"
-            "If you didn't request this code, please ignore this email."
+            f"If you did not request this code, please ignore this email.\n\n"
+            "=" * 50 + "\n"
+            f"SmarTanom - Smart Water Tank Monitoring System\n"
+            f"© {timezone.now().year} All rights reserved.\n"
+            "This is an automated message. Please do not reply."
         )
 
     try:
