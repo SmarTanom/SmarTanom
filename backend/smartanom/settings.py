@@ -468,3 +468,39 @@ netlify_url = os.getenv('NETLIFY_URL')
 if netlify_url and netlify_url not in FRONTEND_URLS:
     FRONTEND_URLS.append(netlify_url)
 
+# Allow additional frontend hosts provided via env (CSV)
+extra_frontend = os.getenv('FRONTEND_URLS', '')
+if extra_frontend:
+	for u in extra_frontend.split(','):
+		u = u.strip()
+		if u and u not in FRONTEND_URLS:
+			FRONTEND_URLS.append(u)
+
+# CORS and CSRF trusted origins
+if DEBUG:
+	CORS_ALLOW_ALL_ORIGINS = True
+	CORS_ALLOW_CREDENTIALS = True
+	CSRF_TRUSTED_ORIGINS = [
+		'http://localhost:5173',
+		'http://192.168.56.1:5173',
+		'http://192.168.1.12:5173',
+	]
+else:
+	# Production: accept Render and provided frontend origins
+	CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'false').lower() == 'true'
+	CORS_ALLOW_CREDENTIALS = True
+	_csrf = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+	CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf.split(',') if o.strip()]
+	# Always include Render external URL if available
+	render_external = os.getenv('RENDER_EXTERNAL_URL')
+	if render_external:
+		domain = render_external.replace('https://', '').split('/')[0]
+		if domain and domain not in CSRF_TRUSTED_ORIGINS:
+			CSRF_TRUSTED_ORIGINS.append(f'https://{domain}')
+
+# Ensure ALLOWED_HOSTS covers frontend dev hosts when DEBUG
+if DEBUG:
+	for u in ['localhost', '127.0.0.1', '192.168.56.1', '192.168.1.12']:
+		if u not in ALLOWED_HOSTS:
+			ALLOWED_HOSTS.append(u)
+

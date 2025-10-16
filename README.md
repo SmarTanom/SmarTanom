@@ -1,3 +1,99 @@
+# SmartAnom Backend — Setup & Deploy
+
+This document describes how to run the SmartAnom Django backend locally and deploy it to Render with SendGrid (API) for email and Channels (WebSockets) support.
+
+## Quick environment
+
+- Backend (Django + Channels + Daphne)
+- Frontend (Vite) runs separately at `http://localhost:5173`
+- Postgres on Render configured via `DATABASE_URL`
+- SendGrid API for email delivery (no SMTP)
+
+## Files added/changed
+
+- `smartanom/settings.py` — updated for Render/Postgres, SendGrid, Channels, CORS
+- `.env.example` — environment variable example
+- `Procfile` — runs Daphne on Render
+- `requirements.txt` — packages required for deployment
+- `apps/accounts/apps.py` — auto-create superuser on deploy (post_migrate)
+
+## Local setup
+
+1. Create and activate a virtualenv (Windows PowerShell):
+
+```powershell
+py -m venv .venv ; .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+2. Copy `.env.example` to `.env` and set values. For local dev you can use DEBUG=true and console email backend.
+
+3. Run migrations and create static files:
+
+```powershell
+python backend/manage.py migrate
+python backend/manage.py collectstatic --noinput
+python backend/manage.py runserver
+```
+
+4. Start frontend (in the `frontend/` folder):
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+## Render deploy notes
+
+1. Create a new Web Service on Render and connect to this repository.
+
+2. Set build and start commands in Render:
+
+- Build command: `pip install -r requirements.txt && python backend/manage.py migrate --noinput && python backend/manage.py collectstatic --noinput`
+- Start command (Procfile is supported): `daphne -b 0.0.0.0 -p $PORT smartanom.asgi:application`
+
+3. Set environment variables on Render (at minimum):
+
+- `DATABASE_URL` — your Render Postgres URL
+- `SENDGRID_API_KEY` — SendGrid API Key
+- `EMAIL_BACKEND=sendgrid_backend.SendgridBackend`
+- `DEFAULT_FROM_EMAIL` — e.g. "SmartAnom System <smartanom01@gmail.com>"
+- `SUPERUSER_EMAIL`, `SUPERUSER_USERNAME`, `SUPERUSER_PASSWORD` — credentials to auto-create superuser
+- `REDIS_URL` — (optional) Redis URL for Channels in production
+
+4. Ensure `RENDER_EXTERNAL_URL` (provided by Render) is present — settings will auto-append it to `ALLOWED_HOSTS` and CSRF trusted origins.
+
+## WebSockets / Channels
+
+- WebSocket entrypoint: `wss://<your-deploy-domain>/ws/` (ensure the frontend uses `wss://` when deployed)
+- `smartanom/asgi.py` is configured to route WebSocket connections through Channels using `AuthMiddlewareStack` and `AllowedHostsOriginValidator`.
+- For multi-worker (production) you must provide `REDIS_URL` and channels_redis will be used for channel layers.
+
+## Email / OTP (SendGrid)
+
+- The project is configured to use SendGrid API backend when `EMAIL_BACKEND` is set to `sendgrid_backend.SendgridBackend` and `SENDGRID_API_KEY` is provided.
+- For local testing you can keep `EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend` to print emails to the console.
+
+## Auto-create superuser
+
+- On each deploy/migrate, a post-migrate hook creates the superuser specified by `SUPERUSER_EMAIL`, `SUPERUSER_USERNAME`, and `SUPERUSER_PASSWORD` if it does not already exist.
+
+## Testing endpoints
+
+- Health: `/healthz` (DB + basic checks)
+- Auth endpoints: `/api/auth/request-otp/` and `/api/auth/verify-otp/` (see `apps/accounts/`)
+
+## Troubleshooting
+
+- If WebSockets fail on Render, confirm that:
+  - `REDIS_URL` is set and reachable
+  - `ASGI_APPLICATION` is pointing to `smartanom.asgi.application`
+  - Deploy domain is included in `CSRF_TRUSTED_ORIGINS`
+
+## Notes
+
+- CORS is permissive in DEBUG for local frontend use. Lock this down for production by setting `CORS_ALLOW_ALL_ORIGINS=false` and providing `CORS_ALLOWED_ORIGINS`.
 <h1 align="center">SmarTanom</h1>
 
 Smart hydroponic monitoring & analytics platform.

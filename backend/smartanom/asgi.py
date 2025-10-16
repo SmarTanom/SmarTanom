@@ -19,6 +19,7 @@ django_asgi_app = get_asgi_application()
 # Import routing after Django setup to avoid AppRegistryNotReady errors
 from smartanom.routing import websocket_urlpatterns
 
+
 application = ProtocolTypeRouter({
     # HTTP requests handled by Django
     "http": django_asgi_app,
