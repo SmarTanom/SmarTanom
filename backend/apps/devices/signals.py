@@ -29,19 +29,15 @@ def broadcast_device_change(sender, instance, created, **kwargs):
 
         # Serialize device data for frontend
         device_data = {
-            "id": instance.id,
-            "device_serial": instance.device_serial,
-            "device_name": instance.device_name,
-            "status": instance.status,
-            "is_bound": instance.is_bound,
-            "bound_email": instance.bound_email,
-            "owner": instance.owner_id,
-            "owner_name": instance.owner.name if instance.owner else None,
-            "plant_name": instance.plant_name,
-            "plant_type": instance.plant_type,
-            "last_seen": instance.last_seen.isoformat() if instance.last_seen else None,
-            "created_at": instance.created_at.isoformat() if hasattr(instance, 'created_at') else None,
-            "updated_at": instance.updated_at.isoformat() if hasattr(instance, 'updated_at') else None,
+            "id": getattr(instance, 'id', None),
+            "device_serial": getattr(instance, 'device_serial', None),
+            "device_name": getattr(instance, 'device_name', None),
+            "status": getattr(instance, 'status', None),
+            "is_bound": getattr(instance, 'is_bound', None),
+            "bound_email": getattr(instance, 'bound_email', None),
+            # Only include timestamps if present on model
+            "created_at": instance.created_at.isoformat() if hasattr(instance, 'created_at') and instance.created_at else None,
+            "updated_at": instance.updated_at.isoformat() if hasattr(instance, 'updated_at') and instance.updated_at else None,
         }
 
         payload = {
@@ -115,13 +111,15 @@ def broadcast_user_change(sender, instance, created, **kwargs):
 
         # Serialize user data for frontend
         user_data = {
-            "id": instance.id,
-            "email": instance.email,
-            "name": instance.name,
-            "is_active": instance.is_active,
-            "is_staff": instance.is_staff,
-            "date_joined": instance.date_joined.isoformat() if hasattr(instance, 'date_joined') else None,
-            "last_login": instance.last_login.isoformat() if instance.last_login else None,
+            "id": getattr(instance, 'id', None),
+            "email": getattr(instance, 'email', None),
+            "first_name": getattr(instance, 'first_name', ''),
+            "last_name": getattr(instance, 'last_name', ''),
+            "username": getattr(instance, 'username', None),
+            "is_active": getattr(instance, 'is_active', None),
+            "is_staff": getattr(instance, 'is_staff', None),
+            "date_joined": instance.date_joined.isoformat() if hasattr(instance, 'date_joined') and instance.date_joined else None,
+            "last_login": instance.last_login.isoformat() if getattr(instance, 'last_login', None) else None,
         }
 
         payload = {

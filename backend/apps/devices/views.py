@@ -566,10 +566,10 @@ def verify_device_otp(request):
             device.save(update_fields=['is_bound', 'bound_email', 'device_name', 'location'])
 
             # Find or create user account with this email
+            # Create or find user account with this email; don't set username to avoid length issues
             user, created = User.objects.get_or_create(
                 email=email,
                 defaults={
-                    'username': f"temp_{email.split('@')[0]}_{timezone.now().strftime('%Y%m%d_%H%M%S')}",  # Temporary username
                     'is_active': True,
                 }
             )
@@ -688,10 +688,10 @@ class DeviceViewSet(BaseAuthViewSet):
             )
 
         # Find or create user with this email
+        # Create or get user without forcing username to avoid exceeding max length
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
-                'username': f"user_{email.split('@')[0]}_{timezone.now().strftime('%Y%m%d_%H%M%S')}",
                 'is_active': True,
             }
         )
@@ -875,10 +875,10 @@ class DeviceViewSet(BaseAuthViewSet):
             otp.save()
 
             # Get or create user (OTP-only, no password)
+            # Create or get user without setting username (avoid 30-char limit issues)
             user, created = User.objects.get_or_create(
                 email=email,
                 defaults={
-                    'username': f"user_{email.split('@')[0]}_{timezone.now().strftime('%Y%m%d_%H%M%S')}",
                     'is_active': True,
                 }
             )
@@ -1337,18 +1337,12 @@ class DeviceViewSet(BaseAuthViewSet):
             otp.is_verified = True
             otp.save()
 
-            # Get or create user (OTP-only, no password)
+            # Get or create user (OTP-only, no password). Don't set username to avoid length issues.
             from apps.accounts.models import User
-            import uuid
-
-            # Generate a unique username
-            base_username = f"user_{collaborator_email.split('@')[0]}"
-            username = f"{base_username}_{uuid.uuid4().hex[:8]}"
 
             user, user_created = User.objects.get_or_create(
                 email=collaborator_email,
                 defaults={
-                    'username': username,
                     'is_active': True,
                 }
             )
