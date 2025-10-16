@@ -64,15 +64,19 @@ backend/logs/*.log
 
 
 # Environment variables (sensitive)
-#.env
-#.env.local
-#.env.development
-#.env.production
-#.env*.local
-#backend/.env
-#backend/.env.local
-#backend/.env.development
-#backend/.env.production
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+backend/.env
+backend/.env.local
+backend/.env.development
+backend/.env.production
+frontend/.env
+frontend/.env.local
+frontend/.env.development
+frontend/.env.production
 
 # Test/probe files (temporary)
 *_probe.py
