@@ -64,7 +64,6 @@ def send_otp_email(email, code, purpose='login', device_name=None):
     # Use custom templates for device revocation
     if purpose == 'revoke':
         from django.template.loader import render_to_string
-        from django.utils import timezone
         import socket
 
         context = {
