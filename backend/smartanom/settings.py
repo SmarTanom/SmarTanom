@@ -278,6 +278,9 @@ LOGIN_REDIRECT_URL = "/admin/"
 # Security settings (applied based on DEBUG mode)
 if not DEBUG:
 	# Production security settings
+	# Tell Django to trust the X-Forwarded-Proto header from Render's proxy
+	SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 	SESSION_COOKIE_SECURE = True
 	CSRF_COOKIE_SECURE = True
 	SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
