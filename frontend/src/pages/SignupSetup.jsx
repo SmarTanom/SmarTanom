@@ -444,8 +444,8 @@ export default function SignupSetup() {
 
       // Format validation - should be SMRT-XXX-XXX format
       const serialPattern = /^SMRT-[A-Z0-9]{3}-[A-Z0-9]{3}$/;
-      if (!serialPattern.test(deviceSerial) && !fileName) {
-        throw new Error('Device ID should be in format SMRT-XXX-XXX or upload a QR code photo.');
+      if (!serialPattern.test(deviceSerial)) {
+        throw new Error('Device ID should look like SMRT-XXX-XXX. If you uploaded a QR image, we could not read a valid ID from the QR content—please try a clearer photo or re‑scan.');
       }
 
       // Do not auto-verify based on file upload; QR uploads should decode into deviceId then follow normal API check
@@ -490,10 +490,10 @@ export default function SignupSetup() {
         if (serial) {
           setDeviceId(serial);
         } else {
-          setModal({ open: true, message: 'QR image loaded but no valid device ID found. Ensure it contains text like SMRT-XXX-XXX.' });
+          setModal({ open: true, message: 'QR image loaded but no valid device ID found in the QR content. We read the QR\'s text (not the file name). Please try a clearer photo of the QR label that contains text like SMRT-XXX-XXX.' });
         }
       }).catch(() => {
-        setModal({ open: true, message: 'Could not read QR from this image. Please try another photo or use manual entry.' });
+        setModal({ open: true, message: 'Could not read the QR code from this image. The app reads the QR\'s embedded text, not the file name. Try a sharper, well-lit photo or re-scan with the camera.' });
       });
     } else {
       setFileName('');
@@ -503,8 +503,25 @@ export default function SignupSetup() {
 
   function extractSerialFromText(text) {
     if (!text) return '';
-    const m = /SMRT-[A-Z0-9]{3}-[A-Z0-9]{3}/i.exec(String(text));
-    return m ? m[0].toUpperCase() : '';
+    // Normalize to handle unicode dashes and odd spacing from some QR generators
+    let s = String(text);
+    try { s = s.normalize('NFKC'); } catch { /* older browsers */ }
+    // Replace various dash characters (en/em dash, figure dash, minus sign) with ASCII hyphen
+    s = s.replace(/[\u2010-\u2015\u2212]/g, '-');
+    // Collapse whitespace and trim
+    s = s.replace(/\s+/g, ' ').trim();
+    // Remove spaces around hyphens (e.g., SMRT - ABC - 123)
+    s = s.replace(/\s*-\s*/g, '-');
+    // Try strict pattern first, then a slightly broader fallback
+    const patterns = [
+      /SMRT-[A-Z0-9]{3}-[A-Z0-9]{3}/i,           // strict 3-3
+      /SMRT-[A-Z0-9]{2,4}-[A-Z0-9]{2,4}/i,       // fallback 2-4 each side
+    ];
+    for (const re of patterns) {
+      const m = re.exec(s);
+      if (m) return m[0].toUpperCase();
+    }
+    return '';
   }
 
   async function decodeQrFromImageFile(file) {
@@ -526,12 +543,40 @@ export default function SignupSetup() {
         width = Math.round(width * scale);
         height = Math.round(height * scale);
       }
+      // helper to try decode current canvas buffer
+      const tryDecode = () => {
+        const { data, width: w, height: h } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        return jsQR(data, w, h, { inversionAttempts: 'attemptBoth' });
+      };
+
+      // 0°
       canvas.width = width;
       canvas.height = height;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, width, height);
-      const { data, width: w, height: h } = ctx.getImageData(0, 0, width, height);
-      const res = jsQR(data, w, h, { inversionAttempts: 'attemptBoth' });
+      let res = tryDecode();
       if (res && res.data) return res.data;
+
+      // 90°, 180°, 270° rotations
+      const angles = [90, 180, 270];
+      for (const angle of angles) {
+        const rad = angle * Math.PI / 180;
+        const rotatedW = angle % 180 === 0 ? width : height;
+        const rotatedH = angle % 180 === 0 ? height : width;
+        canvas.width = rotatedW;
+        canvas.height = rotatedH;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(rotatedW / 2, rotatedH / 2);
+        ctx.rotate(rad);
+        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+        ctx.restore();
+        res = tryDecode();
+        if (res && res.data) return res.data;
+      }
+
       throw new Error('QR not found');
     } finally {
       URL.revokeObjectURL(imgUrl);

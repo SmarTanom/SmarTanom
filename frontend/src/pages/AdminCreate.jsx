@@ -25,7 +25,7 @@ function SuccessModal({ device, qrCodeUrl, onClose }) {
 	const handleDownloadQR = () => {
 		const link = document.createElement('a');
 		link.href = qrCodeUrl;
-		link.download = `${device.serial}-QRCode.png`;
+		link.download = `${device.serial}_QR.png`;
 		document.body.appendChild(link);
 		link.click();
 		document.body.removeChild(link);
@@ -51,7 +51,7 @@ function SuccessModal({ device, qrCodeUrl, onClose }) {
 				<p className="success-note">Device ID has been generated successfully</p>
 
 				<div className="qr-code-container">
-					<img src={qrCodeUrl} alt={`QR Code for ${device.serial}`} className="qr-code-image" />
+					<img src={qrCodeUrl} alt={`QR for ${device.serial}`} className="qr-code-image" />
 				</div>
 
 				<div className="success-status-badge">
@@ -61,7 +61,7 @@ function SuccessModal({ device, qrCodeUrl, onClose }) {
 				<div className="success-actions">
 					<button className="btn-download-qr" onClick={handleDownloadQR}>
 						<Download size={18} />
-						Download QR Code
+						Download QR
 					</button>
 					<button className="btn-close-success" onClick={onClose}>
 						Close
@@ -118,8 +118,13 @@ function AdminCreate() {
 
 			const newDevice = response.device;
 
-			// Generate QR code with the device serial
-			const qrUrl = await QRCode.toDataURL(newDevice.serial, {
+			// Generate QR with the same JSON payload format used elsewhere
+			const qrPayload = JSON.stringify({
+				serial: newDevice.serial || newDevice.device_serial || newDevice.serial_number,
+				id: newDevice.id || newDevice.device_id || null,
+				type: 'smartanom-device'
+			});
+			const qrUrl = await QRCode.toDataURL(qrPayload, {
 				width: 300,
 				margin: 2,
 				color: {
@@ -287,7 +292,7 @@ function AdminCreate() {
 								</li>
 								<li className="info-item">
 									<CheckCircle2 size={16} className="check-icon" />
-									<span>QR code will be generated automatically</span>
+									<span>QR will be generated automatically</span>
 								</li>
 								<li className="info-item">
 									<CheckCircle2 size={16} className="check-icon" />

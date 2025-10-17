@@ -73,8 +73,8 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 		setConfirmModal({
 			isOpen: true,
 			action: 'download',
-			title: 'Download QR Code',
-			message: `Download the QR code for device ${device.serial || device.device_serial}?`,
+			title: 'Download QR',
+			message: `Download the QR for device ${device.serial || device.device_serial}?`,
 			variant: 'info'
 		});
 	};
@@ -83,7 +83,7 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 		try {
 			const svg = qrRef.current.querySelector('svg');
 			if (!svg) {
-				toast.error('QR code not found');
+				toast.error('QR not found');
 				return;
 			}
 
@@ -112,14 +112,14 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 					document.body.removeChild(link);
 					URL.revokeObjectURL(downloadUrl);
 					URL.revokeObjectURL(url);
-					toast.success('QR code image downloaded successfully');
+					toast.success('QR image downloaded successfully');
 				});
 			};
 
 			img.src = url;
 		} catch (error) {
-			console.error('Error downloading QR code:', error);
-			toast.error('Failed to download QR code. Please try again.');
+			console.error('Error downloading QR:', error);
+			toast.error('Failed to download QR. Please try again.');
 		}
 	};
 
@@ -397,7 +397,7 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 					<Boxes size={20} />
 					<h2>Device Details</h2>
 				</div>
-				<p className="modal-subtitle">Complete information and QR code for device registration</p>
+				<p className="modal-subtitle">Complete information and QR for device registration</p>
 
 				<div className="modal-device-title">{deviceSerial}</div>
 				<span className={`modal-status-badge ${device.status.toLowerCase()}`}>
@@ -434,7 +434,7 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 					</div>
 				</div>
 
-				{/* QR Code Section */}
+				{/* QR Section */}
 				<div className="qr-code-section">
 					<div className="qr-code-container" ref={qrRef}>
 						<QRCodeSVG
@@ -446,9 +446,9 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 							bgColor="#ffffff"
 						/>
 					</div>
-					<div className="qr-label">QR Code for</div>
+					<div className="qr-label">QR for</div>
 					<div className="qr-device-name">{deviceSerial}</div>
-					<p className="qr-description">Scan this QR code to register or identify the device</p>
+					<p className="qr-description">Scan this QR to register or identify the device</p>
 				</div>
 
 				{/* Device Binding Section */}
@@ -523,9 +523,9 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 												disabled
 											/>
 
-											<label htmlFor="otp-code" style={{marginTop: '12px'}}>
+											<label htmlFor="otp-code" style={{ marginTop: '12px' }}>
 												OTP Code
-												<span style={{fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '8px'}}>
+												<span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '8px' }}>
 													(Check email for 6-digit code)
 												</span>
 											</label>
@@ -624,9 +624,9 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 
 											{collabOtpSent && (
 												<>
-													<label htmlFor="collab-otp" style={{marginTop: '12px'}}>
+													<label htmlFor="collab-otp" style={{ marginTop: '12px' }}>
 														OTP Code
-														<span style={{fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '8px'}}>
+														<span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '8px' }}>
 															(Check email for 6-digit code)
 														</span>
 													</label>
@@ -675,7 +675,7 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 				<div className="modal-actions">
 					<button className="btn-download" onClick={handleDownloadQR}>
 						<Download size={18} />
-						Download QR Code
+						Download QR
 					</button>
 					<button className="btn-close-modal" onClick={onClose}>
 						Close
