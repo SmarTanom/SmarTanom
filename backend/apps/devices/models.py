@@ -35,6 +35,12 @@ class Device(TimeStampedModel):
         max_length=20, choices=Status.choices, default=Status.ACTIVE, db_index=True
     )
 
+    # Device WiFi onboarding state
+    wifi_configured = models.BooleanField(
+        default=False,
+        help_text="Whether device has successfully configured WiFi and phoned home"
+    )
+
     # Device binding fields
     is_bound = models.BooleanField(
         default=False,
@@ -65,7 +71,8 @@ class Device(TimeStampedModel):
             models.Index(fields=["status"], name="idx_device_status"),
             models.Index(fields=["is_bound"], name="idx_device_is_bound"),
             models.Index(fields=["bound_email"], name="idx_device_bound_email"),
-            models.Index(fields=["location"], name="idx_device_location")
+            models.Index(fields=["location"], name="idx_device_location"),
+            models.Index(fields=["wifi_configured"], name="idx_device_wifi_configured"),
         ]
         verbose_name = "Device"
         verbose_name_plural = "Devices"

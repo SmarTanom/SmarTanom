@@ -11,4 +11,7 @@ websocket_urlpatterns = [
 
     # User-specific notifications
     re_path(r'ws/user/(?P<user_id>\d+)/$', consumers.UserConsumer.as_asgi()),
+
+    # Device onboarding channel (device connects directly)
+    re_path(r'ws/device/(?P<serial>[^/]+)/$', consumers.DeviceOnboardingConsumer.as_asgi()),
 ]

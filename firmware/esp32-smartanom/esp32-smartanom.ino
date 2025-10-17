@@ -35,6 +35,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Preferences.h>
+#include <WebSocketsClient.h>
 
 // ------------------- PIN DEFINITIONS -------------------
 #define DHTPIN 5
@@ -66,7 +67,12 @@ BH1750 lightMeter;
 WebServer server(80);
 Preferences preferences;
 
-String deviceId = "";
+// Set device serial branding before build if needed, fallback to generated ID
+#ifndef DEVICE_SERIAL
+#define DEVICE_SERIAL "SMRT-XXX-XXX"
+#endif
+
+String deviceId = String(DEVICE_SERIAL);
 bool wifiConnected = false;
 bool apMode = true;
 unsigned long lastWiFiCheck = 0;
@@ -104,21 +110,19 @@ String getLightStatus(float lux) {
 }
 
 // ------------------- WiFi FUNCTIONS -------------------------
-void generateDeviceId() {
-  uint64_t macAddress = ESP.getEfuseMac();
-  uint32_t uniqueId = (uint32_t)(macAddress >> 16);
-  deviceId = "SmarTanom-" + String(uniqueId, HEX);
-  deviceId.toUpperCase();
-}
+WebSocketsClient webSocket;
+unsigned long lastWsSend = 0;
+const unsigned long WS_SEND_INTERVAL = 10000;
 
 void startAccessPoint() {
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(deviceId.c_str(), "12345678"); // Default password
+  String apSsid = String("SMRT_Setup_") + deviceId;
+  WiFi.softAP(apSsid.c_str(), "smartanom123"); // Default password
 
   IPAddress IP = WiFi.softAPIP();
   Serial.println("Access Point Started");
-  Serial.println("Network Name (SSID): " + deviceId);
-  Serial.println("Password: 12345678");
+  Serial.println("Network Name (SSID): " + apSsid);
+  Serial.println("Password: smartanom123");
   Serial.print("IP address: ");
   Serial.println(IP);
 
@@ -226,9 +230,29 @@ void setupWebServer() {
   });
 
   // Add CORS to all endpoints
+  // Legacy endpoint support
   server.on("/wifi-setup", HTTP_POST, []() {
     server.sendHeader("Access-Control-Allow-Origin", "*");
     handleWiFiCredentials();
+  });
+
+  // Spec endpoints
+  server.on("/connect", HTTP_POST, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    handleWiFiCredentials();
+  });
+
+  server.on("/scan", HTTP_GET, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    int n = WiFi.scanNetworks();
+    String out = "[";
+    for (int i = 0; i < n; i++) {
+      out += "\"" + WiFi.SSID(i) + "\"";
+      if (i < n - 1) out += ",";
+    }
+    out += "]";
+    WiFi.scanDelete();
+    server.send(200, "application/json", out);
   });
 
   server.on("/status", HTTP_GET, []() {
@@ -253,8 +277,38 @@ void checkWiFiConnection() {
       Serial.println("WiFi connection lost, returning to AP mode");
       startAccessPoint();
       setupWebServer();
+      webSocket.disconnect();
     }
   }
+}
+
+// ------------------- WebSocket helpers -------------------
+void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
+  if (type == WStype_CONNECTED) {
+    Serial.println("WS connected");
+    // Send handshake
+    String hello = String("{") +
+      "\"device_serial\":\"" + deviceId + "\"," +
+      "\"wifi_configured\":true" +
+      "}";
+    webSocket.sendTXT(hello);
+  } else if (type == WStype_DISCONNECTED) {
+    Serial.println("WS disconnected");
+  } else if (type == WStype_TEXT) {
+    Serial.printf("WS msg: %.*s\n", (int)length, (const char*)payload);
+  }
+}
+
+void connectWebSocketIfNeeded() {
+  if (!wifiConnected) return;
+  static bool started = false;
+  if (!started) {
+    // Render backend
+    webSocket.beginSSL("smartanom.onrender.com", 443, (String("/ws/device/") + deviceId + "/").c_str());
+    webSocket.onEvent(wsEvent);
+    started = true;
+  }
+  webSocket.loop();
 }
 
 // ------------------- SETUP -------------------------
@@ -275,9 +329,7 @@ void setup() {
   // Initialize preferences
   preferences.begin("smartanom", false);
 
-  // Generate unique device ID
-  generateDeviceId();
-  Serial.println("Device ID: " + deviceId);
+  Serial.println("Device Serial: " + deviceId);
 
   // Initialize sensors
   dht.begin();
@@ -326,6 +378,17 @@ void loop() {
 
   // Check WiFi connection periodically
   checkWiFiConnection();
+
+  // Keep WebSocket alive when connected to WiFi
+  if (!apMode && wifiConnected) {
+    connectWebSocketIfNeeded();
+    if (millis() - lastWsSend > WS_SEND_INTERVAL) {
+      lastWsSend = millis();
+      // Send minimal heartbeat
+      String beat = String("{\"device_serial\":\"") + deviceId + "\",\"status\":\"alive\"}";
+      webSocket.sendTXT(beat);
+    }
+  }
 
   /********** DHT22 **********/
   float humidity = dht.readHumidity();

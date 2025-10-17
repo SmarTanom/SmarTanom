@@ -29,6 +29,7 @@ import StartCyclePage from './pages/StartCyclePage.jsx';
 import NotificationsPage from './pages/NotificationsPage.jsx';
 import PrivacySecurityPage from './pages/PrivacySecurityPage.jsx';
 import DevCacheHelper from './components/dev/DevCacheHelper.jsx';
+import WiFiSetup from './pages/WiFiSetup.jsx';
 
 function useKeyboardViewport() {
   useEffect(() => {
@@ -251,6 +252,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <SignupSetup />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/wifi-setup"
+            element={
+              <ProtectedRoute>
+                <WiFiSetup />
               </ProtectedRoute>
             }
           />

@@ -128,6 +128,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             "device_name",
             "location",
             "status",
+            "wifi_configured",
             "is_bound",
             "bound_email",
             "plant_photo",
@@ -138,7 +139,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "device_serial", "is_bound", "bound_email", "plant_photo_url", "created_at", "updated_at"]
+    read_only_fields = ["id", "device_serial", "is_bound", "bound_email", "plant_photo_url", "created_at", "updated_at", "wifi_configured"]
 
     def get_plant_photo_url(self, obj):
         """Get the full URL for the plant photo."""

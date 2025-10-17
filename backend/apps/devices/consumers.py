@@ -5,6 +5,8 @@ Broadcasts changes to all connected clients (admin and users).
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+from django.utils import timezone
+from apps.devices.models import Device
 
 
 class DeviceConsumer(AsyncWebsocketConsumer):
@@ -206,3 +208,84 @@ class UserConsumer(AsyncWebsocketConsumer):
         payload = event.get("payload", {})
         await self.send(text_data=json.dumps(payload))
         print(f"[WebSocket] Sent alert to user {self.user_id} for device {payload.get('device_id')}")
+
+
+class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
+    """
+    WebSocket consumer for device onboarding/handshake.
+
+    Path: ws://<host>/ws/device/<device_serial>/
+
+    Expected first message (JSON):
+        {"device_serial": "SMRT-XXX-XXX", "wifi_configured": true}
+
+    Behavior:
+    - Ensure Device exists; if not, create placeholder with serial as name
+    - Mark wifi_configured=True when indicated
+    - Echo back confirmation: {status: "ok", device_registered: true}
+    - Broadcast device_update to "devices" group for UI refresh
+    """
+
+    async def connect(self):
+        self.serial = self.scope['url_route']['kwargs'].get('serial')
+        await self.accept()
+        print(f"[DeviceWS] Device channel connected for serial={self.serial}")
+
+    async def disconnect(self, close_code):
+        print(f"[DeviceWS] Device channel disconnected serial={getattr(self, 'serial', None)} code={close_code}")
+
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data or '{}')
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({"status": "error", "message": "invalid json"}))
+            return
+
+        serial = (data.get("device_serial") or self.serial or "").upper()
+        if not serial:
+            await self.send(text_data=json.dumps({"status": "error", "message": "missing device_serial"}))
+            return
+
+        device = await self._get_or_create_device(serial)
+
+        wifi_flag = bool(data.get("wifi_configured") or data.get("status") == "connected")
+        if wifi_flag and not device.wifi_configured:
+            await self._mark_wifi_configured(device)
+
+        # Respond to device
+        await self.send(text_data=json.dumps({
+            "status": "ok",
+            "device_registered": True,
+            "serial": serial,
+            "server_time": timezone.now().isoformat(),
+        }))
+
+        # Broadcast to UI listeners
+        await self.channel_layer.group_send(
+            "devices",
+            {
+                "type": "device_update",
+                "action": "onboarded",
+                "data": {
+                    "device_serial": serial,
+                    "wifi_configured": True,
+                },
+                "timestamp": timezone.now().isoformat(),
+            },
+        )
+
+    @database_sync_to_async
+    def _get_or_create_device(self, serial: str):
+        device, _ = Device.objects.get_or_create(
+            device_serial=serial,
+            defaults={
+                "device_name": serial,
+                "is_bound": False,
+            },
+        )
+        return device
+
+    @database_sync_to_async
+    def _mark_wifi_configured(self, device: Device):
+        device.wifi_configured = True
+        device.save(update_fields=["wifi_configured", "updated_at"]) if hasattr(device, "updated_at") else device.save(update_fields=["wifi_configured"])
