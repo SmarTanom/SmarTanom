@@ -38,6 +38,34 @@ These libraries come with the ESP32 Arduino Core:
 - **Wire.h** - I2C communication
 - **WiFi.h** - WiFi connectivity (for future use)
 
+## Networking & JSON (for WiFi Setup + WebSockets)
+
+Install these additional libraries to use the AP setup server and WebSocket streaming in `firmware/main.cpp`:
+
+### 5. ESPAsyncWebServer
+- **Name**: ESPAsyncWebServer
+- **Author**: me-no-dev, lacamera, others
+- **Installation**: Library Manager (or from GitHub)
+- **Note**: Requires **AsyncTCP** on ESP32
+
+### 6. AsyncTCP (ESP32)
+- **Name**: AsyncTCP
+- **Author**: me-no-dev
+- **Installation**: Library Manager
+- **Purpose**: Async networking backend for ESP32
+
+### 7. WebSockets (Client)
+- **Name**: WebSockets
+- **Author**: Markus Sattler (Links2004)
+- **Installation**: Library Manager (search "WebSockets by Markus Sattler")
+- **Purpose**: WebSocketsClient for wss:// connections
+
+### 8. ArduinoJson
+- **Name**: ArduinoJson
+- **Author**: Benoit Blanchon
+- **Installation**: Library Manager
+- **Purpose**: JSON parsing/serialization for HTTP and WS payloads
+
 ## Library Dependencies
 
 The above libraries may automatically install these dependencies:

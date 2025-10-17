@@ -94,6 +94,35 @@ Light Level         : 1250.50 lx
 3. **Phase 3**: Real-time data streaming
 4. **Phase 4**: Remote configuration and OTA updates
 
+## 🌐 WiFi Setup + WebSocket Streaming (New)
+
+A merge-friendly implementation is provided in `firmware/main.cpp` that adds:
+
+- Access Point setup when no Wi-Fi is configured: SSID `SmarTanom_Setup_<DEVICE_SERIAL>` with password `smartanom123`
+- Async HTTP endpoints during setup:
+   - `GET /scan` → JSON array of nearby SSIDs
+   - `POST /connect` with `{"ssid":"...","password":"..."}` → stores credentials and attempts connection
+   - `GET /status` → `{status: "connecting" | "connected" | "failed"}`
+- On successful Wi-Fi connection, an encrypted WebSocket connects to:
+   `wss://smartanom.onrender.com/ws/device/<DEVICE_SERIAL>/`
+- Handshake and periodic sensor payloads are sent while connected
+
+Quick steps:
+1) Open `firmware/main.cpp` and set:
+    `#define DEVICE_SERIAL "SMRT-SVI-SRM-00123"`
+2) Install additional libraries listed in `esp32-smartanom/libraries.txt` under "Networking & JSON".
+3) Flash and open Serial Monitor. On first boot you should see AP SSID `SmarTanom_Setup_<DEVICE_SERIAL>`.
+4) Connect your phone/laptop to that AP and call:
+    - `http://192.168.4.1/scan`
+    - `POST http://192.168.4.1/connect` with Wi‑Fi credentials
+    - Poll `http://192.168.4.1/status` until `connected`
+5) Device switches to STA, then connects via WebSocket. Backend path: `/ws/device/<device_serial>/`.
+
+Notes:
+- Replace the "TODO: YOUR SENSOR READINGS HERE" block in `sendSensorPayload()` with calls to your existing sensor functions from `esp32-smartanom.ino`.
+- On persistent Wi‑Fi or WS failure, stored credentials are cleared and the device returns to AP mode.
+- Security hardening (pairing/verification) can be added later server-side.
+
 ## 🛠️ **Development**
 
 ### **Adding New Sensors**:
