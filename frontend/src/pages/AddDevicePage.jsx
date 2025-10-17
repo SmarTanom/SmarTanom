@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  X, 
-  Wifi, 
-  Mail, 
+import {
+  X,
+  Wifi,
+  Mail,
   AlertCircle,
   CheckCircle2,
   Loader,
@@ -127,8 +127,8 @@ const AddDevicePage = () => {
           <div className="step-counter">Step {currentStep} of 4</div>
           <div className="step-dots">
             {[1, 2, 3, 4].map(step => (
-              <div 
-                key={step} 
+              <div
+                key={step}
                 className={`step-dot ${step === currentStep ? 'active' : ''} ${step < currentStep ? 'completed' : ''}`}
               />
             ))}
@@ -253,6 +253,19 @@ const AddDevicePage = () => {
                 />
                 <span>This is a hidden network</span>
               </label>
+
+              <div className="info-banner" style={{ marginTop: '12px' }}>
+                <Wifi size={18} />
+                <span>Prefer automatic setup? Connect via the device hotspot instead.</span>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => navigate('/wifi-setup')}
+                style={{ marginTop: '8px' }}
+              >
+                Use Device Hotspot Setup
+              </button>
             </>
           )}
         </div>
@@ -276,7 +289,7 @@ const AddDevicePage = () => {
               Back
             </button>
           )}
-          
+
           <button
             className="btn-primary"
             onClick={handleNext}
