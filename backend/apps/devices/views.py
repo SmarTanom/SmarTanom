@@ -24,6 +24,10 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 from apps.common.views import BaseAuthViewSet
+from apps.sensors.models import Sensor, SensorData
+from apps.sensors.serializers import SensorSerializer, SensorDataSerializer
+from apps.reservoirs.models import Reservoir
+from apps.reservoirs.serializers import ReservoirSerializer
 from .models import Device, DeviceOTPCode, DeviceCollaboration, DeviceInvitation
 from .serializers import (
     DeviceSerializer,
@@ -1788,8 +1792,8 @@ def get_user_devices(request, user_id: int):
 
         # Get devices bound to this user's email OR shared with them
         devices = Device.objects.filter(
-            Q(bound_email=user.email, is_bound=True) |  # Owned devices
-            Q(id__in=shared_device_ids)  # Shared devices
+            Q(bound_email=user.email, is_bound=True) |
+            Q(id__in=shared_device_ids)
         ).order_by('-created_at')
 
         # Serialize devices
@@ -1816,3 +1820,155 @@ def get_user_devices(request, user_id: int):
             {'error': 'Internal server error'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def initial_dashboard_data(request):
+    """Return all data needed to hydrate the user's dashboard in a single call.
+
+    Response shape:
+    {
+      devices: [DeviceSerializer...],
+      sensors_by_device: { [device_id]: [SensorSerializer...] },
+      reservoirs_by_device: { [device_id]: [ReservoirSerializer...] },
+      readings_by_sensor: { [sensor_id]: [SensorDataSerializer...] },
+      alerts: { count, alerts: [...] }  # same shape as notifications/logs/alerts
+    }
+
+    Optional query params:
+      - reading_limit: int (default 60) max 200 per sensor
+      - alert_limit: int (default 200) max 500
+    """
+    try:
+        user = request.user
+
+        # Determine accessible devices (owned + shared) using the same scoping rules
+        qs_devices = Device.objects.all()
+        if not user.is_staff:
+            shared_device_ids = DeviceCollaboration.objects.filter(
+                collaborator_email=user.email,
+                status=DeviceCollaboration.Status.ACTIVE
+            ).values_list('device_id', flat=True)
+            qs_devices = qs_devices.filter(
+                Q(bound_email=user.email, is_bound=True) | Q(id__in=shared_device_ids)
+            )
+
+        devices = list(qs_devices.order_by('-created_at'))
+        device_ids = [d.id for d in devices]
+
+        # Serialize devices
+        device_data = DeviceSerializer(devices, many=True, context={'request': request}).data
+
+        # Collect sensors for all devices in one query
+        sensors_by_device = {}
+        if device_ids:
+            sensor_qs = Sensor.objects.select_related('device').filter(device_id__in=device_ids)
+            sensor_ser = SensorSerializer(sensor_qs, many=True)
+            for s in sensor_ser.data:
+                # Resolve device id from serialized representation; we have write-only device_id, so map via instance
+                # Instead, rebuild grouping by iterating original queryset
+                pass
+
+            # Build grouping using the queryset to avoid serializer write-only fields issue
+            sensors_by_device = {did: [] for did in device_ids}
+            for s in sensor_qs:
+                sensors_by_device.setdefault(s.device_id, []).append(SensorSerializer(s).data)
+
+        # Collect reservoirs for all devices
+        reservoirs_by_device = {}
+        if device_ids:
+            reservoirs_qs = Reservoir.objects.select_related('device', 'plant').filter(device_id__in=device_ids)
+            reservoirs_by_device = {did: [] for did in device_ids}
+            for r in reservoirs_qs:
+                reservoirs_by_device.setdefault(r.device_id, []).append(ReservoirSerializer(r).data)
+
+        # Recent readings per sensor (limit N per sensor)
+        try:
+            reading_limit = int(request.query_params.get('reading_limit', 60))
+        except ValueError:
+            reading_limit = 60
+        reading_limit = max(1, min(reading_limit, 200))
+
+        readings_by_sensor = {}
+        if sensors_by_device:
+            all_sensor_ids = []
+            for s_list in sensors_by_device.values():
+                for s in s_list:
+                    sid = s.get('id')
+                    if sid is not None:
+                        all_sensor_ids.append(sid)
+
+            # For simplicity and DB-compatibility, query per sensor id
+            for sid in all_sensor_ids:
+                sd_qs = SensorData.objects.filter(sensor_id=sid).order_by('-created_at')[:reading_limit]
+                readings_by_sensor[sid] = SensorDataSerializer(sd_qs, many=True).data
+
+        # Alerts: reuse logic similar to NotificationLogViewSet.alerts
+        try:
+            alert_limit = int(request.query_params.get('alert_limit', 200))
+        except ValueError:
+            alert_limit = 200
+        alert_limit = max(1, min(alert_limit, 500))
+
+        alerts_payload = {'count': 0, 'alerts': []}
+        if device_ids:
+            from apps.notifications.models import NotificationLog
+            # Only user's alerts for accessible devices
+            alert_qs = NotificationLog.objects.filter(
+                user=user,
+                metadata__device_id__in=device_ids,
+            ).order_by('-sent_at')[:alert_limit]
+
+            alerts = []
+            for alert in alert_qs:
+                device_info = None
+                device_id = alert.metadata.get('device_id') if alert.metadata else None
+                if device_id:
+                    try:
+                        dev = next((d for d in devices if d.id == device_id), None)
+                        device_info = {
+                            'id': dev.id if dev else device_id,
+                            'serial': dev.device_serial if dev else f'DEV{int(device_id):03d}',
+                            'name': (dev.device_name if dev and dev.device_name else (f'Device {dev.device_serial}' if dev else f'Device {device_id}'))
+                        }
+                    except Exception:
+                        device_info = {'id': device_id}
+
+                severity_mapping = {
+                    'critical': 'critical',
+                    'alert': 'critical',
+                    'warning': 'warning',
+                    'info': 'info',
+                    'success': 'info',
+                }
+                severity = severity_mapping.get(getattr(alert, 'notification_type', None), 'info')
+
+                alerts.append({
+                    'id': alert.id,
+                    'reading_id': alert.id,
+                    'device_id': device_id,
+                    'title': alert.title,
+                    'body': alert.message,
+                    'severity': severity,
+                    'type': getattr(alert, 'notification_type', None),
+                    'is_read': alert.status == 'sent',
+                    'timestamp': (alert.sent_at.isoformat() if getattr(alert, 'sent_at', None) else timezone.now().isoformat()),
+                    'created_at': (alert.sent_at.isoformat() if getattr(alert, 'sent_at', None) else timezone.now().isoformat()),
+                    'device': device_info,
+                    'metadata': alert.metadata,
+                })
+
+            alerts_payload = {'count': len(alerts), 'alerts': alerts}
+
+        return Response({
+            'devices': device_data,
+            'sensors_by_device': sensors_by_device,
+            'reservoirs_by_device': reservoirs_by_device,
+            'readings_by_sensor': readings_by_sensor,
+            'alerts': alerts_payload,
+        })
+
+    except Exception as e:
+        logger.error(f"Error building initial dashboard data: {e}", exc_info=True)
+        return Response({'error': 'Failed to load dashboard data'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

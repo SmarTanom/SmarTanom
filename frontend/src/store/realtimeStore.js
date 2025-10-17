@@ -4,6 +4,7 @@ import { wsClient } from '../services/websocketClient';
 import { getUserDevices } from '../services/api/devices';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors';
 import { getDeviceReservoirs } from '../services/api/reservoirs';
+import { getInitialDashboard } from '../services/api/dashboard';
 import { getUserAlerts, markAlertsAsRead, markAllAlertsAsRead } from '../services/api/userAlerts';
 
 // Helper utilities replicated minimally (consider DRY refactor later)
@@ -132,121 +133,137 @@ export const useRealtimeStore = create(persist((set, get) => ({
       set({ loadingInitial: true, errorInitial: null });
       console.log('[RealtimeStore] Fetching initial data...');
 
-      const devicesResp = await getUserDevices();
-      const devices = devicesResp.results || devicesResp || [];
-      console.log('[RealtimeStore] Loaded', devices.length, 'devices');
+      // Use combined endpoint to reduce round trips
+      const payload = await getInitialDashboard({ reading_limit: 60, alert_limit: 200 });
+      const devices = payload.devices || [];
+      const sensorsByDevice = payload.sensors_by_device || {};
+      const reservoirsByDevice = payload.reservoirs_by_device || {};
+      const readingsBySensor = payload.readings_by_sensor || {};
+      const alertsPayload = payload.alerts || { count: 0, alerts: [] };
+
+      console.log('[RealtimeStore] Combined payload received:', {
+        devices: devices.length,
+        sensorsGroups: Object.keys(sensorsByDevice).length,
+        reservoirsGroups: Object.keys(reservoirsByDevice).length,
+        readingsSensors: Object.keys(readingsBySensor).length,
+        alerts: alertsPayload.count
+      });
 
       const deviceData = { ...get().deviceData };
 
+      // Build latest snapshots from readings
       for (const d of devices) {
-        try {
-          console.log('[RealtimeStore] Processing device', d.id, d.device_name);
+        const sList = sensorsByDevice[d.id] || [];
+        const latest = {};
+        let lastUpdate = null;
 
-          const [sensorsResp, reservoirsResp] = await Promise.all([
-            getDeviceSensors(d.id),
-            getDeviceReservoirs(d.id)
-          ]);
-          const sensors = sensorsResp.results || sensorsResp || [];
-          const sensorDataMap = {};
-
-          // fetch recent readings per sensor
-          await Promise.all(sensors.map(async (s) => {
-            try {
-              const dataResp = await getSensorData(s.id, 60);
-              const list = dataResp.results || dataResp || [];
-              sensorDataMap[s.id] = list;
-            } catch (e) {
-              console.warn('[RealtimeStore] Failed to fetch sensor data for', s.id, e);
-              sensorDataMap[s.id] = [];
+        for (const s of sList) {
+          const arr = readingsBySensor[s.id] || [];
+          if (!arr.length) continue;
+          const last = arr[0]; // already ordered by -created_at
+          if (last && last.value != null) {
+            switch (s.sensor_type) {
+              case 'ph': latest.ph = last.value; break;
+              case 'tds': latest.tds = last.value; break;
+              case 'ec': latest.ec = last.value; break;
+              case 'water_level': latest.waterLevel = last.value; break;
+              case 'turbidity': latest.turbidity = last.value; break;
+              case 'air_temperature': latest.temperature = last.value; break;
+              case 'humidity': latest.humidity = last.value; break;
+              case 'light': latest.light = last.value; break;
+              case 'water_temperature': latest.water_temperature = last.value; break;
             }
-          }));
-
-          // build latest snapshot
-          const latest = {};
-          sensors.forEach(s => {
-            const arr = sensorDataMap[s.id] || [];
-            if (!arr.length) return;
-            const last = arr.reduce((a, b) => new Date(b.created_at) > new Date(a.created_at) ? b : a, arr[0]);
-            if (last && last.value != null) {
-              switch (s.sensor_type) {
-                case 'ph': latest.ph = last.value; break;
-                case 'tds': latest.tds = last.value; break;
-                case 'ec': latest.ec = last.value; break;
-                case 'water_level': latest.waterLevel = last.value; break;
-                case 'turbidity': latest.turbidity = last.value; break;
-                case 'air_temperature': latest.temperature = last.value; break;
-                case 'humidity': latest.humidity = last.value; break;
-                case 'light': latest.light = last.value; break;
-                case 'water_temperature': latest.water_temperature = last.value; break;
-              }
-            }
-          });
-
-          let lastUpdate = null;
-          Object.values(sensorDataMap).forEach(list => list.forEach(r => {
+          }
+          // track last update
+          for (const r of arr) {
             if (r?.created_at) {
               const t = new Date(r.created_at);
               if (!lastUpdate || t > lastUpdate) lastUpdate = t;
             }
-          }));
+          }
+        }
 
-          const { connectivity, lastSync } = getConnectivityStatus(lastUpdate);
-          const alertText = generateAlertText({
+        const { connectivity, lastSync } = getConnectivityStatus(lastUpdate);
+        const alertText = generateAlertText({
+          ph: latest.ph,
+          tds: latest.tds,
+          waterLevel: latest.waterLevel,
+          temperature: latest.temperature,
+          turbidity: latest.turbidity,
+          light: latest.light,
+          humidity: latest.humidity
+        });
+
+        const prev = deviceData[d.id] || {};
+        deviceData[d.id] = {
+          ...prev,
+          sensors: {
+            ...(prev.sensors || {}),
             ph: latest.ph,
+            ec: latest.ec,
             tds: latest.tds,
             waterLevel: latest.waterLevel,
-            temperature: latest.temperature,
             turbidity: latest.turbidity,
+          },
+          environment: {
+            ...(prev.environment || {}),
+            temperature: latest.temperature,
+            humidity: latest.humidity,
             light: latest.light,
-            humidity: latest.humidity
-          });
-
-          const prev = deviceData[d.id] || {};
-          deviceData[d.id] = {
-            // Preserve enriched fields if already set by the dashboard (plant, pH series)
-            ...prev,
-            sensors: {
-              ...(prev.sensors || {}),
-              ph: latest.ph,
-              ec: latest.ec,
-              tds: latest.tds,
-              waterLevel: latest.waterLevel,
-              turbidity: latest.turbidity,
-            },
-            environment: {
-              ...(prev.environment || {}),
-              temperature: latest.temperature,
-              humidity: latest.humidity,
-              light: latest.light,
-            },
-            nutrientText: getNutrientStatus(latest.tds),
-            alertText,
-            connectivity,
-            lastSyncLabel: lastSync,
-            lastUpdate: lastUpdate?.toISOString(),
-            // Keep any existing phHistory/phLabels if the page already fetched them
-            phHistory: Array.isArray(prev.phHistory) && prev.phHistory.length ? prev.phHistory : [],
-            phLabels: Array.isArray(prev.phLabels) && prev.phLabels.length ? prev.phLabels : [],
-            plant: prev.plant || undefined,
-          };
-
-          console.log('[RealtimeStore] Device', d.id, 'data:', {
-            sensors: deviceData[d.id].sensors,
-            alertText,
-            connectivity
-          });
-        } catch (e) {
-          console.warn('[RealtimeStore] Failed device fetch', d.id, e);
-          deviceData[d.id] = deviceData[d.id] || {};
-        }
+          },
+          nutrientText: getNutrientStatus(latest.tds),
+          alertText,
+          connectivity,
+          lastSyncLabel: lastSync,
+          lastUpdate: lastUpdate?.toISOString(),
+          // Keep any existing phHistory/phLabels if the page already fetched them
+          phHistory: Array.isArray(prev.phHistory) && prev.phHistory.length ? prev.phHistory : [],
+          phLabels: Array.isArray(prev.phLabels) && prev.phLabels.length ? prev.phLabels : [],
+          plant: prev.plant || undefined,
+          reservoirs: reservoirsByDevice[d.id] || prev.reservoirs,
+        };
       }
 
-      // Fetch alerts from backend
-      console.log('[RealtimeStore] Fetching alerts...');
-      await get().fetchAlerts();
+      // Hydrate alerts into store using same path as fetchAlerts does
+      const alerts = alertsPayload.alerts || [];
+      const deviceAlerts = {};
+      const unreadCounts = {};
+      const latestAlerts = {};
+      let totalUnread = 0;
+      alerts.forEach(alert => {
+        const deviceId = alert.device_id || alert.device?.id;
+        if (!deviceId) return;
+        if (!deviceAlerts[deviceId]) deviceAlerts[deviceId] = [];
+        const normalizedAlert = {
+          id: alert.id,
+          reading_id: alert.reading_id || alert.id,
+          device_id: deviceId,
+          title: alert.title || alert.message,
+          body: alert.body || alert.message,
+          severity: alert.severity || alert.type || 'info',
+          timestamp: alert.timestamp || alert.created_at,
+          is_read: alert.is_read || false,
+          sensor_type: alert.sensor_type,
+          value: alert.value
+        };
+        deviceAlerts[deviceId].push(normalizedAlert);
+        if (!normalizedAlert.is_read) {
+          unreadCounts[deviceId] = (unreadCounts[deviceId] || 0) + 1;
+          totalUnread += 1;
+        }
+        const at = new Date(normalizedAlert.timestamp);
+        if (!latestAlerts[deviceId] || at > new Date(latestAlerts[deviceId].at)) {
+          latestAlerts[deviceId] = {
+            title: normalizedAlert.title,
+            body: normalizedAlert.body,
+            severity: normalizedAlert.severity,
+            at: normalizedAlert.timestamp
+          };
+        }
+      });
 
-      set({ devices, deviceData, loadingInitial: false });
-      console.log('[RealtimeStore] Initial data fetch completed');
+      set({ devices, deviceData, deviceAlerts, unreadCounts, totalUnread, latestAlerts, loadingInitial: false });
+      console.log('[RealtimeStore] Initial data fetch completed (combined endpoint)');
     } catch (e) {
       console.error('[RealtimeStore] Failed to fetch initial data:', e);
       set({ errorInitial: 'Failed to load devices', loadingInitial: false });

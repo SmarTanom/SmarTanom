@@ -14,7 +14,8 @@ from .views import (
     get_sent_invitations,
     subscribe_notifications,
     cancel_sent_invitation,
-    get_user_devices
+    get_user_devices,
+    initial_dashboard_data
 )
 
 app_name = 'devices'
@@ -39,6 +40,8 @@ urlpatterns = [
     path("notifications/subscribe/", subscribe_notifications, name="subscribe_notifications"),
     # Admin user devices endpoint
     path("users/<int:user_id>/devices/", get_user_devices, name="get_user_devices"),
+    # Combined initial dashboard data endpoint
+    path("dashboard/initial/", initial_dashboard_data, name="initial_dashboard_data"),
     # Finally include CRUD router
     path("", include(router.urls)),
 ]
