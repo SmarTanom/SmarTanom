@@ -24,114 +24,39 @@ logger = logging.getLogger(__name__)
 
 def broadcast_sensor_update(sensor_data):
     """
-    Broadcast new sensor data via WebSocket.
-
-    Sends both:
-    - Legacy device_update action 'sensor_data' for backward compatibility
-    - New sensor_update payload with type 'sensor.update' consumed by the frontend store
+    Broadcast new sensor data via WebSocket to all connected clients.
 
     Args:
         sensor_data (SensorData): The sensor data instance
     """
     try:
         channel_layer = get_channel_layer()
-        if not channel_layer:
-            return
+        if channel_layer:
+            sensor = sensor_data.sensor
+            device = sensor.device if sensor else None
 
-        sensor = sensor_data.sensor
-        device = sensor.device if sensor else None
-        ts_iso = sensor_data.created_at.isoformat() if sensor_data.created_at else timezone.now().isoformat()
-
-        # Prepare legacy payload (kept for compatibility)
-        legacy_payload = {
-            "device_id": device.id if device else None,
-            "device_serial": device.device_serial if device else None,
-            "device_name": device.device_name if device else None,
-            "sensor_id": sensor.id if sensor else None,
-            "sensor_type": sensor.sensor_type if sensor else None,
-            "sensor_data_id": sensor_data.id if sensor_data else None,
-            "value": float(sensor_data.value) if sensor_data.value is not None else None,
-            "unit": sensor.unit if sensor else "",
-            "timestamp": ts_iso,
-        }
-
-        # Build new-style sensors delta map matching frontend expectations
-        sensors_delta = {}
-        try:
-            st = sensor.sensor_type if sensor else None
-            val = float(sensor_data.value) if sensor_data.value is not None else None
-            if st == "air_temperature":
-                sensors_delta["temperature"] = val
-            elif st == "light":
-                # Frontend expects light_lux in realtime payload
-                sensors_delta["light_lux"] = val
-            elif st == "water_level":
-                sensors_delta["water_level"] = val
-            elif st:
-                # Direct mapping for types like 'ph', 'tds', 'ec', 'turbidity', 'water_temperature', etc.
-                sensors_delta[st] = val
-        except Exception:
-            # Fallback to empty delta on unexpected types
-            sensors_delta = {}
-
-        new_payload = {
-            "type": "sensor.update",
-            "device_id": device.id if device else None,
-            "timestamp": ts_iso,
-            "sensors": sensors_delta,
-            "reading": {
-                "id": sensor_data.id if sensor_data else None,
+            # Prepare complete sensor data payload
+            payload_data = {
+                "device_id": device.id if device else None,
+                "device_serial": device.device_serial if device else None,
+                "device_name": device.device_name if device else None,
                 "sensor_id": sensor.id if sensor else None,
                 "sensor_type": sensor.sensor_type if sensor else None,
+                "sensor_data_id": sensor_data.id if sensor_data else None,
                 "value": float(sensor_data.value) if sensor_data.value is not None else None,
                 "unit": sensor.unit if sensor else "",
-                "created_at": ts_iso,
-            },
-        }
+                "timestamp": sensor_data.created_at.isoformat() if sensor_data.created_at else timezone.now().isoformat(),
+            }
 
-        # Broadcast to global devices group (admins/dashboards)
-        async_to_sync(channel_layer.group_send)(
-            "devices",
-            {
-                "type": "sensor_update",
-                "payload": new_payload,
-            },
-        )
-
-        # Also emit legacy device_update for any older clients
-        async_to_sync(channel_layer.group_send)(
-            "devices",
-            {
-                "type": "device_update",
-                "action": "sensor_data",
-                "data": legacy_payload,
-                "timestamp": ts_iso,
-            },
-        )
-
-        # Broadcast to device owner's user-specific channel if available
-        try:
-            from apps.accounts.models import User
-
-            owner_email = getattr(device, "bound_email", None)
-            if owner_email:
-                user = User.objects.only("id").filter(email=owner_email).first()
-                if user:
-                    async_to_sync(channel_layer.group_send)(
-                        f"user_{user.id}",
-                        {
-                            "type": "sensor_update",
-                            "payload": new_payload,
-                        },
-                    )
-        except Exception:
-            # Non-fatal if user lookup/broadcast fails
-            pass
-
-        logger.info(
-            f"[WebSocket] Broadcasted sensor.update: {sensor.sensor_type if sensor else 'unknown'}="
-            f"{legacy_payload.get('value')} for device {device.device_serial if device else 'unknown'}"
-        )
+            async_to_sync(channel_layer.group_send)(
+                "devices",
+                {
+                    "type": "device_update",
+                    "action": "sensor_data",
+                    "data": payload_data
+                }
+            )
+            logger.info(f"[WebSocket] Broadcasted sensor_data: {sensor.sensor_type if sensor else 'unknown'}={payload_data.get('value')} for device {device.device_serial if device else 'unknown'}")
     except Exception as e:
         # Don't fail the request if WebSocket broadcast fails
         logger.error(f"[WebSocket] Broadcast failed: {str(e)}", exc_info=True)
