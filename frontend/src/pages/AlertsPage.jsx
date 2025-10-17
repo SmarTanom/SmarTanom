@@ -4,6 +4,7 @@ import '../assets/styles/AlertsPage.css';
 import {
   Leaf,
   AlertCircle,
+  Loader,
   User,
   TriangleAlert,
   Droplets,
@@ -285,6 +286,8 @@ export default function AlertsPage() {
   // Alerts state initialized as empty - only real database alerts will be shown
   const [alerts, setAlerts] = useState([]);
   const [filteredDeviceName, setFilteredDeviceName] = useState(null); // Store device name when filtering
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // On first mount, apply persisted read flags to initial alerts
   React.useEffect(() => {
@@ -295,10 +298,15 @@ export default function AlertsPage() {
   React.useEffect(() => {
     let mounted = true;
     const fetchRecentReadings = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const devicesResp = await getUserDevices();
         const devices = devicesResp && devicesResp.results ? devicesResp.results : devicesResp;
-        if (!devices || devices.length === 0) return;
+        if (!devices || devices.length === 0) {
+          if (mounted) setAlerts([]);
+          return;
+        }
 
         // We'll collect out-of-range pH readings (low <6 or high >7) across all devices
         const abnormalReadings = [];
@@ -458,7 +466,10 @@ export default function AlertsPage() {
 
         if (!mounted) return;
 
-        if (abnormalReadings.length === 0) return;
+        if (abnormalReadings.length === 0) {
+          if (mounted) setAlerts([]);
+          return;
+        }
 
         // Build alerts for each out-of-range reading, avoiding duplicates by reading id/timestamp
         setAlerts(prev => {
@@ -776,12 +787,15 @@ export default function AlertsPage() {
         // Non-fatal; alerts page should still render (empty if no database alerts)
         // eslint-disable-next-line no-console
         console.warn('AlertsPage: failed to fetch recent pH readings', err);
+        if (mounted) setError('Failed to load alerts');
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
 
     fetchRecentReadings();
     return () => { mounted = false; };
-  }, []);
+  }, [deviceId]);
 
   const filteredAlerts = alerts.filter(alert => {
     if (filter === 'unread') return !alert.read;
@@ -890,68 +904,126 @@ export default function AlertsPage() {
         </div>
       </header>
 
+      {/* Loading / Error states */}
+      {loading && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '50vh',
+          gap: '12px'
+        }}>
+          <Loader size={40} className="animate-spin" color={PRIMARY_GREEN} />
+          <p style={{ color: '#666' }}>Loading alerts...</p>
+        </div>
+      )}
+      {!loading && error && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '40vh',
+          gap: '12px'
+        }}>
+          <AlertCircle size={40} color="#e74c3c" />
+          <p style={{ color: '#e74c3c' }}>{error}</p>
+          <button
+            onClick={() => {
+              // re-trigger effect by toggling a trivial state or calling fetch again; simplest: rely on deviceId dep
+              // For same deviceId, force reload by flipping a query param fragment
+              setLoading(true);
+              setError(null);
+              // naive retry: just call the effect's fetch again by temporarily pushing a no-op state update
+              // we can simulate by updating the URL with the same params to retrigger useEffect
+              // but simpler: directly invoke the inner fetch via a small inline function
+              (async () => {
+                // mimic effect by updating searchParams (optional). Here we just refresh the page section by resetting state
+                const evt = new Event('popstate');
+                window.dispatchEvent(evt);
+              })();
+            }}
+            style={{
+              padding: '8px 16px',
+              background: PRIMARY_GREEN,
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Filter buttons */}
-      <div className="alerts-filters">
-        <button
-          className={`filter-button ${filter === 'all' ? 'active' : ''}`}
-          onClick={() => setFilter('all')}
-        >
-          All
-        </button>
-        <button
-          className={`filter-button ${filter === 'unread' ? 'active' : ''}`}
-          onClick={() => setFilter('unread')}
-        >
-          Unread ({unreadCount})
-        </button>
-        <button
-          className={`filter-button ${filter === 'critical' ? 'active' : ''}`}
-          onClick={() => setFilter('critical')}
-        >
-          Critical
-        </button>
-      </div>
+      {!loading && !error && (
+        <div className="alerts-filters">
+          <button
+            className={`filter-button ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            All
+          </button>
+          <button
+            className={`filter-button ${filter === 'unread' ? 'active' : ''}`}
+            onClick={() => setFilter('unread')}
+          >
+            Unread ({unreadCount})
+          </button>
+          <button
+            className={`filter-button ${filter === 'critical' ? 'active' : ''}`}
+            onClick={() => setFilter('critical')}
+          >
+            Critical
+          </button>
+        </div>
+      )}
 
       {/* Alerts list */}
-      <main className="alerts-content">
-        {sortedAlerts.length === 0 ? (
-          <div className="alerts-empty">
-            <AlertCircle size={48} color="#8BA797" strokeWidth={1.5} />
-            <h3>No alerts to display</h3>
-            <p>
-              {deviceId && filteredDeviceName
-                ? `${filteredDeviceName} has no alerts. Everything looks good!`
-                : "You're all caught up! Check back later for updates."
-              }
-            </p>
-          </div>
-        ) : (
-          <div className="alerts-list">
-            {sortedAlerts.map((alert) => (
-              <article
-                key={alert.id}
-                className={`alert-item ${alert.type} ${alert.read ? 'read' : 'unread'}`}
-                onClick={() => handleAlertClick(alert)}
-              >
-                <div className="alert-item-indicator" />
-                <div className={`alert-item-icon ${alert.type}`}>
-                  {getAlertIcon(alert.icon)}
-                </div>
-                <div className="alert-item-content">
-                  <div className="alert-item-header">
-                    <h3 className="alert-item-title">{alert.title}</h3>
-                    {!alert.read && <span className="unread-dot" />}
+      {!loading && !error && (
+        <main className="alerts-content">
+          {sortedAlerts.length === 0 ? (
+            <div className="alerts-empty">
+              <AlertCircle size={48} color="#8BA797" strokeWidth={1.5} />
+              <h3>No alerts to display</h3>
+              <p>
+                {deviceId && filteredDeviceName
+                  ? `${filteredDeviceName} has no alerts. Everything looks good!`
+                  : "You're all caught up! Check back later for updates."
+                }
+              </p>
+            </div>
+          ) : (
+            <div className="alerts-list">
+              {sortedAlerts.map((alert) => (
+                <article
+                  key={alert.id}
+                  className={`alert-item ${alert.type} ${alert.read ? 'read' : 'unread'}`}
+                  onClick={() => handleAlertClick(alert)}
+                >
+                  <div className="alert-item-indicator" />
+                  <div className={`alert-item-icon ${alert.type}`}>
+                    {getAlertIcon(alert.icon)}
                   </div>
-                  <p className="alert-item-device">{alert.device}</p>
-                  <p className="alert-item-message">{alert.message}</p>
-                  <span className="alert-item-timestamp">{alert.timestamp}</span>
-                </div>
-                <ChevronRight size={20} color="#8BA797" className="alert-item-chevron" />
-              </article>
-            ))}
-          </div>
-        )}
-      </main>
+                  <div className="alert-item-content">
+                    <div className="alert-item-header">
+                      <h3 className="alert-item-title">{alert.title}</h3>
+                      {!alert.read && <span className="unread-dot" />}
+                    </div>
+                    <p className="alert-item-device">{alert.device}</p>
+                    <p className="alert-item-message">{alert.message}</p>
+                    <span className="alert-item-timestamp">{alert.timestamp}</span>
+                  </div>
+                  <ChevronRight size={20} color="#8BA797" className="alert-item-chevron" />
+                </article>
+              ))}
+            </div>
+          )}
+        </main>
+      )}
 
       {/* Bottom navigation */}
       <nav className="bottom-nav" aria-label="Primary">
