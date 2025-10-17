@@ -58,26 +58,46 @@ export default function OtpInput({
 
   function handleChange(i, raw){
     if (disabled) return;
-    const v = raw.replace(/\D/g,'');
+    const v = raw.replace(/\D/g, '');
+    const next = [...internal];
+
     if (!v) {
-      const next = [...internal];
+      // If the input is empty, clear the current field
       next[i] = '';
       setInternal(next);
       emit(next);
       return;
     }
-    const chars = v.split('').slice(0, length - i); // remaining capacity
-    const next = [...internal];
-    chars.forEach((c, idx)=>{ next[i+idx] = c; });
-    setInternal(next);
-    emit(next);
-    const targetIndex = i + chars.length - 1;
-    if (targetIndex < length - 1) {
-      focusIndex(targetIndex + 1);
-    } else if (targetIndex === length -1) {
-      // Last field filled -> optionally blur
-      const last = refs.current[targetIndex];
-      if (last) last.blur();
+
+    // Handle single digit input
+    if (v.length === 1) {
+      next[i] = v;
+      setInternal(next);
+      emit(next);
+      if (i < length - 1) {
+        focusIndex(i + 1);
+      } else {
+        // Last field filled -> optionally blur
+        const last = refs.current[i];
+        if (last) last.blur();
+      }
+    } else {
+      // Handle paste or multiple digits typed quickly
+      const chars = v.split('').slice(0, length - i);
+      chars.forEach((c, idx) => {
+        if (i + idx < length) {
+          next[i + idx] = c;
+        }
+      });
+      setInternal(next);
+      emit(next);
+      const targetIndex = Math.min(i + chars.length - 1, length - 1);
+      if (targetIndex < length - 1) {
+        focusIndex(targetIndex + 1);
+      } else {
+        const last = refs.current[targetIndex];
+        if (last) last.blur();
+      }
     }
   }
 
@@ -85,13 +105,17 @@ export default function OtpInput({
     if (disabled) return;
     if (e.key === 'Backspace') {
       if (internal[i]) {
+        // If current field has a value, clear it
         const next = [...internal];
         next[i] = '';
         setInternal(next);
         emit(next);
-        return;
-      }
-      if (i > 0) {
+      } else if (i > 0) {
+        // If current field is empty, move to previous and clear it
+        const next = [...internal];
+        next[i - 1] = '';
+        setInternal(next);
+        emit(next);
         focusIndex(i - 1);
       }
     } else if (e.key === 'ArrowLeft' && i > 0) {
