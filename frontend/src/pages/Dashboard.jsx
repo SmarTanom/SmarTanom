@@ -608,31 +608,6 @@ export default function Dashboard() {
   };
   const PH_WINDOW_SIZE = getWindowSize(timeRange);
 
-  // Schedule a refresh at local midnight to update date-based labels/history automatically
-  const midnightTimerRef = useRef(null);
-  useEffect(() => {
-    if (!currentDevice?.id) return;
-    // Clear any previous timer
-    if (midnightTimerRef.current) {
-      clearTimeout(midnightTimerRef.current);
-      midnightTimerRef.current = null;
-    }
-    // Compute ms until next midnight
-    const now = new Date();
-    const next = new Date(now);
-    next.setDate(now.getDate() + 1);
-    next.setHours(0, 0, 0, 50); // a tiny buffer past midnight
-    const delay = Math.max(1000, next.getTime() - now.getTime());
-    midnightTimerRef.current = setTimeout(() => {
-      // Rebuild pH labels and history for the active device
-      fetchDeviceDataById(currentDevice.id);
-    }, delay);
-    return () => {
-      if (midnightTimerRef.current) clearTimeout(midnightTimerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDevice?.id, timeRange]);
-
   // Reset pH windows when timeRange changes
   const handleTimeRangeChange = (newTimeRange) => {
     setTimeRange(newTimeRange);
@@ -694,6 +669,31 @@ export default function Dashboard() {
   // Current device selection must be defined before any effects/dependencies that reference it
   const currentDevice = devices[activeIdx];
   const data = currentDevice ? devicesData[currentDevice.id] : null;
+
+  // Schedule a refresh at local midnight to update date-based labels/history automatically
+  const midnightTimerRef = useRef(null);
+  useEffect(() => {
+    if (!currentDevice?.id) return;
+    // Clear any previous timer
+    if (midnightTimerRef.current) {
+      clearTimeout(midnightTimerRef.current);
+      midnightTimerRef.current = null;
+    }
+    // Compute ms until next midnight
+    const now = new Date();
+    const next = new Date(now);
+    next.setDate(now.getDate() + 1);
+    next.setHours(0, 0, 0, 50); // a tiny buffer past midnight
+    const delay = Math.max(1000, next.getTime() - now.getTime());
+    midnightTimerRef.current = setTimeout(() => {
+      // Rebuild pH labels and history for the active device
+      fetchDeviceDataById(currentDevice.id);
+    }, delay);
+    return () => {
+      if (midnightTimerRef.current) clearTimeout(midnightTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDevice?.id, timeRange]);
 
   // Debug logging for data availability
   useEffect(() => {
