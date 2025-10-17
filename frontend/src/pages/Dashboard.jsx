@@ -1284,6 +1284,36 @@ export default function Dashboard() {
     return Array.from({ length: N }, (_, i) => (phScale.max - i * step)).map(v => `${v.toFixed(1)} pH`);
   }, [phScale]);
 
+  // Realtime pH -> update the latest bucket of the pH chart so new readings appear without manual refresh
+  const prevPhRef = useRef(undefined);
+  const prevPhTsRef = useRef(undefined);
+  useEffect(() => {
+    if (!currentDevice) return;
+    const ph = data?.sensors?.ph;
+    if (!Number.isFinite(Number(ph))) return;
+    const ts = data?.lastUpdate;
+    const changed = prevPhRef.current !== ph || prevPhTsRef.current !== ts;
+    if (!changed) return;
+
+    const existing = Array.isArray(mergedData?.phHistory) ? mergedData.phHistory : [];
+    if (existing.length === 0) {
+      // Seed history if empty
+      fetchDeviceDataById(currentDevice.id);
+    } else {
+      const updated = existing.slice();
+      // Update current period (last bucket) with the latest pH value
+      updated[updated.length - 1] = Number(ph);
+      const labels = Array.isArray(mergedData?.phLabels) ? mergedData.phLabels : [];
+      // Persist locally and update store to keep views in sync
+      persistPhData(currentDevice.id, updated, labels, timeRange);
+      updateDeviceData(currentDevice.id, { phHistory: updated, phLabels: labels });
+    }
+
+    prevPhRef.current = ph;
+    prevPhTsRef.current = ts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDevice?.id, data?.sensors?.ph, data?.lastUpdate, timeRange, mergedData?.phHistory?.length]);
+
   // Update default window when device changes or total increases and nothing saved
   useEffect(() => {
     if (!currentDevice) return;
