@@ -28,6 +28,26 @@ class DeviceModelTests(TestCase):
         self.assertFalse(device.is_bound)
         self.assertIsNone(device.bound_email)
 
+    def test_auto_create_sensors_on_device_create(self):
+        """When a Device is created, the default sensors should be auto-created via signals."""
+        device = Device.objects.create(
+            device_name='AutoSensor Device',
+            device_serial='SMRT-AUT-001',
+            status=Device.Status.ACTIVE
+        )
+
+        # Import Sensor model here to avoid circular imports at module load
+        from apps.sensors.models import Sensor
+
+        # Ensure at least one sensor is present and that each sensor_type has a sensor
+        sensor_types = [st.value for st in Sensor.SensorType]
+        sensors = Sensor.objects.filter(device=device)
+        self.assertTrue(sensors.exists())
+        existing_types = set(s.sensor_type for s in sensors)
+        # All defined sensor types should have at least one Sensor row for this device
+        for st in sensor_types:
+            self.assertIn(st, existing_types)
+
 
 class DeviceAPITests(TestCase):
     """Tests for the Device API endpoints."""

@@ -10,6 +10,10 @@ from asgiref.sync import async_to_sync
 from datetime import datetime
 
 from .models import Device
+from django.db import transaction
+import logging
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -56,6 +60,31 @@ def broadcast_device_change(sender, instance, created, **kwargs):
         )
 
         print(f"[Signal] Broadcasted {action_type} for device {instance.device_serial}")
+
+        # Auto-create default sensors for newly created devices.
+        if created:
+            try:
+                # Local import to avoid circular import at module load time
+                from apps.sensors.models import Sensor
+
+                # Build list of sensor type values from the SensorType TextChoices
+                sensor_types = [st.value for st in Sensor.SensorType]
+
+                with transaction.atomic():
+                    created_count = 0
+                    for sensor_type in sensor_types:
+                        # Use get_or_create to be idempotent in case fixtures or other flows
+                        obj, was_created = Sensor.objects.get_or_create(
+                            device=instance,
+                            sensor_type=sensor_type,
+                        )
+                        if was_created:
+                            created_count += 1
+
+                logger.info(f"Auto-created {created_count} sensors for device {instance.device_serial}")
+            except Exception as e:
+                # Don't let sensor creation break device creation; log and continue
+                logger.exception(f"Failed to auto-create sensors for device {instance.device_serial}: {e}")
 
     except Exception as e:
         print(f"[Signal] Error broadcasting device change: {e}")
