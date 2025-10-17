@@ -577,6 +577,12 @@ export default function Dashboard() {
   const carouselRef = useRef(null);
   // Cache plant catalog for mapping reservoirs -> plant ranges (shared with AlertsPage logic)
   const plantCatalogRef = useRef(null);
+  // Minute tick to force re-render so relative times (e.g., "X minutes ago") update without manual refresh
+  const [clockTick, setClockTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setClockTick(t => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Initialize activeIdx from localStorage or default to 0
   const [activeIdx, setActiveIdx] = useState(() => {
@@ -601,6 +607,31 @@ export default function Dashboard() {
     }
   };
   const PH_WINDOW_SIZE = getWindowSize(timeRange);
+
+  // Schedule a refresh at local midnight to update date-based labels/history automatically
+  const midnightTimerRef = useRef(null);
+  useEffect(() => {
+    if (!currentDevice?.id) return;
+    // Clear any previous timer
+    if (midnightTimerRef.current) {
+      clearTimeout(midnightTimerRef.current);
+      midnightTimerRef.current = null;
+    }
+    // Compute ms until next midnight
+    const now = new Date();
+    const next = new Date(now);
+    next.setDate(now.getDate() + 1);
+    next.setHours(0, 0, 0, 50); // a tiny buffer past midnight
+    const delay = Math.max(1000, next.getTime() - now.getTime());
+    midnightTimerRef.current = setTimeout(() => {
+      // Rebuild pH labels and history for the active device
+      fetchDeviceDataById(currentDevice.id);
+    }, delay);
+    return () => {
+      if (midnightTimerRef.current) clearTimeout(midnightTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDevice?.id, timeRange]);
 
   // Reset pH windows when timeRange changes
   const handleTimeRangeChange = (newTimeRange) => {
@@ -929,6 +960,7 @@ export default function Dashboard() {
         alertText,
         connectivity,
         lastSyncLabel: lastSync,
+        lastUpdate: lastSensorUpdate ? lastSensorUpdate.toISOString() : undefined,
         nutrientText,
         phHistory,
         phLabels,
@@ -1725,9 +1757,15 @@ export default function Dashboard() {
             </div>
             <div className="status-box-content">
               <span className="status-label">Connectivity</span>
-              <span className={`status-value ${data?.connectivity === 'Online' ? 'status-online' : 'status-offline'}`}>
-                {data ? (data.connectivity || 'Offline') : 'Loading...'}
-              </span>
+              {(() => {
+                const status = data?.lastUpdate ? getConnectivityStatus(data.lastUpdate) : { connectivity: data?.connectivity, lastSync: data?.lastSyncLabel };
+                const conn = status?.connectivity || 'Offline';
+                return (
+                  <span className={`status-value ${conn === 'Online' ? 'status-online' : 'status-offline'}`}>
+                    {data ? conn : 'Loading...'}
+                  </span>
+                );
+              })()}
             </div>
           </div>
           <div className="status-box">
@@ -1736,7 +1774,13 @@ export default function Dashboard() {
             </div>
             <div className="status-box-content">
               <span className="status-label">Last Data Sync</span>
-              <span className="status-value">{data ? (data.lastSyncLabel || 'Never') : 'Loading...'}</span>
+              {(() => {
+                const status = data?.lastUpdate ? getConnectivityStatus(data.lastUpdate) : { connectivity: data?.connectivity, lastSync: data?.lastSyncLabel };
+                const label = status?.lastSync || 'Never';
+                return (
+                  <span className="status-value">{data ? label : 'Loading...'}</span>
+                );
+              })()}
             </div>
           </div>
         </section>
@@ -2092,7 +2136,7 @@ export default function Dashboard() {
                     <Activity size={16} color={phStatus.color} strokeWidth={2.5} />
                     <span className="ph-label">Current Level</span>
                   </div>
-                    <div className="ph-range-indicator">
+                  <div className="ph-range-indicator">
                     <div className="range-bar">
                       <div
                         className="optimal-range"
