@@ -19,6 +19,7 @@ class WebSocketClient {
     this.isConnecting = false;
     this.status = 'disconnected'; // 'connecting' | 'connected' | 'disconnected'
     this.statusCallbacks = new Set();
+    this.lastUserId = null;
   }
 
   /**
@@ -54,7 +55,7 @@ class WebSocketClient {
   onStatusChange(callback) {
     if (typeof callback !== 'function') {
       console.error('[WebSocket] onStatusChange requires a function callback');
-      return () => {};
+      return () => { };
     }
     this.statusCallbacks.add(callback);
     // Immediately call with current status
@@ -72,10 +73,13 @@ class WebSocketClient {
 
     this.isConnecting = true;
     this.setStatus('connecting');
-    
+    if (userId !== undefined) {
+      this.lastUserId = userId;
+    }
+
     // Use user-specific endpoint if userId is provided, otherwise use global devices endpoint
-    const wsUrl = userId 
-      ? `${WS_BASE_URL}/ws/user/${userId}/`
+    const wsUrl = (userId ?? this.lastUserId)
+      ? `${WS_BASE_URL}/ws/user/${userId ?? this.lastUserId}/`
       : `${WS_BASE_URL}/ws/devices/`;
     console.log('[WebSocket] Connecting to:', wsUrl);
 
@@ -93,10 +97,13 @@ class WebSocketClient {
         try {
           const data = JSON.parse(event.data);
           console.log('[WebSocket] Message received:', data);
+          // Normalize legacy messages to unified payloads when possible
+          const normalized = this.normalizeMessage(data);
+          const deliver = normalized || data;
           // Notify all listeners
           this.listeners.forEach(callback => {
             try {
-              callback(data);
+              callback(deliver);
             } catch (error) {
               console.error('[WebSocket] Listener error:', error);
             }
@@ -145,7 +152,7 @@ class WebSocketClient {
       console.log(
         `[WebSocket] Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
       );
-      setTimeout(() => this.connect(), delay);
+      setTimeout(() => this.connect(this.lastUserId), delay);
     } else {
       console.error('[WebSocket] Max reconnection attempts reached');
       this.setStatus('disconnected');
@@ -155,7 +162,7 @@ class WebSocketClient {
   subscribe(callback) {
     if (typeof callback !== 'function') {
       console.error('[WebSocket] Subscribe requires a function callback');
-      return () => {};
+      return () => { };
     }
     this.listeners.add(callback);
     console.log('[WebSocket] Subscriber added, total:', this.listeners.size);
@@ -183,6 +190,59 @@ class WebSocketClient {
     } else {
       console.warn('[WebSocket] Cannot send message, connection not open');
     }
+  }
+
+  /**
+   * Normalize various backend message shapes into the unified
+   * { type: 'sensor.update', device_id, timestamp, sensors: {...}, reading: {...} }
+   * so downstream consumers (store) always receive expected payloads.
+   */
+  normalizeMessage(data) {
+    try {
+      // Already unified payloads
+      if (data && data.type === 'sensor.update') return data;
+      if (data && data.type === 'alert.new') return data;
+
+      // Legacy admin/user wrappers: { action, data, timestamp }
+      if (data && data.action === 'sensor_data' && data.data) {
+        const d = data.data;
+        const ts = data.timestamp || d.timestamp || new Date().toISOString();
+        const sensors = {};
+        // Map sensor_type/value to expected sensors delta
+        switch (d.sensor_type) {
+          case 'air_temperature':
+            sensors.temperature = d.value; break;
+          case 'light':
+            sensors.light_lux = d.value; break;
+          case 'water_level':
+            sensors.water_level = d.value; break;
+          default:
+            if (typeof d.sensor_type === 'string') sensors[d.sensor_type] = d.value;
+        }
+        return {
+          type: 'sensor.update',
+          device_id: d.device_id,
+          timestamp: ts,
+          sensors,
+          reading: {
+            id: d.sensor_data_id,
+            sensor_id: d.sensor_id,
+            sensor_type: d.sensor_type,
+            value: d.value,
+            unit: d.unit,
+            created_at: ts,
+          }
+        };
+      }
+
+      // Device consumer direct passthrough shapes: { action, data }
+      if (data && data.data && data.data.sensor_type && data.action === 'sensor_data') {
+        return this.normalizeMessage({ action: 'sensor_data', data: data.data, timestamp: data.timestamp });
+      }
+    } catch (e) {
+      console.warn('[WebSocket] normalizeMessage failed:', e);
+    }
+    return null;
   }
 }
 

@@ -30,6 +30,7 @@ import { listPlants } from '../services/api/plants.js';
 import { authApi } from '../services/apiClient.js';
 import { wsClient } from '../services/websocketClient';
 import { useRealtimeStore } from '../store/realtimeStore';
+import { generatePlantAwareAlertText } from '../utils/plantAlerts';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -247,188 +248,7 @@ const getConnectivityStatus = (lastSensorUpdate) => {
   }
 };
 
-// Helper function to generate alert text based on plant-specific ranges, mirroring AlertsPage descriptions
-const generateAlertText = (sensors, plant) => {
-  if (!sensors) return 'All systems normal';
-
-  const candidates = [];
-  const plantName = plant?.plant_name || 'this plant';
-
-  // Helper to push with priority and severity
-  const pushCandidate = (severity, priority, message) => {
-    if (!message) return;
-    candidates.push({ severity, priority, message });
-  };
-
-  // Water level (no plant needed)
-  if (typeof sensors.waterLevel === 'number') {
-    const v = Number(sensors.waterLevel);
-    if (v === 0) {
-      pushCandidate('critical', 0, 'Water level is 0% — reservoir empty. Refill with fresh nutrient solution immediately, check pumps for priming issues, and inspect for leaks.');
-    } else if (v > 0 && v <= 40) {
-      pushCandidate('warning', 1, `Water level is ${v}%. Low reservoir level (<=40%). Refill soon and verify auto-refill settings or inspect for slow leaks.`);
-    }
-  }
-
-  // pH relative to plant target
-  if (typeof sensors.ph === 'number' && plant) {
-    const v = Number(sensors.ph);
-    const min = plant.ph_min;
-    const max = plant.ph_max;
-    const cls = classifyPH(v, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 2, `pH is ${v} — below optimal range (${min}–${max}) for ${plantName}. Raise pH slowly using pH Up; mix thoroughly and re-test.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 2, `pH is ${v} — above optimal range (${min}–${max}) for ${plantName}. Lower pH gradually using pH Down; mix thoroughly and re-test.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 5, `pH is ${v}, approaching ${min} for ${plantName}. Monitor trend and adjust if it continues downward.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 5, `pH is ${v}, approaching ${max} for ${plantName}. Monitor and plan gentle adjustment if rising further.`);
-      }
-    }
-  }
-
-  // TDS relative to plant target
-  if (typeof sensors.tds === 'number' && plant) {
-    const v = Number(sensors.tds);
-    const min = plant.ppm_min;
-    const max = plant.ppm_max;
-    const cls = classifyTDS(v, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 3, `TDS is ${v} ppm which is below the optimal range (${min}–${max} ppm) for ${plantName}. Increase nutrient concentration gradually and re-test.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 3, `TDS is ${v} ppm which is above the optimal range (${min}–${max} ppm) for ${plantName}. Dilute or perform a partial drain/refill and re-test.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 6, `TDS is ${v} ppm and nearing the lower limit (${min} ppm) for ${plantName}. Monitor and consider a mild nutrient top-up.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 6, `TDS is ${v} ppm and nearing the upper limit (${max} ppm) for ${plantName}. Monitor and consider dilution if trend continues.`);
-      }
-    }
-  }
-
-  // EC relative to plant target
-  if (typeof sensors.ec === 'number' && plant) {
-    const v = Number(sensors.ec);
-    const min = plant.ec_min;
-    const max = plant.ec_max;
-    const cls = classifyEC(v, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 4, `EC is ${v} mS/cm which is below the optimal range (${min}–${max} mS/cm) for ${plantName}. Increase nutrient concentration gradually and re-test.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 4, `EC is ${v} mS/cm which is above the optimal range (${min}–${max} mS/cm) for ${plantName}. Dilute or perform a partial drain/refill and re-test.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 6.5, `EC is ${v} mS/cm and nearing the lower limit (${min} mS/cm) for ${plantName}. Monitor and consider a mild nutrient top-up.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 6.5, `EC is ${v} mS/cm and nearing the upper limit (${max} mS/cm) for ${plantName}. Monitor and consider dilution if trend continues.`);
-      }
-    }
-  }
-
-  // Light relative to plant target
-  if (typeof sensors.light === 'number' && plant) {
-    const lux = Number(sensors.light);
-    const min = plant.light_min;
-    const max = plant.light_max;
-    const cls = classifyLight(lux, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 7, `Light is ${lux} lux — below optimal range (${min}–${max} lux) for ${plantName}. Increase exposure or adjust lighting.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 7, `Light is ${lux} lux — above optimal range (${min}–${max} lux) for ${plantName}. Provide shading or reduce supplemental lighting.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 8, `Light is ${lux} lux, approaching the lower bound (${min} lux) for ${plantName}. Monitor and adjust if it trends lower.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 8, `Light is ${lux} lux, approaching the upper bound (${max} lux) for ${plantName}. Monitor to prevent stress.`);
-      }
-    }
-  }
-
-  // Humidity relative to plant target
-  if (typeof sensors.humidity === 'number' && plant) {
-    const h = Number(sensors.humidity);
-    const min = plant.humidity_min;
-    const max = plant.humidity_max;
-    const cls = classifyHumidity(h, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 9, `Humidity is ${h}% — below optimal range (${min}–${max}%) for ${plantName}. Add humidity (misters, trays) and reduce excessive ventilation.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 9, `Humidity is ${h}% — above optimal range (${min}–${max}%) for ${plantName}. Increase airflow or dehumidify to prevent mold.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 10, `Humidity is ${h}% and nearing ${min}% for ${plantName}. Monitor to avoid plant stress.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 10, `Humidity is ${h}% and nearing ${max}% for ${plantName}. Improve ventilation if trend continues.`);
-      }
-    }
-  }
-
-  // Air temperature (environment) relative to plant target
-  if (typeof sensors.temperature === 'number' && plant) {
-    const t = Number(sensors.temperature);
-    const min = plant.environment_temp_min;
-    const max = plant.environment_temp_max;
-    const cls = classifyEnvTemp(t, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 11, `Air temperature is ${t}°C — below optimal (${min}–${max}°C) for ${plantName}. Add heating or reduce drafts.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 11, `Air temperature is ${t}°C — above optimal (${min}–${max}°C) for ${plantName}. Improve cooling, shading, or airflow.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 12, `Air temperature is ${t}°C, approaching ${min}°C for ${plantName}. Monitor to avoid chilling stress.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 12, `Air temperature is ${t}°C, approaching ${max}°C for ${plantName}. Enhance ventilation or shading.`);
-      }
-    }
-  }
-
-  // Water temperature relative to plant target
-  if (typeof sensors.waterTemperature === 'number' && plant) {
-    const wt = Number(sensors.waterTemperature);
-    const min = plant.water_temp_min;
-    const max = plant.water_temp_max;
-    const cls = classifyWaterTemp(wt, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 13, `Water temperature is ${wt}°C — below optimal (${min}–${max}°C) for ${plantName}. Add a heater or insulate reservoir.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 13, `Water temperature is ${wt}°C — above optimal (${min}–${max}°C) for ${plantName}. Cool reservoir (chiller / frozen bottles) and increase circulation.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 14, `Water temp is ${wt}°C, approaching ${min}°C for ${plantName}. Monitor and prepare heating if it drops further.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 14, `Water temp is ${wt}°C, approaching ${max}°C for ${plantName}. Consider cooling actions to avoid root stress.`);
-      }
-    }
-  }
-
-  if (candidates.length === 0) return 'All systems normal';
-
-  // Sort by severity (critical first), then priority asc
-  candidates.sort((a, b) => {
-    if (a.severity !== b.severity) {
-      return a.severity === 'critical' ? -1 : 1;
-    }
-    return a.priority - b.priority;
-  });
-
-  return candidates[0].message;
-};
+// (Removed old inline generateAlertText; now using shared generatePlantAwareAlertText)
 
 // Helper function to determine nutrient status relative to plant ppm range
 const getNutrientStatus = (tdsValue, plant) => {
@@ -953,7 +773,7 @@ export default function Dashboard() {
       const deviceMeta = devices.find(d => d.id === deviceId);
       // Prefer resolved devicePlant (from reservoirs + catalog), fall back to any plant bundled on device meta
       const plant = devicePlant || deviceMeta?.plant || null;
-      const alertText = Object.keys(transformedSensors).length ? generateAlertText(transformedSensors, plant) : undefined;
+      const alertText = Object.keys(transformedSensors).length ? generatePlantAwareAlertText(transformedSensors, plant) : undefined;
       const nutrientText = typeof transformedSensors.tds === 'number' ? getNutrientStatus(transformedSensors.tds, plant) : undefined;
 
       const dataPayload = {
