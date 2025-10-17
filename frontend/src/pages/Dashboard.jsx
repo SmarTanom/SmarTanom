@@ -927,6 +927,85 @@ export default function Dashboard() {
         sensorDataResults.forEach(({ sensorId, data }) => { sensorDataMap[sensorId] = data; });
       }
       const transformedSensors = transformSensorData(sensors || [], sensorDataMap);
+      // Compute latest alert per device using plant-based classification (consider latest reading per sensor)
+      const pickLatest = (arr) => {
+        if (!Array.isArray(arr) || arr.length === 0) return null;
+        return arr.reduce((best, cur) => {
+          const tb = best?.created_at ? new Date(best.created_at).getTime() : (best?.timestamp ? new Date(best.timestamp).getTime() : 0);
+          const tc = cur?.created_at ? new Date(cur.created_at).getTime() : (cur?.timestamp ? new Date(cur.timestamp).getTime() : 0);
+          return tc > tb ? cur : best;
+        }, arr[0]);
+      };
+      const buildLatestAlert = (sensorsList, dataMap, plant) => {
+        if (!Array.isArray(sensorsList) || sensorsList.length === 0) return null;
+        const relevant = sensorsList.filter(s => ['ph', 'water_level', 'tds', 'ec', 'turbidity', 'light', 'humidity', 'air_temperature', 'water_temperature'].includes(s.sensor_type));
+        const candidates = [];
+        relevant.forEach(sensor => {
+          const latest = pickLatest(dataMap[sensor.id] || []);
+          if (!latest || typeof latest.value === 'undefined') return;
+          const val = Number(latest.value);
+          if (Number.isNaN(val)) return;
+          let cls = { severity: 'none', reason: null };
+          if (sensor.sensor_type === 'ph') cls = classifyPH(val, plant);
+          else if (sensor.sensor_type === 'tds') cls = classifyTDS(val, plant);
+          else if (sensor.sensor_type === 'ec') cls = classifyEC(val, plant);
+          else if (sensor.sensor_type === 'light') cls = classifyLight(val, plant);
+          else if (sensor.sensor_type === 'air_temperature') cls = classifyEnvTemp(val, plant);
+          else if (sensor.sensor_type === 'humidity') cls = classifyHumidity(val, plant);
+          else if (sensor.sensor_type === 'water_temperature') cls = classifyWaterTemp(val, plant);
+          else if (sensor.sensor_type === 'water_level') {
+            if (val === 0) cls = { severity: 'critical', reason: 'empty' };
+            else if (val <= 40) cls = { severity: 'warning', reason: 'low' };
+          } else if (sensor.sensor_type === 'turbidity') {
+            if (val <= 1800) cls = { severity: 'critical', reason: 'turbid' };
+            else if (val <= 2100) cls = { severity: 'warning', reason: 'cloudy' };
+          }
+          if (cls.severity === 'none') return;
+          const iso = latest.created_at || latest.timestamp || new Date().toISOString();
+          const severity = cls.severity;
+          let title = 'Alert';
+          let message = '';
+          if (sensor.sensor_type === 'ph') {
+            if (cls.reason === 'below_min') { title = 'Low pH detected'; message = `pH is ${val}`; }
+            else if (cls.reason === 'above_max') { title = 'High pH detected'; message = `pH is ${val}`; }
+            else { title = 'pH nearing limit'; message = `pH is ${val}`; }
+          } else if (sensor.sensor_type === 'tds') {
+            if (cls.reason === 'below_min') { title = 'TDS low'; message = `TDS ${val} ppm`; }
+            else if (cls.reason === 'above_max') { title = 'TDS high'; message = `TDS ${val} ppm`; }
+            else { title = 'TDS near bound'; message = `TDS ${val} ppm`; }
+          } else if (sensor.sensor_type === 'ec') {
+            if (cls.reason === 'below_min') { title = 'EC low'; message = `EC ${val} mS/cm`; }
+            else if (cls.reason === 'above_max') { title = 'EC high'; message = `EC ${val} mS/cm`; }
+            else { title = 'EC near bound'; message = `EC ${val} mS/cm`; }
+          } else if (sensor.sensor_type === 'air_temperature') {
+            if (cls.reason === 'below_min') { title = 'Air temperature low'; message = `Air temp ${val}°C`; }
+            else if (cls.reason === 'above_max') { title = 'Air temperature high'; message = `Air temp ${val}°C`; }
+            else { title = 'Air temperature near bound'; message = `Air temp ${val}°C`; }
+          } else if (sensor.sensor_type === 'humidity') {
+            if (cls.reason === 'below_min') { title = 'Humidity low'; message = `Humidity ${val}%`; }
+            else if (cls.reason === 'above_max') { title = 'Humidity high'; message = `Humidity ${val}%`; }
+            else { title = 'Humidity near bound'; message = `Humidity ${val}%`; }
+          } else if (sensor.sensor_type === 'light') {
+            if (cls.reason === 'below_min') { title = 'Light low'; message = `Light ${val}`; }
+            else if (cls.reason === 'above_max') { title = 'Light high'; message = `Light ${val}`; }
+            else { title = 'Light near bound'; message = `Light ${val}`; }
+          } else if (sensor.sensor_type === 'water_temperature') {
+            if (cls.reason === 'below_min') { title = 'Water temp low'; message = `Water temp ${val}°C`; }
+            else if (cls.reason === 'above_max') { title = 'Water temp high'; message = `Water temp ${val}°C`; }
+            else { title = 'Water temp near bound'; message = `Water temp ${val}°C`; }
+          } else if (sensor.sensor_type === 'water_level') {
+            if (cls.reason === 'empty') { title = 'Water level empty'; message = 'Water level 0% — refill immediately.'; }
+            else { title = 'Low water level'; message = `Water level ${val}% — refill soon.`; }
+          } else if (sensor.sensor_type === 'turbidity') {
+            if (cls.reason === 'turbid') { title = 'Water turbid'; message = `Turbidity ${val} — consider drain/refill.`; }
+            else { title = 'Water cloudy'; message = `Turbidity ${val} — clean filters or partial change.`; }
+          }
+          candidates.push({ severity, title, message, createdAt: iso });
+        });
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        return candidates[0];
+      };
       const phSensor = Array.isArray(sensors) ? sensors.find(s => s.sensor_type === 'ph') : null;
       console.log('[Dashboard] pH sensor found:', phSensor?.id, 'with data:', sensorDataMap[phSensor?.id]?.length || 0);
       const phHistory = getPHHistory(sensorDataMap, phSensor?.id, timeRange);
@@ -956,12 +1035,15 @@ export default function Dashboard() {
       const alertText = Object.keys(transformedSensors).length ? generateAlertText(transformedSensors, plant) : undefined;
       const nutrientText = typeof transformedSensors.tds === 'number' ? getNutrientStatus(transformedSensors.tds, plant) : undefined;
 
+      const latestDerivedAlert = buildLatestAlert(sensors || [], sensorDataMap, plant);
+
       const dataPayload = {
         alertText,
         connectivity,
         lastSyncLabel: lastSync,
         lastUpdate: lastSensorUpdate ? lastSensorUpdate.toISOString() : undefined,
         nutrientText,
+        latestDerivedAlert,
         phHistory,
         phLabels,
         sensors: {
@@ -1694,10 +1776,11 @@ export default function Dashboard() {
           <div className="alert-card-top">
             <div className="icon-circle" style={{ position: 'relative' }}>
               <AlertCircle size={20} color={
-                data?.alertText && data.alertText !== 'All systems normal' ?
-                  (latestAlerts[currentDevice?.id]?.severity === 'critical' ? '#e74c3c' :
-                    latestAlerts[currentDevice?.id]?.severity === 'warning' ? '#f59e0b' :
-                      '#339432') : PRIMARY_GREEN
+                data?.latestDerivedAlert ?
+                  (data.latestDerivedAlert.severity === 'critical' ? '#e74c3c' : data.latestDerivedAlert.severity === 'warning' ? '#f59e0b' : '#339432') :
+                  latestAlerts[currentDevice?.id] ?
+                    (latestAlerts[currentDevice.id].severity === 'critical' ? '#e74c3c' : latestAlerts[currentDevice.id].severity === 'warning' ? '#f59e0b' : '#339432') :
+                    (data?.alertText && data.alertText !== 'All systems normal' ? '#339432' : PRIMARY_GREEN)
               } strokeWidth={2.5} />
               {(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && (
                 <span className="alert-notification-badge" style={{
@@ -1745,13 +1828,14 @@ export default function Dashboard() {
           </h3>
           <div className="alert-card-message" style={{
             color: (() => {
-              // Determine color from latest alert or generated alert text
+              if (data?.latestDerivedAlert) {
+                return data.latestDerivedAlert.severity === 'critical' ? '#e74c3c' : data.latestDerivedAlert.severity === 'warning' ? '#f59e0b' : '#339432';
+              }
               if (latestAlerts[currentDevice?.id]) {
                 const severity = latestAlerts[currentDevice.id].severity;
                 return severity === 'critical' ? '#e74c3c' : severity === 'warning' ? '#f59e0b' : '#339432';
               }
               if (data?.alertText && data.alertText !== 'All systems normal') {
-                // Parse severity from alert text keywords
                 const text = data.alertText.toLowerCase();
                 if (text.includes('critical') || text.includes('empty') || text.includes('0%')) return '#e74c3c';
                 if (text.includes('warning') || text.includes('low') || text.includes('high') || text.includes('approaching')) return '#f59e0b';
@@ -1760,11 +1844,12 @@ export default function Dashboard() {
               return 'rgba(17, 17, 17, 0.86)';
             })()
           }}>
-            {/* Show latest alert from realtime store if available, otherwise fall back to generated alert text */}
-            {latestAlerts[currentDevice?.id]
-              ? `${latestAlerts[currentDevice.id].title}: ${latestAlerts[currentDevice.id].body}`
-              : (data?.alertText || 'All systems normal')
-            }
+            {/* Prefer derived latest alert; fallback to realtime latest, then generated summary */}
+            {data?.latestDerivedAlert
+              ? `${data.latestDerivedAlert.title}: ${data.latestDerivedAlert.message}`
+              : latestAlerts[currentDevice?.id]
+                ? `${latestAlerts[currentDevice.id].title}: ${latestAlerts[currentDevice.id].body}`
+                : (data?.alertText || 'All systems normal')}
           </div>
           {currentDevice && (
             <p style={{
