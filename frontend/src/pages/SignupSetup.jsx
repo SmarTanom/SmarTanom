@@ -438,14 +438,12 @@ export default function SignupSetup() {
 
         // Check if WiFi is configured
         if (device.wifi_configured) {
-          console.log('[SignupSetup] ✓ Device already configured! Redirecting to dashboard...');
+          console.log('[SignupSetup] ✓ Device connected! Proceeding to profile step...');
           setProvisioningStatus('success');
-          setStatusMsg('Device is already connected! Redirecting to dashboard...');
+          setStatusMsg('Device is connected! Continuing to profile setup...');
           stopPolling();
-          // Redirect to dashboard after short delay
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 2000);
+          // Advance to final setup (Profile) instead of redirecting to dashboard
+          setStep(6);
           return;
         }
 
@@ -1647,7 +1645,7 @@ export default function SignupSetup() {
                         {/* Provisioning Status Banners */}
                         {provisioningStatus === 'success' && (
                           <div className="wifi-status-banner success" role="status" aria-live="polite" style={{ marginTop: 12 }}>
-                            ✓ WiFi configured successfully! Redirecting to dashboard...
+                            ✓ WiFi configured successfully! Continuing to profile setup...
                           </div>
                         )}
 
