@@ -30,4 +30,10 @@ urlpatterns = [
 # Serve media files during development
 if settings.DEBUG:
 	urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+	# Minimal media serving in production (interim). For scalable/prod use, move to object storage (e.g., S3/Blob) or CDN.
+	from django.views.static import serve as static_serve  # noqa: WPS433 (runtime import by env)
+	urlpatterns += [
+		path("media/<path:path>", static_serve, {"document_root": settings.MEDIA_ROOT}),
+	]
 
