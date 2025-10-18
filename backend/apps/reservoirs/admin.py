@@ -8,12 +8,13 @@ from .models import Reservoir, Plant
 class ReservoirAdmin(admin.ModelAdmin):
     """Admin configuration for Reservoir model."""
 
-    list_display = ('reservoir_name', 'device', 'plant', 'start_date', 'end_date')
-    list_filter = ('plant',)
+    list_display = ('reservoir_name', 'device', 'plant', 'start_date', 'end_date', 'created_at', 'updated_at')
+    list_filter = ('plant', 'start_date', 'end_date', 'created_at')
     search_fields = ('reservoir_name', 'plant__plant_name', 'device__device_name')
     ordering = ('-created_at',)
     date_hierarchy = 'start_date'
     raw_id_fields = ('device',)
+    readonly_fields = ('created_at', 'updated_at')
 
 
 @admin.register(Plant)
