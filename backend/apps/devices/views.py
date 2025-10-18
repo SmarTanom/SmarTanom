@@ -2087,6 +2087,8 @@ def provision_device(request):
     # Update device wifi_configured status
     if provision_status == 'connected':
         device.wifi_configured = True
+        device.last_seen = timezone.now()
+        device.ip_address = ip_address
         logger.info(f"Device {serial} successfully connected to WiFi at {ip_address}")
     else:  # failed
         device.wifi_configured = False

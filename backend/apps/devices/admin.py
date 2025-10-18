@@ -18,6 +18,8 @@ class DeviceAdmin(admin.ModelAdmin):
         'device_name',
         'status',
         'wifi_configured',
+        'is_online_display',
+        'last_seen',
         'is_bound',
         'bound_email',
         'plant_photo_thumbnail',
@@ -64,6 +66,14 @@ class DeviceAdmin(admin.ModelAdmin):
                 return "❌ Error loading photo"
         return "📷 No photo"
     plant_photo_thumbnail.short_description = 'Plant Photo'
+
+    def is_online_display(self, obj):
+        """Display online/offline status with icon."""
+        if obj.is_online:
+            return format_html('<span style="color: #4caf50;">🟢 Online</span>')
+        return format_html('<span style="color: #f44336;">🔴 Offline</span>')
+    is_online_display.short_description = 'Status'
+    is_online_display.admin_order_field = 'last_seen'
 
     def get_device_info(self, obj):
         """Display comprehensive device info."""

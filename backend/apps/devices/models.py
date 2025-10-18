@@ -40,6 +40,14 @@ class Device(TimeStampedModel):
         default=False,
         help_text="Whether device has successfully configured WiFi and phoned home"
     )
+    last_seen = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Last time device communicated with backend"
+    )
+    ip_address = models.GenericIPAddressField(
+        null=True, blank=True,
+        help_text="Last known IP address of device"
+    )
 
     # Device binding fields
     is_bound = models.BooleanField(
@@ -95,6 +103,13 @@ class Device(TimeStampedModel):
         if not self.device_serial:
             self.device_serial = self.generate_device_serial()
         super().save(*args, **kwargs)
+
+    @property
+    def is_online(self):
+        """Check if device is considered online (seen in last 5 minutes)."""
+        if not self.last_seen:
+            return False
+        return timezone.now() - self.last_seen < timedelta(minutes=5)
 
     def __str__(self) -> str:
         return f"{self.device_name} ({self.device_serial})"

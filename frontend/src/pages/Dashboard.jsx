@@ -830,6 +830,7 @@ export default function Dashboard() {
   });
   const [isDragging, setIsDragging] = useState(false);
   const [deviceLoading, setDeviceLoading] = useState({}); // { [deviceId]: boolean }
+  const [wifiSetupDevice, setWifiSetupDevice] = useState(null); // Device to show WiFi setup modal for
 
   // Targeted fetch for a single device: refresh its sensors/reservoirs and readings only
   const fetchDeviceDataById = async (deviceId) => {
@@ -1755,6 +1756,96 @@ export default function Dashboard() {
                   {d.location ? (
                     <p className="device-location">{d.location}</p>
                   ) : null}
+                  {/* Status Badges */}
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    {/* Online/Offline Badge */}
+                    {d.is_online ? (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        backgroundColor: '#e8f5e9',
+                        color: '#2e7d32',
+                        border: '1px solid #4caf50'
+                      }}>
+                        <span style={{
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '50%',
+                          backgroundColor: '#4caf50',
+                          display: 'inline-block'
+                        }}></span>
+                        Online
+                      </span>
+                    ) : (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        backgroundColor: '#ffebee',
+                        color: '#c62828',
+                        border: '1px solid #f44336'
+                      }}>
+                        <span style={{
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '50%',
+                          backgroundColor: '#f44336',
+                          display: 'inline-block'
+                        }}></span>
+                        Offline
+                      </span>
+                    )}
+
+                    {/* WiFi Configured Badge */}
+                    {d.wifi_configured ? (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        backgroundColor: '#e3f2fd',
+                        color: '#1976d2',
+                        border: '1px solid #2196F3'
+                      }}>
+                        📶 WiFi OK
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          backgroundColor: '#fff3e0',
+                          color: '#e65100',
+                          border: '1px solid #ff9800',
+                          cursor: 'pointer'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setWifiSetupDevice(d);
+                        }}
+                        title="Click for WiFi setup instructions"
+                      >
+                        ⚠️ Setup WiFi
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="device-card-arrow">
                   <ChevronRight size={18} />
@@ -2468,6 +2559,162 @@ export default function Dashboard() {
       >
         <Plus size={24} strokeWidth={2.5} />
       </button>
+
+      {/* WiFi Setup Instructions Modal */}
+      {wifiSetupDevice && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}
+          onClick={() => setWifiSetupDevice(null)}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              maxWidth: '500px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '24px',
+              borderBottom: '1px solid #e0e0e0',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              borderRadius: '12px 12px 0 0'
+            }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>WiFi Setup Instructions</h2>
+              <p style={{ margin: '8px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
+                Device: <strong>{wifiSetupDevice.device_name}</strong> ({wifiSetupDevice.device_serial})
+              </p>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '24px' }}>
+              <div style={{
+                background: '#e3f2fd',
+                borderLeft: '4px solid #2196F3',
+                padding: '12px',
+                marginBottom: '20px',
+                fontSize: '14px',
+                color: '#1976D2',
+                borderRadius: '4px'
+              }}>
+                📶 Follow these steps to connect your SmarTanom device to your WiFi network
+              </div>
+
+              <ol style={{ paddingLeft: '20px', fontSize: '15px', lineHeight: '1.8' }}>
+                <li style={{ marginBottom: '16px' }}>
+                  <strong>Power on your ESP32 device</strong>
+                  <br />
+                  <span style={{ color: '#666', fontSize: '13px' }}>The LED should start blinking, indicating it's in setup mode</span>
+                </li>
+
+                <li style={{ marginBottom: '16px' }}>
+                  <strong>Connect to the device's WiFi hotspot</strong>
+                  <br />
+                  <div style={{
+                    background: '#f5f5f5',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    marginTop: '6px',
+                    fontFamily: 'monospace'
+                  }}>
+                    📶 Network: <strong>{wifiSetupDevice.device_serial}</strong><br />
+                    🔑 Password: <strong>smartanom123</strong>
+                  </div>
+                </li>
+
+                <li style={{ marginBottom: '16px' }}>
+                  <strong>Open a web browser</strong>
+                  <br />
+                  <span style={{ color: '#666', fontSize: '13px' }}>Navigate to:</span>
+                  <div style={{
+                    background: '#f5f5f5',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    marginTop: '6px',
+                    fontFamily: 'monospace'
+                  }}>
+                    🌐 <strong>http://192.168.4.1</strong>
+                  </div>
+                </li>
+
+                <li style={{ marginBottom: '16px' }}>
+                  <strong>Select your home WiFi network</strong>
+                  <br />
+                  <span style={{ color: '#666', fontSize: '13px' }}>Choose from the list and enter your WiFi password</span>
+                </li>
+
+                <li style={{ marginBottom: '16px' }}>
+                  <strong>Click "Connect"</strong>
+                  <br />
+                  <span style={{ color: '#666', fontSize: '13px' }}>Wait for the device to connect (may take 30-60 seconds)</span>
+                </li>
+
+                <li>
+                  <strong>Stay on this page</strong>
+                  <br />
+                  <span style={{ color: '#666', fontSize: '13px' }}>Once connected, the device will automatically register and you'll be redirected to your dashboard</span>
+                </li>
+              </ol>
+
+              <div style={{
+                background: '#fff3e0',
+                border: '1px solid #ff9800',
+                borderRadius: '6px',
+                padding: '12px',
+                marginTop: '20px',
+                fontSize: '13px',
+                color: '#e65100'
+              }}>
+                <strong>⚠️ Troubleshooting:</strong>
+                <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                  <li>Make sure your device is powered on and the LED is blinking</li>
+                  <li>Your WiFi network must be 2.4GHz (ESP32 doesn't support 5GHz)</li>
+                  <li>If connection fails, verify your WiFi password is correct</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #e0e0e0',
+              display: 'flex',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => setWifiSetupDevice(null)}
+                style={{
+                  padding: '10px 20px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Got it!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

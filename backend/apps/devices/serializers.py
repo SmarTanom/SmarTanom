@@ -119,6 +119,7 @@ class DeviceSerializer(serializers.ModelSerializer):
     is_owner = serializers.SerializerMethodField()
     is_collaborator = serializers.SerializerMethodField()
     collaborations_count = serializers.SerializerMethodField()
+    is_online = serializers.ReadOnlyField()
 
     class Meta:
         model = Device
@@ -129,6 +130,9 @@ class DeviceSerializer(serializers.ModelSerializer):
             "location",
             "status",
             "wifi_configured",
+            "last_seen",
+            "ip_address",
+            "is_online",
             "is_bound",
             "bound_email",
             "plant_photo",
@@ -139,7 +143,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-    read_only_fields = ["id", "device_serial", "is_bound", "bound_email", "plant_photo_url", "created_at", "updated_at", "wifi_configured"]
+    read_only_fields = ["id", "device_serial", "is_bound", "bound_email", "plant_photo_url", "created_at", "updated_at", "wifi_configured", "last_seen", "ip_address", "is_online"]
 
     def get_plant_photo_url(self, obj):
         """Get the full URL for the plant photo."""
