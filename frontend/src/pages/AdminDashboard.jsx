@@ -23,7 +23,8 @@ import {
 	Smartphone,
 	Clock,
 	Loader2,
-	Eye
+	Eye,
+	Home
 } from 'lucide-react';
 import {
 	Chart as ChartJS,
@@ -245,6 +246,10 @@ export default function AdminDashboard() {
 						<LayoutDashboard size={18} />
 						<span>Dashboard</span>
 					</button>
+					<button className="side-link" onClick={() => navigate('/dashboard')}>
+						<Home size={18} />
+						<span>User Dashboard</span>
+					</button>
 					<button className="side-link" onClick={() => navigate('/admin/alerts')}>
 						<Bell size={18} />
 						<span>Alerts</span>
@@ -283,7 +288,7 @@ export default function AdminDashboard() {
 				</header>
 
 				{/* Top summary cards */}
-						<section className="summary-grid" aria-label="Top summary cards">
+				<section className="summary-grid" aria-label="Top summary cards">
 					<article className="summary-card">
 						<div className="icon-wrapper green"><Smartphone size={24} /></div>
 						<div className="summary-growth"><TrendingUp size={14} /> <span>+{summary.growth.total}%</span></div>
@@ -334,18 +339,18 @@ export default function AdminDashboard() {
 					<article className="panel">
 						<header className="panel-head">
 							<div className="panel-title">
-										<Activity size={18} />
+								<Activity size={18} />
 								<span>Device Usage Trend</span>
 							</div>
-									<button className="export-btn" type="button" onClick={() => window.alert('Exporting...')}>{/* placeholder */}
-										<BarChart2 size={16} />
-										<span>Export</span>
-									</button>
+							<button className="export-btn" type="button" onClick={() => window.alert('Exporting...')}>{/* placeholder */}
+								<BarChart2 size={16} />
+								<span>Export</span>
+							</button>
 						</header>
 						<div className="panel-body">
-									<div style={{ height: 260 }}>
-										<DeviceTrendChart labels={trendLabels} series={trendData} />
-									</div>
+							<div style={{ height: 260 }}>
+								<DeviceTrendChart labels={trendLabels} series={trendData} />
+							</div>
 						</div>
 					</article>
 
@@ -372,10 +377,10 @@ export default function AdminDashboard() {
 
 				{/* Lower grid */}
 				<section className="lower-grid">
-								<article className="panel alerts">
+					<article className="panel alerts">
 						<header className="panel-head">
 							<div className="panel-title">
-											<AlertTriangle size={18} />
+								<AlertTriangle size={18} />
 								<span>System Alerts</span>
 							</div>
 							<button className="view-all" onClick={() => navigate('/admin/alerts')}>
@@ -446,55 +451,55 @@ export default function AdminDashboard() {
 										{performance.cpu_usage < 70 && performance.memory_usage < 70 && performance.disk_usage < 70
 											? 'Excellent system performance'
 											: performance.cpu_usage < 85 && performance.memory_usage < 85 && performance.disk_usage < 85
-											? 'Good system performance'
-											: 'System needs attention'}
+												? 'Good system performance'
+												: 'System needs attention'}
 									</div>
 								</div>
 								<div className="grade-badge">
 									{performance.cpu_usage < 70 && performance.memory_usage < 70 && performance.disk_usage < 70
 										? 'A+'
 										: performance.cpu_usage < 85 && performance.memory_usage < 85 && performance.disk_usage < 85
-										? 'B'
-										: 'C'}
+											? 'B'
+											: 'C'}
 								</div>
 							</div>
 						</div>
 					</article>
 
-								<article className="panel">
+					<article className="panel">
 						<header className="panel-head">
 							<div className="panel-title">
 								<BarChart2 size={18} />
 								<span>Error Reports</span>
 							</div>
 						</header>
-									<div className="panel-body" style={{ height: 240 }}>
-														<Bar
-															data={{
-																labels: Array.isArray(errorLabels) ? errorLabels : [],
-																datasets: [
-																	{
-																		label: 'Errors',
-																		data: Array.isArray(errorData) ? errorData : [],
-																		backgroundColor: 'rgba(239, 68, 68, 0.85)',
-																		borderColor: 'rgba(239, 68, 68, 1)',
-																		borderWidth: 1,
-																		borderRadius: 8,
-																		barThickness: 22
-																	}
-																]
-															}}
-											options={{
-												responsive: true,
-												maintainAspectRatio: false,
-												plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
-												scales: {
-													x: { grid: { display: false }, ticks: { color: '#6f8876', font: { weight: 600 } } },
-													y: { grid: { color: 'rgba(139,167,151,0.15)' }, ticks: { color: '#6f8876', font: { weight: 600 } } }
-												}
-											}}
-										/>
-									</div>
+						<div className="panel-body" style={{ height: 240 }}>
+							<Bar
+								data={{
+									labels: Array.isArray(errorLabels) ? errorLabels : [],
+									datasets: [
+										{
+											label: 'Errors',
+											data: Array.isArray(errorData) ? errorData : [],
+											backgroundColor: 'rgba(239, 68, 68, 0.85)',
+											borderColor: 'rgba(239, 68, 68, 1)',
+											borderWidth: 1,
+											borderRadius: 8,
+											barThickness: 22
+										}
+									]
+								}}
+								options={{
+									responsive: true,
+									maintainAspectRatio: false,
+									plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+									scales: {
+										x: { grid: { display: false }, ticks: { color: '#6f8876', font: { weight: 600 } } },
+										y: { grid: { color: 'rgba(139,167,151,0.15)' }, ticks: { color: '#6f8876', font: { weight: 600 } } }
+									}
+								}}
+							/>
+						</div>
 					</article>
 				</section>
 			</main>
@@ -504,6 +509,10 @@ export default function AdminDashboard() {
 				<button className="bn-item active" onClick={() => navigate('/admin')}>
 					<LayoutDashboard size={20} />
 					<span>Dashboard</span>
+				</button>
+				<button className="bn-item" onClick={() => navigate('/dashboard')}>
+					<Home size={20} />
+					<span>User</span>
 				</button>
 				<button className="bn-item" onClick={() => navigate('/admin/devices')}>
 					<Boxes size={20} />
@@ -528,5 +537,5 @@ export default function AdminDashboard() {
 
 // Small inline icon to avoid importing more libs
 function WrenchIcon() {
-	return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M14.7 6.3a4.98 4.98 0 0 1-1.12 5.32l-5.96 5.96a2 2 0 0 1-2.83-2.83l5.96-5.96A4.98 4.98 0 0 1 15.7 4.3a3 3 0 1 0 3.99 3.99 4.98 4.98 0 0 1-4.99-1.99z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+	return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M14.7 6.3a4.98 4.98 0 0 1-1.12 5.32l-5.96 5.96a2 2 0 0 1-2.83-2.83l5.96-5.96A4.98 4.98 0 0 1 15.7 4.3a3 3 0 1 0 3.99 3.99 4.98 4.98 0 0 1-4.99-1.99z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }

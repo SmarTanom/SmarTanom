@@ -46,9 +46,13 @@ function saveIdSet(key, set) {
   }
 }
 
+// Check if an alert has been marked as read before (supports legacy and new keys)
 function isPersistedRead(alert) {
   const readingIds = loadIdSet(READ_STORAGE_KEY);
-  if (alert && alert.readingId && readingIds.has(alert.readingId)) return true;
+  if (!alert) return false;
+  if (alert.readingId && readingIds.has(alert.readingId)) return true;
+  // Backward compatibility: some older persisted entries used a different key
+  if (alert.legacyReadingId && readingIds.has(alert.legacyReadingId)) return true;
   return false;
 }
 
@@ -471,7 +475,7 @@ export default function AlertsPage() {
           return;
         }
 
-        // Build alerts for each out-of-range reading, avoiding duplicates by reading id/timestamp
+        // Build alerts for each out-of-range reading, avoiding duplicates by a robust reading key
         setAlerts(prev => {
           const next = [...prev];
           // find numeric id base
@@ -485,9 +489,15 @@ export default function AlertsPage() {
               return tb - ta;
             })
             .forEach(({ device, sensor, reading, plant }) => {
-              const readingKey = reading.id || reading.created_at || reading.timestamp || JSON.stringify(reading);
-              // skip if already represented
-              const exists = next.some(a => a.readingId && a.readingId === readingKey);
+              // New robust key: include deviceId, sensorId/type and timestamp to avoid collisions across devices/sensors
+              const ts = (reading && (reading.created_at || reading.timestamp)) || '';
+              const devicePart = (device && (device.id || device.device_serial)) || 'dev';
+              const sensorPart = (sensor && (sensor.id || sensor.sensor_type)) || 'sensor';
+              const readingKey = `${devicePart}:${sensorPart}:${ts}`;
+              // Legacy key used previously (for backward compatibility with persisted read state)
+              const legacyReadingKey = reading && (reading.id || reading.created_at || reading.timestamp) || JSON.stringify(reading || {});
+              // skip if already represented (check both new and legacy keys)
+              const exists = next.some(a => (a.readingId && a.readingId === readingKey) || (a.legacyReadingId && a.legacyReadingId === legacyReadingKey));
               if (exists) return;
 
               const latestIso = reading.created_at || reading.timestamp || new Date().toISOString();
@@ -770,6 +780,7 @@ export default function AlertsPage() {
                 read: false,
                 // metadata for deduplication / tracking
                 readingId: readingKey,
+                legacyReadingId: legacyReadingKey,
               };
 
               // Set read state from persistence if this reading was previously read
