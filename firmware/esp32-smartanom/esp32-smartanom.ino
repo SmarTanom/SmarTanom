@@ -30,7 +30,7 @@
 // =============================================
 // BACKEND CONFIGURATION
 // =============================================
-#define BACKEND_URL "https://smartanom-backend.onrender.com"
+#define BACKEND_URL "https://smartanom.onrender.com"
 #define PROVISION_ENDPOINT "/api/devices/provision/"
 #define CONFIG_ENDPOINT "/api/devices/" DEVICE_SERIAL "/config/"
 
@@ -225,9 +225,11 @@ void handleStatus();
 void handleNotFound();
 bool connectToWiFi(const String& ssid, const String& password);
 bool reportProvisionStatus(const String& status, const String& ipAddress = "");
+bool wakeUpBackend();
 void loadPreferences();
 void savePreferences(const String& ssid, const String& password);
 void clearPreferences();
+String scanNetworks();
 String scanNetworks();
 
 // =============================================
@@ -253,6 +255,11 @@ void setup() {
         if (connectToWiFi(savedSSID, savedPassword)) {
             Serial.println("Successfully connected to saved WiFi!");
             provisioningMode = false;
+
+            // Wake up backend first (Render free tier sleeps after inactivity)
+            Serial.println("\n--- Preparing to report to backend ---");
+            wakeUpBackend();
+            delay(2000);  // Give backend 2 seconds to fully wake up
 
             // Report success to backend
             reportProvisionStatus("connected", WiFi.localIP().toString());
@@ -390,6 +397,11 @@ void handleConnect() {
         // Save credentials
         savePreferences(ssid, password);
 
+        // Wake up backend first
+        Serial.println("\n--- Preparing to report to backend ---");
+        wakeUpBackend();
+        delay(2000);  // Give backend time to wake up
+
         // Report to backend
         String ip = WiFi.localIP().toString();
         reportProvisionStatus("connected", ip);
@@ -406,6 +418,11 @@ void handleConnect() {
 
     } else {
         Serial.println("✗ WiFi connection failed!");
+
+        // Wake up backend first (even for failure reporting)
+        wakeUpBackend();
+        delay(1000);
+
         reportProvisionStatus("failed");
     }
 }
@@ -531,6 +548,39 @@ String scanNetworks() {
 // =============================================
 // BACKEND COMMUNICATION
 // =============================================
+
+// Wake up Render service (if sleeping) by hitting health endpoint
+bool wakeUpBackend() {
+    Serial.println("Waking up backend service (Render free tier may be sleeping)...");
+
+    WiFiClientSecure client;
+    client.setInsecure();
+    client.setTimeout(30);  // 30 second timeout for wake-up
+
+    HTTPClient http;
+    String healthUrl = String(BACKEND_URL) + "/healthz";
+
+    Serial.printf("GET %s\n", healthUrl.c_str());
+
+    if (!http.begin(client, healthUrl)) {
+        Serial.println("✗ Could not connect to health endpoint");
+        return false;
+    }
+
+    http.setTimeout(30000);  // 30 seconds
+
+    int httpCode = http.GET();
+    http.end();
+
+    if (httpCode > 0) {
+        Serial.printf("✓ Backend responded (HTTP %d). Service is awake.\n", httpCode);
+        return true;
+    } else {
+        Serial.printf("⚠ Health check failed: %s (may still wake up)\n", http.errorToString(httpCode).c_str());
+        return false;  // Continue anyway, might still work
+    }
+}
+
 bool reportProvisionStatus(const String& status, const String& ipAddress) {
     Serial.printf("Reporting provision status to backend: %s\n", status.c_str());
 
@@ -539,57 +589,102 @@ bool reportProvisionStatus(const String& status, const String& ipAddress) {
         return false;
     }
 
-    WiFiClientSecure client;
-    client.setInsecure();  // TODO: Replace with proper cert verification
+    // Retry logic for sleeping Render services
+    const int maxRetries = 3;
+    const int retryDelayMs = 2000;  // 2 seconds between retries
 
-    HTTPClient https;
-    String url = String(BACKEND_URL) + String(PROVISION_ENDPOINT);
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+        Serial.printf("Attempt %d/%d...\n", attempt, maxRetries);
 
-    Serial.printf("POST %s\n", url.c_str());
+        WiFiClientSecure client;
+        client.setInsecure();  // TODO: Replace with proper cert verification
 
-    if (!https.begin(client, url)) {
-        Serial.println("✗ HTTPS connection failed");
-        return false;
-    }
+        // Increase timeout for Render's cold start (free tier wakes from sleep)
+        client.setTimeout(60);  // 60 seconds timeout
 
-    // Set headers
-    https.addHeader("Content-Type", "application/json");
-    if (strlen(DEVICE_API_KEY) > 0) {
-        https.addHeader("X-Device-Auth", DEVICE_API_KEY);
-    }
+        HTTPClient https;
+        String url = String(BACKEND_URL) + String(PROVISION_ENDPOINT);
 
-    // Build JSON payload
-    StaticJsonDocument<256> doc;
-    doc["serial"] = DEVICE_SERIAL;
-    doc["status"] = status;
-    if (ipAddress.length() > 0) {
-        doc["ip"] = ipAddress;
-    }
-    doc["firmware_version"] = FIRMWARE_VERSION;
+        Serial.printf("POST %s\n", url.c_str());
 
-    String jsonPayload;
-    serializeJson(doc, jsonPayload);
-
-    Serial.printf("Payload: %s\n", jsonPayload.c_str());
-
-    // Send request
-    int httpCode = https.POST(jsonPayload);
-
-    if (httpCode > 0) {
-        Serial.printf("✓ Response code: %d\n", httpCode);
-        String response = https.getString();
-        Serial.printf("Response: %s\n", response.c_str());
-
-        if (httpCode == 200) {
-            Serial.println("✓ Provisioning status reported successfully");
-            https.end();
-            return true;
+        if (!https.begin(client, url)) {
+            Serial.println("✗ HTTPS connection failed");
+            if (attempt < maxRetries) {
+                Serial.printf("Retrying in %d seconds...\n", retryDelayMs / 1000);
+                delay(retryDelayMs);
+                continue;
+            }
+            return false;
         }
-    } else {
-        Serial.printf("✗ Request failed: %s\n", https.errorToString(httpCode).c_str());
+
+        // Set timeouts (important for Render cold starts)
+        https.setTimeout(60000);  // 60 seconds for HTTP layer
+        https.setConnectTimeout(15000);  // 15 seconds for connection
+
+        // Set headers
+        https.addHeader("Content-Type", "application/json");
+        if (strlen(DEVICE_API_KEY) > 0) {
+            https.addHeader("X-Device-Auth", DEVICE_API_KEY);
+        }
+
+        // Build JSON payload
+        StaticJsonDocument<256> doc;
+        doc["serial"] = DEVICE_SERIAL;
+        doc["status"] = status;
+        if (ipAddress.length() > 0) {
+            doc["ip"] = ipAddress;
+        }
+        doc["firmware_version"] = FIRMWARE_VERSION;
+        doc["attempt"] = attempt;
+
+        String jsonPayload;
+        serializeJson(doc, jsonPayload);
+
+        Serial.printf("Payload: %s\n", jsonPayload.c_str());
+
+        // Send request
+        Serial.println("Sending POST request (this may take up to 60s if server is waking up)...");
+        int httpCode = https.POST(jsonPayload);
+
+        if (httpCode > 0) {
+            Serial.printf("✓ Response code: %d\n", httpCode);
+            String response = https.getString();
+            Serial.printf("Response: %s\n", response.c_str());
+
+            https.end();
+
+            if (httpCode == 200 || httpCode == 201) {
+                Serial.println("✓ Provisioning status reported successfully");
+                return true;
+            } else if (httpCode == 429) {
+                Serial.println("✗ Rate limited. Try again later.");
+                return false;  // Don't retry on rate limit
+            } else if (httpCode >= 500) {
+                Serial.printf("✗ Server error (%d). ", httpCode);
+                if (attempt < maxRetries) {
+                    Serial.printf("Retrying in %d seconds...\n", retryDelayMs / 1000);
+                    delay(retryDelayMs);
+                    continue;
+                }
+            } else {
+                Serial.printf("✗ HTTP error: %d\n", httpCode);
+                return false;
+            }
+        } else {
+            Serial.printf("✗ Request failed: %s\n", https.errorToString(httpCode).c_str());
+            https.end();
+
+            if (attempt < maxRetries) {
+                Serial.printf("Retrying in %d seconds...\n", retryDelayMs / 1000);
+                delay(retryDelayMs);
+                continue;
+            }
+        }
+
+        https.end();
     }
 
-    https.end();
+    Serial.println("✗ All retry attempts exhausted");
     return false;
 }
 

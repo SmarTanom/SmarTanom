@@ -323,7 +323,13 @@ export default function SignupSetup() {
       // Get device serial from boundDeviceSerial state
       if (boundDeviceSerial) {
         setDeviceSerial(boundDeviceSerial);
-        startProvisioning();
+        // Pass serial directly to avoid race condition with setState
+        startProvisioningWithSerial(boundDeviceSerial);
+      } else {
+        // eslint-disable-next-line no-console
+        console.error('[SignupSetup] No boundDeviceSerial found when entering Step 5');
+        setProvisioningError('Device serial not found. Please restart setup.');
+        setProvisioningStatus('failed');
       }
     } else {
       // Clean up polling when leaving step 5
@@ -337,25 +343,51 @@ export default function SignupSetup() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, boundDeviceSerial]);
 
-  function startProvisioning() {
+  function startProvisioningWithSerial(serial) {
     setProvisioningStatus('waiting');
     setProvisioningError('');
     setPollingAttempts(0);
     pollingAttemptsRef.current = 0;
+
+    // Debug: Check if token exists
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      // eslint-disable-next-line no-console
+      console.error('[SignupSetup] No auth token found in localStorage. User may need to log in again.');
+      setProvisioningError('Authentication required. Please refresh and complete the setup from the beginning.');
+      setProvisioningStatus('failed');
+      return;
+    }
+
+    // eslint-disable-next-line no-console
+    console.log('[SignupSetup] Starting provisioning for device:', serial);
+
     // Start polling after a short delay to allow user to see instructions
     setTimeout(() => {
-      startPolling();
+      startPollingWithSerial(serial);
     }, 2000);
   }
 
-  function startPolling() {
+  function startProvisioning() {
+    // Use deviceSerial from state (fallback)
+    if (!deviceSerial) {
+      // eslint-disable-next-line no-console
+      console.error('[SignupSetup] No device serial available for provisioning');
+      setProvisioningError('Device serial not found. Please restart setup.');
+      setProvisioningStatus('failed');
+      return;
+    }
+    startProvisioningWithSerial(deviceSerial);
+  }
+
+  function startPollingWithSerial(serial) {
     stopPolling(); // Clear any existing interval
     setProvisioningStatus('checking');
 
     const checkDeviceStatus = async () => {
       try {
         const token = localStorage.getItem('authToken');
-        if (!token || !deviceSerial) {
+        if (!token || !serial) {
           setProvisioningError('Authentication required. Please refresh and try again.');
           setProvisioningStatus('failed');
           stopPolling();
@@ -363,8 +395,39 @@ export default function SignupSetup() {
         }
 
         // Poll the device list endpoint and find our device
-        const devices = await deviceApi.list(token);
-        const device = devices.find(d => d.serial === deviceSerial);
+        const response = await deviceApi.list(token);
+
+        // Handle both paginated and non-paginated responses
+        let devicesList = [];
+        if (Array.isArray(response)) {
+          devicesList = response;
+        } else if (response && Array.isArray(response.results)) {
+          // Paginated response from Django REST Framework
+          devicesList = response.results;
+        } else {
+          // eslint-disable-next-line no-console
+          console.error('[SignupSetup] Invalid response from devices API:', response);
+          setProvisioningError('Authentication error. Please refresh and log in again.');
+          setProvisioningStatus('failed');
+          stopPolling();
+          return;
+        }
+
+        // eslint-disable-next-line no-console
+        console.log('[SignupSetup] Polling devices. Looking for serial:', serial, 'in', devicesList.length, 'devices');
+        // eslint-disable-next-line no-console
+        console.log('[SignupSetup] Available devices:', devicesList.map(d => ({
+          id: d.id,
+          serial: d.serial,
+          device_serial: d.device_serial,
+          name: d.name || d.device_name
+        })));
+
+        // Try multiple field names (serial or device_serial)
+        const device = devicesList.find(d =>
+          d.serial === serial ||
+          d.device_serial === serial
+        );
 
         if (!device) {
           setProvisioningError('Device not found. Please contact support.');
@@ -375,7 +438,9 @@ export default function SignupSetup() {
 
         // Check if WiFi is configured
         if (device.wifi_configured) {
+          console.log('[SignupSetup] ✓ Device already configured! Redirecting to dashboard...');
           setProvisioningStatus('success');
+          setStatusMessage('Device is already connected! Redirecting to dashboard...');
           stopPolling();
           // Redirect to dashboard after short delay
           setTimeout(() => {
