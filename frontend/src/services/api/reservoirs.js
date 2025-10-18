@@ -63,10 +63,26 @@ export async function createReservoir(payload) {
   });
 }
 
+/**
+ * Update an existing reservoir by ID (partial update).
+ * @param {number} reservoirId
+ * @param {Object} payload - any of { reservoir_name, plant_id, start_date, end_date }
+ */
+export async function updateReservoir(reservoirId, payload) {
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+  return apiClient.patch(`/api/reservoirs/reservoirs/${reservoirId}/`, payload, {
+    authToken: token
+  });
+}
+
 // Export as default object
 export default {
   getUserReservoirs,
   getDeviceReservoirs,
   getReservoirById,
-  createReservoir
+  createReservoir,
+  updateReservoir
 };

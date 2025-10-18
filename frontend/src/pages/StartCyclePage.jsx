@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search, Plus } from 'lucide-react';
 import '../assets/styles/StartCyclePage.css';
 import { listPlants } from '../services/api/plants.js';
+import { createReservoir, updateReservoir } from '../services/api/reservoirs.js';
+// Device is inferred from DeviceDetails navigation; no need to fetch all devices
 
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
@@ -23,14 +25,25 @@ const StartCyclePage = () => {
   const [plants, setPlants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const location = useLocation();
+  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
+  const [reservoirId, setReservoirId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+  });
 
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
+        setError('');
+        // Load plants
         const data = await listPlants('');
         const items = Array.isArray(data) ? data : (data.results || []);
-        // Map backend shape to UI shape
         setPlants(items.map(p => ({
           id: p.id,
           name: p.plant_name,
@@ -38,14 +51,29 @@ const StartCyclePage = () => {
           image: '🥬',
           description: ''
         })));
+        // Resolve deviceId from navigation state
+        const fromState = location?.state || {};
+        const deviceFromState = fromState.deviceId || fromState.device_id;
+        const reservoirFromState = fromState.reservoirId || fromState.reservoir_id || fromState.reservoir?.id;
+        if (deviceFromState) {
+          setSelectedDeviceId(Number(deviceFromState));
+        } else {
+          // Keep an error to prompt correct navigation
+          setError('No device context provided. Please start a cycle from a device page.');
+        }
+        if (reservoirFromState) {
+          setReservoirId(Number(reservoirFromState));
+        }
       } catch (e) {
-        setError(e.message || 'Failed to load plants');
+        setError(e.message || 'Failed to load plants or devices');
       } finally {
         setLoading(false);
       }
     }
     load();
   }, []);
+
+  const selectedDevice = useMemo(() => selectedDeviceId ? { id: selectedDeviceId } : null, [selectedDeviceId]);
 
   const filteredPlants = plants.filter(plant =>
     plant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -61,14 +89,61 @@ const StartCyclePage = () => {
     });
   };
 
-  const handleStartCycle = () => {
-    if (selectedPlants.length === 0) {
+  const handleStartCycle = async () => {
+    setError('');
+    if (!selectedDeviceId) {
+      setError('No device found. Please start from a device page.');
       return;
     }
-    // Here you would normally make an API call to start the cycle
-    // For now, just navigate back to dashboard
-    console.log('Starting cycle with plants:', selectedPlants);
-    navigate('/dashboard');
+    if (selectedPlants.length === 0) {
+      setError('Please select at least one plant.');
+      return;
+    }
+    if (!startDate || !endDate) {
+      setError('Please select start and end dates.');
+      return;
+    }
+    if (endDate < startDate) {
+      setError('End date cannot be before start date.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      // Update the existing reservoir (preferred behavior)
+      // Determine target reservoirId: from navigation state or fail
+      const targetReservoirId = reservoirId;
+      if (!targetReservoirId) {
+        setError('No reservoir context to update. Please open Start Cycle from a device with an active cycle.');
+        return;
+      }
+
+      // Use first selected plant; if multiple are selected, take the first
+      const plantId = Number(selectedPlants[0]);
+      const plantName = (plants.find(p => p.id === plantId)?.name) || 'Plant';
+      const newName = `${plantName} Cycle ${startDate}`;
+      const payload = {
+        reservoir_name: newName,
+        plant_id: plantId,
+        start_date: startDate,
+        end_date: endDate,
+      };
+      await updateReservoir(targetReservoirId, payload);
+      // Success: go back to dashboard
+      navigate('/dashboard');
+    } catch (e) {
+      let msg = e?.message || 'Failed to start cycle';
+      // Try to include server-side validation errors if present
+      if (e?.data && typeof e.data === 'object') {
+        const details = Object.entries(e.data)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
+          .join(' | ');
+        if (details) msg = `${msg} — ${details}`;
+      }
+      setError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -90,6 +165,11 @@ const StartCyclePage = () => {
         <p className="cycle-subtitle">
           Choose the type of plant you're growing to get tailored monitoring and nutrient recommendations.
         </p>
+
+        {/* Device is determined by the page you came from; no manual selection here */}
+        {!loading && !selectedDeviceId && (
+          <div className="no-results"><p>{error || 'No device selected. Please start from a device.'}</p></div>
+        )}
 
         {/* Search Bar */}
         <div className="search-container">
@@ -146,12 +226,35 @@ const StartCyclePage = () => {
 
       {/* Footer */}
       <div className="start-cycle-footer">
+        {/* Dates */}
+        <div className="date-row">
+          <div className="date-field">
+            <label htmlFor="startDate" className="date-label">Start date</label>
+            <input
+              id="startDate"
+              type="date"
+              className="date-input"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div className="date-field">
+            <label htmlFor="endDate" className="date-label">End date</label>
+            <input
+              id="endDate"
+              type="date"
+              className="date-input"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        </div>
         <button
           className="start-button"
           onClick={handleStartCycle}
-          disabled={selectedPlants.length === 0}
+          disabled={selectedPlants.length === 0 || !selectedDeviceId || submitting}
         >
-          Start Cycle
+          {submitting ? 'Starting…' : 'Start Cycle'}
         </button>
         <p className="help-text">
           Don't see your plant? <a href="#" className="message-link">Message us</a>

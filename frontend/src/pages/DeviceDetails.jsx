@@ -790,7 +790,11 @@ export default function DeviceDetails() {
             {/* Start new cycle button */}
             <button
               className="start-cycle-button"
-              onClick={() => navigate('/start-cycle')}
+              onClick={() => {
+                const deviceIdToUse = device?.id || deviceId;
+                const reservoirIdToUse = reservoir?.id;
+                navigate('/start-cycle', { state: { deviceId: deviceIdToUse, reservoirId: reservoirIdToUse } });
+              }}
             >
               Start New Cycle
             </button>
