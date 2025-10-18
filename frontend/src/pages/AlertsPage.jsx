@@ -251,6 +251,96 @@ const PLANT_RECOMMENDATION_TEMPLATES = {
       near_min: 'Monitor leaf edge dry‑out.',
       near_max: 'Ensure canopy dries before dark.'
     }
+  },
+  Pechay: {
+    general: 'Keep solution fresh; steady feed and airflow help tight heads.',
+    ph: {
+      below_min: 'Raise toward mid‑6s slowly to maintain nutrient availability.',
+      above_max: 'High pH limits Ca uptake — lower by ~0.2 and re‑test.',
+      near_min: 'Trend down? Add a small pH Up dose and monitor.',
+      near_max: 'If drifting up, plan a gentle pH Down correction.'
+    },
+    tds: {
+      below_min: 'Increase EC gradually; watch for pale leaves or slowed growth.',
+      above_max: 'Dilute to prevent bitterness and tip burn; target mid‑range.',
+      near_min: 'Schedule a modest nutrient top‑up soon.',
+      near_max: 'If edges curl or tips brown, dilute slightly.'
+    },
+    ec: {
+      below_min: 'Increase EC in small steps (≈0.2–0.3 mS/cm) and re‑test.',
+      above_max: 'Dilute to avoid salt stress; aim for mid‑range.',
+      near_min: 'Plan a mild feed to avoid slowdown.',
+      near_max: 'Monitor for burn; slight dilution may help.'
+    },
+    light: {
+      below_min: 'Provide bright, even light; reduce canopy shading.',
+      above_max: 'Diffuse or raise fixture to avoid leaf scorch.',
+      near_min: 'Extend photoperiod slightly if growth is leggy.',
+      near_max: 'Watch for curling — raise or dim lights if needed.'
+    },
+    environment_temp: {
+      below_min: 'Cool air slows head formation — reduce drafts and heat gently.',
+      above_max: 'Heat can cause bolting — improve ventilation or shading.',
+      near_min: 'If trend continues, buffer nights with thermal mass.',
+      near_max: 'Enhance airflow to stabilize temperature.'
+    },
+    water_temperature: {
+      below_min: 'Gently warm solution; cold roots slow uptake.',
+      above_max: 'Cool solution to maintain oxygen; consider partial swap.',
+      near_min: 'Insulate reservoir if nightly lows persist.',
+      near_max: 'Increase aeration or add cooler top‑up water.'
+    },
+    humidity: {
+      below_min: 'Raise RH modestly (misters/trays) to reduce stress.',
+      above_max: 'Increase airflow; brassicas are mildew‑prone.',
+      near_min: 'Monitor midday wilt; bump RH slightly if needed.',
+      near_max: 'Ensure leaves dry before dark to prevent disease.'
+    }
+  },
+  Generic: {
+    general: 'Keep conditions stable; adjust in small steps and re‑test.',
+    ph: {
+      below_min: 'Raise pH gradually toward mid‑range; mix and re‑check.',
+      above_max: 'Lower pH slowly (~0.2 steps) to restore availability.',
+      near_min: 'Monitor trend; a small pH Up correction may help.',
+      near_max: 'Monitor and plan a gentle pH Down if rising further.'
+    },
+    tds: {
+      below_min: 'Increase nutrient concentration gradually; observe new growth.',
+      above_max: 'Dilute or partial drain/refill to reduce salt stress.',
+      near_min: 'Plan a mild top‑up soon.',
+      near_max: 'Consider slight dilution if burn symptoms appear.'
+    },
+    ec: {
+      below_min: 'Increase EC in small increments and re‑test.',
+      above_max: 'Dilute to mid‑range to avoid lockout.',
+      near_min: 'Monitor; mild feed if trend continues down.',
+      near_max: 'Monitor; slight dilution if trend continues up.'
+    },
+    light: {
+      below_min: 'Add light or reduce shading to maintain vigor.',
+      above_max: 'Raise/diffuse fixture to reduce stress.',
+      near_min: 'Extend photoperiod slightly if growth slows.',
+      near_max: 'Watch for edge curl or bleaching; back off intensity.'
+    },
+    environment_temp: {
+      below_min: 'Gently warm space and cut drafts to avoid slowdown.',
+      above_max: 'Improve cooling/ventilation to prevent heat stress.',
+      near_min: 'Stabilize nights; monitor trend.',
+      near_max: 'Increase airflow to hold temp in range.'
+    },
+    water_temperature: {
+      below_min: 'Insulate or gently warm reservoir; cold reduces uptake.',
+      above_max: 'Cool solution and boost aeration to maintain oxygen.',
+      near_min: 'Monitor lows; prepare heating if needed.',
+      near_max: 'Consider partial swap with cooler water; aerate more.'
+    },
+    humidity: {
+      below_min: 'Raise RH slightly to reduce transpiration stress.',
+      above_max: 'Dehumidify or increase airflow to prevent mildew.',
+      near_min: 'Monitor leaf edges; increase RH a bit if drying.',
+      near_max: 'Ensure canopy dries before lights‑off.'
+    }
   }
 };
 
