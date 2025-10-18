@@ -17,3 +17,24 @@ class OTPVerifyThrottle(AnonRateThrottle):
 class LoginAttemptThrottle(AnonRateThrottle):
     """Throttle login attempts."""
     scope = 'login_attempt'
+
+
+class DeviceProvisionThrottle(AnonRateThrottle):
+    """Throttle device provisioning requests to prevent abuse."""
+    scope = 'device_provision'
+
+    def get_cache_key(self, request, view):
+        """Create cache key based on device serial AND IP address."""
+        # Get the device serial from request data
+        serial = None
+        if request.data:
+            serial = request.data.get('serial', '')
+
+        # Get client IP
+        ident = self.get_ident(request)
+
+        # Combine serial and IP for more granular throttling
+        if serial:
+            return f"{self.scope}_{serial}_{ident}"
+        return f"{self.scope}_{ident}"
+

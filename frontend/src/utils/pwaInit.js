@@ -16,7 +16,6 @@ export function initializePWA() {
 
   // Skip actual registration in development to prevent white screen issues
   if (import.meta.env.DEV) {
-    console.log('🚫 PWA registration skipped in development mode');
     return {
       updateSW: () => console.log('PWA update skipped in development'),
       isUpdateAvailable: () => false

@@ -333,3 +333,192 @@ class DeviceBindingTests(TestCase):
         response_data = response.data
         self.assertIn('error', response_data)
         self.assertIn('Invalid or expired', response_data['error'])
+
+
+class DeviceProvisioningTests(TestCase):
+    """Tests for device WiFi provisioning endpoints."""
+
+    def setUp(self):
+        self.client = APIClient()
+        # Create a test device
+        self.device = Device.objects.create(
+            device_name='Test Provision Device',
+            device_serial='SMRT-PRV-001',
+            status=Device.Status.ACTIVE,
+            wifi_configured=False
+        )
+
+    def test_provision_device_success(self):
+        """Test successful device provisioning."""
+        url = '/api/devices/provision/'
+        data = {
+            'serial': 'SMRT-PRV-001',
+            'status': 'connected',
+            'ip': '192.168.1.100',
+            'firmware_version': '1.0.0'
+        }
+
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['success'])
+        self.assertEqual(response.data['device_serial'], 'SMRT-PRV-001')
+        self.assertTrue(response.data['wifi_configured'])
+
+        # Verify database update
+        self.device.refresh_from_db()
+        self.assertTrue(self.device.wifi_configured)
+
+    def test_provision_device_failed(self):
+        """Test device provisioning failure."""
+        url = '/api/devices/provision/'
+        data = {
+            'serial': 'SMRT-PRV-001',
+            'status': 'failed'
+        }
+
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['success'])
+        self.assertFalse(response.data['wifi_configured'])
+
+        # Verify database update
+        self.device.refresh_from_db()
+        self.assertFalse(self.device.wifi_configured)
+
+    def test_provision_invalid_serial_format(self):
+        """Test provisioning with invalid serial format."""
+        url = '/api/devices/provision/'
+        data = {
+            'serial': 'INVALID-SERIAL',
+            'status': 'connected',
+            'ip': '192.168.1.100'
+        }
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('serial', response.data)
+
+    def test_provision_missing_ip_for_connected(self):
+        """Test that IP is required when status is connected."""
+        url = '/api/devices/provision/'
+        data = {
+            'serial': 'SMRT-PRV-001',
+            'status': 'connected'
+            # Missing IP
+        }
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_provision_nonexistent_device_auto_create_enabled(self):
+        """Test auto-creating device on first provision when enabled."""
+        from django.conf import settings
+
+        # Ensure auto-create is enabled (default)
+        url = '/api/devices/provision/'
+        data = {
+            'serial': 'SMRT-NEW-001',
+            'status': 'connected',
+            'ip': '192.168.1.101'
+        }
+
+        response = self.client.post(url, data, format='json')
+
+        # Should succeed if auto-create is enabled
+        if getattr(settings, 'AUTO_CREATE_DEVICE_ON_FIRST_CONNECT', True):
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertTrue(Device.objects.filter(device_serial='SMRT-NEW-001').exists())
+
+            # Verify device was created with correct settings
+            device = Device.objects.get(device_serial='SMRT-NEW-001')
+            self.assertTrue(device.wifi_configured)
+            self.assertEqual(device.device_name, 'Device SMRT-NEW-001')
+
+    def test_provision_auth_required_in_production(self):
+        """Test that authentication is required in production mode for non-localhost IPs."""
+        from django.conf import settings
+        from unittest.mock import patch
+
+        # Mock production mode (DEBUG=False) AND non-localhost IP
+        with patch.object(settings, 'DEBUG', False):
+            with patch('apps.devices.views.get_client_ip', return_value='203.0.113.1'):  # Example non-localhost IP
+                url = '/api/devices/provision/'
+                data = {
+                    'serial': 'SMRT-PRV-001',
+                    'status': 'connected',
+                    'ip': '192.168.1.100'
+                }
+
+                # Request without auth header from external IP should fail in production
+                response = self.client.post(url, data, format='json')
+
+                # Should require authentication for non-localhost IPs
+                self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_provision_with_valid_auth_header(self):
+        """Test provisioning with valid X-Device-Auth header."""
+        from django.conf import settings
+
+        url = '/api/devices/provision/'
+        data = {
+            'serial': 'SMRT-PRV-001',
+            'status': 'connected',
+            'ip': '192.168.1.100'
+        }
+
+        # Add auth header
+        api_key = getattr(settings, 'DEVICE_PROVISION_API_KEY', '')
+        response = self.client.post(
+            url,
+            data,
+            format='json',
+            HTTP_X_DEVICE_AUTH=api_key
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_get_device_config(self):
+        """Test fetching device configuration."""
+        url = f'/api/devices/{self.device.device_serial}/config/'
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['device_serial'], 'SMRT-PRV-001')
+        self.assertEqual(response.data['device_name'], 'Test Provision Device')
+        self.assertFalse(response.data['wifi_configured'])
+        self.assertIn('backend_url', response.data)
+        self.assertIn('websocket_url', response.data)
+
+    def test_get_device_config_invalid_serial(self):
+        """Test fetching config with invalid serial format."""
+        url = '/api/devices/INVALID-SERIAL/config/'
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_get_device_config_not_found(self):
+        """Test fetching config for non-existent device."""
+        url = '/api/devices/SMRT-XXX-999/config/'
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_provision_normalizes_serial(self):
+        """Test that serial number is normalized to uppercase."""
+        url = '/api/devices/provision/'
+        data = {
+            'serial': 'smrt-prv-001',  # Lowercase
+            'status': 'connected',
+            'ip': '192.168.1.100'
+        }
+
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['device_serial'], 'SMRT-PRV-001')  # Uppercase
+

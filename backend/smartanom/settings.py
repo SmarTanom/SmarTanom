@@ -268,6 +268,8 @@ REST_FRAMEWORK = {
 		"otp_request": os.getenv("OTP_REQUEST_THROTTLE", "100/hour"),  # Increased for development
 		"otp_verify": os.getenv("OTP_VERIFY_THROTTLE", "200/hour"),    # Increased for development
 		"login_attempt": os.getenv("LOGIN_ATTEMPT_THROTTLE", "300/hour"), # Increased for development
+		# Device provisioning throttling
+		"device_provision": os.getenv("DEVICE_PROVISION_THROTTLE_RATE", "10/hour"),
 	},
 }
 
@@ -519,4 +521,18 @@ if DEBUG:
 	for u in ['localhost', '127.0.0.1', '192.168.56.1', '192.168.1.12']:
 		if u not in ALLOWED_HOSTS:
 			ALLOWED_HOSTS.append(u)
+
+
+# =============================================
+# Device Provisioning Settings
+# =============================================
+# API key for device provisioning authentication (X-Device-Auth header)
+# In production, devices must provide this key to provision
+DEVICE_PROVISION_API_KEY = os.getenv('DEVICE_PROVISION_API_KEY', 'dev-insecure-device-key')
+
+# Auto-create device on first provision attempt if device serial not found
+AUTO_CREATE_DEVICE_ON_FIRST_CONNECT = os.getenv('AUTO_CREATE_DEVICE_ON_FIRST_CONNECT', 'true').lower() == 'true'
+
+# Device provisioning throttle rate (separate from general API throttling)
+DEVICE_PROVISION_THROTTLE_RATE = os.getenv('DEVICE_PROVISION_THROTTLE_RATE', '10/hour')
 

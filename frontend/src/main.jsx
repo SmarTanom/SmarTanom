@@ -21,11 +21,7 @@ if (import.meta.env.DEV) {
     setTimeout(() => window.location.reload(), 1000);
   };
 
-  console.log('🛠️ Development helpers available:');
-  console.log('  - window.clearPWACache() - Clear all PWA caches');
-  console.log('  - window.resetPWA() - Complete PWA reset');
-  console.log('  - window.checkCaches() - Check cache status');
-  console.log('  - window.fixWhiteScreen() - Fix white screen issues');
+
 }
 
 // Global error handler to prevent white screen
@@ -44,7 +40,7 @@ window.addEventListener('unhandledrejection', (event) => {
 try {
   createRoot(document.getElementById('root')).render(
     <React.StrictMode>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <App />
       </BrowserRouter>
     </React.StrictMode>

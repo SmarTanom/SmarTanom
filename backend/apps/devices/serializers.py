@@ -328,3 +328,73 @@ class InvitationResponseSerializer(serializers.Serializer):
         max_length=64,
         help_text="Invitation token"
     )
+
+
+class DeviceProvisionSerializer(serializers.Serializer):
+    """Serializer for device WiFi provisioning."""
+
+    serial = serializers.CharField(
+        max_length=14,
+        help_text="Device serial number in format SMRT-XXX-XXX"
+    )
+    status = serializers.ChoiceField(
+        choices=['connected', 'failed'],
+        help_text="WiFi connection status"
+    )
+    ip = serializers.IPAddressField(
+        required=False,
+        allow_blank=True,
+        help_text="Device IP address after successful WiFi connection"
+    )
+    firmware_version = serializers.CharField(
+        max_length=20,
+        required=False,
+        allow_blank=True,
+        help_text="Device firmware version"
+    )
+    meta = serializers.JSONField(
+        required=False,
+        help_text="Optional metadata from device"
+    )
+
+    def validate_serial(self, value):
+        """Validate device serial format SMRT-XXX-XXX."""
+        if not value:
+            raise serializers.ValidationError("Device serial is required.")
+
+        # Normalize: uppercase and remove extra spaces
+        serial = value.upper().strip()
+
+        # Validate format using regex
+        pattern = r'^SMRT-[A-Z0-9]{3}-[A-Z0-9]{3}$'
+        if not re.match(pattern, serial):
+            raise serializers.ValidationError(
+                "Device serial must be in format SMRT-XXX-XXX "
+                "(e.g., SMRT-ABC-123)"
+            )
+
+        return serial
+
+    def validate(self, data):
+        """Cross-field validation."""
+        # If status is connected, IP should be provided
+        if data.get('status') == 'connected' and not data.get('ip'):
+            raise serializers.ValidationError({
+                'ip': 'IP address is required when status is connected.'
+            })
+        return data
+
+
+class DeviceConfigSerializer(serializers.Serializer):
+    """Serializer for device configuration response."""
+
+    device_id = serializers.IntegerField(read_only=True)
+    device_serial = serializers.CharField(read_only=True)
+    device_name = serializers.CharField(read_only=True)
+    wifi_configured = serializers.BooleanField(read_only=True)
+    is_bound = serializers.BooleanField(read_only=True)
+    bound_email = serializers.EmailField(read_only=True, allow_null=True)
+    status = serializers.CharField(read_only=True)
+    backend_url = serializers.CharField(read_only=True)
+    websocket_url = serializers.CharField(read_only=True)
+

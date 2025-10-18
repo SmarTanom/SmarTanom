@@ -15,7 +15,9 @@ from .views import (
     subscribe_notifications,
     cancel_sent_invitation,
     get_user_devices,
-    initial_dashboard_data
+    initial_dashboard_data,
+    provision_device,
+    get_device_config,
 )
 
 app_name = 'devices'
@@ -26,6 +28,9 @@ router.register(r"", DeviceViewSet, basename="device")
 # IMPORTANT: Place explicit non-model routes BEFORE including the router URLs
 # to avoid the default '' route capturing segments like 'check/' as a device PK.
 urlpatterns = [
+    # Device provisioning endpoints (anonymous, for ESP32 devices)
+    path("provision/", provision_device, name="provision_device"),
+    path("<str:serial>/config/", get_device_config, name="get_device_config"),
     # Device binding endpoints (anonymous)
     path("check/", check_device, name="check_device"),
     path("request-otp/", request_device_otp, name="request_device_otp"),

@@ -136,7 +136,6 @@ class CacheManager {
 // Development helper - expose to window object for debugging
 if (import.meta.env.DEV) {
   window.CacheManager = CacheManager;
-  console.log('🛠️ CacheManager available in console for debugging');
 }
 
 export default CacheManager;

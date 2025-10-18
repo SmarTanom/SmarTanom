@@ -110,7 +110,6 @@ export default function App() {
 
   // Initialize PWA features
   useEffect(() => {
-    console.log('Initializing PWA...');
 
     const initPWA = async () => {
       try {
@@ -147,7 +146,7 @@ export default function App() {
         // Store update function globally for manual updates
         window.pwaUpdateSW = updateSW;
 
-        console.log('✅ PWA initialized successfully');
+
       } catch (error) {
         console.error('❌ PWA initialization error:', error);
         // Don't throw - allow app to continue without PWA

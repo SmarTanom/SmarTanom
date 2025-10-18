@@ -1972,3 +1972,222 @@ def initial_dashboard_data(request):
     except Exception as e:
         logger.error(f"Error building initial dashboard data: {e}", exc_info=True)
         return Response({'error': 'Failed to load dashboard data'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# =============================================
+# Device Provisioning Endpoints
+# =============================================
+
+def get_client_ip(request):
+    """Extract client IP from request headers (handles proxies)."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', 'unknown')
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def provision_device(request):
+    """
+    Device WiFi provisioning endpoint.
+
+    Accepts POST requests from ESP32 devices to report WiFi connection status.
+    Authentication via X-Device-Auth header (optional in dev mode).
+
+    POST /api/devices/provision/
+    {
+        "serial": "SMRT-XXX-XXX",
+        "status": "connected" | "failed",
+        "ip": "192.168.1.100",  // optional, required for connected
+        "firmware_version": "1.0.0",  // optional
+        "meta": {}  // optional
+    }
+    """
+    from apps.accounts.throttling import DeviceProvisionThrottle
+    from .serializers import DeviceProvisionSerializer
+
+    # Apply throttling
+    throttle = DeviceProvisionThrottle()
+    if not throttle.allow_request(request, None):
+        logger.warning(
+            f"Device provision throttled from IP {get_client_ip(request)}, "
+            f"serial: {request.data.get('serial', 'unknown')}"
+        )
+        return Response(
+            {'error': 'Too many provisioning requests. Please try again later.'},
+            status=status.HTTP_429_TOO_MANY_REQUESTS
+        )
+
+    # Validate request data
+    serializer = DeviceProvisionSerializer(data=request.data)
+    if not serializer.is_valid():
+        logger.warning(
+            f"Invalid provision request from {get_client_ip(request)}: {serializer.errors}"
+        )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    serial = serializer.validated_data['serial']
+    provision_status = serializer.validated_data['status']
+    ip_address = serializer.validated_data.get('ip', '')
+    firmware_version = serializer.validated_data.get('firmware_version', '')
+    meta = serializer.validated_data.get('meta', {})
+
+    client_ip = get_client_ip(request)
+
+    # Authentication check
+    api_key = request.headers.get('X-Device-Auth', '')
+    expected_key = getattr(settings, 'DEVICE_PROVISION_API_KEY', '')
+
+    # Check if request is from localhost (for testing)
+    is_local = client_ip in ['127.0.0.1', 'localhost', '::1', 'testserver']
+
+    # In production (DEBUG=False) AND not from localhost, require authentication
+    # Allow localhost without auth for testing purposes
+    if not settings.DEBUG and not is_local and api_key != expected_key:
+        logger.warning(
+            f"Unauthorized provision attempt from {client_ip} for device {serial}"
+        )
+        return Response(
+            {'error': 'Authentication required. Provide valid X-Device-Auth header.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    # Log provisioning attempt
+    logger.info(
+        f"Device provision request: serial={serial}, status={provision_status}, "
+        f"ip={ip_address}, firmware={firmware_version}, client_ip={client_ip}"
+    )
+
+    # Find or create device
+    try:
+        device = Device.objects.get(device_serial=serial)
+        logger.info(f"Found existing device: {serial}")
+    except Device.DoesNotExist:
+        # Check if auto-create is enabled
+        auto_create = getattr(settings, 'AUTO_CREATE_DEVICE_ON_FIRST_CONNECT', True)
+        if not auto_create:
+            logger.warning(
+                f"Device {serial} not found and auto-create is disabled"
+            )
+            return Response(
+                {'error': f'Device {serial} not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Auto-create device
+        device = Device.objects.create(
+            device_serial=serial,
+            device_name=f"Device {serial}",
+            status=Device.Status.ACTIVE,
+            wifi_configured=False
+        )
+        logger.info(f"Auto-created device: {serial}")
+
+    # Update device wifi_configured status
+    if provision_status == 'connected':
+        device.wifi_configured = True
+        logger.info(f"Device {serial} successfully connected to WiFi at {ip_address}")
+    else:  # failed
+        device.wifi_configured = False
+        logger.warning(f"Device {serial} failed to connect to WiFi")
+
+    # Store provisioning metadata (could extend model or use JSONField if needed)
+    device.save()
+
+    # Broadcast WebSocket update
+    broadcast_device_update(
+        action='provision',
+        device=device,
+        wifi_configured=device.wifi_configured,
+        provision_status=provision_status,
+        ip_address=ip_address,
+        firmware_version=firmware_version
+    )
+
+    # Return success response
+    return Response({
+        'success': True,
+        'device_id': device.id,
+        'device_serial': device.device_serial,
+        'device_name': device.device_name,
+        'wifi_configured': device.wifi_configured,
+        'is_bound': device.is_bound,
+        'bound_email': device.bound_email,
+        'message': f'Device {serial} provisioning {"successful" if provision_status == "connected" else "failed"}.'
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_device_config(request, serial):
+    """
+    Get device configuration by serial number.
+
+    GET /api/devices/{serial}/config/
+
+    Returns device status and server configuration for the device to use.
+    """
+    from .serializers import DeviceConfigSerializer
+
+    # Normalize serial
+    serial = serial.upper().strip()
+
+    # Validate serial format
+    import re
+    pattern = r'^SMRT-[A-Z0-9]{3}-[A-Z0-9]{3}$'
+    if not re.match(pattern, serial):
+        return Response(
+            {'error': 'Invalid device serial format. Expected SMRT-XXX-XXX.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Optional auth check (same as provision endpoint)
+    api_key = request.headers.get('X-Device-Auth', '')
+    expected_key = getattr(settings, 'DEVICE_PROVISION_API_KEY', '')
+
+    # Check if request is from localhost (for testing)
+    client_ip = get_client_ip(request)
+    is_local = client_ip in ['127.0.0.1', 'localhost', '::1', 'testserver']
+
+    # In production AND not from localhost, require authentication
+    if not settings.DEBUG and not is_local and api_key != expected_key:
+        logger.warning(
+            f"Unauthorized config request from {client_ip} for device {serial}"
+        )
+        return Response(
+            {'error': 'Authentication required.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    # Find device
+    try:
+        device = Device.objects.get(device_serial=serial)
+    except Device.DoesNotExist:
+        logger.warning(f"Config requested for unknown device: {serial}")
+        return Response(
+            {'error': f'Device {serial} not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Build config response
+    backend_url = request.build_absolute_uri('/').rstrip('/')
+    websocket_url = backend_url.replace('http://', 'ws://').replace('https://', 'wss://')
+
+    config_data = {
+        'device_id': device.id,
+        'device_serial': device.device_serial,
+        'device_name': device.device_name,
+        'wifi_configured': device.wifi_configured,
+        'is_bound': device.is_bound,
+        'bound_email': device.bound_email,
+        'status': device.status,
+        'backend_url': backend_url,
+        'websocket_url': f"{websocket_url}/ws/devices/"
+    }
+
+    serializer = DeviceConfigSerializer(config_data)
+    logger.info(f"Config requested for device {serial}")
+
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
