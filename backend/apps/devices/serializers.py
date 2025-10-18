@@ -168,7 +168,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             return False
         return DeviceCollaboration.objects.filter(
             device=obj,
-            collaborator_email=request.user.email,
+            collaborator_email__iexact=request.user.email,
             status=DeviceCollaboration.Status.ACTIVE,
         ).exists()
 

@@ -179,7 +179,7 @@ def _user_has_active_access(email: str) -> bool:
         if owns:
             return True
         collab = DeviceCollaboration.objects.filter(
-            collaborator_email=email,
+            collaborator_email__iexact=email,
             status=DeviceCollaboration.Status.ACTIVE,
         ).exists()
         return collab
@@ -297,7 +297,7 @@ def request_otp(request):
         # Determine whether the email already exists or has an active invitation
         email_exists = User.objects.filter(email=email).exists()
         invited_exists = DeviceInvitation.objects.filter(
-            invite_email=email,
+            invite_email__iexact=email,
             status=DeviceInvitation.Status.PENDING,
             expires_at__gt=timezone.now()
         ).exists()
@@ -428,7 +428,7 @@ def verify_otp(request):
             if purpose == OTPCode.PURPOSE_REGISTER:
                 # Only allow creating accounts for invited emails (pending & unexpired)
                 invited_exists = DeviceInvitation.objects.filter(
-                    invite_email=email,
+                    invite_email__iexact=email,
                     status=DeviceInvitation.Status.PENDING,
                     expires_at__gt=timezone.now()
                 ).exists()
@@ -448,7 +448,7 @@ def verify_otp(request):
             if not _user_has_active_access(email):
                 # Permit login if the user has a pending, unexpired invitation to allow accepting it
                 invited_exists = DeviceInvitation.objects.filter(
-                    invite_email=email,
+                    invite_email__iexact=email,
                     status=DeviceInvitation.Status.PENDING,
                     expires_at__gt=timezone.now()
                 ).exists()

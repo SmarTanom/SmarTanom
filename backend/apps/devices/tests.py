@@ -7,7 +7,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 import json
 
-from .models import Device, DeviceOTPCode
+from .models import Device, DeviceOTPCode, DeviceInvitation, DeviceCollaboration
 
 User = get_user_model()
 
@@ -110,6 +110,37 @@ class DeviceAPITests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 3)
+
+    def test_shared_device_visibility_case_insensitive(self):
+        """Invited user should see shared device regardless of email casing."""
+        owner = User.objects.create_user(email='Owner@Example.com')
+        invited = User.objects.create_user(email='InvitedUser@Example.com')
+
+        device = Device.objects.create(
+            device_name='Share Me',
+            device_serial='SMRT-SHR-001',
+            is_bound=True,
+            bound_email=owner.email
+        )
+
+        # Owner shares device to invited (with mismatched case)
+        inv = DeviceInvitation.objects.create(
+            device=device,
+            invite_email='inviteduser@example.com',
+            invited_by_email=owner.email,
+            permissions=DeviceCollaboration.Permission.VIEW_ONLY,
+        )
+        # Invited accepts using different casing
+        collab = inv.accept('InvitedUser@Example.com')
+        self.assertEqual(collab.status, DeviceCollaboration.Status.ACTIVE)
+
+        # Now invited user should see shared device in list via viewset scoping
+        self.client.force_authenticate(user=invited)
+        url = reverse('devices:device-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [r['device_name'] for r in response.data['results']]
+        self.assertIn('Share Me', names)
 
 
 class DeviceBindingTests(TestCase):

@@ -307,6 +307,18 @@ class DeviceCollaboration(TimeStampedModel):
     def __str__(self) -> str:
         return f"{self.device.device_serial} shared with {self.collaborator_email}"
 
+    def save(self, *args, **kwargs):
+        """Normalize email fields to lowercase before saving.
+
+        This avoids case-sensitivity issues when matching against User.email and
+        when filtering shared devices for a user.
+        """
+        if self.collaborator_email:
+            self.collaborator_email = self.collaborator_email.strip().lower()
+        if self.shared_by_email:
+            self.shared_by_email = self.shared_by_email.strip().lower()
+        super().save(*args, **kwargs)
+
 
 class DeviceInvitation(TimeStampedModel):
     """Model for device sharing invitations."""
@@ -371,6 +383,11 @@ class DeviceInvitation(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         """Override save to generate token and expiration if not set."""
+        # Normalize email fields
+        if self.invite_email:
+            self.invite_email = self.invite_email.strip().lower()
+        if self.invited_by_email:
+            self.invited_by_email = self.invited_by_email.strip().lower()
         if not self.token:
             self.token = secrets.token_urlsafe(32)
         if not self.expires_at:
@@ -391,7 +408,8 @@ class DeviceInvitation(TimeStampedModel):
             self.save()
             raise ValueError("Invitation has expired")
 
-        if accepting_user_email != self.invite_email:
+        # Compare case-insensitively
+        if (accepting_user_email or '').strip().lower() != (self.invite_email or '').strip().lower():
             raise ValueError("Only the invited user can accept this invitation")
 
         # If a collaboration already exists for this device and collaborator,
@@ -399,7 +417,7 @@ class DeviceInvitation(TimeStampedModel):
         # the unique constraint on (device, collaborator_email).
         existing = DeviceCollaboration.objects.filter(
             device=self.device,
-            collaborator_email=self.invite_email,
+            collaborator_email__iexact=self.invite_email,
         ).first()
 
         if existing:
@@ -407,9 +425,8 @@ class DeviceInvitation(TimeStampedModel):
             existing.permissions = self.permissions
             existing.shared_by_email = self.invited_by_email
             existing.status = DeviceCollaboration.Status.ACTIVE
-            existing.save(update_fields=[
-                'permissions', 'shared_by_email', 'status', 'updated_at' if hasattr(existing, 'updated_at') else None
-            ])
+            # TimeStampedModel will auto-update updated_at; don't pass None in update_fields
+            existing.save(update_fields=['permissions', 'shared_by_email', 'status'])
             collaboration = existing
         else:
             # Create a fresh collaboration

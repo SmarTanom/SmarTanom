@@ -80,7 +80,7 @@ class ReservoirViewSet(BaseAuthViewSet):
             return qs
 
         shared_device_ids = DeviceCollaboration.objects.filter(
-            collaborator_email=user.email,
+            collaborator_email__iexact=user.email,
             status=DeviceCollaboration.Status.ACTIVE,
         ).values_list("device_id", flat=True)
 
@@ -97,7 +97,7 @@ class ReservoirViewSet(BaseAuthViewSet):
             return True
         return DeviceCollaboration.objects.filter(
             device=device,
-            collaborator_email=user.email,
+            collaborator_email__iexact=user.email,
             status=DeviceCollaboration.Status.ACTIVE,
             permissions=DeviceCollaboration.Permission.MANAGE,
         ).exists()

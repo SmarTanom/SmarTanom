@@ -639,7 +639,7 @@ class DeviceViewSet(BaseAuthViewSet):
         # Regular users see devices bound to their email OR shared with them
         # Get device IDs where user is a collaborator
         shared_device_ids = DeviceCollaboration.objects.filter(
-            collaborator_email=user.email,
+            collaborator_email__iexact=user.email,
             status=DeviceCollaboration.Status.ACTIVE
         ).values_list('device_id', flat=True)
 
@@ -992,7 +992,8 @@ class DeviceViewSet(BaseAuthViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        invite_email = serializer.validated_data['invite_email']
+        # If valid, proceed with creating an invitation
+        invite_email = serializer.validated_data['invite_email'].strip().lower()
         # Force all invitations to be view_only regardless of client input
         permissions = DeviceCollaboration.Permission.VIEW_ONLY
         message = serializer.validated_data.get('message', '')
@@ -1000,7 +1001,7 @@ class DeviceViewSet(BaseAuthViewSet):
         # Check if device is already shared with this user
         existing_collab = DeviceCollaboration.objects.filter(
             device=device,
-            collaborator_email=invite_email,
+            collaborator_email__iexact=invite_email,
             status=DeviceCollaboration.Status.ACTIVE
         ).first()
 
@@ -1013,7 +1014,7 @@ class DeviceViewSet(BaseAuthViewSet):
         # Check for existing pending invitation
         existing_invitation = DeviceInvitation.objects.filter(
             device=device,
-            invite_email=invite_email,
+            invite_email__iexact=invite_email,
             status=DeviceInvitation.Status.PENDING
         ).first()
 
@@ -1055,7 +1056,7 @@ class DeviceViewSet(BaseAuthViewSet):
                 # Check if user is a collaborator
                 is_collaborator = DeviceCollaboration.objects.filter(
                     device=device,
-                    collaborator_email=request.user.email,
+                    collaborator_email__iexact=request.user.email,
                     status=DeviceCollaboration.Status.ACTIVE
                 ).exists()
 
@@ -1254,7 +1255,7 @@ class DeviceViewSet(BaseAuthViewSet):
             # Check if already a collaborator
             existing_collab = DeviceCollaboration.objects.filter(
                 device=device,
-                collaborator_email=collaborator_email,
+                collaborator_email__iexact=collaborator_email,
                 status=DeviceCollaboration.Status.ACTIVE
             ).first()
 
@@ -1359,7 +1360,7 @@ class DeviceViewSet(BaseAuthViewSet):
             # Check if collaboration already exists
             existing_collaboration = DeviceCollaboration.objects.filter(
                 device=device,
-                collaborator_email=collaborator_email
+                collaborator_email__iexact=collaborator_email
             ).first()
 
             if existing_collaboration:
@@ -1645,7 +1646,7 @@ def get_shared_devices(request):
     user_email = request.user.email
 
     collaborations = DeviceCollaboration.objects.filter(
-        collaborator_email=user_email,
+        collaborator_email__iexact=user_email,
         status=DeviceCollaboration.Status.ACTIVE
     ).select_related('device').order_by('-created_at')
 
@@ -1786,7 +1787,7 @@ def get_user_devices(request, user_id: int):
 
         # Get device IDs where user is a collaborator
         shared_device_ids = DeviceCollaboration.objects.filter(
-            collaborator_email=user.email,
+            collaborator_email__iexact=user.email,
             status=DeviceCollaboration.Status.ACTIVE
         ).values_list('device_id', flat=True)
 

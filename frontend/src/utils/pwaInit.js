@@ -273,7 +273,7 @@ export function setupInstallPrompt() {
 
     // Store the event for later use
     deferredPrompt = e;
-    try { window.__deferredPWAInstallPrompt = e; } catch (_) {}
+    try { window.__deferredPWAInstallPrompt = e; } catch (_) { }
 
     console.log('PWA install prompt available');
   });
@@ -281,7 +281,7 @@ export function setupInstallPrompt() {
   window.addEventListener('appinstalled', () => {
     console.log('PWA was installed');
     deferredPrompt = null;
-    try { window.__deferredPWAInstallPrompt = null; } catch (_) {}
+    try { window.__deferredPWAInstallPrompt = null; } catch (_) { }
   });
 
   return () => deferredPrompt;
