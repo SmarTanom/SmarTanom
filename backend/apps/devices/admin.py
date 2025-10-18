@@ -17,13 +17,14 @@ class DeviceAdmin(admin.ModelAdmin):
         'location',
         'device_name',
         'status',
+        'wifi_configured',
         'is_bound',
         'bound_email',
         'plant_photo_thumbnail',
         'created_at',
         'updated_at'
     )
-    list_filter = ('status', 'is_bound', 'created_at', 'updated_at')
+    list_filter = ('status', 'wifi_configured', 'is_bound', 'created_at', 'updated_at')
     search_fields = ('device_name', 'device_serial', 'bound_email', 'location')
     ordering = ('-created_at',)
     list_per_page = 25  # Show up to 25 devices per page
@@ -32,6 +33,10 @@ class DeviceAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Device Information', {
             'fields': ('device_serial', 'device_name', 'location', 'status')
+        }),
+        ('WiFi Configuration', {
+            'fields': ('wifi_configured',),
+            'description': 'WiFi provisioning status - set to True when device successfully connects and reports to backend'
         }),
         ('Binding Information', {
             'fields': ('is_bound', 'bound_email'),
