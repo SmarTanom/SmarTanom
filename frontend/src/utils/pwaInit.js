@@ -13,9 +13,14 @@ let updateAvailable = false;
  * Initialize PWA features
  */
 export function initializePWA() {
-
-  // Skip actual registration in development to prevent white screen issues
+  // In development, only enable PWA if explicitly allowed via env flag
+  const enablePwaInDev = String(import.meta.env?.VITE_ENABLE_PWA_IN_DEV || '').toLowerCase() === 'true';
   if (import.meta.env.DEV) {
+    console.log('[PWA] Dev mode. VITE_ENABLE_PWA_IN_DEV =', enablePwaInDev);
+  }
+
+  // Skip actual registration in development by default to avoid dev SW issues
+  if (import.meta.env.DEV && !enablePwaInDev) {
     return {
       updateSW: () => console.log('PWA update skipped in development'),
       isUpdateAvailable: () => false
@@ -268,6 +273,7 @@ export function setupInstallPrompt() {
 
     // Store the event for later use
     deferredPrompt = e;
+    try { window.__deferredPWAInstallPrompt = e; } catch (_) {}
 
     console.log('PWA install prompt available');
   });
@@ -275,6 +281,7 @@ export function setupInstallPrompt() {
   window.addEventListener('appinstalled', () => {
     console.log('PWA was installed');
     deferredPrompt = null;
+    try { window.__deferredPWAInstallPrompt = null; } catch (_) {}
   });
 
   return () => deferredPrompt;

@@ -1,37 +1,33 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
   const isDev = mode === 'development';
+  const enablePwaInDev = env.VITE_ENABLE_PWA_IN_DEV === 'true';
 
   const plugins = [react()];
 
   // Add PWA plugin with different settings for dev/prod
-  if (isDev) {
-    // Development mode - minimal PWA setup to provide the virtual module
+  if (isDev && !enablePwaInDev) {
+    // Development mode default - minimal PWA virtual module only
     plugins.push(VitePWA({
       registerType: 'autoUpdate',
-      devOptions: {
-        enabled: false, // Don't actually register SW in dev
-        type: 'module'
-      },
-      workbox: {
-        // Minimal workbox config for dev
-        skipWaiting: false,
-        clientsClaim: false,
-      },
+      devOptions: { enabled: false, type: 'module' },
+      workbox: { skipWaiting: false, clientsClaim: false },
       includeAssets: [],
-      manifest: false // Don't generate manifest in dev
+      manifest: false
     }));
   } else {
     // Production mode - full PWA setup with custom service worker for push notifications
     plugins.push(VitePWA({
-        registerType: 'autoUpdate',
-        devOptions: {
-          enabled: false,
-          type: 'module'
-        },
+      registerType: 'autoUpdate',
+      devOptions: {
+        // In dev with flag enabled, allow SW registration; otherwise disabled
+        enabled: isDev ? enablePwaInDev : false,
+        type: 'module'
+      },
       strategies: 'injectManifest',  // Use custom service worker
       srcDir: 'src',
       filename: 'sw.js',

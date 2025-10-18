@@ -56,6 +56,12 @@ export function usePWAInstall() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
+    // If the event fired before this hook mounted, recover it from global
+    if (!installPrompt && window.__deferredPWAInstallPrompt) {
+      setInstallPrompt(window.__deferredPWAInstallPrompt);
+      setIsInstallSupported(true);
+    }
+
     // For development: simulate install support if needed
     // Immediately set install support for manual instructions
     if (!isIOSDevice) {
