@@ -8,17 +8,19 @@
  * 4. Report provisioning status to backend API
  * 5. Begin normal sensor operation
  *
- * NEW in v1.1.0:
- * - Auto-retry on WiFi connection failure
- * - Credential clearing on wrong password
- * - ESP32 auto-restart to re-enter AP mode
- * - Auto-redirect to dashboard on success
- * - Improved error feedback with countdown timers
+ * NEW in v1.2.0:
+ * - Dynamic AP password: "smartanom" + device serial
+ * - Full captive portal support (auto-redirect on connect)
+ * - Enhanced UI with loading screens and animations
+ * - Visual countdown timers on status pages
+ * - Improved error messaging with troubleshooting steps
+ * - Better user feedback throughout provisioning flow
+ * - Detailed connection status with network info
  *
  * IMPORTANT: Set DEVICE_SERIAL before flashing!
  *
  * Author: SmarTanom Team
- * Version: 1.1.0
+ * Version: 1.2.0
  */
 
 #include <WiFi.h>
@@ -26,13 +28,14 @@
 #include <WebServer.h>
 #include <Preferences.h>
 #include <HTTPClient.h>
-#include <	ArduinoJson.h>
+#include <ArduinoJson.h>
+#include <DNSServer.h>
 
 // =============================================
 // DEVICE CONFIGURATION - SET BEFORE FLASHING
 // =============================================
 #define DEVICE_SERIAL "SMRT-0RE-ZQ8"  // *** CHANGE THIS BEFORE FLASHING ***
-#define FIRMWARE_VERSION "1.1.0"
+#define FIRMWARE_VERSION "1.2.0"
 
 // =============================================
 // BACKEND CONFIGURATION
@@ -49,7 +52,9 @@
 // AP CONFIGURATION
 // =============================================
 #define AP_SSID DEVICE_SERIAL
-#define AP_PASSWORD "smartanom123"
+// Password = "smartanom" + device serial (e.g., "smartanomSMRT-0RE-ZQ8")
+#define AP_PASSWORD_PREFIX "smartanom"
+String AP_PASSWORD = String(AP_PASSWORD_PREFIX) + String(DEVICE_SERIAL);
 #define AP_CHANNEL 6
 #define AP_HIDDEN false
 #define AP_MAX_CLIENTS 4
@@ -67,6 +72,10 @@
 // =============================================
 WebServer server(80);
 Preferences preferences;
+DNSServer dnsServer;
+
+// DNS configuration for captive portal
+const byte DNS_PORT = 53;
 
 // WiFi state
 String savedSSID = "";
@@ -376,8 +385,9 @@ void setup() {
 
     Serial.println("\n--- Provisioning Mode Active ---");
     Serial.printf("Connect to WiFi: %s\n", AP_SSID);
-    Serial.printf("Password: %s\n", AP_PASSWORD);
+    Serial.printf("Password: %s\n", AP_PASSWORD.c_str());
     Serial.println("Then open: http://192.168.4.1");
+    Serial.println("Captive portal will auto-redirect");
     Serial.println("--------------------------------\n");
 }
 
@@ -386,6 +396,7 @@ void setup() {
 // =============================================
 void loop() {
     if (provisioningMode) {
+        dnsServer.processNextRequest();  // Handle DNS requests for captive portal
         server.handleClient();
     } else {
         // Normal operation mode
@@ -400,13 +411,18 @@ void loop() {
 void setupAP() {
     WiFi.mode(WIFI_AP);
 
-    bool result = WiFi.softAP(AP_SSID, AP_PASSWORD, AP_CHANNEL, AP_HIDDEN, AP_MAX_CLIENTS);
+    bool result = WiFi.softAP(AP_SSID, AP_PASSWORD.c_str(), AP_CHANNEL, AP_HIDDEN, AP_MAX_CLIENTS);
 
     if (result) {
         Serial.println("✓ Access Point started successfully");
         Serial.printf("  SSID: %s\n", AP_SSID);
-        Serial.printf("  Password: %s\n", AP_PASSWORD);
+        Serial.printf("  Password: %s\n", AP_PASSWORD.c_str());
         Serial.printf("  IP: %s\n", WiFi.softAPIP().toString().c_str());
+
+        // Start DNS server for captive portal
+        // This redirects all DNS requests to the ESP32's IP (192.168.4.1)
+        dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+        Serial.println("✓ DNS server started for captive portal");
     } else {
         Serial.println("✗ Failed to start Access Point!");
     }
@@ -416,20 +432,46 @@ void setupAP() {
 // WEB SERVER SETUP
 // =============================================
 void setupWebServer() {
+    // Main routes
     server.on("/", HTTP_GET, handleRoot);
     server.on("/connect", HTTP_POST, handleConnect);
     server.on("/status", HTTP_GET, handleStatus);
+
+    // Android captive portal detection
+    server.on("/generate_204", HTTP_GET, []() {
+        server.sendHeader("Location", "http://192.168.4.1/", true);
+        server.send(302, "text/plain", "");
+    });
+
+    // Microsoft captive portal detection
+    server.on("/fwlink", HTTP_GET, []() {
+        server.sendHeader("Location", "http://192.168.4.1/", true);
+        server.send(302, "text/plain", "");
+    });
+
+    // Apple iOS/macOS captive portal detection
+    server.on("/hotspot-detect.html", HTTP_GET, []() {
+        server.sendHeader("Location", "http://192.168.4.1/", true);
+        server.send(302, "text/plain", "");
+    });
+
+    // Apple secondary check
+    server.on("/library/test/success.html", HTTP_GET, []() {
+        server.sendHeader("Location", "http://192.168.4.1/", true);
+        server.send(302, "text/plain", "");
+    });
+
+    // Catch-all for any other requests
     server.onNotFound(handleNotFound);
 
     server.begin();
     Serial.println("✓ Web server started on port 80");
-}
-
-// =============================================
+    Serial.println("✓ Captive portal endpoints configured");
+}// =============================================
 // WEB HANDLERS
 // =============================================
 void handleRoot() {
-    Serial.println("Serving WiFi setup page...");
+    Serial.println("Serving WiFi setup page (Captive Portal)...");
 
     String networks = scanNetworks();
 
@@ -437,7 +479,7 @@ void handleRoot() {
     html += "<h1><span class='icon'>📶</span>WiFi Setup</h1>";
     html += "<div class='device-serial'>Device: " + String(DEVICE_SERIAL) + "</div>";
     html += "<div class='info'><span class='icon'>💡</span>Select your WiFi network and enter the password to connect your device to the internet.</div>";
-    html += "<form action='/connect' method='POST'>";
+    html += "<form action='/connect' method='POST' id='wifiForm'>";
     html += "<div class='form-group'>";
     html += "<label for='ssid'>📡 WiFi Network</label>";
     html += "<select id='ssid' name='ssid' required>";
@@ -449,10 +491,33 @@ void handleRoot() {
     html += "<label for='password'>🔐 WiFi Password</label>";
     html += "<input type='password' id='password' name='password' required placeholder='Enter your WiFi password'>";
     html += "</div>";
-    html += "<button type='submit'>Connect to WiFi</button>";
+    html += "<button type='submit' id='connectBtn'>Connect to WiFi</button>";
     html += "</form>";
+
+    // Add loading overlay HTML (hidden by default)
+    html += "<div id='loadingOverlay' style='display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;'>";
+    html += "<div style='background:white; padding:40px; border-radius:16px; text-align:center; max-width:400px; margin:20px;'>";
+    html += "<div style='width:60px; height:60px; border:6px solid #e0e0e0; border-top:6px solid #339432; border-radius:50%; margin:0 auto 20px; animation:spin 1s linear infinite;'></div>";
+    html += "<h2 style='color:#339432; margin-bottom:10px;'>Connecting...</h2>";
+    html += "<p style='color:#666; margin-bottom:20px;'>Please wait while we connect to your WiFi network.</p>";
+    html += "<div style='background:#e8f5e9; padding:12px; border-radius:8px; color:#2d5f2e; font-size:14px;'>⏳ This may take up to 30 seconds</div>";
+    html += "</div></div>";
+
+    // Add JavaScript for form submission with loading screen
+    html += "<script>";
+    html += "document.getElementById('wifiForm').addEventListener('submit', function(e) {";
+    html += "  document.getElementById('loadingOverlay').style.display = 'flex';";
+    html += "  document.getElementById('connectBtn').disabled = true;";
+    html += "  setTimeout(function(){ window.location.href='/status'; }, 15000);";
+    html += "});";
+    html += "</script>";
+
     html += FPSTR(HTML_FOOT);
 
+    // Set headers for captive portal
+    server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    server.sendHeader("Pragma", "no-cache");
+    server.sendHeader("Expires", "-1");
     server.send(200, "text/html", html);
 }
 
@@ -462,8 +527,12 @@ void handleConnect() {
     if (!server.hasArg("ssid") || !server.hasArg("password")) {
         String html = FPSTR(HTML_HEAD);
         html += "<h1><span class='icon'>⚠️</span>Error</h1>";
-        html += "<div class='status error'><strong>Missing Information!</strong><br>Both WiFi network and password are required.</div>";
-        html += "<br><a href='/'><button>← Try Again</button></a>";
+        html += "<div class='device-serial'>Missing Information</div>";
+        html += "<div class='status error'>";
+        html += "<span class='icon'>❌</span><strong>Missing Information!</strong><br><br>";
+        html += "Both WiFi network and password are required to continue.";
+        html += "</div>";
+        html += "<br><a href='/'><button>← Back to Setup</button></a>";
         html += FPSTR(HTML_FOOT);
         server.send(400, "text/html", html);
         return;
@@ -474,12 +543,22 @@ void handleConnect() {
 
     Serial.printf("Attempting to connect to: %s\n", ssid.c_str());
 
-    // Send intermediate response
+    // Send immediate acknowledgment (form already shows loading screen via JS)
     String html = FPSTR(HTML_HEAD);
-    html += "<h1><span class='icon'>⏳</span>Connecting...</h1>";
+    html += "<h1><span class='icon'>⏳</span>Connecting to WiFi...</h1>";
     html += "<div class='device-serial'>Network: " + ssid + "</div>";
-    html += "<div class='info'><span class='spinner'></span>Connecting to WiFi network. This may take up to 30 seconds...</div>";
-    html += "<script>setTimeout(function(){ window.location='/status'; }, 15000);</script>";
+    html += "<div style='text-align:center; padding:30px 0;'>";
+    html += "<div style='width:80px; height:80px; border:8px solid #e0e0e0; border-top:8px solid #339432; border-radius:50%; margin:0 auto 30px; animation:spin 1s linear infinite;'></div>";
+    html += "<div class='info' style='margin-bottom:20px;'>";
+    html += "<strong>⏳ Connecting to WiFi network...</strong><br><br>";
+    html += "Please wait while we establish a connection.<br>";
+    html += "This may take up to 30 seconds.";
+    html += "</div>";
+    html += "<div style='background:#fff3cd; border:2px solid #ffc107; border-radius:8px; padding:12px; color:#856404; font-size:13px;'>";
+    html += "💡 <strong>Tip:</strong> Stay connected to <strong>" + String(DEVICE_SERIAL) + "</strong> until the process completes.";
+    html += "</div>";
+    html += "</div>";
+    html += "<script>setTimeout(function(){ window.location.href='/status'; }, 15000);</script>";
     html += FPSTR(HTML_FOOT);
     server.send(200, "text/html", html);
 
@@ -489,7 +568,7 @@ void handleConnect() {
     if (connectToWiFi(ssid, password)) {
         Serial.println("✓ WiFi connection successful!");
 
-        // Save credentials
+        // Save credentials to NVS
         savePreferences(ssid, password);
 
         // Wake up backend first
@@ -497,7 +576,7 @@ void handleConnect() {
         wakeUpBackend();
         delay(2000);  // Give backend time to wake up
 
-        // Report to backend
+        // Report to backend (sets wifi_configured=True in database)
         String ip = WiFi.localIP().toString();
         reportProvisionStatus("connected", ip);
 
@@ -505,33 +584,34 @@ void handleConnect() {
         provisioningMode = false;
         wifiConfigured = true;
 
-        Serial.println("Provisioning complete. Shutting down AP...");
+        Serial.println("✓ Provisioning complete. Shutting down AP...");
         delay(2000);
         WiFi.softAPdisconnect(true);
 
-        // TODO: Start normal operation
+        // Normal operation starts
 
     } else {
         Serial.println("✗ WiFi connection failed!");
 
-        // Clear saved credentials (wrong password)
-        Serial.println("Clearing saved WiFi credentials...");
+        // Clear saved credentials (wrong password or network issue)
+        Serial.println("Clearing saved WiFi credentials from NVS...");
         clearPreferences();
 
-        // Wake up backend first (even for failure reporting)
+        // Wake up backend (even for failure reporting)
         wakeUpBackend();
         delay(1000);
 
+        // Report failure to backend (sets wifi_configured=False)
         reportProvisionStatus("failed");
 
         // Restart AP mode for retry
-        Serial.println("Restarting AP mode for retry...");
+        Serial.println("Restarting AP mode for user retry...");
         provisioningMode = true;
         wifiConfigured = false;
 
         // Restart the ESP32 to cleanly re-enter provisioning mode
         delay(2000);
-        Serial.println("Restarting ESP32...");
+        Serial.println("Restarting ESP32 in 2 seconds...");
         ESP.restart();
     }
 }
@@ -544,26 +624,86 @@ void handleStatus() {
     html += "<div class='device-serial'>" + String(DEVICE_SERIAL) + "</div>";
 
     if (wifiConfigured && WiFi.status() == WL_CONNECTED) {
+        // SUCCESS - Connected to WiFi
+        html += "<div style='text-align:center; padding:20px 0;'>";
+        html += "<div style='width:100px; height:100px; background:linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius:50%; margin:0 auto 24px; display:flex; align-items:center; justify-content:center; font-size:50px;'>✅</div>";
+        html += "</div>";
+
         html += "<div class='status success'>";
-        html += "<span class='icon'>✅</span><strong>Successfully Connected!</strong><br><br>";
-        html += "📡 Network: <strong>" + savedSSID + "</strong><br>";
-        html += "🌐 IP Address: <strong>" + WiFi.localIP().toString() + "</strong><br>";
-        html += "📶 Signal: <strong>" + String(WiFi.RSSI()) + " dBm</strong><br><br>";
-        html += "Your SmarTanom device is now online and will appear in your dashboard shortly.<br><br>";
-        html += "<div class='info'>🔄 Redirecting to dashboard in 3 seconds...</div>";
+        html += "<strong style='font-size:18px; color:#2d5f2e;'>🎉 Successfully Connected!</strong><br><br>";
+        html += "<div style='text-align:left; background:white; padding:16px; border-radius:8px; margin:16px 0;'>";
+        html += "<div style='margin-bottom:12px;'><span style='color:#666;'>📡 Network:</span> <strong style='color:#339432;'>" + savedSSID + "</strong></div>";
+        html += "<div style='margin-bottom:12px;'><span style='color:#666;'>🌐 IP Address:</span> <strong style='color:#339432;'>" + WiFi.localIP().toString() + "</strong></div>";
+        html += "<div><span style='color:#666;'>📶 Signal Strength:</span> <strong style='color:#339432;'>" + String(WiFi.RSSI()) + " dBm</strong></div>";
         html += "</div>";
-        // Auto-redirect to dashboard after 3 seconds
-        html += "<script>setTimeout(function(){ window.location.href='http://localhost:5173/dashboard'; }, 3000);</script>";
-    } else {
+        html += "<p style='color:#2d5f2e; line-height:1.8;'>Your SmarTanom device is now <strong>online</strong>!<br>";
+        html += "The device has been marked as <strong>WiFi configured</strong> in the system.<br>";
+        html += "You can now view it in your dashboard.</p>";
+        html += "</div>";
+
+        html += "<div style='background:#fff3cd; border:2px solid #ffc107; border-radius:10px; padding:16px; margin-top:20px; color:#856404;'>";
+        html += "<div style='font-weight:600; margin-bottom:8px;'>🔄 Auto-redirect in <span id='countdown'>3</span> seconds...</div>";
+        html += "<div style='font-size:12px;'>Taking you to: <strong>Dashboard</strong></div>";
+        html += "</div>";
+
+        // Auto-redirect to dashboard with countdown
+        // Note: User must manually reconnect to their home WiFi to access dashboard
+        html += "<script>";
+        html += "var count = 3;";
+        html += "var countdown = setInterval(function() {";
+        html += "  count--;";
+        html += "  document.getElementById('countdown').textContent = count;";
+        html += "  if (count <= 0) {";
+        html += "    clearInterval(countdown);";
+        html += "    alert('WiFi Setup Complete!\\n\\nNext Steps:\\n1. Disconnect from " + String(DEVICE_SERIAL) + "\\n2. Reconnect to your home WiFi\\n3. Open your browser and go to:\\n   http://localhost:5173/dashboard\\n\\nYour device is now online!');";
+        html += "    // Try to open dashboard (will only work if user is on home WiFi)";
+        html += "    window.location.href = 'http://localhost:5173/dashboard';";
+        html += "  }";
+        html += "}, 1000);";
+        html += "</script>";    } else {
+        // FAILURE - Wrong password or connection issue
+        html += "<div style='text-align:center; padding:20px 0;'>";
+        html += "<div style='width:100px; height:100px; background:linear-gradient(135deg, #ffebee, #ffcdd2); border-radius:50%; margin:0 auto 24px; display:flex; align-items:center; justify-content:center; font-size:50px;'>❌</div>";
+        html += "</div>";
+
         html += "<div class='status error'>";
-        html += "<span class='icon'>❌</span><strong>Connection Failed</strong><br><br>";
-        html += "Unable to connect to the WiFi network.<br>";
-        html += "This is usually caused by an <strong>incorrect password</strong>.<br><br>";
-        html += "📱 The device will restart and you can try again.<br>";
-        html += "<div class='info'>🔄 Restarting in 5 seconds...</div>";
+        html += "<strong style='font-size:18px;'>Connection Failed</strong><br><br>";
+        html += "<p style='line-height:1.8;'>Unable to connect to the WiFi network.<br><br>";
+        html += "<strong>Common reasons:</strong></p>";
+        html += "<ul style='text-align:left; margin:16px 0; padding-left:20px; line-height:1.8;'>";
+        html += "<li>❌ Incorrect WiFi password</li>";
+        html += "<li>📡 Network out of range</li>";
+        html += "<li>� Network security type not supported</li>";
+        html += "</ul>";
         html += "</div>";
-        // Auto-restart to allow retry (credentials already cleared)
-        html += "<script>setTimeout(function(){ alert('Device restarting. Please reconnect to WiFi: " + String(DEVICE_SERIAL) + "'); }, 5000);</script>";
+
+        html += "<div style='background:#fff3cd; border:2px solid #ffc107; border-radius:10px; padding:16px; margin-top:20px; color:#856404;'>";
+        html += "<div style='font-weight:600; margin-bottom:8px;'>🔄 Device restarting in <span id='countdown'>5</span> seconds...</div>";
+        html += "<div style='font-size:12px;'>You'll be able to re-enter the WiFi password.</div>";
+        html += "</div>";
+
+        html += "<div style='margin-top:20px; padding:16px; background:#e8f5e9; border-radius:10px; border-left:4px solid #52B256;'>";
+        html += "<strong style='color:#2d5f2e;'>📱 Next Steps:</strong><br>";
+        html += "<ol style='margin-top:12px; padding-left:20px; color:#2d5f2e; line-height:1.8;'>";
+        html += "<li>Wait for device to restart</li>";
+        html += "<li>Reconnect to WiFi: <strong>" + String(DEVICE_SERIAL) + "</strong></li>";
+        html += "<li>Password: <strong>" + AP_PASSWORD + "</strong></li>";
+        html += "<li>Re-enter the correct WiFi password</li>";
+        html += "</ol>";
+        html += "</div>";
+
+        // Countdown and alert before restart
+        html += "<script>";
+        html += "var count = 5;";
+        html += "var countdown = setInterval(function() {";
+        html += "  count--;";
+        html += "  document.getElementById('countdown').textContent = count;";
+        html += "  if (count <= 0) {";
+        html += "    clearInterval(countdown);";
+        html += "    alert('Device is restarting now!\\n\\nPlease reconnect to:\\nWiFi: " + String(DEVICE_SERIAL) + "\\nPassword: " + AP_PASSWORD + "');";
+        html += "  }";
+        html += "}, 1000);";
+        html += "</script>";
     }
 
     html += FPSTR(HTML_FOOT);
@@ -571,12 +711,22 @@ void handleStatus() {
 }
 
 void handleNotFound() {
-    // Redirect to root for captive portal behavior
-    server.sendHeader("Location", "/", true);
-    server.send(302, "text/plain", "");
-}
+    Serial.printf("Captive portal redirect: %s\n", server.uri().c_str());
 
-// =============================================
+    // For captive portal detection, return success HTML instead of redirect
+    // This makes the captive portal popup appear on mobile devices
+    String html = "<!DOCTYPE html><html><head>";
+    html += "<meta http-equiv='refresh' content='0; url=http://192.168.4.1/' />";
+    html += "</head><body>";
+    html += "<p>Redirecting to WiFi setup...</p>";
+    html += "<p>If not redirected, <a href='http://192.168.4.1/'>click here</a>.</p>";
+    html += "</body></html>";
+
+    server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    server.sendHeader("Pragma", "no-cache");
+    server.sendHeader("Expires", "-1");
+    server.send(200, "text/html", html);
+}// =============================================
 // WiFi CONNECTION
 // =============================================
 bool connectToWiFi(const String& ssid, const String& password) {
