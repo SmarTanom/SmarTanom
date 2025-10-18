@@ -95,6 +95,21 @@ export async function uploadPlantPhoto(deviceId, photoFile, plantName = '') {
   });
 }
 
+/**
+ * Trigger WiFi reset for a device
+ * Resets the device's WiFi configuration and restarts it in AP mode
+ */
+export async function resetDeviceWiFi(deviceId) {
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  return apiClient.post(`/api/devices/${deviceId}/reset-wifi/`, {}, {
+    authToken: token
+  });
+}
+
 // Export as default object for consistency with auth.js
 export default {
   checkDevice,
@@ -102,5 +117,6 @@ export default {
   verifyDeviceOTP,
   getUserDevices,
   getDeviceById,
-  uploadPlantPhoto
+  uploadPlantPhoto,
+  resetDeviceWiFi
 };

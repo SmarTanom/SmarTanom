@@ -949,6 +949,65 @@ class DeviceViewSet(BaseAuthViewSet):
         serializer = self.get_serializer(device, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='reset-wifi')
+    def reset_wifi(self, request, pk=None):
+        """
+        Trigger WiFi reset for a device.
+
+        This endpoint marks the device as requiring WiFi reconfiguration
+        and triggers the ESP32 to clear saved credentials and restart into AP mode.
+
+        Only the device owner or staff can trigger WiFi reset.
+        """
+        device = self.get_object()
+
+        # Permission check: only owner or staff
+        if not request.user.is_staff and device.bound_email != request.user.email:
+            return Response(
+                {'error': 'Permission denied. Only the device owner can reset WiFi.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            # Mark device as not WiFi configured
+            device.wifi_configured = False
+            device.ip_address = None
+            device.last_seen = timezone.now()
+            device.save(update_fields=['wifi_configured', 'ip_address', 'last_seen', 'updated_at'])
+
+            logger.info(f"WiFi reset triggered for device {device.device_serial} by {request.user.email}")
+
+            # Broadcast WebSocket update to notify ESP32 and UI
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                # Send to device-specific WebSocket channel
+                async_to_sync(channel_layer.group_send)(
+                    f"device_{device.device_serial}",
+                    {
+                        "type": "wifi_reset_command",
+                        "action": "reset_wifi",
+                        "device_serial": device.device_serial,
+                        "timestamp": timezone.now().isoformat(),
+                    }
+                )
+
+                # Broadcast to general devices channel for UI update
+                broadcast_device_update("wifi_reset", device, triggered_by=request.user.email)
+
+            return Response({
+                'detail': f'WiFi reset triggered for device {device.device_serial}',
+                'device_serial': device.device_serial,
+                'wifi_configured': False,
+                'message': 'Device will restart and enter AP mode. Connect to its WiFi network to reconfigure.'
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error triggering WiFi reset for device {device.device_serial}: {str(e)}")
+            return Response(
+                {'error': 'Failed to trigger WiFi reset. Please try again.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     # Device Collaboration Endpoints
 
     @action(detail=True, methods=['post'], url_path='share')

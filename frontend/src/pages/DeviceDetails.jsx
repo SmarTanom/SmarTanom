@@ -22,7 +22,7 @@ import {
   X
 } from 'lucide-react';
 
-import { getDeviceById, uploadPlantPhoto } from '../services/api/devices.js';
+import { getDeviceById, uploadPlantPhoto, resetDeviceWiFi } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 import { getDeviceReservoirs } from '../services/api/reservoirs.js';
 import { listPlants } from '../services/api/plants.js';
@@ -634,6 +634,69 @@ export default function DeviceDetails() {
     }
   };
 
+  const handleResetWiFi = async () => {
+    if (!device || !device.id) {
+      alert('Device not found');
+      return;
+    }
+
+    // Confirm action with user
+    const confirmMessage =
+      `⚠️ WiFi Reset Confirmation\n\n` +
+      `This will:\n` +
+      `• Clear saved WiFi credentials from the device\n` +
+      `• Restart the device into Access Point mode\n` +
+      `• Require you to reconnect to the device's WiFi network\n` +
+      `• Require WiFi setup again\n\n` +
+      `Device: ${device.device_name || device.device_serial}\n\n` +
+      `Are you sure you want to reset WiFi?`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      // eslint-disable-next-line no-console
+      console.log(`[WiFi Reset] Triggering reset for device ${device.id}`);
+
+      const response = await resetDeviceWiFi(device.id);
+
+      // eslint-disable-next-line no-console
+      console.log('[WiFi Reset] Success:', response);
+
+      // Show success message
+      alert(
+        `✅ WiFi Reset Triggered!\n\n` +
+        `Device: ${device.device_serial}\n\n` +
+        `Next Steps:\n` +
+        `1. Wait for device to restart (30-60 seconds)\n` +
+        `2. Connect to WiFi: ${device.device_serial}\n` +
+        `3. Password: smartanom${device.device_serial}\n` +
+        `4. Follow setup wizard to configure new WiFi`
+      );
+
+      // Update local device state
+      setDevice(prev => ({
+        ...prev,
+        wifi_configured: false,
+        ip_address: null
+      }));
+
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[WiFi Reset] Error:', error);
+
+      let errorMessage = 'Failed to reset WiFi. Please try again.';
+      if (error.status === 403) {
+        errorMessage = 'Permission denied. Only the device owner can reset WiFi.';
+      } else if (error.data?.error) {
+        errorMessage = error.data.error;
+      }
+
+      alert(`❌ WiFi Reset Failed\n\n${errorMessage}`);
+    }
+  };
+
   const resolvedDevice = device || (mockDevices[deviceId] || mockDevices['D000000001']);
 
   // Derive display values and only render when truthy to avoid placeholder dashes
@@ -840,9 +903,25 @@ export default function DeviceDetails() {
                 <span className="settings-item-label">Connectivity</span>
               </div>
               <div className="settings-item-right">
-                <span className="settings-item-value">Connected via Wifi</span>
+                <span className="settings-item-value">
+                  {device?.wifi_configured ? 'Connected via WiFi' : 'Not configured'}
+                </span>
                 <ChevronRight size={20} color="#8BA797" />
               </div>
+            </button>
+
+            <button
+              className="settings-item settings-item-danger"
+              onClick={handleResetWiFi}
+              style={{ borderTop: '1px solid rgba(231, 76, 60, 0.2)' }}
+            >
+              <div className="settings-item-left">
+                <RefreshCw size={20} color="#e74c3c" strokeWidth={2.5} />
+                <span className="settings-item-label" style={{ color: '#e74c3c' }}>
+                  Reset WiFi Configuration
+                </span>
+              </div>
+              <ChevronRight size={20} color="#e74c3c" />
             </button>
 
             <button className="settings-item" onClick={() => console.log('Sensor Settings')}>

@@ -224,14 +224,22 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
     - Mark wifi_configured=True when indicated
     - Echo back confirmation: {status: "ok", device_registered: true}
     - Broadcast device_update to "devices" group for UI refresh
+    - Listen for WiFi reset commands from backend
     """
 
     async def connect(self):
         self.serial = self.scope['url_route']['kwargs'].get('serial')
+        self.device_group = f"device_{self.serial}"
+
+        # Join device-specific group for targeted messages
+        await self.channel_layer.group_add(self.device_group, self.channel_name)
         await self.accept()
-        print(f"[DeviceWS] Device channel connected for serial={self.serial}")
+        print(f"[DeviceWS] Device channel connected for serial={self.serial}, joined group={self.device_group}")
 
     async def disconnect(self, close_code):
+        # Leave device-specific group
+        if hasattr(self, 'device_group'):
+            await self.channel_layer.group_discard(self.device_group, self.channel_name)
         print(f"[DeviceWS] Device channel disconnected serial={getattr(self, 'serial', None)} code={close_code}")
 
     async def receive(self, text_data):
@@ -248,11 +256,26 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
 
         device = await self._get_or_create_device(serial)
 
+        # Handle WiFi configuration handshake
         wifi_flag = bool(data.get("wifi_configured") or data.get("status") == "connected")
         if wifi_flag and not device.wifi_configured:
             await self._mark_wifi_configured(device)
 
-        # Respond to device
+        # Handle sensor data streaming
+        if data.get("type") == "sensor_data":
+            sensor_data = data.get("data", {})
+            if sensor_data:
+                await self._process_sensor_data(device, sensor_data)
+
+                # Acknowledge receipt
+                await self.send(text_data=json.dumps({
+                    "status": "ok",
+                    "message": "Sensor data received",
+                    "timestamp": timezone.now().isoformat(),
+                }))
+                return
+
+        # Respond to device (initial handshake)
         await self.send(text_data=json.dumps({
             "status": "ok",
             "device_registered": True,
@@ -289,3 +312,76 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
     def _mark_wifi_configured(self, device: Device):
         device.wifi_configured = True
         device.save(update_fields=["wifi_configured", "updated_at"]) if hasattr(device, "updated_at") else device.save(update_fields=["wifi_configured"])
+
+    async def wifi_reset_command(self, event):
+        """
+        Handle WiFi reset command from backend.
+
+        When backend triggers WiFi reset via API, this method receives
+        the command and forwards it to the connected ESP32 device.
+
+        Event structure:
+        {
+            "type": "wifi_reset_command",
+            "action": "reset_wifi",
+            "device_serial": "SMRT-XXX-XXX",
+            "timestamp": "..."
+        }
+        """
+        # Forward the reset command to the ESP32 device
+        await self.send(text_data=json.dumps({
+            "action": "reset_wifi",
+            "device_serial": event.get("device_serial"),
+            "timestamp": event.get("timestamp"),
+            "message": "Clear WiFi credentials and restart into AP mode"
+        }))
+        print(f"[DeviceWS] Sent WiFi reset command to device {event.get('device_serial')}")
+
+    @database_sync_to_async
+    def _process_sensor_data(self, device, sensor_data):
+        """
+        Process incoming sensor data from ESP32 device.
+
+        Creates or updates Sensor objects and stores SensorData readings.
+        Broadcasts updates via WebSocket to all connected clients.
+
+        Args:
+            device: Device instance
+            sensor_data: Dict with sensor readings (ph, tds, ec, water_level, water_temp, turbidity)
+        """
+        from apps.sensors.models import Sensor, SensorData
+        from apps.sensors.views import broadcast_sensor_update
+
+        sensor_types = {
+            'ph': ('ph', 'pH'),
+            'tds': ('tds', 'ppm'),
+            'ec': ('ec', 'mS/cm'),
+            'water_level': ('water_level', '%'),
+            'water_temp': ('water_temperature', '°C'),
+            'turbidity': ('turbidity', 'NTU'),
+        }
+
+        for key, (sensor_type, unit) in sensor_types.items():
+            value = sensor_data.get(key)
+            if value is not None:
+                try:
+                    # Get or create sensor
+                    sensor, created = Sensor.objects.get_or_create(
+                        device=device,
+                        sensor_type=sensor_type,
+                        defaults={'unit': unit}
+                    )
+
+                    # Create sensor data reading
+                    reading = SensorData.objects.create(
+                        sensor=sensor,
+                        value=float(value)
+                    )
+
+                    # Broadcast to WebSocket clients
+                    broadcast_sensor_update(reading)
+
+                    print(f"[DeviceWS] Stored {sensor_type}={value}{unit} for device {device.device_serial}")
+
+                except Exception as e:
+                    print(f"[DeviceWS] Error storing {sensor_type} data: {str(e)}")
