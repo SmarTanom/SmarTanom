@@ -440,7 +440,7 @@ export default function SignupSetup() {
         if (device.wifi_configured) {
           console.log('[SignupSetup] ✓ Device already configured! Redirecting to dashboard...');
           setProvisioningStatus('success');
-          setStatusMessage('Device is already connected! Redirecting to dashboard...');
+          setStatusMsg('Device is already connected! Redirecting to dashboard...');
           stopPolling();
           // Redirect to dashboard after short delay
           setTimeout(() => {
