@@ -8,10 +8,17 @@
  * 4. Report provisioning status to backend API
  * 5. Begin normal sensor operation
  *
+ * NEW in v1.1.0:
+ * - Auto-retry on WiFi connection failure
+ * - Credential clearing on wrong password
+ * - ESP32 auto-restart to re-enter AP mode
+ * - Auto-redirect to dashboard on success
+ * - Improved error feedback with countdown timers
+ *
  * IMPORTANT: Set DEVICE_SERIAL before flashing!
  *
  * Author: SmarTanom Team
- * Version: 1.0.0
+ * Version: 1.1.0
  */
 
 #include <WiFi.h>
@@ -19,13 +26,13 @@
 #include <WebServer.h>
 #include <Preferences.h>
 #include <HTTPClient.h>
-#include <ArduinoJson.h>
+#include <	ArduinoJson.h>
 
 // =============================================
 // DEVICE CONFIGURATION - SET BEFORE FLASHING
 // =============================================
 #define DEVICE_SERIAL "SMRT-0RE-ZQ8"  // *** CHANGE THIS BEFORE FLASHING ***
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.1.0"
 
 // =============================================
 // BACKEND CONFIGURATION
@@ -81,47 +88,99 @@ const char HTML_HEAD[] PROGMEM = R"rawliteral(
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #339432 0%, #52B256 50%, #7FD485 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(127, 212, 133, 0.1) 0%, transparent 70%);
+            animation: pulse 15s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.3; }
         }
         .container {
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 500px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(51, 148, 50, 0.1);
+            max-width: 480px;
             width: 100%;
-            padding: 40px 30px;
+            padding: 0;
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #339432 0%, #52B256 100%);
+            padding: 32px 30px 24px;
+            text-align: center;
+            position: relative;
+        }
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #7FD485, #52B256, #7FD485);
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+        .subtitle {
+            color: rgba(255, 255, 255, 0.95);
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .content {
+            padding: 32px 30px 24px;
         }
         h1 {
-            color: #333;
-            font-size: 24px;
-            margin-bottom: 10px;
-            text-align: center;
+            color: #1a1a1a;
+            font-size: 22px;
+            margin-bottom: 8px;
+            font-weight: 600;
         }
         .device-serial {
-            background: #f0f0f0;
-            padding: 12px;
-            border-radius: 6px;
+            background: linear-gradient(135deg, #f0f9f1 0%, #e8f5e9 100%);
+            padding: 14px 16px;
+            border-radius: 10px;
             text-align: center;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 20px;
-            font-family: monospace;
-            font-size: 16px;
+            font-weight: 600;
+            color: #339432;
+            margin-bottom: 24px;
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
+            border: 2px solid #7FD485;
+            letter-spacing: 1px;
         }
         .info {
-            background: #e3f2fd;
-            border-left: 4px solid #2196F3;
-            padding: 12px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            color: #1976D2;
-            border-radius: 4px;
+            background: linear-gradient(135deg, #e8f5e9 0%, #f1f9f2 100%);
+            border-left: 4px solid #52B256;
+            padding: 14px 16px;
+            margin-bottom: 24px;
+            font-size: 13px;
+            color: #2d5f2e;
+            border-radius: 8px;
+            line-height: 1.6;
         }
         .form-group {
             margin-bottom: 20px;
@@ -129,85 +188,120 @@ const char HTML_HEAD[] PROGMEM = R"rawliteral(
         label {
             display: block;
             margin-bottom: 8px;
-            color: #555;
-            font-weight: 500;
-            font-size: 14px;
+            color: #2d5f2e;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         select, input[type="password"], input[type="text"] {
             width: 100%;
-            padding: 12px;
+            padding: 14px 16px;
             border: 2px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 10px;
             font-size: 15px;
-            transition: border-color 0.3s;
+            transition: all 0.3s ease;
+            background: white;
+            color: #1a1a1a;
         }
         select:focus, input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #52B256;
+            box-shadow: 0 0 0 3px rgba(82, 178, 86, 0.1);
+        }
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23339432' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 40px;
         }
         button {
             width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 16px;
+            background: linear-gradient(135deg, #339432 0%, #52B256 100%);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(51, 148, 50, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 6px 20px rgba(51, 148, 50, 0.4);
+            background: linear-gradient(135deg, #2d7f2b 0%, #48a04c 100%);
         }
         button:active {
             transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(51, 148, 50, 0.3);
         }
         .status {
             margin-top: 20px;
-            padding: 12px;
-            border-radius: 6px;
+            padding: 16px;
+            border-radius: 10px;
             text-align: center;
             font-weight: 500;
+            font-size: 14px;
+            line-height: 1.6;
         }
         .status.success {
-            background: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #4caf50;
+            background: linear-gradient(135deg, #e8f5e9 0%, #f1f9f2 100%);
+            color: #2d5f2e;
+            border: 2px solid #52B256;
         }
         .status.error {
-            background: #ffebee;
+            background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%);
             color: #c62828;
-            border: 1px solid #f44336;
+            border: 2px solid #f44336;
         }
         .footer {
-            margin-top: 30px;
+            padding: 20px 30px;
             text-align: center;
             font-size: 12px;
             color: #999;
+            background: #fafafa;
+            border-top: 1px solid #f0f0f0;
         }
         .spinner {
             display: inline-block;
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             border: 3px solid rgba(255,255,255,.3);
             border-radius: 50%;
             border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+        .icon {
+            display: inline-block;
+            margin-right: 8px;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="header">
+            <div class="logo">🌱 SMARTANOM</div>
+            <div class="subtitle">Smart Aquaponics Monitoring</div>
+        </div>
+        <div class="content">
 )rawliteral";
 
 const char HTML_FOOT[] PROGMEM = R"rawliteral(
+        </div>
         <div class="footer">
-            SmarTanom &copy; 2025 | Firmware v)rawliteral" FIRMWARE_VERSION R"rawliteral(
+            SmarTanom &copy; 2025 | Firmware v)rawliteral" FIRMWARE_VERSION R"rawliteral( | 🌱 Growing Smart
         </div>
     </div>
 </body>
@@ -268,7 +362,8 @@ void setup() {
             Serial.println("Ready for normal operation.");
             return;
         } else {
-            Serial.println("Failed to connect to saved WiFi. Starting provisioning mode.");
+            Serial.println("Failed to connect to saved WiFi (incorrect credentials?).");
+            Serial.println("Clearing saved credentials and starting provisioning mode...");
             wifiConfigured = false;
             clearPreferences();
         }
@@ -339,22 +434,22 @@ void handleRoot() {
     String networks = scanNetworks();
 
     String html = FPSTR(HTML_HEAD);
-    html += "<h1>WiFi Setup</h1>";
+    html += "<h1><span class='icon'>📶</span>WiFi Setup</h1>";
     html += "<div class='device-serial'>Device: " + String(DEVICE_SERIAL) + "</div>";
-    html += "<div class='info'>Select your WiFi network and enter the password to connect your device.</div>";
+    html += "<div class='info'><span class='icon'>💡</span>Select your WiFi network and enter the password to connect your device to the internet.</div>";
     html += "<form action='/connect' method='POST'>";
     html += "<div class='form-group'>";
-    html += "<label for='ssid'>WiFi Network:</label>";
+    html += "<label for='ssid'>📡 WiFi Network</label>";
     html += "<select id='ssid' name='ssid' required>";
     html += "<option value=''>-- Select Network --</option>";
     html += networks;
     html += "</select>";
     html += "</div>";
     html += "<div class='form-group'>";
-    html += "<label for='password'>WiFi Password:</label>";
-    html += "<input type='password' id='password' name='password' required placeholder='Enter WiFi password'>";
+    html += "<label for='password'>🔐 WiFi Password</label>";
+    html += "<input type='password' id='password' name='password' required placeholder='Enter your WiFi password'>";
     html += "</div>";
-    html += "<button type='submit'>Connect</button>";
+    html += "<button type='submit'>Connect to WiFi</button>";
     html += "</form>";
     html += FPSTR(HTML_FOOT);
 
@@ -366,9 +461,9 @@ void handleConnect() {
 
     if (!server.hasArg("ssid") || !server.hasArg("password")) {
         String html = FPSTR(HTML_HEAD);
-        html += "<h1>Error</h1>";
-        html += "<div class='status error'>Missing SSID or password!</div>";
-        html += "<a href='/'><button>Try Again</button></a>";
+        html += "<h1><span class='icon'>⚠️</span>Error</h1>";
+        html += "<div class='status error'><strong>Missing Information!</strong><br>Both WiFi network and password are required.</div>";
+        html += "<br><a href='/'><button>← Try Again</button></a>";
         html += FPSTR(HTML_FOOT);
         server.send(400, "text/html", html);
         return;
@@ -381,9 +476,9 @@ void handleConnect() {
 
     // Send intermediate response
     String html = FPSTR(HTML_HEAD);
-    html += "<h1>Connecting...</h1>";
+    html += "<h1><span class='icon'>⏳</span>Connecting...</h1>";
     html += "<div class='device-serial'>Network: " + ssid + "</div>";
-    html += "<div class='info'><div class='spinner'></div> Connecting to WiFi. Please wait...</div>";
+    html += "<div class='info'><span class='spinner'></span>Connecting to WiFi network. This may take up to 30 seconds...</div>";
     html += "<script>setTimeout(function(){ window.location='/status'; }, 15000);</script>";
     html += FPSTR(HTML_FOOT);
     server.send(200, "text/html", html);
@@ -419,11 +514,25 @@ void handleConnect() {
     } else {
         Serial.println("✗ WiFi connection failed!");
 
+        // Clear saved credentials (wrong password)
+        Serial.println("Clearing saved WiFi credentials...");
+        clearPreferences();
+
         // Wake up backend first (even for failure reporting)
         wakeUpBackend();
         delay(1000);
 
         reportProvisionStatus("failed");
+
+        // Restart AP mode for retry
+        Serial.println("Restarting AP mode for retry...");
+        provisioningMode = true;
+        wifiConfigured = false;
+
+        // Restart the ESP32 to cleanly re-enter provisioning mode
+        delay(2000);
+        Serial.println("Restarting ESP32...");
+        ESP.restart();
     }
 }
 
@@ -431,21 +540,30 @@ void handleStatus() {
     Serial.println("Status check requested...");
 
     String html = FPSTR(HTML_HEAD);
-    html += "<h1>Connection Status</h1>";
+    html += "<h1><span class='icon'>📊</span>Connection Status</h1>";
     html += "<div class='device-serial'>" + String(DEVICE_SERIAL) + "</div>";
 
     if (wifiConfigured && WiFi.status() == WL_CONNECTED) {
         html += "<div class='status success'>";
-        html += "✓ Successfully connected!<br><br>";
-        html += "Network: <strong>" + savedSSID + "</strong><br>";
-        html += "IP Address: <strong>" + WiFi.localIP().toString() + "</strong><br><br>";
-        html += "Your device is now online and will appear in your dashboard.";
+        html += "<span class='icon'>✅</span><strong>Successfully Connected!</strong><br><br>";
+        html += "📡 Network: <strong>" + savedSSID + "</strong><br>";
+        html += "🌐 IP Address: <strong>" + WiFi.localIP().toString() + "</strong><br>";
+        html += "📶 Signal: <strong>" + String(WiFi.RSSI()) + " dBm</strong><br><br>";
+        html += "Your SmarTanom device is now online and will appear in your dashboard shortly.<br><br>";
+        html += "<div class='info'>🔄 Redirecting to dashboard in 3 seconds...</div>";
         html += "</div>";
+        // Auto-redirect to dashboard after 3 seconds
+        html += "<script>setTimeout(function(){ window.location.href='http://localhost:5173/dashboard'; }, 3000);</script>";
     } else {
         html += "<div class='status error'>";
-        html += "✗ Connection failed. Please try again.";
+        html += "<span class='icon'>❌</span><strong>Connection Failed</strong><br><br>";
+        html += "Unable to connect to the WiFi network.<br>";
+        html += "This is usually caused by an <strong>incorrect password</strong>.<br><br>";
+        html += "📱 The device will restart and you can try again.<br>";
+        html += "<div class='info'>🔄 Restarting in 5 seconds...</div>";
         html += "</div>";
-        html += "<br><a href='/'><button>Try Again</button></a>";
+        // Auto-restart to allow retry (credentials already cleared)
+        html += "<script>setTimeout(function(){ alert('Device restarting. Please reconnect to WiFi: " + String(DEVICE_SERIAL) + "'); }, 5000);</script>";
     }
 
     html += FPSTR(HTML_FOOT);
