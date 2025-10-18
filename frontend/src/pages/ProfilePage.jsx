@@ -388,8 +388,9 @@ export default function ProfilePage() {
       // Remove from pending invitations
       setPendingInvitations(prev => prev.filter(inv => inv.id !== invitation.id));
 
-      // Reload shared access to show the new device
+      // Reload shared access and devices to show the new device in "Shared With Me"
       loadSharedAccess();
+      loadDevicesForSharing();
 
     } catch (error) {
       console.error('❌ Failed to accept invitation:', error);
@@ -767,12 +768,11 @@ export default function ProfilePage() {
           const sharedWithMeCount = Array.isArray(devices)
             ? devices.filter(d => d?.is_collaborator && !d?.is_owner).length
             : 0;
-          const showSharedWithMe = devicesOwnedCount === 0 && sharedWithMeCount > 0;
 
           return (
             <section className="profile-section">
               <h2 className="section-title">Device Overview</h2>
-              <div className="stats-grid">
+              <div className="stats-grid stats-grid--three">
                 <div className="stat-card">
                   <div className="stat-icon">
                     <Leaf size={24} color={PRIMARY_GREEN} />
@@ -784,11 +784,20 @@ export default function ProfilePage() {
                 </div>
                 <div className="stat-card">
                   <div className="stat-icon">
+                    <Users size={24} color={PRIMARY_GREEN} />
+                  </div>
+                  <div className="stat-content">
+                    <span className="stat-value">{sharedWithMeCount}</span>
+                    <span className="stat-label">Shared With Me</span>
+                  </div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon">
                     <Share2 size={24} color={PRIMARY_GREEN} />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-value">{showSharedWithMe ? sharedWithMeCount : sharedWithOthersCount}</span>
-                    <span className="stat-label">{showSharedWithMe ? 'Shared With Me' : 'Shared With Others'}</span>
+                    <span className="stat-value">{sharedWithOthersCount}</span>
+                    <span className="stat-label">Shared With Others</span>
                   </div>
                 </div>
               </div>
@@ -834,11 +843,11 @@ export default function ProfilePage() {
           </section>
         )}
 
-        {/* Shared Monitoring */}
-        <section className="profile-section">
-          <div className="section-header">
-            <h2 className="section-title">Shared Monitoring</h2>
-            {Array.isArray(devices) && devices.some(d => d?.is_owner || (d?.bound_email && user && d.bound_email === user.email)) && (
+        {/* Shared With Others - visible only when user owns devices */}
+        {Array.isArray(devices) && devices.some(d => d?.is_owner || (d?.bound_email && user && d.bound_email === user.email)) && (
+          <section className="profile-section">
+            <div className="section-header">
+              <h2 className="section-title">Shared With Others</h2>
               <button
                 className="btn-share-new"
                 onClick={openShareModal}
@@ -846,74 +855,136 @@ export default function ProfilePage() {
                 <Plus size={16} />
                 Share Device
               </button>
-            )}
+            </div>
+
+            <div className="share-info-banner">
+              <Share2 size={20} />
+              <p>These are your devices shared with other users. You can revoke access at any time.</p>
+            </div>
+
+            {loadingSharedAccess ? (
+              <div className="empty-state">
+                <Users size={48} color="#C5D4CB" />
+                <p>Loading your shared devices...</p>
+              </div>
+            ) : (() => {
+              const ownerShares = (Array.isArray(sharedAccess) ? sharedAccess : []).filter(s => s?.isOwner);
+              if (ownerShares.length === 0) {
+                return (
+                  <div className="empty-state">
+                    <Users size={48} color="#C5D4CB" />
+                    <p>No collaborators yet</p>
+                    <span>Use "Share Device" to invite another user to view your device.</span>
+                    {loadingSentInvites ? (
+                      <p style={{ marginTop: 8, color: '#6B7D75' }}>Loading invitations you sent…</p>
+                    ) : renderPendingSentInvites()}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="shared-list">
+                  {ownerShares.map(share => (
+                    <div key={share.id} className="shared-item">
+                      <div className="shared-item-header">
+                        <div className="shared-device-info">
+                          <h4 className="shared-device-name">{share.deviceName}</h4>
+                          <span className="shared-device-id" style={{ display: 'none' }}>{share.deviceId}</span>
+                        </div>
+                        <span className={`shared-status ${share.status || 'active'}`}>
+                          {share.status === 'pending' ? '⏳ Pending' : share.status === 'active' ? '✅ Active' : '❌ Inactive'}
+                        </span>
+                      </div>
+                      <div className="shared-item-body">
+                        <div className="shared-user-info">
+                          <Mail size={16} />
+                          <span className="shared-email">{share.sharedWith}</span>
+                        </div>
+                        <div className="shared-meta">
+                          <span className="shared-date">
+                            Shared on {new Date(share.sharedDate).toLocaleDateString()}
+                          </span>
+                          <span className="shared-permissions">📖 View-only access</span>
+                        </div>
+                      </div>
+                      <button
+                        className="btn-revoke"
+                        onClick={() => handleRevokeAccess(share.id)}
+                        title={`Revoke ${share.sharedWith}'s access to ${share.deviceName}`}
+                      >
+                        <X size={16} />
+                        Revoke Access
+                      </button>
+                    </div>
+                  ))}
+                  {loadingSentInvites ? null : renderPendingSentInvites()}
+                </div>
+              );
+            })()}
+          </section>
+        )}
+
+        {/* Shared Monitoring - show only devices shared with current user */}
+        <section className="profile-section">
+          <div className="section-header">
+            <h2 className="section-title">Shared With Me</h2>
           </div>
 
           <div className="share-info-banner">
             <Share2 size={20} />
-            <p>Share device monitoring data with other users. All users can view real-time data and alerts to guide data-driven decisions.</p>
+            <p>These are devices other users have shared with your account. You have view-only access to their monitoring data and alerts.</p>
           </div>
 
-          {/* Development Notice removed: backend sharing implemented */}
+          {devicesLoading ? (
+            <div className="empty-state">
+              <Users size={48} color="#C5D4CB" />
+              <p>Loading devices shared with you...</p>
+            </div>
+          ) : (() => {
+            const sharedWithMeDevices = Array.isArray(devices)
+              ? devices.filter(d => d?.is_collaborator && !d?.is_owner)
+              : [];
 
-          {loadingSharedAccess ? (
-            <div className="empty-state">
-              <Users size={48} color="#C5D4CB" />
-              <p>Loading shared access...</p>
-            </div>
-          ) : sharedAccess.length === 0 ? (
-            <div className="empty-state">
-              <Users size={48} color="#C5D4CB" />
-              <p>No shared access yet</p>
-              <span>Share your devices with other users to collaborate</span>
-              {loadingSentInvites ? (
-                <p style={{ marginTop: 8, color: '#6B7D75' }}>Loading invitations you sent…</p>
-              ) : renderPendingSentInvites()}
-            </div>
-          ) : (
-            <div className="shared-list">
-              {sharedAccess.map(share => (
-                <div key={share.id} className="shared-item">
-                  <div className="shared-item-header">
-                    <div className="shared-device-info">
-                      <h4 className="shared-device-name">{share.deviceName}</h4>
-                      <span className="shared-device-id" style={{ display: 'none' }}>{share.deviceId}</span>
-                    </div>
-                  </div>
-                  <div className="shared-item-body">
-                    <div className="shared-user-info">
-                      <Mail size={16} />
-                      <span className="shared-email">{share.sharedWith}</span>
-                      <span className={`shared-status ${share.status || 'active'}`}>
-                        {share.status === 'pending' ? '⏳ Pending' :
-                          share.status === 'active' ? '✅ Active' :
-                            '❌ Inactive'}
-                      </span>
-                    </div>
-                    <div className="shared-meta">
-                      <span className="shared-date">
-                        Shared on {new Date(share.sharedDate).toLocaleDateString()}
-                      </span>
-                      <span className="shared-permissions">
-                        📖 View-only access
-                      </span>
-                    </div>
-                  </div>
-                  {share.isOwner && (
-                    <button
-                      className="btn-revoke"
-                      onClick={() => handleRevokeAccess(share.id)}
-                      title={`Revoke ${share.sharedWith}'s access to ${share.deviceName}`}
-                    >
-                      <X size={16} />
-                      Revoke Access
-                    </button>
-                  )}
+            if (sharedWithMeDevices.length === 0) {
+              return (
+                <div className="empty-state">
+                  <Users size={48} color="#C5D4CB" />
+                  <p>No devices have been shared with you</p>
+                  <span>Ask a device owner to share monitoring access to see it here.</span>
                 </div>
-              ))}
-              {loadingSentInvites ? null : renderPendingSentInvites()}
-            </div>
-          )}
+              );
+            }
+
+            return (
+              <div className="shared-list">
+                {sharedWithMeDevices.map(device => {
+                  const deviceName = device.device_name || device.plant_name || `Device ${device.id}`;
+                  const sharedSince = device.shared_since || device.created_at || null;
+                  return (
+                    <div key={device.id} className="shared-item">
+                      <div className="shared-item-header">
+                        <div className="shared-device-info">
+                          <h4 className="shared-device-name">{deviceName}</h4>
+                          {device.device_serial && (
+                            <span className="shared-device-id">{device.device_serial}</span>
+                          )}
+                        </div>
+                        <span className="shared-status active">✅ Shared with you</span>
+                      </div>
+                      <div className="shared-item-body">
+                        <div className="shared-meta">
+                          {sharedSince && (
+                            <span className="shared-date">Since {new Date(sharedSince).toLocaleDateString()}</span>
+                          )}
+                          <span className="shared-permissions">📖 View-only access</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </section>
 
         {/* Settings Menu */}
