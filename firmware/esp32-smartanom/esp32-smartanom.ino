@@ -1,26 +1,26 @@
 /*
- * SmarTanom ESP32 WiFi Provisioning Firmware with Sensor Integration
+ * SmarTanom ESP32 WiFi Provisioning Firmware
  *
  * This firmware enables ESP32 devices to:
  * 1. Boot into AP mode with SSID = device serial number
  * 2. Serve a captive portal for WiFi credential setup
  * 3. Connect to user's WiFi network
  * 4. Report provisioning status to backend API
- * 5. Read sensor data (pH, TDS, EC, Water Level, Temperature, Turbidity)
- * 6. Stream real-time data via WebSocket to backend
- * 7. Listen for WiFi reset commands from backend
+ * 5. Begin normal sensor operation
  *
- * NEW in v1.3.0:
- * - Full sensor integration (6 sensors)
- * - WebSocket client for real-time data streaming
- * - WiFi reset command listener
- * - Automatic sensor calibration support
- * - Sensor data buffering and retry logic
+ * NEW in v1.2.0:
+ * - Dynamic AP password: "smartanom" + device serial
+ * - Full captive portal support (auto-redirect on connect)
+ * - Enhanced UI with loading screens and animations
+ * - Visual countdown timers on status pages
+ * - Improved error messaging with troubleshooting steps
+ * - Better user feedback throughout provisioning flow
+ * - Detailed connection status with network info
  *
  * IMPORTANT: Set DEVICE_SERIAL before flashing!
  *
  * Author: SmarTanom Team
- * Version: 1.3.0
+ * Version: 1.2.0
  */
 
 #include <WiFi.h>
@@ -30,67 +30,27 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <DNSServer.h>
+// Sensor + WebSocket libraries
+#include <OneWire.h>
+#include <DallasTemperature.h>
 #include <WebSocketsClient.h>
 
 // =============================================
 // DEVICE CONFIGURATION - SET BEFORE FLASHING
 // =============================================
-#define DEVICE_SERIAL "SMRT-0RE-ZQ8"  // *** CHANGE THIS BEFORE FLASHING ***
-#define FIRMWARE_VERSION "1.3.0"
+#define DEVICE_SERIAL "SMRT-0RE-ZQ8"  // * CHANGE THIS BEFORE FLASHING *
+#define FIRMWARE_VERSION "1.2.0"
 
 // =============================================
 // BACKEND CONFIGURATION
 // =============================================
 #define BACKEND_URL "https://smartanom.onrender.com"
-#define BACKEND_HOST "smartanom.onrender.com"
 #define PROVISION_ENDPOINT "/api/devices/provision/"
 #define CONFIG_ENDPOINT "/api/devices/" DEVICE_SERIAL "/config/"
-#define SENSOR_DATA_ENDPOINT "/api/sensors/data/"
-#define WEBSOCKET_PATH "/ws/device/" DEVICE_SERIAL "/"
 
 // Optional: Set if your backend requires device auth
 // Set to your production API key for security
 #define DEVICE_API_KEY "b58e766d66ea4fededf05d3ccfe44475"  // Production API key
-
-// =============================================
-// SENSOR PIN CONFIGURATION
-// =============================================
-// Analog sensors (ADC pins)
-#define PH_SENSOR_PIN 34          // GPIO34 (ADC1_CH6) - pH sensor
-#define TDS_SENSOR_PIN 35         // GPIO35 (ADC1_CH7) - TDS sensor
-#define WATER_LEVEL_PIN 32        // GPIO32 (ADC1_CH4) - Water level sensor
-#define TURBIDITY_SENSOR_PIN 33   // GPIO33 (ADC1_CH5) - Turbidity sensor
-
-// Digital/OneWire sensors
-#define TEMP_SENSOR_PIN 25        // GPIO25 - DS18B20 water temperature sensor (OneWire)
-
-// =============================================
-// SENSOR CALIBRATION VALUES
-// =============================================
-// pH Sensor calibration (adjust based on your sensor)
-#define PH_VOLTAGE_NEUTRAL 2.5    // Voltage at pH 7.0
-#define PH_VOLTAGE_ACIDIC 3.0     // Voltage at pH 4.0
-#define PH_SLOPE ((7.0 - 4.0) / (PH_VOLTAGE_NEUTRAL - PH_VOLTAGE_ACIDIC))
-
-// TDS Sensor calibration
-#define TDS_VREF 3.3              // Reference voltage
-#define TDS_TEMPERATURE 25.0      // Compensation temperature
-#define TDS_K_VALUE 1.0           // K value for EC calculation
-
-// Water level sensor calibration (percentage)
-#define WATER_LEVEL_MIN_VOLTAGE 0.5   // Voltage when empty
-#define WATER_LEVEL_MAX_VOLTAGE 3.0   // Voltage when full
-
-// Turbidity sensor calibration (NTU)
-#define TURBIDITY_CLEAR_VOLTAGE 4.2   // Voltage when water is clear
-#define TURBIDITY_MAX_VOLTAGE 0.5     // Voltage at maximum turbidity
-
-// =============================================
-// TIMING CONFIGURATION
-// =============================================
-#define SENSOR_READ_INTERVAL 30000    // Read sensors every 30 seconds
-#define WEBSOCKET_RECONNECT_INTERVAL 5000  // Reconnect every 5 seconds if disconnected
-#define SENSOR_SAMPLES 10             // Number of samples to average for stability
 
 // =============================================
 // AP CONFIGURATION
@@ -117,7 +77,6 @@ String AP_PASSWORD = String(AP_PASSWORD_PREFIX) + String(DEVICE_SERIAL);
 WebServer server(80);
 Preferences preferences;
 DNSServer dnsServer;
-WebSocketsClient webSocket;
 
 // DNS configuration for captive portal
 const byte DNS_PORT = 53;
@@ -128,21 +87,57 @@ String savedPassword = "";
 bool wifiConfigured = false;
 bool provisioningMode = true;
 
-// WebSocket state
-bool wsConnected = false;
-unsigned long lastWsReconnectAttempt = 0;
+// =============================================
+// SENSOR PINS (KEEP AS PROVIDED)
+// =============================================
+#define WATER_SENSOR_PIN 33
+#define ONE_WIRE_BUS 4
+#define TDS_PIN 39
+#define PH_PIN 36
+#define TURBIDITY_PIN 32
 
-// Sensor reading state
-unsigned long lastSensorRead = 0;
-struct SensorReadings {
-    float ph;
-    float tds;
-    float ec;
-    float waterLevel;
-    float waterTemp;
-    float turbidity;
-    bool valid;
-} lastReadings;
+// Sensor objects
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature tempSensors(&oneWire);
+
+// ADC / calculation constants
+#define VREF 3.3
+#define ADC_RES 4095.0
+#define SCOUNT 30
+
+// Calibration constants
+#define TDS_FACTOR 0.5
+#define PH_CALIBRATION_OFFSET 0.00
+#define DRY_VALUE 250
+#define WET_VALUE 1000
+
+// Sensor buffers/values
+int tdsBuffer[SCOUNT];
+int phBuffer[SCOUNT];
+int bufferIndex = 0;
+
+float waterTempC = 25.0;
+float averageVoltageTDS = 0.0;
+float averageVoltagePH = 0.0;
+float tdsValue = 0.0;
+float phValue = 0.0;
+int waterPercent = 0;
+int rawTurb = 0;
+float voltageTurb = 0.0;
+
+// =============================================
+// WEBSOCKET (Device -> Backend Channels)
+// =============================================
+WebSocketsClient wsClient;
+bool wsConnected = false;
+unsigned long lastSensorSend = 0;
+const unsigned long SENSOR_SEND_INTERVAL_MS = 2000;  // 2 seconds
+
+// Derived from BACKEND_URL
+String WS_HOST = "";      // e.g., smartanom.onrender.com
+uint16_t WS_PORT = 443;    // 443 for wss, 80 for ws
+String WS_PATH = "";      // e.g., /ws/device/<serial>/
+bool WS_SECURE = true;     // wss when true
 
 // =============================================
 // HTML TEMPLATES
@@ -383,8 +378,6 @@ const char HTML_FOOT[] PROGMEM = R"rawliteral(
 // =============================================
 void setupAP();
 void setupWebServer();
-void setupWebSocket();
-void setupSensors();
 void handleRoot();
 void handleConnect();
 void handleStatus();
@@ -396,20 +389,20 @@ void loadPreferences();
 void savePreferences(const String& ssid, const String& password);
 void clearPreferences();
 String scanNetworks();
+String scanNetworks();
 
-// Sensor functions
-SensorReadings readAllSensors();
-float readPH();
-float readTDS();
-float readWaterLevel();
-float readWaterTemperature();
-float readTurbidity();
-void sendSensorData(const SensorReadings& readings);
+// Sensors + Normal Operation
+void initSensors();
+void readSensorsOnce();
+String getTurbidityStatus(int raw);
+void startNormalOperation();
 
-// WebSocket functions
-void webSocketEvent(WStype_t type, uint8_t * payload, size_t length);
-void connectWebSocket();
-void handleWebSocketMessages();
+// WebSocket helpers
+void deriveWsEndpointFromBackend();
+void initWebSocket();
+void wsEvent(WStype_t type, uint8_t * payload, size_t length);
+void sendHandshake();
+void sendSensorData();
 
 // =============================================
 // SETUP
@@ -419,14 +412,11 @@ void setup() {
     delay(1000);
 
     Serial.println("\n\n=================================");
-    Serial.println("SmarTanom ESP32 Sensor Device");
+    Serial.println("SmarTanom ESP32 Provisioning");
     Serial.println("=================================");
     Serial.printf("Device Serial: %s\n", DEVICE_SERIAL);
     Serial.printf("Firmware: v%s\n", FIRMWARE_VERSION);
     Serial.println("=================================\n");
-
-    // Initialize sensors
-    setupSensors();
 
     // Load saved WiFi credentials
     loadPreferences();
@@ -446,11 +436,9 @@ void setup() {
             // Report success to backend
             reportProvisionStatus("connected", WiFi.localIP().toString());
 
-            // Setup WebSocket connection for real-time data streaming
-            setupWebSocket();
-
-            // TODO: Start normal sensor operation here
-            Serial.println("Ready for sensor operation.");
+            // Start normal sensor operation + WebSocket streaming
+            startNormalOperation();
+            Serial.println("Ready for normal operation.");
             return;
         } else {
             Serial.println("Failed to connect to saved WiFi (incorrect credentials?).");
@@ -481,44 +469,17 @@ void loop() {
         dnsServer.processNextRequest();  // Handle DNS requests for captive portal
         server.handleClient();
     } else {
-        // Normal operation mode - sensor reading and data transmission
+        // Normal operation mode
+        // WebSocket loop and periodic sensor send
+        wsClient.loop();
 
-        // Handle WebSocket communication
-        webSocket.loop();
-
-        // Reconnect WebSocket if disconnected
-        if (!wsConnected && (millis() - lastWsReconnectAttempt > WEBSOCKET_RECONNECT_INTERVAL)) {
-            Serial.println("WebSocket disconnected. Attempting reconnection...");
-            connectWebSocket();
-            lastWsReconnectAttempt = millis();
+        unsigned long now = millis();
+        if (now - lastSensorSend >= SENSOR_SEND_INTERVAL_MS) {
+            lastSensorSend = now;
+            readSensorsOnce();
+            sendSensorData();
         }
-
-        // Read sensors at specified interval
-        if (millis() - lastSensorRead > SENSOR_READ_INTERVAL) {
-            Serial.println("\n--- Reading Sensors ---");
-            SensorReadings readings = readAllSensors();
-
-            if (readings.valid) {
-                // Display readings
-                Serial.printf("pH: %.2f\n", readings.ph);
-                Serial.printf("TDS: %.2f ppm\n", readings.tds);
-                Serial.printf("EC: %.2f mS/cm\n", readings.ec);
-                Serial.printf("Water Level: %.1f%%\n", readings.waterLevel);
-                Serial.printf("Water Temp: %.2f°C\n", readings.waterTemp);
-                Serial.printf("Turbidity: %.2f NTU\n", readings.turbidity);
-
-                // Send data to backend
-                sendSensorData(readings);
-
-                lastReadings = readings;
-            } else {
-                Serial.println("Failed to read sensors");
-            }
-
-            lastSensorRead = millis();
-        }
-
-        delay(100);  // Small delay to prevent watchdog issues
+        delay(5);
     }
 }
 
@@ -706,6 +667,7 @@ void handleConnect() {
         WiFi.softAPdisconnect(true);
 
         // Normal operation starts
+        startNormalOperation();
 
     } else {
         Serial.println("✗ WiFi connection failed!");
@@ -1122,379 +1084,199 @@ void clearPreferences() {
 }
 
 // =============================================
-// SENSOR FUNCTIONS
+// NORMAL OPERATION: Sensors + WebSocket
 // =============================================
 
-void setupSensors() {
-    Serial.println("Initializing sensors...");
+void initSensors() {
+    // Initialize DS18B20 and ADC
+    tempSensors.begin();
+    analogReadResolution(12);
+    analogSetAttenuation(ADC_11db);
 
-    // Configure analog pins
-    pinMode(PH_SENSOR_PIN, INPUT);
-    pinMode(TDS_SENSOR_PIN, INPUT);
-    pinMode(WATER_LEVEL_PIN, INPUT);
-    pinMode(TURBIDITY_SENSOR_PIN, INPUT);
-    pinMode(TEMP_SENSOR_PIN, INPUT);
-
-    // Set ADC resolution (ESP32 default is 12-bit = 0-4095)
-    analogSetAttenuation(ADC_11db);  // Full range: 0-3.3V
-
-    Serial.println("✓ Sensors initialized");
-}
-
-float readPH() {
-    // Read pH sensor with averaging
-    float sum = 0;
-    for (int i = 0; i < SENSOR_SAMPLES; i++) {
-        int rawValue = analogRead(PH_SENSOR_PIN);
-        float voltage = rawValue * (3.3 / 4095.0);
-        sum += voltage;
-        delay(10);
+    // Pre-fill buffers with current readings to avoid initial zeros
+    for (int i = 0; i < SCOUNT; i++) {
+        tdsBuffer[i] = analogRead(TDS_PIN);
+        phBuffer[i] = analogRead(PH_PIN);
     }
-    float avgVoltage = sum / SENSOR_SAMPLES;
+    bufferIndex = 0;
 
-    // Convert voltage to pH using calibration
-    float ph = 7.0 + PH_SLOPE * (avgVoltage - PH_VOLTAGE_NEUTRAL);
-
-    // Clamp to valid pH range (0-14)
-    ph = constrain(ph, 0.0, 14.0);
-
-    return ph;
+    Serial.println("✓ Sensors initialized (DS18B20, TDS, pH, Turbidity, HW-03)");
 }
 
-float readTDS() {
-    // Read TDS sensor with averaging
-    float sum = 0;
-    for (int i = 0; i < SENSOR_SAMPLES; i++) {
-        int rawValue = analogRead(TDS_SENSOR_PIN);
-        float voltage = rawValue * (3.3 / 4095.0);
-        sum += voltage;
-        delay(10);
+String getTurbidityStatus(int raw) {
+    if (raw > 2100) {
+        return "Clear";
+    } else if (raw > 1800) {
+        return "Cloudy";
+    } else {
+        return "Turbid";
     }
-    float avgVoltage = sum / SENSOR_SAMPLES;
-
-    // Calculate TDS (Total Dissolved Solids) in ppm
-    // TDS formula: TDS = (133.42 * voltage^3 - 255.86 * voltage^2 + 857.39 * voltage) * 0.5
-    float compensationCoefficient = 1.0 + 0.02 * (TDS_TEMPERATURE - 25.0);  // Temperature compensation
-    float compensationVoltage = avgVoltage / compensationCoefficient;
-    float tds = (133.42 * pow(compensationVoltage, 3) - 255.86 * pow(compensationVoltage, 2) + 857.39 * compensationVoltage) * 0.5;
-
-    // Clamp to reasonable range
-    tds = constrain(tds, 0.0, 2000.0);
-
-    return tds;
 }
 
-float readWaterLevel() {
-    // Read water level sensor with averaging
-    float sum = 0;
-    for (int i = 0; i < SENSOR_SAMPLES; i++) {
-        int rawValue = analogRead(WATER_LEVEL_PIN);
-        float voltage = rawValue * (3.3 / 4095.0);
-        sum += voltage;
-        delay(10);
-    }
-    float avgVoltage = sum / SENSOR_SAMPLES;
+void readSensorsOnce() {
+    // HW-03 Water Sensor
+    int rawWater = analogRead(WATER_SENSOR_PIN);
+    waterPercent = map(rawWater, DRY_VALUE, WET_VALUE, 0, 100);
+    waterPercent = constrain(waterPercent, 0, 100);
 
-    // Convert voltage to percentage (0-100%)
-    float level = ((avgVoltage - WATER_LEVEL_MIN_VOLTAGE) / (WATER_LEVEL_MAX_VOLTAGE - WATER_LEVEL_MIN_VOLTAGE)) * 100.0;
-
-    // Clamp to valid range
-    level = constrain(level, 0.0, 100.0);
-
-    return level;
-}
-
-float readWaterTemperature() {
-    // Read DS18B20 temperature sensor (simplified - you may need OneWire library for actual implementation)
-    // For now, using analog approximation or placeholder
-    // TODO: Implement proper OneWire DS18B20 reading
-
-    // Placeholder: read analog value and convert
-    float sum = 0;
-    for (int i = 0; i < SENSOR_SAMPLES; i++) {
-        int rawValue = analogRead(TEMP_SENSOR_PIN);
-        float voltage = rawValue * (3.3 / 4095.0);
-        sum += voltage;
-        delay(10);
-    }
-    float avgVoltage = sum / SENSOR_SAMPLES;
-
-    // Convert voltage to temperature (example conversion, adjust for your sensor)
-    // Typical range: 0-50°C mapped to 0-3.3V
-    float temp = (avgVoltage / 3.3) * 50.0;
-
-    // Clamp to reasonable range
-    temp = constrain(temp, 0.0, 50.0);
-
-    return temp;
-}
-
-float readTurbidity() {
-    // Read turbidity sensor with averaging
-    float sum = 0;
-    for (int i = 0; i < SENSOR_SAMPLES; i++) {
-        int rawValue = analogRead(TURBIDITY_SENSOR_PIN);
-        float voltage = rawValue * (3.3 / 4095.0);
-        sum += voltage;
-        delay(10);
-    }
-    float avgVoltage = sum / SENSOR_SAMPLES;
-
-    // Convert voltage to NTU (Nephelometric Turbidity Units)
-    // Clear water = high voltage, turbid water = low voltage
-    float ntu = map(avgVoltage * 1000, TURBIDITY_MAX_VOLTAGE * 1000, TURBIDITY_CLEAR_VOLTAGE * 1000, 3000, 0) / 10.0;
-
-    // Clamp to valid range (0-3000 NTU)
-    ntu = constrain(ntu, 0.0, 3000.0);
-
-    return ntu;
-}
-
-SensorReadings readAllSensors() {
-    SensorReadings readings;
-    readings.valid = false;
-
-    try {
-        readings.ph = readPH();
-        delay(50);
-
-        readings.tds = readTDS();
-        delay(50);
-
-        // Calculate EC from TDS (EC = TDS * K value / 1000)
-        readings.ec = (readings.tds * TDS_K_VALUE) / 1000.0;
-
-        readings.waterLevel = readWaterLevel();
-        delay(50);
-
-        readings.waterTemp = readWaterTemperature();
-        delay(50);
-
-        readings.turbidity = readTurbidity();
-
-        readings.valid = true;
-    } catch (...) {
-        Serial.println("✗ Error reading sensors");
-        readings.valid = false;
+    // DS18B20 Water Temp
+    tempSensors.requestTemperatures();
+    float tempC = tempSensors.getTempCByIndex(0);
+    if (tempC > -100 && tempC < 150) { // sanity check
+        waterTempC = tempC;
     }
 
-    return readings;
+    // Collect ADC samples
+    tdsBuffer[bufferIndex] = analogRead(TDS_PIN);
+    phBuffer[bufferIndex]  = analogRead(PH_PIN);
+    bufferIndex++;
+    if (bufferIndex >= SCOUNT) bufferIndex = 0;
+
+    // Compute averages
+    long avgRawTDS = 0, avgRawPH = 0;
+    for (int i = 0; i < SCOUNT; i++) {
+        avgRawTDS += tdsBuffer[i];
+        avgRawPH  += phBuffer[i];
+    }
+    avgRawTDS /= SCOUNT;
+    avgRawPH  /= SCOUNT;
+
+    // Voltages
+    averageVoltageTDS = (float)avgRawTDS * (VREF / ADC_RES);
+    averageVoltagePH  = (float)avgRawPH  * (VREF / ADC_RES);
+
+    // TDS Calculation
+    float compCoeff = 1.0 + 0.02 * (waterTempC - 25.0);
+    float compVoltage = averageVoltageTDS / compCoeff;
+    tdsValue = (133.42 * pow(compVoltage, 3)
+               - 255.86 * pow(compVoltage, 2)
+               + 857.39 * compVoltage) * TDS_FACTOR;
+    if (tdsValue < 0) tdsValue = 0;
+
+    // pH Calculation (linear approximation; calibrate as needed)
+    phValue = 3.5 * averageVoltagePH + PH_CALIBRATION_OFFSET;
+
+    // Turbidity
+    rawTurb = analogRead(TURBIDITY_PIN);
+    voltageTurb = rawTurb * (VREF / ADC_RES);
 }
 
-// =============================================
-// WEBSOCKET FUNCTIONS
-// =============================================
+void deriveWsEndpointFromBackend() {
+    String url = String(BACKEND_URL);
+    url.trim();
+    WS_SECURE = url.startsWith("https://");
+    if (url.startsWith("http://")) {
+        url = url.substring(7);
+        WS_PORT = 80;
+    } else if (url.startsWith("https://")) {
+        url = url.substring(8);
+        WS_PORT = 443;
+    }
+    // Strip trailing slash
+    if (url.endsWith("/")) url = url.substring(0, url.length() - 1);
+    // Up to first '/'
+    int slash = url.indexOf('/');
+    WS_HOST = (slash >= 0) ? url.substring(0, slash) : url;
+    WS_PATH = String("/ws/device/") + String(DEVICE_SERIAL) + String("/");
 
-void setupWebSocket() {
-    Serial.println("Setting up WebSocket connection...");
+    Serial.printf("WebSocket endpoint -> %s://%s:%u%s\n", WS_SECURE ? "wss" : "ws", WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
+}
 
-    // Configure WebSocket
-    webSocket.beginSSL(BACKEND_HOST, 443, WEBSOCKET_PATH);
+void initWebSocket() {
+    deriveWsEndpointFromBackend();
 
-    // Set WebSocket event handler
-    webSocket.onEvent(webSocketEvent);
+    wsClient.onEvent(wsEvent);
+    wsClient.setReconnectInterval(5000); // 5s
+    wsClient.enableHeartbeat(15000, 3000, 2); // ping every 15s
 
-    // Set reconnect interval
-    webSocket.setReconnectInterval(5000);
-
-    // Optional: Set authorization header if needed
-    if (strlen(DEVICE_API_KEY) > 0) {
-        String auth = "X-Device-Auth: " + String(DEVICE_API_KEY);
-        webSocket.setAuthorization(auth.c_str());
+    if (WS_SECURE) {
+        wsClient.beginSSL(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
+        // Note: To validate TLS, set CA cert/fingerprint via library-specific APIs.
+    } else {
+        wsClient.begin(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
     }
 
-    Serial.println("✓ WebSocket configured");
+    Serial.println("Initializing WebSocket client...");
 }
 
-void connectWebSocket() {
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("✗ Cannot connect WebSocket: WiFi not connected");
-        return;
-    }
-
-    Serial.printf("Connecting to WebSocket: wss://%s%s\n", BACKEND_HOST, WEBSOCKET_PATH);
-    webSocket.beginSSL(BACKEND_HOST, 443, WEBSOCKET_PATH);
-}
-
-void webSocketEvent(WStype_t type, uint8_t * payload, size_t length) {
-    switch(type) {
-        case WStype_DISCONNECTED:
-            Serial.println("[WebSocket] Disconnected");
-            wsConnected = false;
-            break;
-
+void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
+    switch (type) {
         case WStype_CONNECTED:
-            Serial.printf("[WebSocket] Connected to: %s\n", payload);
             wsConnected = true;
-
-            // Send initial handshake
-            {
-                StaticJsonDocument<256> doc;
-                doc["device_serial"] = DEVICE_SERIAL;
-                doc["wifi_configured"] = true;
-                doc["firmware_version"] = FIRMWARE_VERSION;
-
-                String handshake;
-                serializeJson(doc, handshake);
-                webSocket.sendTXT(handshake);
-
-                Serial.println("[WebSocket] Sent handshake");
+            Serial.println("[WS] Connected to server");
+            sendHandshake();
+            break;
+        case WStype_DISCONNECTED:
+            wsConnected = false;
+            Serial.println("[WS] Disconnected");
+            break;
+        case WStype_TEXT: {
+            String msg = String((char*)payload).substring(0, length);
+            Serial.printf("[WS] Message: %s\n", msg.c_str());
+            // Try parse JSON
+            StaticJsonDocument<256> doc;
+            DeserializationError err = deserializeJson(doc, msg);
+            if (!err) {
+                const char* action = doc["action"] | "";
+                if (String(action) == "reset_wifi") {
+                    Serial.println("[WS] Received reset_wifi command -> clearing prefs and restarting provisioning...");
+                    clearPreferences();
+                    // Soft restart into provisioning mode
+                    WiFi.disconnect(true);
+                    delay(500);
+                    ESP.restart();
+                }
             }
             break;
-
-        case WStype_TEXT:
-            Serial.printf("[WebSocket] Received: %s\n", payload);
-            handleWebSocketMessages(payload, length);
-            break;
-
-        case WStype_ERROR:
-            Serial.printf("[WebSocket] Error: %s\n", payload);
-            wsConnected = false;
-            break;
-
-        case WStype_PING:
-            Serial.println("[WebSocket] Ping");
-            break;
-
-        case WStype_PONG:
-            Serial.println("[WebSocket] Pong");
+        }
+        default:
             break;
     }
 }
 
-void handleWebSocketMessages() {
-    // Placeholder - message handling logic will be added here
+void sendHandshake() {
+    StaticJsonDocument<256> doc;
+    doc["device_serial"] = DEVICE_SERIAL;
+    doc["wifi_configured"] = true;
+    doc["status"] = "connected";
+    String out;
+    serializeJson(doc, out);
+    wsClient.sendTXT(out);
 }
 
-void handleWebSocketMessages(uint8_t * payload, size_t length) {
-    // Parse incoming WebSocket messages
-    StaticJsonDocument<512> doc;
-    DeserializationError error = deserializeJson(doc, payload, length);
-
-    if (error) {
-        Serial.printf("[WebSocket] JSON parse error: %s\n", error.c_str());
+void sendSensorData() {
+    if (!wsConnected) {
         return;
     }
+    // Build payload per backend consumer expectations
+    StaticJsonDocument<512> doc;
+    doc["type"] = "sensor_data";
+    doc["device_serial"] = DEVICE_SERIAL;
+    JsonObject data = doc.createNestedObject("data");
+    data["water_level"] = waterPercent;        // %
+    data["water_temp"] = waterTempC;           // °C
+    data["tds"] = tdsValue;                    // ppm
+    data["ph"] = phValue;                      // pH
+    data["turbidity"] = voltageTurb;           // report voltage or map to NTU if calibrated
+    // Optional EC approximation (mS/cm); requires calibration
+    data["ec"] = tdsValue / 640.0;             // rough estimate
 
-    // Handle WiFi reset command
-    if (doc["action"] == "reset_wifi") {
-        Serial.println("[WebSocket] Received WiFi reset command!");
-        Serial.println("Clearing WiFi credentials and restarting...");
+    String out;
+    serializeJson(doc, out);
+    wsClient.sendTXT(out);
 
-        // Clear saved credentials
-        clearPreferences();
-
-        // Disconnect WebSocket and WiFi
-        webSocket.disconnect();
-        WiFi.disconnect();
-
-        delay(1000);
-
-        // Restart ESP32 to enter AP mode
-        Serial.println("Restarting in 2 seconds...");
-        delay(2000);
-        ESP.restart();
-    }
-
-    // Handle other commands as needed
-    const char* status = doc["status"];
-    if (status) {
-        Serial.printf("[WebSocket] Status: %s\n", status);
-    }
+    // Log to serial
+    Serial.println("========== SENSOR READINGS ==========");
+    Serial.printf("Water Level   : %d%%\n", waterPercent);
+    Serial.printf("Water Temp    : %.2f °C\n", waterTempC);
+    Serial.printf("TDS           : %.0f ppm\n", tdsValue);
+    Serial.printf("pH            : %.2f\n", phValue);
+    Serial.printf("Turbidity V   : %.2f V (%s)\n", voltageTurb, getTurbidityStatus(rawTurb).c_str());
+    Serial.println("======================================\n");
 }
 
-void sendSensorData(const SensorReadings& readings) {
-    if (!wsConnected) {
-        Serial.println("⚠ WebSocket not connected. Attempting to send via HTTP...");
-
-        // Fallback to HTTP POST if WebSocket is not available
-        WiFiClientSecure client;
-        client.setInsecure();
-
-        HTTPClient https;
-        String url = String(BACKEND_URL) + String(SENSOR_DATA_ENDPOINT);
-
-        if (!https.begin(client, url)) {
-            Serial.println("✗ Failed to connect to sensor data endpoint");
-            return;
-        }
-
-        https.addHeader("Content-Type", "application/json");
-        if (strlen(DEVICE_API_KEY) > 0) {
-            https.addHeader("X-Device-Auth", DEVICE_API_KEY);
-        }
-
-        // Build JSON payload with all sensor readings
-        StaticJsonDocument<512> doc;
-        doc["device_serial"] = DEVICE_SERIAL;
-        doc["timestamp"] = millis();
-
-        JsonArray sensors = doc.createNestedArray("sensors");
-
-        JsonObject ph = sensors.createNestedObject();
-        ph["type"] = "ph";
-        ph["value"] = readings.ph;
-        ph["unit"] = "pH";
-
-        JsonObject tds = sensors.createNestedObject();
-        tds["type"] = "tds";
-        tds["value"] = readings.tds;
-        tds["unit"] = "ppm";
-
-        JsonObject ec = sensors.createNestedObject();
-        ec["type"] = "ec";
-        ec["value"] = readings.ec;
-        ec["unit"] = "mS/cm";
-
-        JsonObject waterLevel = sensors.createNestedObject();
-        waterLevel["type"] = "water_level";
-        waterLevel["value"] = readings.waterLevel;
-        waterLevel["unit"] = "%";
-
-        JsonObject waterTemp = sensors.createNestedObject();
-        waterTemp["type"] = "water_temperature";
-        waterTemp["value"] = readings.waterTemp;
-        waterTemp["unit"] = "°C";
-
-        JsonObject turbidity = sensors.createNestedObject();
-        turbidity["type"] = "turbidity";
-        turbidity["value"] = readings.turbidity;
-        turbidity["unit"] = "NTU";
-
-        String payload;
-        serializeJson(doc, payload);
-
-        Serial.printf("Sending sensor data via HTTP: %s\n", payload.c_str());
-
-        int httpCode = https.POST(payload);
-
-        if (httpCode > 0) {
-            Serial.printf("✓ Sensor data sent (HTTP %d)\n", httpCode);
-        } else {
-            Serial.printf("✗ Failed to send sensor data: %s\n", https.errorToString(httpCode).c_str());
-        }
-
-        https.end();
-
-    } else {
-        // Send via WebSocket (real-time streaming)
-        StaticJsonDocument<512> doc;
-        doc["type"] = "sensor_data";
-        doc["device_serial"] = DEVICE_SERIAL;
-        doc["timestamp"] = millis();
-
-        JsonObject data = doc.createNestedObject("data");
-        data["ph"] = readings.ph;
-        data["tds"] = readings.tds;
-        data["ec"] = readings.ec;
-        data["water_level"] = readings.waterLevel;
-        data["water_temp"] = readings.waterTemp;
-        data["turbidity"] = readings.turbidity;
-
-        String payload;
-        serializeJson(doc, payload);
-
-        webSocket.sendTXT(payload);
-        Serial.println("✓ Sensor data sent via WebSocket");
-    }
+void startNormalOperation() {
+    Serial.println("\n=== Starting Normal Operation ===");
+    initSensors();
+    initWebSocket();
 }
