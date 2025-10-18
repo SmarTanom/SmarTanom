@@ -30,11 +30,31 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <DNSServer.h>
+// Sensors (guarded for non-Arduino editors)
+#ifdef ARDUINO
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#else
+// Lightweight stubs so IntelliSense doesn't error outside Arduino
+class OneWire
+{
+public:
+    explicit OneWire(int) {}
+};
+class DallasTemperature
+{
+public:
+    explicit DallasTemperature(OneWire *) {}
+    void begin() {}
+    void requestTemperatures() {}
+    float getTempCByIndex(int) { return 25.0f; }
+};
+#endif
 
 // =============================================
 // DEVICE CONFIGURATION - SET BEFORE FLASHING
 // =============================================
-#define DEVICE_SERIAL "SMRT-0RE-ZQ8"  // *** CHANGE THIS BEFORE FLASHING ***
+#define DEVICE_SERIAL "SMRT-0RE-ZQ8" // *** CHANGE THIS BEFORE FLASHING ***
 #define FIRMWARE_VERSION "1.2.0"
 
 // =============================================
@@ -46,7 +66,7 @@
 
 // Optional: Set if your backend requires device auth
 // Set to your production API key for security
-#define DEVICE_API_KEY "b58e766d66ea4fededf05d3ccfe44475"  // Production API key
+#define DEVICE_API_KEY "b58e766d66ea4fededf05d3ccfe44475" // Production API key
 
 // =============================================
 // AP CONFIGURATION
@@ -82,6 +102,40 @@ String savedSSID = "";
 String savedPassword = "";
 bool wifiConfigured = false;
 bool provisioningMode = true;
+
+// =============================================
+// SENSORS CONFIGURATION (Hydroponics suite)
+// =============================================
+// Pins
+#define WATER_SENSOR_PIN 33
+#define ONE_WIRE_BUS 4
+#define TDS_PIN 39
+#define PH_PIN 36
+#define TURBIDITY_PIN 32
+
+// OneWire / DallasTemperature objects
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature ds18b20(&oneWire);
+
+// ADC and calibration constants
+#define VREF 3.3
+#define ADC_RES 4095.0
+#define SCOUNT 30
+#define TDS_FACTOR 0.5
+#define PH_CALIBRATION_OFFSET 0.00
+#define DRY_VALUE 250
+#define WET_VALUE 1000
+
+// Sensor buffers and state
+int tdsBuffer[SCOUNT];
+int phBuffer[SCOUNT];
+int bufferIndex = 0;
+
+float waterTempC = 25.0;
+float averageVoltageTDS = 0.0;
+float averageVoltagePH = 0.0;
+float tdsValue = 0.0;
+float phValue = 0.0;
 
 // =============================================
 // HTML TEMPLATES
@@ -326,19 +380,22 @@ void handleRoot();
 void handleConnect();
 void handleStatus();
 void handleNotFound();
-bool connectToWiFi(const String& ssid, const String& password);
-bool reportProvisionStatus(const String& status, const String& ipAddress = "");
+bool connectToWiFi(const String &ssid, const String &password);
+bool reportProvisionStatus(const String &status, const String &ipAddress = "");
 bool wakeUpBackend();
 void loadPreferences();
-void savePreferences(const String& ssid, const String& password);
+void savePreferences(const String &ssid, const String &password);
 void clearPreferences();
 String scanNetworks();
-String scanNetworks();
+// Sensors helpers
+String getTurbidityStatus(int raw);
+void readAndLogSensors();
 
 // =============================================
 // SETUP
 // =============================================
-void setup() {
+void setup()
+{
     Serial.begin(115200);
     delay(1000);
 
@@ -349,20 +406,33 @@ void setup() {
     Serial.printf("Firmware: v%s\n", FIRMWARE_VERSION);
     Serial.println("=================================\n");
 
+    // Initialize sensors (available in both modes)
+    ds18b20.begin();
+    analogReadResolution(12);       // 12-bit ADC width
+    analogSetAttenuation(ADC_11db); // ~0-3.3V range
+    // Prime buffers
+    for (int i = 0; i < SCOUNT; i++)
+    {
+        tdsBuffer[i] = 0;
+        phBuffer[i] = 0;
+    }
+
     // Load saved WiFi credentials
     loadPreferences();
 
     // If WiFi is already configured, try to connect
-    if (wifiConfigured && savedSSID.length() > 0) {
+    if (wifiConfigured && savedSSID.length() > 0)
+    {
         Serial.println("Found saved WiFi credentials. Attempting connection...");
-        if (connectToWiFi(savedSSID, savedPassword)) {
+        if (connectToWiFi(savedSSID, savedPassword))
+        {
             Serial.println("Successfully connected to saved WiFi!");
             provisioningMode = false;
 
             // Wake up backend first (Render free tier sleeps after inactivity)
             Serial.println("\n--- Preparing to report to backend ---");
             wakeUpBackend();
-            delay(2000);  // Give backend 2 seconds to fully wake up
+            delay(2000); // Give backend 2 seconds to fully wake up
 
             // Report success to backend
             reportProvisionStatus("connected", WiFi.localIP().toString());
@@ -370,7 +440,9 @@ void setup() {
             // TODO: Start normal sensor operation here
             Serial.println("Ready for normal operation.");
             return;
-        } else {
+        }
+        else
+        {
             Serial.println("Failed to connect to saved WiFi (incorrect credentials?).");
             Serial.println("Clearing saved credentials and starting provisioning mode...");
             wifiConfigured = false;
@@ -394,26 +466,33 @@ void setup() {
 // =============================================
 // MAIN LOOP
 // =============================================
-void loop() {
-    if (provisioningMode) {
-        dnsServer.processNextRequest();  // Handle DNS requests for captive portal
+void loop()
+{
+    if (provisioningMode)
+    {
+        dnsServer.processNextRequest(); // Handle DNS requests for captive portal
         server.handleClient();
-    } else {
-        // Normal operation mode
-        // TODO: Add sensor reading and data transmission logic here
-        delay(10000);  // Placeholder
+    }
+    else
+    {
+        // Normal operation mode: read sensors and (optionally) publish
+        readAndLogSensors();
+        // TODO: send readings to backend periodically
+        delay(2000);
     }
 }
 
 // =============================================
 // WiFi AP SETUP
 // =============================================
-void setupAP() {
+void setupAP()
+{
     WiFi.mode(WIFI_AP);
 
     bool result = WiFi.softAP(AP_SSID, AP_PASSWORD.c_str(), AP_CHANNEL, AP_HIDDEN, AP_MAX_CLIENTS);
 
-    if (result) {
+    if (result)
+    {
         Serial.println("✓ Access Point started successfully");
         Serial.printf("  SSID: %s\n", AP_SSID);
         Serial.printf("  Password: %s\n", AP_PASSWORD.c_str());
@@ -423,7 +502,9 @@ void setupAP() {
         // This redirects all DNS requests to the ESP32's IP (192.168.4.1)
         dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
         Serial.println("✓ DNS server started for captive portal");
-    } else {
+    }
+    else
+    {
         Serial.println("✗ Failed to start Access Point!");
     }
 }
@@ -431,35 +512,36 @@ void setupAP() {
 // =============================================
 // WEB SERVER SETUP
 // =============================================
-void setupWebServer() {
+void setupWebServer()
+{
     // Main routes
     server.on("/", HTTP_GET, handleRoot);
     server.on("/connect", HTTP_POST, handleConnect);
     server.on("/status", HTTP_GET, handleStatus);
 
     // Android captive portal detection
-    server.on("/generate_204", HTTP_GET, []() {
+    server.on("/generate_204", HTTP_GET, []()
+              {
         server.sendHeader("Location", "http://192.168.4.1/", true);
-        server.send(302, "text/plain", "");
-    });
+        server.send(302, "text/plain", ""); });
 
     // Microsoft captive portal detection
-    server.on("/fwlink", HTTP_GET, []() {
+    server.on("/fwlink", HTTP_GET, []()
+              {
         server.sendHeader("Location", "http://192.168.4.1/", true);
-        server.send(302, "text/plain", "");
-    });
+        server.send(302, "text/plain", ""); });
 
     // Apple iOS/macOS captive portal detection
-    server.on("/hotspot-detect.html", HTTP_GET, []() {
+    server.on("/hotspot-detect.html", HTTP_GET, []()
+              {
         server.sendHeader("Location", "http://192.168.4.1/", true);
-        server.send(302, "text/plain", "");
-    });
+        server.send(302, "text/plain", ""); });
 
     // Apple secondary check
-    server.on("/library/test/success.html", HTTP_GET, []() {
+    server.on("/library/test/success.html", HTTP_GET, []()
+              {
         server.sendHeader("Location", "http://192.168.4.1/", true);
-        server.send(302, "text/plain", "");
-    });
+        server.send(302, "text/plain", ""); });
 
     // Catch-all for any other requests
     server.onNotFound(handleNotFound);
@@ -467,10 +549,11 @@ void setupWebServer() {
     server.begin();
     Serial.println("✓ Web server started on port 80");
     Serial.println("✓ Captive portal endpoints configured");
-}// =============================================
+} // =============================================
 // WEB HANDLERS
 // =============================================
-void handleRoot() {
+void handleRoot()
+{
     Serial.println("Serving WiFi setup page (Captive Portal)...");
 
     String networks = scanNetworks();
@@ -521,10 +604,12 @@ void handleRoot() {
     server.send(200, "text/html", html);
 }
 
-void handleConnect() {
+void handleConnect()
+{
     Serial.println("Received connection request...");
 
-    if (!server.hasArg("ssid") || !server.hasArg("password")) {
+    if (!server.hasArg("ssid") || !server.hasArg("password"))
+    {
         String html = FPSTR(HTML_HEAD);
         html += "<h1><span class='icon'>⚠️</span>Error</h1>";
         html += "<div class='device-serial'>Missing Information</div>";
@@ -563,9 +648,10 @@ void handleConnect() {
     server.send(200, "text/html", html);
 
     // Attempt connection
-    delay(100);  // Let response send
+    delay(100); // Let response send
 
-    if (connectToWiFi(ssid, password)) {
+    if (connectToWiFi(ssid, password))
+    {
         Serial.println("✓ WiFi connection successful!");
 
         // Save credentials to NVS
@@ -574,7 +660,7 @@ void handleConnect() {
         // Wake up backend first
         Serial.println("\n--- Preparing to report to backend ---");
         wakeUpBackend();
-        delay(2000);  // Give backend time to wake up
+        delay(2000); // Give backend time to wake up
 
         // Report to backend (sets wifi_configured=True in database)
         String ip = WiFi.localIP().toString();
@@ -589,8 +675,9 @@ void handleConnect() {
         WiFi.softAPdisconnect(true);
 
         // Normal operation starts
-
-    } else {
+    }
+    else
+    {
         Serial.println("✗ WiFi connection failed!");
 
         // Clear saved credentials (wrong password or network issue)
@@ -616,14 +703,16 @@ void handleConnect() {
     }
 }
 
-void handleStatus() {
+void handleStatus()
+{
     Serial.println("Status check requested...");
 
     String html = FPSTR(HTML_HEAD);
     html += "<h1><span class='icon'>📊</span>Connection Status</h1>";
     html += "<div class='device-serial'>" + String(DEVICE_SERIAL) + "</div>";
 
-    if (wifiConfigured && WiFi.status() == WL_CONNECTED) {
+    if (wifiConfigured && WiFi.status() == WL_CONNECTED)
+    {
         // SUCCESS - Connected to WiFi
         html += "<div style='text-align:center; padding:20px 0;'>";
         html += "<div style='width:100px; height:100px; background:linear-gradient(135deg, #e8f5e9, #c8e6c9); border-radius:50%; margin:0 auto 24px; display:flex; align-items:center; justify-content:center; font-size:50px;'>✅</div>";
@@ -660,7 +749,10 @@ void handleStatus() {
         html += "    window.location.href = 'http://localhost:5173/dashboard';";
         html += "  }";
         html += "}, 1000);";
-        html += "</script>";    } else {
+        html += "</script>";
+    }
+    else
+    {
         // FAILURE - Wrong password or connection issue
         html += "<div style='text-align:center; padding:20px 0;'>";
         html += "<div style='width:100px; height:100px; background:linear-gradient(135deg, #ffebee, #ffcdd2); border-radius:50%; margin:0 auto 24px; display:flex; align-items:center; justify-content:center; font-size:50px;'>❌</div>";
@@ -710,7 +802,8 @@ void handleStatus() {
     server.send(200, "text/html", html);
 }
 
-void handleNotFound() {
+void handleNotFound()
+{
     Serial.printf("Captive portal redirect: %s\n", server.uri().c_str());
 
     // For captive portal detection, return success HTML instead of redirect
@@ -726,32 +819,37 @@ void handleNotFound() {
     server.sendHeader("Pragma", "no-cache");
     server.sendHeader("Expires", "-1");
     server.send(200, "text/html", html);
-}// =============================================
+} // =============================================
 // WiFi CONNECTION
 // =============================================
-bool connectToWiFi(const String& ssid, const String& password) {
+bool connectToWiFi(const String &ssid, const String &password)
+{
     Serial.printf("Connecting to WiFi: %s\n", ssid.c_str());
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid.c_str(), password.c_str());
 
     int attempts = 0;
-    const int maxAttempts = 30;  // 30 seconds timeout
+    const int maxAttempts = 30; // 30 seconds timeout
 
-    while (WiFi.status() != WL_CONNECTED && attempts < maxAttempts) {
+    while (WiFi.status() != WL_CONNECTED && attempts < maxAttempts)
+    {
         delay(1000);
         Serial.print(".");
         attempts++;
     }
     Serial.println();
 
-    if (WiFi.status() == WL_CONNECTED) {
+    if (WiFi.status() == WL_CONNECTED)
+    {
         Serial.println("✓ WiFi connected!");
         Serial.printf("  SSID: %s\n", ssid.c_str());
         Serial.printf("  IP: %s\n", WiFi.localIP().toString().c_str());
         Serial.printf("  RSSI: %d dBm\n", WiFi.RSSI());
         return true;
-    } else {
+    }
+    else
+    {
         Serial.println("✗ WiFi connection failed!");
         Serial.printf("  Status code: %d\n", WiFi.status());
         WiFi.disconnect();
@@ -762,26 +860,34 @@ bool connectToWiFi(const String& ssid, const String& password) {
 // =============================================
 // NETWORK SCANNING
 // =============================================
-String scanNetworks() {
+String scanNetworks()
+{
     Serial.println("Scanning for WiFi networks...");
 
     int n = WiFi.scanNetworks();
     String options = "";
 
-    if (n == 0) {
+    if (n == 0)
+    {
         Serial.println("No networks found");
         options = "<option value=''>No networks found</option>";
-    } else {
+    }
+    else
+    {
         Serial.printf("Found %d networks:\n", n);
 
         // Sort by signal strength
         int indices[n];
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++)
+        {
             indices[i] = i;
         }
-        for (int i = 0; i < n; i++) {
-            for (int j = i + 1; j < n; j++) {
-                if (WiFi.RSSI(indices[j]) > WiFi.RSSI(indices[i])) {
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = i + 1; j < n; j++)
+            {
+                if (WiFi.RSSI(indices[j]) > WiFi.RSSI(indices[i]))
+                {
                     int temp = indices[i];
                     indices[i] = indices[j];
                     indices[j] = temp;
@@ -790,7 +896,8 @@ String scanNetworks() {
         }
 
         // Build options HTML
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++)
+        {
             int idx = indices[i];
             String ssid = WiFi.SSID(idx);
             int rssi = WiFi.RSSI(idx);
@@ -798,12 +905,16 @@ String scanNetworks() {
 
             // Signal strength indicator
             String signal;
-            if (rssi > -50) signal = "▂▄▆█";
-            else if (rssi > -60) signal = "▂▄▆_";
-            else if (rssi > -70) signal = "▂▄__";
-            else signal = "▂___";
+            if (rssi > -50)
+                signal = "▂▄▆█";
+            else if (rssi > -60)
+                signal = "▂▄▆_";
+            else if (rssi > -70)
+                signal = "▂▄__";
+            else
+                signal = "▂___";
 
-            Serial.printf("  %d: %s (%d dBm) %s\n", i+1, ssid.c_str(), rssi, encryption.c_str());
+            Serial.printf("  %d: %s (%d dBm) %s\n", i + 1, ssid.c_str(), rssi, encryption.c_str());
 
             options += "<option value='" + ssid + "'>" + ssid + " " + signal + encryption + "</option>";
         }
@@ -818,66 +929,76 @@ String scanNetworks() {
 // =============================================
 
 // Wake up Render service (if sleeping) by hitting health endpoint
-bool wakeUpBackend() {
+bool wakeUpBackend()
+{
     Serial.println("Waking up backend service (Render free tier may be sleeping)...");
 
     WiFiClientSecure client;
     client.setInsecure();
-    client.setTimeout(30);  // 30 second timeout for wake-up
+    client.setTimeout(30); // 30 second timeout for wake-up
 
     HTTPClient http;
     String healthUrl = String(BACKEND_URL) + "/healthz";
 
     Serial.printf("GET %s\n", healthUrl.c_str());
 
-    if (!http.begin(client, healthUrl)) {
+    if (!http.begin(client, healthUrl))
+    {
         Serial.println("✗ Could not connect to health endpoint");
         return false;
     }
 
-    http.setTimeout(30000);  // 30 seconds
+    http.setTimeout(30000); // 30 seconds
 
     int httpCode = http.GET();
     http.end();
 
-    if (httpCode > 0) {
+    if (httpCode > 0)
+    {
         Serial.printf("✓ Backend responded (HTTP %d). Service is awake.\n", httpCode);
         return true;
-    } else {
+    }
+    else
+    {
         Serial.printf("⚠ Health check failed: %s (may still wake up)\n", http.errorToString(httpCode).c_str());
-        return false;  // Continue anyway, might still work
+        return false; // Continue anyway, might still work
     }
 }
 
-bool reportProvisionStatus(const String& status, const String& ipAddress) {
+bool reportProvisionStatus(const String &status, const String &ipAddress)
+{
     Serial.printf("Reporting provision status to backend: %s\n", status.c_str());
 
-    if (WiFi.status() != WL_CONNECTED && status == "connected") {
+    if (WiFi.status() != WL_CONNECTED && status == "connected")
+    {
         Serial.println("✗ Cannot report: WiFi not connected");
         return false;
     }
 
     // Retry logic for sleeping Render services
     const int maxRetries = 3;
-    const int retryDelayMs = 2000;  // 2 seconds between retries
+    const int retryDelayMs = 2000; // 2 seconds between retries
 
-    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+    for (int attempt = 1; attempt <= maxRetries; attempt++)
+    {
         Serial.printf("Attempt %d/%d...\n", attempt, maxRetries);
 
         WiFiClientSecure client;
-        client.setInsecure();  // TODO: Replace with proper cert verification
+        client.setInsecure(); // TODO: Replace with proper cert verification
 
         // Increase timeout for Render's cold start (free tier wakes from sleep)
-        client.setTimeout(60);  // 60 seconds timeout
+        client.setTimeout(60); // 60 seconds timeout
 
         HTTPClient https;
         String url = String(BACKEND_URL) + String(PROVISION_ENDPOINT);
 
         Serial.printf("POST %s\n", url.c_str());
 
-        if (!https.begin(client, url)) {
+        if (!https.begin(client, url))
+        {
             Serial.println("✗ HTTPS connection failed");
-            if (attempt < maxRetries) {
+            if (attempt < maxRetries)
+            {
                 Serial.printf("Retrying in %d seconds...\n", retryDelayMs / 1000);
                 delay(retryDelayMs);
                 continue;
@@ -886,12 +1007,13 @@ bool reportProvisionStatus(const String& status, const String& ipAddress) {
         }
 
         // Set timeouts (important for Render cold starts)
-        https.setTimeout(60000);  // 60 seconds for HTTP layer
-        https.setConnectTimeout(15000);  // 15 seconds for connection
+        https.setTimeout(60000);        // 60 seconds for HTTP layer
+        https.setConnectTimeout(15000); // 15 seconds for connection
 
         // Set headers
         https.addHeader("Content-Type", "application/json");
-        if (strlen(DEVICE_API_KEY) > 0) {
+        if (strlen(DEVICE_API_KEY) > 0)
+        {
             https.addHeader("X-Device-Auth", DEVICE_API_KEY);
         }
 
@@ -899,7 +1021,8 @@ bool reportProvisionStatus(const String& status, const String& ipAddress) {
         StaticJsonDocument<256> doc;
         doc["serial"] = DEVICE_SERIAL;
         doc["status"] = status;
-        if (ipAddress.length() > 0) {
+        if (ipAddress.length() > 0)
+        {
             doc["ip"] = ipAddress;
         }
         doc["firmware_version"] = FIRMWARE_VERSION;
@@ -914,35 +1037,47 @@ bool reportProvisionStatus(const String& status, const String& ipAddress) {
         Serial.println("Sending POST request (this may take up to 60s if server is waking up)...");
         int httpCode = https.POST(jsonPayload);
 
-        if (httpCode > 0) {
+        if (httpCode > 0)
+        {
             Serial.printf("✓ Response code: %d\n", httpCode);
             String response = https.getString();
             Serial.printf("Response: %s\n", response.c_str());
 
             https.end();
 
-            if (httpCode == 200 || httpCode == 201) {
+            if (httpCode == 200 || httpCode == 201)
+            {
                 Serial.println("✓ Provisioning status reported successfully");
                 return true;
-            } else if (httpCode == 429) {
+            }
+            else if (httpCode == 429)
+            {
                 Serial.println("✗ Rate limited. Try again later.");
-                return false;  // Don't retry on rate limit
-            } else if (httpCode >= 500) {
+                return false; // Don't retry on rate limit
+            }
+            else if (httpCode >= 500)
+            {
                 Serial.printf("✗ Server error (%d). ", httpCode);
-                if (attempt < maxRetries) {
+                if (attempt < maxRetries)
+                {
                     Serial.printf("Retrying in %d seconds...\n", retryDelayMs / 1000);
                     delay(retryDelayMs);
                     continue;
                 }
-            } else {
+            }
+            else
+            {
                 Serial.printf("✗ HTTP error: %d\n", httpCode);
                 return false;
             }
-        } else {
+        }
+        else
+        {
             Serial.printf("✗ Request failed: %s\n", https.errorToString(httpCode).c_str());
             https.end();
 
-            if (attempt < maxRetries) {
+            if (attempt < maxRetries)
+            {
                 Serial.printf("Retrying in %d seconds...\n", retryDelayMs / 1000);
                 delay(retryDelayMs);
                 continue;
@@ -959,8 +1094,9 @@ bool reportProvisionStatus(const String& status, const String& ipAddress) {
 // =============================================
 // PREFERENCES (NVS) MANAGEMENT
 // =============================================
-void loadPreferences() {
-    preferences.begin(PREF_NAMESPACE, true);  // Read-only
+void loadPreferences()
+{
+    preferences.begin(PREF_NAMESPACE, true); // Read-only
 
     savedSSID = preferences.getString(PREF_SSID, "");
     savedPassword = preferences.getString(PREF_PASSWORD, "");
@@ -968,16 +1104,20 @@ void loadPreferences() {
 
     preferences.end();
 
-    if (wifiConfigured) {
+    if (wifiConfigured)
+    {
         Serial.println("✓ Found saved WiFi configuration");
         Serial.printf("  SSID: %s\n", savedSSID.c_str());
-    } else {
+    }
+    else
+    {
         Serial.println("No saved WiFi configuration");
     }
 }
 
-void savePreferences(const String& ssid, const String& password) {
-    preferences.begin(PREF_NAMESPACE, false);  // Read-write
+void savePreferences(const String &ssid, const String &password)
+{
+    preferences.begin(PREF_NAMESPACE, false); // Read-write
 
     preferences.putString(PREF_SSID, ssid);
     preferences.putString(PREF_PASSWORD, password);
@@ -992,7 +1132,8 @@ void savePreferences(const String& ssid, const String& password) {
     Serial.println("✓ WiFi credentials saved to NVS");
 }
 
-void clearPreferences() {
+void clearPreferences()
+{
     preferences.begin(PREF_NAMESPACE, false);
     preferences.clear();
     preferences.end();
@@ -1002,4 +1143,101 @@ void clearPreferences() {
     wifiConfigured = false;
 
     Serial.println("✓ Preferences cleared");
+}
+
+// =============================================
+// SENSORS: HELPERS AND READ LOOP
+// =============================================
+String getTurbidityStatus(int raw)
+{
+    if (raw > 2100)
+    {
+        return "Clear";
+    }
+    else if (raw > 1800)
+    {
+        return "Cloudy";
+    }
+    else
+    {
+        return "Turbid";
+    }
+}
+
+void readAndLogSensors()
+{
+    // HW-03 Water level
+    int rawWater = analogRead(WATER_SENSOR_PIN);
+    int waterPercent = map(rawWater, DRY_VALUE, WET_VALUE, 0, 100);
+    waterPercent = constrain(waterPercent, 0, 100);
+
+    // DS18B20 water temperature
+    ds18b20.requestTemperatures();
+    float tempC = ds18b20.getTempCByIndex(0);
+    if (tempC > -100 && tempC < 125)
+    { // naive range check
+        waterTempC = tempC;
+    }
+    else
+    {
+        Serial.println("Warning: DS18B20 not detected!");
+    }
+
+    // Collect ADC samples into ring buffers
+    tdsBuffer[bufferIndex] = analogRead(TDS_PIN);
+    phBuffer[bufferIndex] = analogRead(PH_PIN);
+    bufferIndex = (bufferIndex + 1) % SCOUNT;
+
+    // Compute averages
+    long avgRawTDS = 0, avgRawPH = 0;
+    for (int i = 0; i < SCOUNT; i++)
+    {
+        avgRawTDS += tdsBuffer[i];
+        avgRawPH += phBuffer[i];
+    }
+    avgRawTDS /= SCOUNT;
+    avgRawPH /= SCOUNT;
+
+    // Convert to voltages
+    averageVoltageTDS = (float)avgRawTDS * (VREF / ADC_RES);
+    averageVoltagePH = (float)avgRawPH * (VREF / ADC_RES);
+
+    // TDS calc with temp compensation
+    float compCoeff = 1.0 + 0.02 * (waterTempC - 25.0);
+    float compVoltage = averageVoltageTDS / compCoeff;
+    tdsValue = (133.42 * pow(compVoltage, 3) - 255.86 * pow(compVoltage, 2) + 857.39 * compVoltage) * TDS_FACTOR;
+    if (tdsValue < 0)
+        tdsValue = 0;
+
+    // pH calc (linear approximation; calibrate as needed)
+    phValue = 3.5 * averageVoltagePH + PH_CALIBRATION_OFFSET;
+
+    // Turbidity
+    int rawTurb = analogRead(TURBIDITY_PIN);
+    float voltageTurb = rawTurb * (VREF / ADC_RES);
+    String turbStatus = getTurbidityStatus(rawTurb);
+
+    // Serial output
+    Serial.println("========== SENSOR READINGS ==========");
+    Serial.println("-- HW-03 Water Sensor --");
+    Serial.printf("Raw=%d | Level=%d%%\n", rawWater, waterPercent);
+
+    Serial.println("-- DS18B20 (Water Temp) --");
+    Serial.printf("Temperature (Water) : %.2f °C\n", waterTempC);
+
+    Serial.println("-- TDS Sensor --");
+    Serial.printf("Raw ADC (TDS)       : %4ld\n", avgRawTDS);
+    Serial.printf("Voltage (TDS)       : %.3f V\n", averageVoltageTDS);
+    Serial.printf("TDS Value           : %.0f ppm\n", tdsValue);
+
+    Serial.println("-- pH Sensor --");
+    Serial.printf("Raw ADC (pH)        : %4ld\n", avgRawPH);
+    Serial.printf("Voltage (pH)        : %.3f V\n", averageVoltagePH);
+    Serial.printf("pH Value            : %.2f\n", phValue);
+
+    Serial.println("-- Turbidity Sensor --");
+    Serial.printf("Raw ADC (Turb)      : %4d\n", rawTurb);
+    Serial.printf("Voltage (Turb)      : %.2f V\n", voltageTurb);
+    Serial.printf("Water Clarity       : %s\n", turbStatus.c_str());
+    Serial.println("======================================\n");
 }
