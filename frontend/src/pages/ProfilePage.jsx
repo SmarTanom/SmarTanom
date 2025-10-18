@@ -284,7 +284,7 @@ export default function ProfilePage() {
                   deviceId: device.id,
                   deviceName: device.device_name || device.plant_name || 'Shared Device',
                   collaboratorId: collaborator.id,
-                  sharedWith: collaborator.email,
+                  sharedWith: collaborator.collaborator_email || collaborator.email,
                   sharedDate: collaborator.shared_date || collaborator.created_at,
                   permissions: collaborator.permissions || { view_only: true },
                   status: collaborator.status || 'active',

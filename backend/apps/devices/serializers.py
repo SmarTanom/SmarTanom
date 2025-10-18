@@ -158,13 +158,13 @@ class DeviceSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user or not request.user.is_authenticated:
             return False
-        return obj.bound_email == request.user.email
+        return (obj.bound_email or '').lower() == (request.user.email or '').lower()
 
     def get_is_collaborator(self, obj):
         request = self.context.get('request')
         if not request or not request.user or not request.user.is_authenticated:
             return False
-        if obj.bound_email == request.user.email:
+        if (obj.bound_email or '').lower() == (request.user.email or '').lower():
             return False
         return DeviceCollaboration.objects.filter(
             device=obj,

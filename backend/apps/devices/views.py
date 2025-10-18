@@ -644,7 +644,7 @@ class DeviceViewSet(BaseAuthViewSet):
         ).values_list('device_id', flat=True)
 
         return qs.filter(
-            Q(bound_email=user.email, is_bound=True) |  # Owned devices
+            Q(bound_email__iexact=user.email, is_bound=True) |  # Owned devices (case-insensitive)
             Q(id__in=shared_device_ids)  # Shared devices
         )
 
@@ -1052,7 +1052,7 @@ class DeviceViewSet(BaseAuthViewSet):
 
         # Check if user owns this device or is a collaborator (unless staff)
         if not request.user.is_staff:
-            if device.bound_email != request.user.email:
+            if (device.bound_email or '').lower() != (request.user.email or '').lower():
                 # Check if user is a collaborator
                 is_collaborator = DeviceCollaboration.objects.filter(
                     device=device,
@@ -1179,7 +1179,7 @@ class DeviceViewSet(BaseAuthViewSet):
 
         # Check if user has other active collaborations
         other_active_collabs = DeviceCollaboration.objects.filter(
-            collaborator_email=collaborator_email,
+            collaborator_email__iexact=collaborator_email,
             status=DeviceCollaboration.Status.ACTIVE
         ).exclude(id=collaboration.id).count()
 
@@ -1570,7 +1570,7 @@ def get_pending_invitations(request):
     user_email = request.user.email
 
     pending_invitations = DeviceInvitation.objects.filter(
-        invite_email=user_email,
+        invite_email__iexact=user_email,
         status=DeviceInvitation.Status.PENDING
     ).select_related('device').order_by('-created_at')
 
@@ -1605,7 +1605,7 @@ def respond_to_invitation(request):
     try:
         invitation = DeviceInvitation.objects.get(
             token=token,
-            invite_email=request.user.email,
+            invite_email__iexact=request.user.email,
             status=DeviceInvitation.Status.PENDING
         )
     except DeviceInvitation.DoesNotExist:
@@ -1664,7 +1664,7 @@ def get_sent_invitations(request):
     sender_email = request.user.email
 
     qs = DeviceInvitation.objects.filter(
-        invited_by_email=sender_email,
+        invited_by_email__iexact=sender_email,
     ).select_related('device').order_by('-created_at')
 
     # Optional filtering by device id
@@ -1793,7 +1793,7 @@ def get_user_devices(request, user_id: int):
 
         # Get devices bound to this user's email OR shared with them
         devices = Device.objects.filter(
-            Q(bound_email=user.email, is_bound=True) |
+            Q(bound_email__iexact=user.email, is_bound=True) |
             Q(id__in=shared_device_ids)
         ).order_by('-created_at')
 
@@ -1848,11 +1848,11 @@ def initial_dashboard_data(request):
         qs_devices = Device.objects.all()
         if not user.is_staff:
             shared_device_ids = DeviceCollaboration.objects.filter(
-                collaborator_email=user.email,
+                collaborator_email__iexact=user.email,
                 status=DeviceCollaboration.Status.ACTIVE
             ).values_list('device_id', flat=True)
             qs_devices = qs_devices.filter(
-                Q(bound_email=user.email, is_bound=True) | Q(id__in=shared_device_ids)
+                Q(bound_email__iexact=user.email, is_bound=True) | Q(id__in=shared_device_ids)
             )
 
         devices = list(qs_devices.order_by('-created_at'))
