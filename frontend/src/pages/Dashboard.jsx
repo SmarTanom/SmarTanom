@@ -639,6 +639,8 @@ export default function Dashboard() {
   // State for real data
   // Centralized realtime store state
   const devices = useRealtimeStore(s => s.devices);
+  // Only display devices bound to and owned by the logged-in user
+  const ownedDevices = useMemo(() => (devices || []).filter(d => d?.is_bound && d?.is_owner), [devices]);
   const devicesData = useRealtimeStore(s => s.deviceData);
   const fetchInitial = useRealtimeStore(s => s.fetchInitial);
   const connectWS = useRealtimeStore(s => s.connectWS);
@@ -667,7 +669,7 @@ export default function Dashboard() {
   }, []);
 
   // Current device selection must be defined before any effects/dependencies that reference it
-  const currentDevice = devices[activeIdx];
+  const currentDevice = ownedDevices[activeIdx];
   const data = currentDevice ? devicesData[currentDevice.id] : null;
 
   // Schedule a refresh at local midnight to update date-based labels/history automatically
@@ -1077,7 +1079,7 @@ export default function Dashboard() {
     if (!device || !device.id) return;
 
     // Save the current device selection before navigating away
-    const idx = devices.findIndex(d => d.id === device.id);
+    const idx = ownedDevices.findIndex(d => d.id === device.id);
     if (idx >= 0) {
       try {
         localStorage.setItem('dashboard.activeDeviceIndex', idx.toString());
@@ -1095,7 +1097,7 @@ export default function Dashboard() {
     e.stopPropagation();
     if (!device || !device.id) return;
     // Focus this device in dashboard and refresh its data
-    const idx = devices.findIndex(d => d.id === device.id);
+    const idx = ownedDevices.findIndex(d => d.id === device.id);
     if (idx >= 0) setActiveIdx(idx);
     try {
       setDeviceLoading(prev => ({ ...prev, [device.id]: true }));
@@ -1211,18 +1213,18 @@ export default function Dashboard() {
   // Infinite scroll disabled to prevent duplicate device appearance
   const isInfinite = false;
   const infiniteDevices = useMemo(() => {
-    if (devices.length === 0) return [];
-    if (!isInfinite) return devices; // For normal carousel, render as-is
+    if (ownedDevices.length === 0) return [];
+    if (!isInfinite) return ownedDevices; // For normal carousel, render as-is
     // For infinite scroll, add last at start and first at end for seamless loop
     return [
-      { ...devices[devices.length - 1], _cloneType: 'last' },
-      ...devices.map(d => ({ ...d, _cloneType: 'original' })),
-      { ...devices[0], _cloneType: 'first' }
+      { ...ownedDevices[ownedDevices.length - 1], _cloneType: 'last' },
+      ...ownedDevices.map(d => ({ ...d, _cloneType: 'original' })),
+      { ...ownedDevices[0], _cloneType: 'first' }
     ];
-  }, [devices, isInfinite]);  // Initialize scroll position; scroll to restored device or first device
+  }, [ownedDevices, isInfinite]);  // Initialize scroll position; scroll to restored device or first device
   useEffect(() => {
     const el = carouselRef.current;
-    if (!el || devices.length === 0) return;
+    if (!el || ownedDevices.length === 0) return;
     const w = el.clientWidth;
     const cardW = w * 0.85;
     const gap = 16;
@@ -1235,12 +1237,12 @@ export default function Dashboard() {
       el.scrollLeft = (cardW + gap) * activeIdx;
       console.log(`Scrolled carousel to device index ${activeIdx}`);
     }
-  }, [devices, activeIdx, isInfinite]);
+  }, [ownedDevices, activeIdx, isInfinite]);
 
   // Handle scroll position tracking and loop boundaries
   useEffect(() => {
     const el = carouselRef.current;
-    if (!el || devices.length === 0) return;
+    if (!el || ownedDevices.length === 0) return;
 
     const onScroll = () => {
       if (isAdjustingRef.current) return;
@@ -1258,15 +1260,15 @@ export default function Dashboard() {
 
       if (!isInfinite) {
         // Non-infinite: directly map scroll index to device index (0..len-1)
-        const clamped = Math.max(0, Math.min(devices.length - 1, idx));
-        console.log(`Non-infinite carousel: scroll idx=${idx}, clamped=${clamped}, devices.length=${devices.length}`);
+        const clamped = Math.max(0, Math.min(ownedDevices.length - 1, idx));
+        console.log(`Non-infinite carousel: scroll idx=${idx}, clamped=${clamped}, devices.length=${ownedDevices.length}`);
         setActiveIdx(clamped);
         return;
       }
 
       // Infinite: map clone indexes to real device index
       if (idx === 0) {
-        setActiveIdx(devices.length - 1); // Showing clone of last device
+        setActiveIdx(ownedDevices.length - 1); // Showing clone of last device
       } else if (idx === infiniteDevices.length - 1) {
         setActiveIdx(0); // Showing clone of first device
       } else {
@@ -1278,7 +1280,7 @@ export default function Dashboard() {
         if (idx === 0) {
           // At clone of last device - jump to real last device
           isAdjustingRef.current = true;
-          el.scrollLeft = (cardW + gap) * devices.length;
+          el.scrollLeft = (cardW + gap) * ownedDevices.length;
           setTimeout(() => { isAdjustingRef.current = false; }, 50);
         } else if (idx === infiniteDevices.length - 1) {
           // At clone of first device - jump to real first device
@@ -1296,7 +1298,7 @@ export default function Dashboard() {
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, [infiniteDevices.length, devices.length, isInfinite]);
+  }, [infiniteDevices.length, ownedDevices.length, isInfinite]);
 
 
   // Merge store data with local pH history
@@ -1451,10 +1453,10 @@ export default function Dashboard() {
 
   // Save activeIdx and device ID to localStorage whenever it changes
   useEffect(() => {
-    if (devices && devices.length > 0 && devices[activeIdx]) {
+    if (ownedDevices && ownedDevices.length > 0 && ownedDevices[activeIdx]) {
       try {
-        const deviceId = devices[activeIdx].id.toString();
-        const deviceName = devices[activeIdx].device_name || devices[activeIdx].plant_name || `Device ${deviceId}`;
+        const deviceId = ownedDevices[activeIdx].id.toString();
+        const deviceName = ownedDevices[activeIdx].device_name || ownedDevices[activeIdx].plant_name || `Device ${deviceId}`;
         localStorage.setItem('dashboard.activeDeviceIndex', activeIdx.toString());
         localStorage.setItem('dashboard.activeDeviceId', deviceId);
         console.log(`💾 Saved device selection: "${deviceName}" (Index: ${activeIdx}, ID: ${deviceId})`);
@@ -1462,7 +1464,7 @@ export default function Dashboard() {
         console.warn('Failed to save active device index:', e);
       }
     }
-  }, [activeIdx, devices]);
+  }, [activeIdx, ownedDevices]);
 
   // When devices list changes (e.g., after fetch), restore saved device or validate current index
   // Only run after store hydration to ensure deviceData is available
@@ -1470,7 +1472,7 @@ export default function Dashboard() {
   const hasRestoredRef = useRef(false);
 
   useEffect(() => {
-    if (!isHydrated || !devices || devices.length === 0 || hasRestoredRef.current) return;
+    if (!isHydrated || !ownedDevices || ownedDevices.length === 0 || hasRestoredRef.current) return;
 
     console.log('🔄 Starting device restoration...');
     hasRestoredRef.current = true;
@@ -1483,7 +1485,7 @@ export default function Dashboard() {
 
       // First, try to find the device by ID (more reliable across refreshes)
       if (savedDeviceId) {
-        const deviceIdxById = devices.findIndex(d => d.id.toString() === savedDeviceId);
+        const deviceIdxById = ownedDevices.findIndex(d => d.id.toString() === savedDeviceId);
         if (deviceIdxById >= 0) {
           console.log(`✅ Restored device by ID: ${savedDeviceId} at index ${deviceIdxById}`);
           restoredIdx = deviceIdxById;
@@ -1491,7 +1493,7 @@ export default function Dashboard() {
       }
 
       // Fallback to saved index if valid for current device list
-      if (restoredIdx < 0 && savedIdx >= 0 && savedIdx < devices.length) {
+      if (restoredIdx < 0 && savedIdx >= 0 && savedIdx < ownedDevices.length) {
         console.log(`✅ Restored device by index: ${savedIdx}`);
         restoredIdx = savedIdx;
       }
@@ -1501,8 +1503,8 @@ export default function Dashboard() {
         console.log('⚠️ No valid saved device found, defaulting to first device');
         restoredIdx = 0;
         localStorage.setItem('dashboard.activeDeviceIndex', '0');
-        if (devices[0]) {
-          localStorage.setItem('dashboard.activeDeviceId', devices[0].id.toString());
+        if (ownedDevices[0]) {
+          localStorage.setItem('dashboard.activeDeviceId', ownedDevices[0].id.toString());
         }
       }
 
@@ -1510,7 +1512,7 @@ export default function Dashboard() {
       setActiveIdx(restoredIdx);
 
       // Immediately fetch data for the restored device to ensure it's displayed and plant-aware
-      const restoredDevice = devices[restoredIdx];
+      const restoredDevice = ownedDevices[restoredIdx];
       if (restoredDevice?.id) {
         // Check if we already have data in the store
         const existingData = devicesData[restoredDevice.id];
@@ -1545,7 +1547,7 @@ export default function Dashboard() {
       console.warn('Failed to restore active device index:', e);
       setActiveIdx(0);
     }
-  }, [devices.length, isHydrated]);  // Show loading state while hydrating or loading initial data
+  }, [ownedDevices.length, isHydrated]);  // Show loading state while hydrating or loading initial data
   if (!isHydrated || loadingInitial) {
     return (
       <div className="dashboard-root">
@@ -1607,7 +1609,7 @@ export default function Dashboard() {
   }
 
   // Show no devices state
-  if (devices.length === 0) {
+  if (ownedDevices.length === 0) {
     return (
       <div className="dashboard-root">
         <header className="dash-header" role="banner">
@@ -1854,9 +1856,9 @@ export default function Dashboard() {
             </article>
           ))}
         </div>
-        {devices.length > 1 && (
+        {ownedDevices.length > 1 && (
           <div className="carousel-dots" role="tablist" aria-label="Device position">
-            {devices.map((_, i) => (
+            {ownedDevices.map((_, i) => (
               <span key={i} className={`carousel-dot ${i === activeIdx ? 'active' : ''}`} role="tab" aria-selected={i === activeIdx} />
             ))}
           </div>
