@@ -8,7 +8,7 @@ from .models import Reservoir, Plant
 class ReservoirAdmin(admin.ModelAdmin):
     """Admin configuration for Reservoir model."""
 
-    list_display = ('reservoir_name', 'device', 'plant', 'start_date', 'end_date', 'created_at', 'updated_at')
+    list_display = ('id', 'reservoir_name', 'device', 'plant', 'start_date', 'end_date', 'created_at', 'updated_at')
     list_filter = ('plant', 'start_date', 'end_date', 'created_at')
     search_fields = ('reservoir_name', 'plant__plant_name', 'device__device_name')
     ordering = ('-created_at',)
@@ -20,7 +20,7 @@ class ReservoirAdmin(admin.ModelAdmin):
 @admin.register(Plant)
 class PlantAdmin(admin.ModelAdmin):
     list_display = (
-        'plant_name', 'ppm_min', 'ppm_max', 'ec_min', 'ec_max', 'ph_min', 'ph_max',
+        'id', 'plant_name', 'ppm_min', 'ppm_max', 'ec_min', 'ec_max', 'ph_min', 'ph_max',
         'water_temp_min', 'water_temp_max', 'light_min', 'light_max',
         'environment_temp_min', 'environment_temp_max', 'humidity_min', 'humidity_max',
         'created_at'

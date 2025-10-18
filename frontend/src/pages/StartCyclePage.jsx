@@ -120,10 +120,7 @@ const StartCyclePage = () => {
 
       // Use first selected plant; if multiple are selected, take the first
       const plantId = Number(selectedPlants[0]);
-      const plantName = (plants.find(p => p.id === plantId)?.name) || 'Plant';
-      const newName = `${plantName} Cycle ${startDate}`;
       const payload = {
-        reservoir_name: newName,
         plant_id: plantId,
         start_date: startDate,
         end_date: endDate,

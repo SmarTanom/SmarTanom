@@ -163,6 +163,7 @@ class OTPCodeAdmin(admin.ModelAdmin):
     """Admin configuration for OTP Code model."""
 
     list_display = [
+        'id',
         'email',
         'code',
         'purpose',
@@ -242,6 +243,7 @@ class LoginAttemptAdmin(admin.ModelAdmin):
     """Admin configuration for Login Attempt model."""
 
     list_display = [
+        'id',
         'email',
         'ip_address',
         'created_at',

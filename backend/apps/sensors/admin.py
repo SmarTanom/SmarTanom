@@ -9,7 +9,7 @@ from .models import Sensor, SensorData
 class SensorAdmin(admin.ModelAdmin):
     """Admin configuration for Sensor model."""
 
-    list_display = ('sensor_type', 'device', 'unit', 'created_at')
+    list_display = ('id', 'sensor_type', 'device', 'unit', 'created_at')
     list_filter = ('sensor_type', 'device__status')
     search_fields = ('device__device_name', 'sensor_type', 'unit')
     ordering = ('-created_at',)
@@ -21,7 +21,7 @@ class SensorAdmin(admin.ModelAdmin):
 class SensorDataAdmin(admin.ModelAdmin):
     """Admin configuration for SensorData model."""
 
-    list_display = ('sensor', 'value', 'created_at', 'device_name')
+    list_display = ('id', 'sensor', 'value', 'created_at', 'device_name')
     list_filter = ('sensor__sensor_type', 'created_at')
     search_fields = ('sensor__device__device_name', 'sensor__sensor_type')
     ordering = ('-created_at',)
