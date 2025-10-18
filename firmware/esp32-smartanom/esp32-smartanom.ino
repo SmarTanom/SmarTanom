@@ -30,13 +30,13 @@
 // =============================================
 // BACKEND CONFIGURATION
 // =============================================
-#define BACKEND_URL "https://smartanom.onrender.com"
+#define BACKEND_URL "https://smartanom-backend.onrender.com"
 #define PROVISION_ENDPOINT "/api/devices/provision/"
 #define CONFIG_ENDPOINT "/api/devices/" DEVICE_SERIAL "/config/"
 
 // Optional: Set if your backend requires device auth
-// Leave empty for dev/testing
-#define DEVICE_API_KEY ""  // e.g., "your-secret-key-here"
+// Set to your production API key for security
+#define DEVICE_API_KEY "b58e766d66ea4fededf05d3ccfe44475"  // Production API key
 
 // =============================================
 // AP CONFIGURATION

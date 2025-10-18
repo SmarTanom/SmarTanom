@@ -280,8 +280,15 @@ export default function SignupSetup() {
     return () => clearInterval(t);
   }, [resendCooldown]);
 
-  // Step 5 state (advanced WiFi setup)
-  // wifiPhase: idle | scanning | results | empty | error | connecting
+  // Step 5 state (WiFi provisioning)
+  const [provisioningStatus, setProvisioningStatus] = useState('idle'); // idle | waiting | checking | success | failed | timeout
+  const [provisioningError, setProvisioningError] = useState('');
+  const [pollingAttempts, setPollingAttempts] = useState(0);
+  const pollingAttemptsRef = React.useRef(0); // Track attempts with ref to avoid stale closures
+  const pollingIntervalRef = React.useRef(null);
+  const [deviceSerial, setDeviceSerial] = useState(''); // Store device serial for polling
+
+  // Legacy WiFi state (kept for backward compatibility if needed)
   const [wifiPhase, setWifiPhase] = useState('idle');
   const [wifiNetworks, setWifiNetworks] = useState([]); // [{ssid,rssi,secure}]
   const [wifiSelected, setWifiSelected] = useState(null); // object ref
@@ -309,6 +316,114 @@ export default function SignupSetup() {
       }
     }
   }, [step]);
+
+  // Start polling when entering step 5
+  useEffect(() => {
+    if (step === 5) {
+      // Get device serial from boundDeviceSerial state
+      if (boundDeviceSerial) {
+        setDeviceSerial(boundDeviceSerial);
+        startProvisioning();
+      }
+    } else {
+      // Clean up polling when leaving step 5
+      stopPolling();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      stopPolling();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, boundDeviceSerial]);
+
+  function startProvisioning() {
+    setProvisioningStatus('waiting');
+    setProvisioningError('');
+    setPollingAttempts(0);
+    pollingAttemptsRef.current = 0;
+    // Start polling after a short delay to allow user to see instructions
+    setTimeout(() => {
+      startPolling();
+    }, 2000);
+  }
+
+  function startPolling() {
+    stopPolling(); // Clear any existing interval
+    setProvisioningStatus('checking');
+
+    const checkDeviceStatus = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token || !deviceSerial) {
+          setProvisioningError('Authentication required. Please refresh and try again.');
+          setProvisioningStatus('failed');
+          stopPolling();
+          return;
+        }
+
+        // Poll the device list endpoint and find our device
+        const devices = await deviceApi.list(token);
+        const device = devices.find(d => d.serial === deviceSerial);
+
+        if (!device) {
+          setProvisioningError('Device not found. Please contact support.');
+          setProvisioningStatus('failed');
+          stopPolling();
+          return;
+        }
+
+        // Check if WiFi is configured
+        if (device.wifi_configured) {
+          setProvisioningStatus('success');
+          stopPolling();
+          // Redirect to dashboard after short delay
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 2000);
+          return;
+        }
+
+        // Increment polling attempts
+        pollingAttemptsRef.current += 1;
+        setPollingAttempts(pollingAttemptsRef.current);
+
+        // Timeout after 60 attempts (5 minutes at 5-second intervals)
+        if (pollingAttemptsRef.current >= 60) {
+          setProvisioningError('Provisioning timeout. Please ensure your device is powered on and try again.');
+          setProvisioningStatus('timeout');
+          stopPolling();
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('[SignupSetup] Provisioning check error:', error);
+        // Don't stop polling on individual errors, just log them
+        pollingAttemptsRef.current += 1;
+        setPollingAttempts(pollingAttemptsRef.current);
+      }
+    };
+
+    // Initial check
+    checkDeviceStatus();
+
+    // Set up polling interval (every 5 seconds)
+    pollingIntervalRef.current = setInterval(checkDeviceStatus, 5000);
+  }
+
+  function stopPolling() {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  }
+
+  function retryProvisioning() {
+    setProvisioningError('');
+    setPollingAttempts(0);
+    pollingAttemptsRef.current = 0;
+    startProvisioning();
+  }
+
 
   // Scroll anchor ref map
   const networkRefs = React.useRef({});
@@ -1459,44 +1574,105 @@ export default function SignupSetup() {
                     </section>
                   )}
                   {step === 5 && (
-                    <section className="setup-section setup-step-5" aria-label="WiFi Setup">
+                    <section className="setup-section setup-step-5" aria-label="WiFi Provisioning">
                       <div className="setup-card wifi-card-compact" role="group" aria-labelledby="wifi-setup-head">
-                        <h3 id="wifi-setup-head" className="setup-section-title">Connect to WiFi</h3>
-                        <p className="setup-helper" style={{ marginTop: 4 }}>Connect your SmarTanom device to your home WiFi network.</p>
+                        <h3 id="wifi-setup-head" className="setup-section-title">Device WiFi Setup</h3>
+                        <p className="setup-helper" style={{ marginTop: 4 }}>Follow these steps to connect your SmarTanom device to WiFi.</p>
 
-                        {connectionStatus === 'success' && (
+                        {/* Provisioning Status Banners */}
+                        {provisioningStatus === 'success' && (
                           <div className="wifi-status-banner success" role="status" aria-live="polite" style={{ marginTop: 12 }}>
-                            Connected! Finalizing…
+                            ✓ WiFi configured successfully! Redirecting to dashboard...
                           </div>
                         )}
 
-                        {wifiSelected && connectionStatus !== 'success' && (
-                          <div className="wifi-connected-summary" style={{ marginTop: 12 }}>
-                            <div className="wifi-summary-row">
-                              <SignalBars level={rssiToBars(wifiSelected.rssi)} size={18} />
-                              <span className="wifi-summary-ssid">{wifiSelected.ssid}</span>
-                              {wifiSelected.secure && <Lock size={12} color="#ffffff" className="wifi-lock" />}
+                        {provisioningStatus === 'failed' && (
+                          <div className="wifi-status-banner error" role="alert" style={{ marginTop: 12 }}>
+                            ✗ {provisioningError || 'Provisioning failed. Please try again.'}
+                          </div>
+                        )}
+
+                        {provisioningStatus === 'timeout' && (
+                          <div className="wifi-status-banner error" role="alert" style={{ marginTop: 12 }}>
+                            ⏱ {provisioningError || 'Provisioning timed out. Please check your device and try again.'}
+                          </div>
+                        )}
+
+                        {/* Provisioning Instructions */}
+                        <div className="provisioning-instructions" style={{ marginTop: 16, padding: '16px', backgroundColor: '#1a1a1a', borderRadius: '8px', border: '1px solid #333' }}>
+                          <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, color: '#22c55e' }}>
+                            Setup Instructions
+                          </h4>
+                          <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.8', color: '#e5e5e5' }}>
+                            <li style={{ marginBottom: '8px' }}>
+                              <strong>Power on your ESP32 device.</strong> It will broadcast a WiFi network named <code style={{ backgroundColor: '#333', padding: '2px 6px', borderRadius: '4px', color: '#22c55e' }}>{deviceSerial || 'SMRT-XXX-XXX'}</code>
+                            </li>
+                            <li style={{ marginBottom: '8px' }}>
+                              <strong>Connect your computer or phone</strong> to that WiFi network using password: <code style={{ backgroundColor: '#333', padding: '2px 6px', borderRadius: '4px', color: '#22c55e' }}>smartanom123</code>
+                            </li>
+                            <li style={{ marginBottom: '8px' }}>
+                              <strong>Open a web browser</strong> and navigate to <code style={{ backgroundColor: '#333', padding: '2px 6px', borderRadius: '4px', color: '#22c55e' }}>http://192.168.4.1</code>
+                            </li>
+                            <li style={{ marginBottom: '8px' }}>
+                              <strong>Select your home WiFi network</strong> from the list and enter your WiFi password
+                            </li>
+                            <li style={{ marginBottom: '8px' }}>
+                              <strong>Click "Connect"</strong> and wait for the device to connect
+                            </li>
+                            <li>
+                              Once connected, your device will automatically register with our backend. <strong>Stay on this page</strong> — we'll detect the connection and continue setup automatically.
+                            </li>
+                          </ol>
+                        </div>
+
+                        {/* Status Indicator */}
+                        {provisioningStatus === 'waiting' && (
+                          <div style={{ marginTop: 16, padding: '12px', backgroundColor: '#1a3a1a', borderRadius: '8px', border: '1px solid #22c55e', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 2s linear infinite' }}>
+                              <circle cx="12" cy="12" r="10" />
+                              <path d="M12 6v6l4 2" />
+                            </svg>
+                            <span style={{ fontSize: '13px', color: '#22c55e' }}>Waiting for you to complete the setup steps above...</span>
+                          </div>
+                        )}
+
+                        {provisioningStatus === 'checking' && (
+                          <div style={{ marginTop: 16, padding: '12px', backgroundColor: '#1a3a1a', borderRadius: '8px', border: '1px solid #22c55e', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 2s linear infinite' }}>
+                              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                            </svg>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '13px', color: '#22c55e', marginBottom: '4px' }}>Checking device status...</div>
+                              <div style={{ fontSize: '11px', color: '#9ca3af' }}>Attempt {pollingAttempts} of 60 (checks every 5 seconds)</div>
                             </div>
-                            <p className="setup-helper" style={{ marginTop: 4, fontSize: '12px' }}>Ready to connect with entered credentials.</p>
                           </div>
                         )}
 
-                        {hiddenSsidEnabled && connectionStatus !== 'success' && (
-                          <div className="wifi-connected-summary" style={{ marginTop: 12 }}>
-                            <p className="setup-helper" style={{ fontSize: '12px' }}>Hidden SSID: <strong>{hiddenSsid || '(not set)'}</strong></p>
-                          </div>
+                        {/* Retry Button */}
+                        {(provisioningStatus === 'failed' || provisioningStatus === 'timeout') && (
+                          <button
+                            type="button"
+                            className="setup-btn"
+                            style={{ marginTop: 16, width: '100%' }}
+                            onClick={retryProvisioning}
+                          >
+                            Retry Provisioning
+                          </button>
                         )}
 
-                        <button
-                          type="button"
-                          className="setup-btn"
-                          style={{ marginTop: 16, width: '100%' }}
-                          onClick={() => setWifiModalOpen(true)}
-                          disabled={connecting || connectionStatus === 'success'}
-                        >
-                          {wifiSelected || hiddenSsidEnabled ? 'Change Network' : 'Select Network'}
-                        </button>
-
+                        {/* Help Text */}
+                        <div style={{ marginTop: 16, padding: '12px', backgroundColor: '#1a1a2e', borderRadius: '8px', border: '1px solid #3730a3' }}>
+                          <div style={{ display: 'flex', alignItems: 'start', gap: '8px' }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '2px' }}>
+                              <circle cx="12" cy="12" r="10" />
+                              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                              <line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                            <div style={{ fontSize: '12px', color: '#c7d2fe', lineHeight: '1.6' }}>
+                              <strong>Troubleshooting:</strong> If you don't see the WiFi network, make sure your device is powered on and the LED is blinking. If the connection fails, verify your WiFi password is correct and your network is 2.4GHz (ESP32 doesn't support 5GHz).
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </section>
                   )}
