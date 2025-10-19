@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from .models import Sensor, SensorData
+from .models import Sensor, SensorData, Alert
 from apps.devices.models import Device
 
 
@@ -52,3 +52,53 @@ class SensorDataSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "sensor_type", "unit", "created_at"]
+
+
+class AlertSerializer(serializers.ModelSerializer):
+    """Serializer for Alert model."""
+
+    device_id = serializers.PrimaryKeyRelatedField(
+        source="device", queryset=Device.objects.all(), write_only=True, required=False
+    )
+    device = serializers.StringRelatedField(read_only=True)
+    sensor_id = serializers.PrimaryKeyRelatedField(
+        source="sensor", queryset=Sensor.objects.all(), write_only=True, required=False, allow_null=True
+    )
+    sensor = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Alert
+        fields = [
+            "id",
+            "device",
+            "device_id",
+            "sensor",
+            "sensor_id",
+            "reservoir",
+            "metric",
+            "trigger",
+            "severity",
+            "value",
+            "unit",
+            "min_threshold",
+            "max_threshold",
+            "buffer",
+            "plant_name",
+            "plant_category",
+            "title",
+            "recommendation",
+            "is_acknowledged",
+            "acknowledged_at",
+            "is_resolved",
+            "resolved_at",
+            "metadata",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "device",
+            "sensor",
+            "created_at",
+            "updated_at",
+        ]

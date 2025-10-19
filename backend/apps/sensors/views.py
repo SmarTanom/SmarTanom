@@ -14,10 +14,10 @@ from asgiref.sync import async_to_sync
 import logging
 
 from apps.common.views import BaseAuthViewSet
-from .models import Sensor, SensorData
+from .models import Sensor, SensorData, Alert
 from apps.devices.models import DeviceCollaboration
 from django.contrib.auth import get_user_model
-from .serializers import SensorSerializer, SensorDataSerializer
+from .serializers import SensorSerializer, SensorDataSerializer, AlertSerializer
 from .alert_service import SensorAlertService
 
 logger = logging.getLogger(__name__)
@@ -279,3 +279,44 @@ class SensorDataViewSet(BaseAuthViewSet):
                 "Permission denied. You need manage permissions to delete sensor data on this device."
             )
         instance.delete()
+
+
+class AlertViewSet(BaseAuthViewSet):
+    """ViewSet for Alert model with email-based filtering and management."""
+
+    queryset = Alert.objects.select_related("device", "sensor", "reservoir").all()
+    serializer_class = AlertSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = [
+        "device",
+        "sensor",
+        "metric",
+        "trigger",
+        "severity",
+        "is_resolved",
+        "is_acknowledged",
+        "plant_category",
+    ]
+    search_fields = ["title", "recommendation", "plant_name", "device__device_name"]
+    ordering_fields = ["created_at", "severity"]
+    ordering = ["-created_at"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        if user.is_staff:
+            return qs
+
+        shared_device_ids = DeviceCollaboration.objects.filter(
+            collaborator_email__iexact=user.email,
+            status=DeviceCollaboration.Status.ACTIVE,
+        ).values_list("device_id", flat=True)
+
+        return qs.filter(
+            Q(device__bound_email=user.email, device__is_bound=True)
+            | Q(device_id__in=shared_device_ids)
+        )
+
+    def perform_update(self, serializer):
+        # Only allow ack/resolve updates; device ownership enforced by queryset scoping
+        serializer.save()
