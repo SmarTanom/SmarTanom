@@ -221,7 +221,7 @@ html {
   min-width: 0; /* Allow content to shrink */
 }
 
-/* Bottom navigation (mobile) */
+/* Bottom navigation (mobile) - Modern iOS/Material Design inspired */
 .admin-bottom-nav {
   display: flex;
   justify-content: space-around;
@@ -230,42 +230,130 @@ html {
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(180deg, #2f8d2e 0%, #2bb35e 100%);
-  padding: 12px 16px 16px;
-  box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
-  z-index: 100;
-  gap: 8px;
+  background: #2eb72e; /* Solid green, no gradient */
+  padding: 8px 12px max(8px, env(safe-area-inset-bottom)); /* Safe area for notched devices */
+  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08),
+              0 -1px 4px rgba(0, 0, 0, 0.04);
+  z-index: 1000;
+  height: 56px; /* Optimal mobile nav height (iOS standard) */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Navigation item - Modern minimal design */
 .bn-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 2px;
   background: transparent;
   border: none;
-  color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.65);
   cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 12px;
-  transition: all 0.2s;
+  padding: 6px 8px;
+  border-radius: 10px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex: 1;
-  max-width: 80px;
+  max-width: 72px;
+  min-height: 48px; /* Adequate touch target */
+  position: relative;
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
 }
 
+/* Icon container for scale animation */
+.bn-item svg {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover state (for tablets with mouse) */
 .bn-item:hover {
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.95);
+  color: rgba(255, 255, 255, 0.9);
 }
 
+.bn-item:hover svg {
+  transform: scale(1.1);
+}
+
+/* Active state - Modern indicator */
 .bn-item.active {
-  background: rgba(255,255,255,0.2);
   color: #ffffff;
 }
 
+.bn-item.active svg {
+  transform: scale(1.15);
+}
+
+/* Active indicator dot (modern approach) - Below icon */
+.bn-item.active::before {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  background: #ffffff;
+  border-radius: 50%;
+  opacity: 1;
+  animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Active background glow (subtle) */
+.bn-item.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  z-index: -1;
+}
+
+/* Label text - Clean typography */
 .bn-item span {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+/* Active label */
+.bn-item.active span {
+  opacity: 1;
+  font-weight: 700;
+}
+
+/* Pressed state (visual feedback on tap) */
+.bn-item:active {
+  transform: scale(0.95);
+}
+
+/* Improve touch targets on very small screens */
+@media (max-width: 360px) {
+  .admin-bottom-nav {
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+  }
+  
+  .bn-item {
+    max-width: 64px;
+    padding: 4px 6px;
+    gap: 1px;
+  }
+  
+  .bn-item span {
+    font-size: 9px;
+  }
 }
 
 /* Responsive breakpoints */
@@ -286,21 +374,21 @@ html {
 
 @media (max-width: 1023.98px) {
   .admin-main {
-    padding-bottom: 80px; /* Space for bottom nav */
+    padding-bottom: 72px; /* Space for optimized bottom nav (56px + 16px buffer) */
   }
 }
 
 /* Tablet adjustments */
 @media (min-width: 768px) and (max-width: 1023.98px) {
   .admin-main {
-    padding: 24px 32px 96px;
+    padding: 24px 32px 80px;
   }
 }
 
 /* Mobile adjustments */
 @media (max-width: 767.98px) {
   .admin-main {
-    padding: 16px 16px 96px;
+    padding: 16px 16px 80px; /* Adjusted for new nav height */
   }
 
   .brand {
