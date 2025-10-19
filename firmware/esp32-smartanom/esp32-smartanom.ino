@@ -39,7 +39,7 @@
 // =============================================
 // DEVICE CONFIGURATION - SET BEFORE FLASHING
 // =============================================
-#define DEVICE_SERIAL "SMRT-A3A-ZGZ"  // * CHANGE THIS BEFORE FLASHING *
+#define DEVICE_SERIAL "SMRT-DQX-0HO"  // * CHANGE THIS BEFORE FLASHING *
 #define FIRMWARE_VERSION "1.2.0"
 
 // =============================================
@@ -66,6 +66,10 @@
 // This is useful when your backend is configured to accept insecure WS (e.g., WS_TLS_INSECURE=true)
 // and the ESP32 cannot validate TLS due to CA/fingerprint issues. Log warns clearly when used.
 #define ALLOW_WS_INSECURE_FALLBACK false
+
+// Optional: Send Origin header with WebSocket handshake. Some proxies/servers can be strict.
+// Disable by default for device clients to reduce early handshake rejections.
+#define WS_SEND_ORIGIN_HEADER false
 
 // Optional TLS server fingerprint for wss (Render issues valid certs; this is optional)
 // If you supply a SHA1 fingerprint string (e.g., "AA BB CC ..."), it will be used for validation.
@@ -1253,9 +1257,15 @@ void initWebSocket() {
     Serial.println("[WS] Heartbeat enabled (15s/3s/2)");
 
     // Set Origin header to match backend host (helps when strict origin checks are enabled)
-    // Provide a well-formed Origin header. Library expects CRLF termination between headers.
-    String originHeader = String("Origin: ") + String(BACKEND_URL) + String("\r\n");
-    wsClient.setExtraHeaders(originHeader.c_str());
+    // Optionally send Origin header if required by server
+    if (WS_SEND_ORIGIN_HEADER) {
+        String originHeader = String("Origin: ") + String(BACKEND_URL) + String("\r\n");
+        wsClient.setExtraHeaders(originHeader.c_str());
+        Serial.printf("[WS] Extra header set: %s\n", originHeader.c_str());
+    } else {
+        // Clear any previous extra headers
+        wsClient.setExtraHeaders("");
+    }
 
     // ==========================================
     // CRITICAL: Ensure NTP time sync before TLS
@@ -1406,11 +1416,14 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
                     Serial.println("[WS] → pong");
                     break;
                 }
-                if (strcmp(type, "ack") == 0 || (doc["status"] | "") == String("ok")) {
+                {
+                    const char* status = doc["status"] | "";
+                    if (strcmp(type, "ack") == 0 || strcmp(status, "ok") == 0) {
                     // Explicitly mark connection as healthy after ACK
                     wsConnected = true;
                     Serial.println("[WS] ✓ ACK received from server");
-                    break;
+                        break;
+                    }
                 }
                 const char* action = doc["action"] | "";
                 if (String(action) == "reset_wifi") {

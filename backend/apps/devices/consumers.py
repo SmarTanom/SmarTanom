@@ -311,6 +311,17 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({"status": "error", "message": "missing device_serial"}))
             return
 
+        # Send immediate ACK to keep client connected; do heavier work after
+        try:
+            await self.send(text_data=json.dumps({
+                "status": "ok",
+                "type": "ack",
+                "serial": serial,
+                "server_time": timezone.now().isoformat(),
+            }))
+        except Exception as _e_ack:
+            print(f"[DeviceWS] Warning: failed to send immediate ACK to {serial}: {_e_ack}")
+
         device = await self._get_or_create_device(serial)
 
         # Handle WiFi configuration handshake
@@ -351,9 +362,10 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                 client = self.scope.get("client") or (None, None)
                 client_ip = client[0] if isinstance(client, (list, tuple)) and client else None
 
+                # Process sensor data after initial ACK
                 await self._process_sensor_data(device, sensor_data, client_ip)
 
-                # Acknowledge receipt
+                # Confirm processing done (secondary ACK)
                 await self.send(text_data=json.dumps({
                     "status": "ok",
                     "message": "Sensor data received",
@@ -364,7 +376,7 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         # Not a sensor payload; treat as handshake/keepalive
         print(f"[DeviceWS] Handshake/keepalive received from {serial}")
 
-        # Respond to device (initial handshake ACK)
+        # Responded with immediate ACK above; include device_registered here as a follow-up if needed
         await self.send(text_data=json.dumps({
             "status": "ok",
             "type": "ack",

@@ -24,11 +24,9 @@ application = ProtocolTypeRouter({
     # HTTP requests handled by Django
     "http": django_asgi_app,
 
-    # WebSocket requests handled by Channels
-    "websocket": AllowedHostsOriginValidator(
-        AuthMiddlewareStack(
-            URLRouter(websocket_urlpatterns)
-        )
+    # WebSocket requests handled by Channels (no strict origin/host validator to allow device clients)
+    "websocket": AuthMiddlewareStack(
+        URLRouter(websocket_urlpatterns)
     ),
 })
 
