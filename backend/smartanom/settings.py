@@ -36,7 +36,7 @@ DEBUG = (
 ALLOWED_HOSTS: list[str] = (
 	os.getenv("DJANGO_ALLOWED_HOSTS")
 	or os.getenv("ALLOWED_HOSTS")
-	or "*"
+	or ""
 ).split(",")
 
 # In development, allow all hosts to support LAN IP access (e.g., 192.168.x.x)
@@ -44,13 +44,15 @@ if DEBUG:
 	ALLOWED_HOSTS = ["*"]
 else:
 	# In production (including Render), ensure proper host configuration
-	# Render provides the host via environment variable
+	# Always include the public Render hostname
 	render_host = os.getenv("RENDER_EXTERNAL_URL")
 	if render_host:
-		# Extract domain from Render URL (remove https://)
 		domain = render_host.replace("https://", "").split("/")[0]
-		if domain not in ALLOWED_HOSTS:
+		if domain and domain not in ALLOWED_HOSTS:
 			ALLOWED_HOSTS.append(domain)
+	# Explicitly include the canonical hostname as requested
+	if "smartanom.onrender.com" not in ALLOWED_HOSTS:
+		ALLOWED_HOSTS.append("smartanom.onrender.com")
 
 
 # Application definition
@@ -215,6 +217,9 @@ else:
 		for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
 		if origin.strip()
 	]
+	# Ensure canonical origin is present
+	if "https://smartanom.onrender.com" not in CORS_ALLOWED_ORIGINS:
+		CORS_ALLOWED_ORIGINS.append("https://smartanom.onrender.com")
 	CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOW_HEADERS = [
@@ -302,6 +307,11 @@ if not DEBUG:
 	_csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
 	if _csrf_origins:
 		CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
+	else:
+		CSRF_TRUSTED_ORIGINS = []
+	# Ensure canonical origin is present
+	if "https://smartanom.onrender.com" not in CSRF_TRUSTED_ORIGINS:
+		CSRF_TRUSTED_ORIGINS.append("https://smartanom.onrender.com")
 else:
 	# Development: More permissive settings
 	SESSION_COOKIE_SECURE = False
@@ -448,13 +458,16 @@ if REDIS_URL:
 		},
 	}
 else:
-    # Development: Use in-memory channel layer (single-worker only)
-    print("[Channels] Using in-memory channel layer (dev mode)")
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels.layers.InMemoryChannelLayer',
-        },
-    }
+	# Development or misconfigured production: Use in-memory channel layer (single-worker only)
+	if not DEBUG:
+		print("[Channels] WARNING: REDIS_URL not set; falling back to in-memory channel layer (NOT PRODUCTION SAFE)")
+	else:
+		print("[Channels] Using in-memory channel layer (dev mode)")
+	CHANNEL_LAYERS = {
+		'default': {
+			'BACKEND': 'channels.layers.InMemoryChannelLayer',
+		},
+	}
 
 # =============================================
 # JWT Authentication (Simple JWT)

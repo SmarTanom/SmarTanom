@@ -65,7 +65,7 @@
 // Optional: Allow automatic fallback to ws (insecure) if wss fails repeatedly.
 // This is useful when your backend is configured to accept insecure WS (e.g., WS_TLS_INSECURE=true)
 // and the ESP32 cannot validate TLS due to CA/fingerprint issues. Log warns clearly when used.
-#define ALLOW_WS_INSECURE_FALLBACK true
+#define ALLOW_WS_INSECURE_FALLBACK false
 
 // Optional TLS server fingerprint for wss (Render issues valid certs; this is optional)
 // If you supply a SHA1 fingerprint string (e.g., "AA BB CC ..."), it will be used for validation.
@@ -1247,10 +1247,10 @@ void initWebSocket() {
     wsClient.onEvent(wsEvent);
     wsClient.setReconnectInterval(5000); // 5s
 
-    // TEMPORARILY DISABLE heartbeat to test if it's causing disconnects
-    // wsClient.enableHeartbeat(15000, 3000, 2); // ping every 15s
+    // Enable protocol-level heartbeat to keep connection alive behind proxies
+    wsClient.enableHeartbeat(15000, 3000, 2); // ping every 15s, 3s timeout, 2 fails
 
-    Serial.println("[WS] Note: Heartbeat disabled for debugging");
+    Serial.println("[WS] Heartbeat enabled (15s/3s/2)");
 
     // Set Origin header to match backend host (helps when strict origin checks are enabled)
     String originHeader = String("Origin: ") + String(BACKEND_URL) + String("\r\n");
@@ -1394,6 +1394,17 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
             StaticJsonDocument<256> doc;
             DeserializationError err = deserializeJson(doc, msg);
             if (!err) {
+                const char* type = doc["type"] | "";
+                if (strcmp(type, "ping") == 0) {
+                    // Application-level pong response to server keepalive
+                    StaticJsonDocument<128> pong;
+                    pong["type"] = "pong";
+                    pong["t"] = (uint32_t)millis();
+                    String out; serializeJson(pong, out);
+                    wsClient.sendTXT(out);
+                    Serial.println("[WS] → pong");
+                    break;
+                }
                 const char* action = doc["action"] | "";
                 if (String(action) == "reset_wifi") {
                     Serial.println("[WS] ⚠️  Received reset_wifi command");
@@ -1481,6 +1492,7 @@ void sendSensorData() {
 
     // Build array-based payload per requirement
     StaticJsonDocument<512> doc;
+    doc["type"] = "sensor_data"; // explicit type for backend
     doc["device_serial"] = DEVICE_SERIAL;
     JsonArray arr = doc.createNestedArray("data");
 
@@ -1501,7 +1513,7 @@ void sendSensorData() {
     o4["value"] = turbidityNTU; // NTU
 
     JsonObject o5 = arr.createNestedObject();
-    o5["type"] = "water_temp";
+    o5["type"] = "water_temperature"; // standardize key with backend
     o5["value"] = waterTempC; // °C
 
     JsonObject o6 = arr.createNestedObject();
