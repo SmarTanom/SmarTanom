@@ -2197,7 +2197,7 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Turbidity</span>
-              <span className="sensor-value">{data && typeof data.sensors?.turbidity === 'number' ? `${Math.round(data.sensors.turbidity)} raw` : 'Loading...'}</span>
+              <span className="sensor-value">{data && typeof data.sensors?.turbidity === 'number' ? `${data.sensors.turbidity.toFixed(1)} NTU` : 'Loading...'}</span>
             </div>
           </div>
           <div className="sensor-cell">

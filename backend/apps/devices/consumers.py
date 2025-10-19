@@ -490,8 +490,8 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
             'water_level': ('water_level', '%'),
             'water_temp': ('water_temperature', '°C'),
             'water_temperature': ('water_temperature', '°C'),
-            # Turbidity is captured as RAW ADC units (0-4095) to match backend thresholds
-            'turbidity': ('turbidity', 'raw'),
+            # Turbidity stored as NTU (dashboard displays NTU)
+            'turbidity': ('turbidity', 'NTU'),
         }
 
         for key, (sensor_type, unit) in sensor_types.items():
@@ -505,10 +505,31 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                         defaults={'unit': unit}
                     )
 
+                    save_value = float(value)
+                    # Convert turbidity RAW -> NTU at ingestion if needed
+                    if sensor_type == 'turbidity':
+                        try:
+                            # If value looks like RAW (range up to 4095), convert; if already in NTU (<= 1000), leave
+                            if save_value > 1000.0:
+                                VREF = 3.3
+                                ADC_RES = 4095.0
+                                TURBIDITY_CLEAR_VOLTAGE = 3.0   # 0 NTU
+                                TURBIDITY_MAX_VOLTAGE = 0.5     # 1000 NTU
+                                voltage = max(0.0, min(VREF, (save_value * VREF) / ADC_RES))
+                                span_in = TURBIDITY_CLEAR_VOLTAGE - TURBIDITY_MAX_VOLTAGE
+                                ntu = 0.0 if span_in == 0 else (TURBIDITY_CLEAR_VOLTAGE - voltage) * (1000.0 / span_in)
+                                save_value = max(0.0, min(1000.0, ntu))
+                            # Ensure sensor unit reflects NTU
+                            if sensor.unit != 'NTU':
+                                sensor.unit = 'NTU'
+                                sensor.save(update_fields=['unit'])
+                        except Exception:
+                            pass
+
                     # Create sensor data reading
                     reading = SensorData.objects.create(
                         sensor=sensor,
-                        value=float(value)
+                        value=save_value
                     )
 
                     # Broadcast to WebSocket clients
