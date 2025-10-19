@@ -1253,6 +1253,7 @@ void initWebSocket() {
     Serial.println("[WS] Heartbeat enabled (15s/3s/2)");
 
     // Set Origin header to match backend host (helps when strict origin checks are enabled)
+    // Provide a well-formed Origin header. Library expects CRLF termination between headers.
     String originHeader = String("Origin: ") + String(BACKEND_URL) + String("\r\n");
     wsClient.setExtraHeaders(originHeader.c_str());
 
@@ -1403,6 +1404,12 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
                     String out; serializeJson(pong, out);
                     wsClient.sendTXT(out);
                     Serial.println("[WS] → pong");
+                    break;
+                }
+                if (strcmp(type, "ack") == 0 || (doc["status"] | "") == String("ok")) {
+                    // Explicitly mark connection as healthy after ACK
+                    wsConnected = true;
+                    Serial.println("[WS] ✓ ACK received from server");
                     break;
                 }
                 const char* action = doc["action"] | "";

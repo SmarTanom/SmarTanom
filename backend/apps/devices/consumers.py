@@ -257,14 +257,6 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
             await self.accept()
             print(f"[DeviceWS] ✓ Connection accepted for serial={self.serial}")
 
-            # Send initial ACK so the device can confirm handshake
-            await self.send(text_data=json.dumps({
-                "status": "ok",
-                "type": "ack",
-                "serial": self.serial,
-                "server_time": timezone.now().isoformat(),
-            }))
-
             # Start server-side keepalive pings (JSON) every 30 seconds
             # This helps prevent Render proxy timeouts and keeps the TCP flow active
             self._keepalive_task = asyncio.create_task(self._keepalive_loop())
@@ -283,7 +275,13 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                 self._keepalive_task.cancel()
             except Exception:
                 pass
-        print(f"[DeviceWS] ⇠ Disconnected serial={getattr(self, 'serial', None)} code={close_code}")
+        # Best-effort extra context
+        try:
+            client = self.scope.get("client")
+            headers = {k.decode(): v.decode(errors='ignore') for k, v in (self.scope.get("headers") or [])}
+        except Exception:
+            client, headers = None, {}
+        print(f"[DeviceWS] ⇠ Disconnected serial={getattr(self, 'serial', None)} code={close_code} client={client} ua={headers.get('user-agent')} proto={headers.get('x-forwarded-proto')} host={headers.get('host')}")
 
     async def receive(self, text_data=None, bytes_data=None):
         # Support both text and binary payloads (common in ESP32 libs)
@@ -366,9 +364,10 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         # Not a sensor payload; treat as handshake/keepalive
         print(f"[DeviceWS] Handshake/keepalive received from {serial}")
 
-        # Respond to device (initial handshake)
+        # Respond to device (initial handshake ACK)
         await self.send(text_data=json.dumps({
             "status": "ok",
+            "type": "ack",
             "device_registered": True,
             "serial": serial,
             "server_time": timezone.now().isoformat(),
