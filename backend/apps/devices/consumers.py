@@ -235,44 +235,41 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
     """
 
     async def connect(self):
-        self.serial = self.scope['url_route']['kwargs'].get('serial')
-        self.device_group = f"device_{self.serial}"
+        # Normalize and capture serial from URL
+        raw_serial = (self.scope.get('url_route') or {}).get('kwargs', {}).get('serial', '')
+        self.serial = (raw_serial or '').upper()
+        self.device_group = f"device_{self.serial}" if self.serial else None
         self._keepalive_task = None
 
-        print(f"[DeviceWS] Connection attempt for serial={self.serial}")
-        print(f"[DeviceWS] Scope: {self.scope.get('type')}, Path: {self.scope.get('path')}")
+        print(f"[DeviceWS] ⇢ Connection attempt serial={self.serial} path={self.scope.get('path')} scheme={self.scope.get('scheme')}")
+
+        if not self.serial:
+            print("[DeviceWS] ✗ Missing device serial in URL")
+            await self.close(code=4003)
+            return
 
         try:
             # Join device-specific group for targeted messages
             await self.channel_layer.group_add(self.device_group, self.channel_name)
             print(f"[DeviceWS] ✓ Joined group: {self.device_group}")
 
+            # Accept the WebSocket connection ONCE here
             await self.accept()
             print(f"[DeviceWS] ✓ Connection accepted for serial={self.serial}")
 
-            # Start server-side keepalive pings (JSON) every 20 seconds
+            # Send initial ACK so the device can confirm handshake
+            await self.send(text_data=json.dumps({
+                "status": "ok",
+                "type": "ack",
+                "serial": self.serial,
+                "server_time": timezone.now().isoformat(),
+            }))
+
+            # Start server-side keepalive pings (JSON) every 30 seconds
             # This helps prevent Render proxy timeouts and keeps the TCP flow active
             self._keepalive_task = asyncio.create_task(self._keepalive_loop())
         except Exception as e:
             print(f"[DeviceWS] ✗ Connection failed: {e}")
-            # Use an application-defined close code in the allowed range (3000-4999)
-            await self.close(code=4000)
-
-    # Explicit protocol-level event handlers (optional, for more granular logs)
-    async def websocket_connect(self, event):
-        try:
-            await self.accept()
-            serial = self.scope['url_route']['kwargs'].get('serial', '').upper()
-            if not serial:
-                await self.close(code=4003)
-                return
-            self.serial = serial
-            self.device_group = f"device_{self.serial}"
-            await self.channel_layer.group_add(self.device_group, self.channel_name)
-            print(f"[DeviceWS] ✓ websocket_connect accepted for serial={self.serial}")
-        except Exception as ex:
-            import traceback
-            print("[DeviceWS] websocket_connect exception:\n" + traceback.format_exc())
             # Use an application-defined close code in the allowed range (3000-4999)
             await self.close(code=4000)
 
@@ -286,7 +283,7 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                 self._keepalive_task.cancel()
             except Exception:
                 pass
-        print(f"[DeviceWS] Device channel disconnected serial={getattr(self, 'serial', None)} code={close_code}")
+        print(f"[DeviceWS] ⇠ Disconnected serial={getattr(self, 'serial', None)} code={close_code}")
 
     async def receive(self, text_data=None, bytes_data=None):
         # Support both text and binary payloads (common in ESP32 libs)
@@ -395,12 +392,12 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         """Send periodic application-level pings to keep the WebSocket alive."""
         try:
             while True:
-                await asyncio.sleep(20)  # seconds
+                await asyncio.sleep(30)  # seconds
                 payload = {"type": "ping", "t": timezone.now().isoformat(), "serial": self.serial}
                 try:
                     await self.send(text_data=json.dumps(payload))
                     # Note: ESP32 should reply with {"type":"pong"}; absence is tolerated
-                    print(f"[DeviceWS] → Sent keepalive ping to {self.serial}")
+                    print(f"[DeviceWS] → Keepalive ping sent to {self.serial}")
                 except Exception as e:
                     print(f"[DeviceWS] Keepalive send failed for {self.serial}: {e}")
                     # Break to let connection close gracefully
