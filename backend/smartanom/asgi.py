@@ -32,3 +32,18 @@ application = ProtocolTypeRouter({
     ),
 })
 
+# Ensure X-Forwarded-Proto from Render is respected so scope['scheme'] is 'https'
+class XForwardedProtoMiddleware:
+    def __init__(self, app):
+        self.app = app
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") in ("http", "websocket"):
+            headers = dict(scope.get("headers") or [])
+            xf_proto = headers.get(b"x-forwarded-proto")
+            if xf_proto and xf_proto.decode().lower() == 'https':
+                scope = dict(scope)
+                scope['scheme'] = 'https'
+        return await self.app(scope, receive, send)
+
+application = XForwardedProtoMiddleware(application)
+

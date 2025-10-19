@@ -1,4 +1,4 @@
-web: daphne -b 0.0.0.0 -p $PORT \
+web: python manage.py migrate --noinput && daphne -b 0.0.0.0 -p $PORT \
 	--websocket_timeout 180 \
 	--websocket_connect_timeout 30 \
 	--websocket_handshake_timeout 30 \

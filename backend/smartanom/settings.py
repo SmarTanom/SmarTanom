@@ -427,6 +427,7 @@ VAPID_CLAIMS = {
 # Django Channels & WebSocket Configuration
 # =============================================
 ASGI_APPLICATION = 'smartanom.asgi.application'
+USE_X_FORWARDED_HOST = True
 
 # Channel Layers for WebSocket communication
 # Use Redis in production (Render), in-memory for local development

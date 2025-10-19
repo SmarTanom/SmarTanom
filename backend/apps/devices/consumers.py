@@ -257,6 +257,23 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
             print(f"[DeviceWS] ✗ Connection failed: {e}")
             await self.close(code=1011)
 
+    # Explicit protocol-level event handlers (optional, for more granular logs)
+    async def websocket_connect(self, event):
+        try:
+            await self.accept()
+            serial = self.scope['url_route']['kwargs'].get('serial', '').upper()
+            if not serial:
+                await self.close(code=4003)
+                return
+            self.serial = serial
+            self.device_group = f"device_{self.serial}"
+            await self.channel_layer.group_add(self.device_group, self.channel_name)
+            print(f"[DeviceWS] ✓ websocket_connect accepted for serial={self.serial}")
+        except Exception as ex:
+            import traceback
+            print("[DeviceWS] websocket_connect exception:\n" + traceback.format_exc())
+            await self.close(code=1011)
+
     async def disconnect(self, close_code):
         # Leave device-specific group
         if hasattr(self, 'device_group'):
