@@ -435,22 +435,19 @@ REDIS_URL = os.getenv('REDIS_URL', '')
 
 if REDIS_URL:
 	# Production: Use Redis for channel layer (required for multi-worker setups)
-	# Support TLS via rediss:// scheme on Render Redis
+	# TLS is handled via rediss:// scheme; no extra 'ssl' kw supported by channels_redis 4.x
 	from urllib.parse import urlparse as _urlparse
 
 	parsed = _urlparse(REDIS_URL)
-	is_tls = parsed.scheme == 'rediss'
-	safe_host = f"{parsed.scheme}://{parsed.hostname}:{parsed.port or 6379}"
+	netloc = parsed.netloc or ''
+	safe_host = f"{parsed.scheme}://{netloc.split('@')[-1]}" if netloc else REDIS_URL
 	print(f"[Channels] Using Redis channel layer: {safe_host}")
 	redis_config = {
 		'hosts': [REDIS_URL],
-		'capacity': 1500,  # Max messages per channel
-		'expiry': 10,      # Message expiry in seconds
+		'capacity': 1500,
+		'expiry': 10,
+		'group_expiry': 60,
 	}
-	# channels_redis will respect TLS when given rediss://; for some environments,
-	# explicit SSL flag improves compatibility.
-	if is_tls:
-		redis_config['ssl'] = True
 
 	CHANNEL_LAYERS = {
 		'default': {
