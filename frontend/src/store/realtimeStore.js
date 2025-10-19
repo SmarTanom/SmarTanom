@@ -360,6 +360,18 @@ export const useRealtimeStore = create(persist((set, get) => ({
       return;
     }
 
+    // Ignore updates for devices that aren't in the user's device list
+    try {
+      const devices = get().devices || [];
+      const isKnownDevice = Array.isArray(devices) && devices.some(d => d && d.id === device_id);
+      if (!isKnownDevice) {
+        console.debug('[RealtimeStore] Skipping update for unknown device_id:', device_id);
+        return;
+      }
+    } catch (e) {
+      // non-fatal; proceed if check fails
+    }
+
     console.log('[RealtimeStore] Applying realtime update for device', device_id, ':', sensors);
 
     set(state => {
@@ -477,11 +489,15 @@ export const useRealtimeStore = create(persist((set, get) => ({
       return null;
     };
 
-    const userId = getCurrentUserId();
-    console.log('[RealtimeStore] Connecting with user ID:', userId);
+  const userId = getCurrentUserId();
+  console.log('[RealtimeStore] Connecting with user ID:', userId);
 
-    // Connect WebSocket client with user ID for user-specific channel
-    wsClient.connect(userId);
+  // Important: connect to GLOBAL stream to ensure updates even for unbound devices.
+  // The backend always broadcasts sensor.update to the global "devices" group,
+  // and additionally to user-specific groups when a device is bound.
+  // Using the global stream guarantees the user dashboard receives real-time updates
+  // regardless of binding status.
+  wsClient.connect(null);
 
     // Subscribe to WebSocket messages
     const unsub = wsClient.subscribe(msg => {

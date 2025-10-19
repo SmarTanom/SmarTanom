@@ -482,12 +482,14 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             print(f"[DeviceWS] Warning: failed to update heartbeat for {device.device_serial}: {e}")
 
+        # Accept both 'water_temp' (legacy) and 'water_temperature' (preferred)
         sensor_types = {
             'ph': ('ph', 'pH'),
             'tds': ('tds', 'ppm'),
             'ec': ('ec', 'mS/cm'),
             'water_level': ('water_level', '%'),
             'water_temp': ('water_temperature', '°C'),
+            'water_temperature': ('water_temperature', '°C'),
             'turbidity': ('turbidity', 'NTU'),
         }
 

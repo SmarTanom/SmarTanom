@@ -157,6 +157,7 @@ float averageVoltagePH = 0.0;
 float tdsValue = 0.0;
 float phValue = 0.0;
 int waterPercent = 0;
+int waterRaw = 0;
 int rawTurb = 0;
 float voltageTurb = 0.0;
 float turbidityNTU = 0.0;
@@ -1171,6 +1172,7 @@ String getTurbidityStatus(int raw) {
 void readSensorsOnce() {
     // HW-03 Water Sensor
     int rawWater = analogRead(WATER_SENSOR_PIN);
+    waterRaw = rawWater;
     waterPercent = map(rawWater, DRY_VALUE, WET_VALUE, 0, 100);
     waterPercent = constrain(waterPercent, 0, 100);
 
@@ -1528,13 +1530,19 @@ void sendSensorData() {
     o3["type"] = "ec";
     o3["value"] = tdsValue / 640.0; // rough estimate mS/cm
 
+    // NOTE: Backend/Frontend thresholds expect the RAW analog value (~1800-2100 clear).
+    // Send raw ADC reading here to match dashboard/alerts expectations.
     JsonObject o4 = arr.createNestedObject();
     o4["type"] = "turbidity";
-    o4["value"] = turbidityNTU; // NTU
+    o4["value"] = rawTurb; // raw ADC units (0-4095)
 
     JsonObject o5 = arr.createNestedObject();
-    o5["type"] = "water_temperature"; // standardize key with backend
+    o5["type"] = "water_temperature"; // preferred key
     o5["value"] = waterTempC; // °C
+    // Also include legacy alias to ensure consumer variants pick it up
+    JsonObject o5b = arr.createNestedObject();
+    o5b["type"] = "water_temp"; // legacy alias
+    o5b["value"] = waterTempC;
 
     JsonObject o6 = arr.createNestedObject();
     o6["type"] = "water_level";
@@ -1546,12 +1554,12 @@ void sendSensorData() {
 
     // Log to serial for quick debugging
     Serial.println("========== SENSOR READINGS ==========");
-    Serial.printf("Water Level   : %d%%\n", waterPercent);
+    Serial.printf("Water Level   : %d%% (raw=%d)\n", waterPercent, waterRaw);
     Serial.printf("Water Temp    : %.2f °C\n", waterTempC);
     Serial.printf("TDS           : %.0f ppm\n", tdsValue);
     Serial.printf("EC (est)      : %.2f mS/cm\n", (tdsValue / 640.0));
     Serial.printf("pH            : %.2f\n", phValue);
-    Serial.printf("Turbidity     : %.2f NTU (V=%.2f, %s)\n", turbidityNTU, voltageTurb, getTurbidityStatus(rawTurb).c_str());
+    Serial.printf("Turbidity     : raw=%d (V=%.2f) | est=%.2f NTU | %s\n", rawTurb, voltageTurb, turbidityNTU, getTurbidityStatus(rawTurb).c_str());
     Serial.println("======================================\n");
 }
 
