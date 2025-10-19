@@ -8,15 +8,15 @@
 
 .create-title {
 	font-family: 'Abril Fatface', serif;
-	font-size: 32px;
+	font-size: 40px;
 	margin: 0;
-	color: #2eb72e;
-	font-weight: 400;
+	color: #111111e7;
+	font-weight: 700;
 }
 
 .create-subtitle {
-	margin: 6px 0 0;
-	color: #8BA797;
+	margin: 3px 0 0;
+	color: #6f8876;
 	font-weight: 500;
 	font-size: 15px;
 }
