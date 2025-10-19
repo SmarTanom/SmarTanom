@@ -30,6 +30,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <DNSServer.h>
+#include <time.h>
 // Sensor + WebSocket libraries
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -54,7 +55,14 @@
 
 // Optional: Force non-TLS WebSocket (ws) if your ESP32 TLS is failing in dev
 // WARNING: Use only for development on trusted networks
+// Force non-TLS WebSocket (ws) even if BACKEND_URL is https
+// Use only in local development with trusted networks
 #define FORCE_WS_INSECURE false
+
+// Allow insecure TLS for wss (skip certificate validation)
+// This helps when device time is wrong or CA store is missing on ESP32
+// Set to false if you plan to install proper CA cert or validate fingerprints
+#define WS_TLS_INSECURE true
 
 // =============================================
 // AP CONFIGURATION
@@ -412,6 +420,8 @@ void initWebSocket();
 void wsEvent(WStype_t type, uint8_t * payload, size_t length);
 void sendHandshake();
 void sendSensorData();
+void syncTimeIfNeeded();
+void maintainWiFiConnection();
 
 // Utils
 static inline float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
@@ -486,6 +496,9 @@ void loop() {
     } else {
         // Normal operation mode
         // WebSocket loop and periodic sensor send
+        // Ensure WiFi stays connected
+        maintainWiFiConnection();
+
         wsClient.loop();
 
         unsigned long now = millis();
@@ -1212,7 +1225,20 @@ void initWebSocket() {
     wsClient.setReconnectInterval(5000); // 5s
     wsClient.enableHeartbeat(15000, 3000, 2); // ping every 15s
 
+    // For TLS connections, ensure system time is synced for cert validation
     if (WS_SECURE) {
+        syncTimeIfNeeded();
+    }
+
+    Serial.printf("[WS] Attempting %s://%s:%u%s\n", WS_SECURE ? "wss" : "ws", WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
+
+    if (WS_SECURE) {
+        #if WS_TLS_INSECURE
+            Serial.println("[WS] TLS set to INSECURE mode (skipping certificate validation)");
+            wsClient.setInsecure();
+        #else
+            Serial.println("[WS] TLS strict mode (requires valid server certificate)");
+        #endif
         wsClient.beginSSL(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
         // Note: To validate TLS, set CA cert/fingerprint via library-specific APIs.
     } else {
@@ -1232,6 +1258,7 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
         case WStype_DISCONNECTED:
             wsConnected = false;
             Serial.println("[WS] Disconnected");
+            Serial.printf("[WS] Will retry in %lu ms\n", (unsigned long)5000);
             break;
         case WStype_TEXT: {
             String msg = String((char*)payload).substring(0, length);
@@ -1253,7 +1280,8 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
             break;
         }
         case WStype_ERROR:
-            Serial.println("[WS] Error event");
+            Serial.println("[WS] Error event (possible TLS or network issue)");
+            Serial.printf("[WS] Current WiFi status: %d, RSSI: %d dBm\n", WiFi.status(), WiFi.RSSI());
             break;
         case WStype_BIN:
             Serial.printf("[WS] Binary message (%u bytes)\n", (unsigned)length);
@@ -1333,4 +1361,67 @@ void startNormalOperation() {
     Serial.println("\n=== Starting Normal Operation ===");
     initSensors();
     initWebSocket();
+}
+
+// =============================================
+// Connectivity helpers
+// =============================================
+void syncTimeIfNeeded() {
+    // If time is not set (year < 2020), try to sync via NTP
+    time_t now = time(nullptr);
+    struct tm tm_info;
+    localtime_r(&now, &tm_info);
+    if (tm_info.tm_year + 1900 < 2020) {
+        Serial.println("[Time] System time not set. Syncing via NTP...");
+        configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+        const uint32_t start = millis();
+        while ((millis() - start) < 10000) { // wait up to 10s
+            now = time(nullptr);
+            localtime_r(&now, &tm_info);
+            if (tm_info.tm_year + 1900 >= 2020) break;
+            delay(250);
+        }
+        if (tm_info.tm_year + 1900 >= 2020) {
+            char buf[32];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_info);
+            Serial.printf("[Time] Synced: %s\n", buf);
+        } else {
+            Serial.println("[Time] NTP sync timeout; TLS validation may fail");
+        }
+    } else {
+        char buf[32];
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_info);
+        Serial.printf("[Time] Already set: %s\n", buf);
+    }
+}
+
+void maintainWiFiConnection() {
+    static unsigned long lastCheck = 0;
+    const unsigned long CHECK_INTERVAL = 5000; // 5s
+
+    unsigned long now = millis();
+    if (now - lastCheck < CHECK_INTERVAL) return;
+    lastCheck = now;
+
+    wl_status_t st = WiFi.status();
+    if (st != WL_CONNECTED) {
+        Serial.printf("[WiFi] Disconnected (status=%d). Attempting reconnect to %s...\n", st, savedSSID.c_str());
+        if (savedSSID.length() > 0) {
+            WiFi.disconnect();
+            delay(100);
+            WiFi.begin(savedSSID.c_str(), savedPassword.c_str());
+
+            uint8_t attempts = 0;
+            while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+                delay(250);
+                attempts++;
+            }
+
+            if (WiFi.status() == WL_CONNECTED) {
+                Serial.printf("[WiFi] Reconnected. IP: %s, RSSI: %d dBm\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
+            } else {
+                Serial.println("[WiFi] Reconnect attempt failed");
+            }
+        }
+    }
 }
