@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 from django.db import transaction
-from .models import Sensor, SensorData
+from .models import Sensor, SensorData, Alert
 
 
 @admin.register(Sensor)
@@ -63,3 +63,26 @@ class SensorDataAdmin(admin.ModelAdmin):
             f"Successfully deleted {count} old sensor data records."
         )
     bulk_delete_old_data.short_description = "Delete old sensor data (>30 days)"
+
+
+@admin.register(Alert)
+class AlertAdmin(admin.ModelAdmin):
+    """Admin configuration for Alert model."""
+
+    list_display = (
+        'id', 'device', 'sensor', 'metric', 'trigger', 'severity',
+        'value', 'unit', 'plant_name', 'short_recommendation', 'created_at',
+        'is_acknowledged', 'is_resolved'
+    )
+    list_filter = ('metric', 'trigger', 'severity', 'is_acknowledged', 'is_resolved', 'plant_category')
+    search_fields = ('title', 'recommendation', 'device__device_name', 'plant_name')
+    ordering = ('-created_at',)
+    raw_id_fields = ('device', 'sensor', 'reservoir')
+    list_select_related = ('device', 'sensor', 'reservoir')
+
+    def short_recommendation(self, obj):
+        """Truncated recommendation for list view readability."""
+        rec = obj.recommendation or ''
+        rec = ' '.join(rec.split())  # collapse whitespace/newlines
+        return (rec[:120] + '…') if len(rec) > 120 else rec
+    short_recommendation.short_description = 'Recommendation'

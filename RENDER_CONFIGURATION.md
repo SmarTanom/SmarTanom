@@ -133,6 +133,7 @@ VITE_API_BASE_URL=https://smartanom.onrender.com
 - `ALLOWED_HOSTS`: Should include `smartanom.onrender.com`
 - `DEBUG`: `False` in production
 - `DEVICE_PROVISION_API_KEY`: `b58e766d66ea4fededf05d3ccfe44475`
+ - `REDIS_URL`: Required for production WebSockets. Use Render Redis connection string (redis:// or rediss://host:port). If not set or invalid, the app will fall back to in-memory channel layer and WebSockets may fail under load. Avoid leaving it as just `rediss://` without host, which causes connection attempts to `localhost:6379`.
 
 ### ESP32 Firmware:
 ```cpp

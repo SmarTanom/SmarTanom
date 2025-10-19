@@ -1671,7 +1671,7 @@ export default function SignupSetup() {
                               <strong>Power on your ESP32 device.</strong> It will broadcast a WiFi network named <code style={{ backgroundColor: '#333', padding: '2px 6px', borderRadius: '4px', color: '#22c55e' }}>{deviceSerial || 'SMRT-XXX-XXX'}</code>
                             </li>
                             <li style={{ marginBottom: '8px' }}>
-                              <strong>Connect your computer or phone</strong> to that WiFi network using password: <code style={{ backgroundColor: '#333', padding: '2px 6px', borderRadius: '4px', color: '#22c55e' }}>smartanom123</code>
+                              <strong>Connect your computer or phone</strong> to that WiFi network using password: <code style={{ backgroundColor: '#333', padding: '2px 6px', borderRadius: '4px', color: '#22c55e' }}>smartanomSMRT-XXX-XXX</code>
                             </li>
                             <li style={{ marginBottom: '8px' }}>
                               <strong>Open a web browser</strong> and navigate to <code style={{ backgroundColor: '#333', padding: '2px 6px', borderRadius: '4px', color: '#22c55e' }}>http://192.168.4.1</code>

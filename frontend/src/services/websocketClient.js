@@ -4,9 +4,33 @@
  * Works in both development and production.
  */
 
-const WS_BASE_URL = import.meta.env.VITE_WS_URL ||
-  (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' +
-  (import.meta.env.VITE_API_URL?.replace(/^https?:\/\//, '') || window.location.host);
+function computeWsBaseUrl() {
+  // 1) Explicit WS base URL wins
+  const envWs = import.meta.env.VITE_WS_URL;
+  if (envWs && typeof envWs === 'string') {
+    return envWs.replace(/\/$/, '');
+  }
+
+  // 2) Derive from API base URL (prefer VITE_API_BASE_URL; fallback VITE_API_URL)
+  const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+  if (apiBase && typeof apiBase === 'string') {
+    try {
+      const url = new URL(apiBase);
+      const proto = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${proto}//${url.host}`;
+    } catch (e) {
+      // Fallback to simple replacement if URL parsing fails
+      const host = apiBase.replace(/^https?:\/\//, '');
+      const isHttps = apiBase.startsWith('https://');
+      return (isHttps ? 'wss:' : 'ws:') + '//' + host;
+    }
+  }
+
+  // 3) Final fallback: current host
+  return (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host;
+}
+
+const WS_BASE_URL = computeWsBaseUrl();
 
 class WebSocketClient {
   constructor() {
@@ -19,6 +43,7 @@ class WebSocketClient {
     this.isConnecting = false;
     this.status = 'disconnected'; // 'connecting' | 'connected' | 'disconnected'
     this.statusCallbacks = new Set();
+    this.lastUserId = null; // Remember userId for reconnects
   }
 
   /**
@@ -72,9 +97,10 @@ class WebSocketClient {
 
     this.isConnecting = true;
     this.setStatus('connecting');
-    
+    this.lastUserId = userId;
+
     // Use user-specific endpoint if userId is provided, otherwise use global devices endpoint
-    const wsUrl = userId 
+    const wsUrl = userId
       ? `${WS_BASE_URL}/ws/user/${userId}/`
       : `${WS_BASE_URL}/ws/devices/`;
     console.log('[WebSocket] Connecting to:', wsUrl);
@@ -145,7 +171,8 @@ class WebSocketClient {
       console.log(
         `[WebSocket] Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
       );
-      setTimeout(() => this.connect(), delay);
+      const uid = this.lastUserId;
+      setTimeout(() => this.connect(uid), delay);
     } else {
       console.error('[WebSocket] Max reconnection attempts reached');
       this.setStatus('disconnected');

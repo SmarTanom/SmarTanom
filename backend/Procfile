@@ -1,1 +1,6 @@
-web: daphne -b 0.0.0.0 -p $PORT smartanom.asgi:application
+web: python manage.py migrate --noinput && daphne -b 0.0.0.0 -p $PORT \
+	--websocket_timeout 180 \
+	--websocket_connect_timeout 30 \
+	--websocket_handshake_timeout 30 \
+	--websocket_max_message_size 16777216 \
+	smartanom.asgi:application

@@ -1,8 +1,15 @@
 """
 WebSocket consumers for real-time device and collaborator updates.
 Broadcasts changes to all connected clients (admin and users).
+
+Production hardening notes:
+- Render can aggressively close idle WebSocket connections. We implement an
+    application-level heartbeat (ping/pong JSON messages) to keep connections
+    alive even if Daphne does not send protocol-level pings.
+- The device (ESP32) should also send periodic pings; we reply with pong.
 """
 import json
+import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils import timezone
@@ -228,31 +235,92 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
     """
 
     async def connect(self):
-        self.serial = self.scope['url_route']['kwargs'].get('serial')
-        self.device_group = f"device_{self.serial}"
+        # Normalize and capture serial from URL
+        raw_serial = (self.scope.get('url_route') or {}).get('kwargs', {}).get('serial', '')
+        self.serial = (raw_serial or '').upper()
+        self.device_group = f"device_{self.serial}" if self.serial else None
+        self._keepalive_task = None
 
-        # Join device-specific group for targeted messages
-        await self.channel_layer.group_add(self.device_group, self.channel_name)
-        await self.accept()
-        print(f"[DeviceWS] Device channel connected for serial={self.serial}, joined group={self.device_group}")
+        print(f"[DeviceWS] ⇢ Connection attempt serial={self.serial} path={self.scope.get('path')} scheme={self.scope.get('scheme')}")
+
+        if not self.serial:
+            print("[DeviceWS] ✗ Missing device serial in URL")
+            await self.close(code=4003)
+            return
+
+        try:
+            # Join device-specific group for targeted messages
+            await self.channel_layer.group_add(self.device_group, self.channel_name)
+            print(f"[DeviceWS] ✓ Joined group: {self.device_group}")
+
+            # Accept the WebSocket connection ONCE here
+            await self.accept()
+            print(f"[DeviceWS] ✓ Connection accepted for serial={self.serial}")
+
+            # Start server-side keepalive pings (JSON) every 30 seconds
+            # This helps prevent Render proxy timeouts and keeps the TCP flow active
+            self._keepalive_task = asyncio.create_task(self._keepalive_loop())
+        except Exception as e:
+            print(f"[DeviceWS] ✗ Connection failed: {e}")
+            # Use an application-defined close code in the allowed range (3000-4999)
+            await self.close(code=4000)
 
     async def disconnect(self, close_code):
         # Leave device-specific group
         if hasattr(self, 'device_group'):
             await self.channel_layer.group_discard(self.device_group, self.channel_name)
-        print(f"[DeviceWS] Device channel disconnected serial={getattr(self, 'serial', None)} code={close_code}")
-
-    async def receive(self, text_data):
+        # Stop keepalive task if any
+        if getattr(self, '_keepalive_task', None):
+            try:
+                self._keepalive_task.cancel()
+            except Exception:
+                pass
+        # Best-effort extra context
         try:
-            data = json.loads(text_data or '{}')
+            client = self.scope.get("client")
+            headers = {k.decode(): v.decode(errors='ignore') for k, v in (self.scope.get("headers") or [])}
+        except Exception:
+            client, headers = None, {}
+        print(f"[DeviceWS] ⇠ Disconnected serial={getattr(self, 'serial', None)} code={close_code} client={client} ua={headers.get('user-agent')} proto={headers.get('x-forwarded-proto')} host={headers.get('host')}")
+
+    async def receive(self, text_data=None, bytes_data=None):
+        # Support both text and binary payloads (common in ESP32 libs)
+        raw = text_data
+        if raw is None and bytes_data is not None:
+            try:
+                raw = bytes_data.decode('utf-8', errors='replace')
+            except Exception:
+                raw = ''
+
+        print(f"[DeviceWS] ← Received message from {getattr(self, 'serial', 'unknown')}: {str(raw)[:200]}")
+
+        try:
+            data = json.loads(raw or '{}')
         except json.JSONDecodeError:
+            print(f"[DeviceWS] ✗ Invalid JSON received")
             await self.send(text_data=json.dumps({"status": "error", "message": "invalid json"}))
+            return
+
+        # Respond to device heartbeat pings promptly
+        if data.get("type") == "ping":
+            await self.send(text_data=json.dumps({"type": "pong", "t": timezone.now().isoformat()}))
             return
 
         serial = (data.get("device_serial") or self.serial or "").upper()
         if not serial:
             await self.send(text_data=json.dumps({"status": "error", "message": "missing device_serial"}))
             return
+
+        # Send immediate ACK to keep client connected; do heavier work after
+        try:
+            await self.send(text_data=json.dumps({
+                "status": "ok",
+                "type": "ack",
+                "serial": serial,
+                "server_time": timezone.now().isoformat(),
+            }))
+        except Exception as _e_ack:
+            print(f"[DeviceWS] Warning: failed to send immediate ACK to {serial}: {_e_ack}")
 
         device = await self._get_or_create_device(serial)
 
@@ -261,13 +329,43 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         if wifi_flag and not device.wifi_configured:
             await self._mark_wifi_configured(device)
 
-        # Handle sensor data streaming
-        if data.get("type") == "sensor_data":
-            sensor_data = data.get("data", {})
-            if sensor_data:
-                await self._process_sensor_data(device, sensor_data)
+        # Handle sensor data streaming (accept dict or array formats)
+        payload_type = data.get("type")
+        sensor_data = data.get("data", {})
 
-                # Acknowledge receipt
+        # Support array payloads as per firmware requirement
+        # Example: {"device_serial":"...","data":[{"type":"ph","value":6.8}, ...]}
+        if isinstance(sensor_data, list):
+            parsed = {}
+            for item in sensor_data:
+                try:
+                    t = str(item.get("type", "")).strip().lower()
+                    v = item.get("value", None)
+                    if t and v is not None:
+                        parsed[t] = v
+                except Exception:
+                    # Skip malformed entries
+                    continue
+            sensor_data = parsed
+
+        # If type explicitly says sensor_data OR data looks like sensor dict, process
+        if payload_type == "sensor_data" or isinstance(sensor_data, dict) and sensor_data:
+            if sensor_data:
+                # Debug log
+                try:
+                    keys = ",".join(list(sensor_data.keys()))
+                except Exception:
+                    keys = ""
+                print(f"[DeviceWS] RX sensor data for {serial}: keys=[{keys}] raw={sensor_data}")
+
+                # Capture client IP from scope
+                client = self.scope.get("client") or (None, None)
+                client_ip = client[0] if isinstance(client, (list, tuple)) and client else None
+
+                # Process sensor data after initial ACK
+                await self._process_sensor_data(device, sensor_data, client_ip)
+
+                # Confirm processing done (secondary ACK)
                 await self.send(text_data=json.dumps({
                     "status": "ok",
                     "message": "Sensor data received",
@@ -275,9 +373,13 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                 }))
                 return
 
-        # Respond to device (initial handshake)
+        # Not a sensor payload; treat as handshake/keepalive
+        print(f"[DeviceWS] Handshake/keepalive received from {serial}")
+
+        # Responded with immediate ACK above; include device_registered here as a follow-up if needed
         await self.send(text_data=json.dumps({
             "status": "ok",
+            "type": "ack",
             "device_registered": True,
             "serial": serial,
             "server_time": timezone.now().isoformat(),
@@ -296,6 +398,24 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                 "timestamp": timezone.now().isoformat(),
             },
         )
+
+    async def _keepalive_loop(self):
+        """Send periodic application-level pings to keep the WebSocket alive."""
+        try:
+            while True:
+                await asyncio.sleep(30)  # seconds
+                payload = {"type": "ping", "t": timezone.now().isoformat(), "serial": self.serial}
+                try:
+                    await self.send(text_data=json.dumps(payload))
+                    # Note: ESP32 should reply with {"type":"pong"}; absence is tolerated
+                    print(f"[DeviceWS] → Keepalive ping sent to {self.serial}")
+                except Exception as e:
+                    print(f"[DeviceWS] Keepalive send failed for {self.serial}: {e}")
+                    # Break to let connection close gracefully
+                    break
+        except asyncio.CancelledError:
+            # Task cancelled on disconnect
+            pass
 
     @database_sync_to_async
     def _get_or_create_device(self, serial: str):
@@ -338,7 +458,7 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         print(f"[DeviceWS] Sent WiFi reset command to device {event.get('device_serial')}")
 
     @database_sync_to_async
-    def _process_sensor_data(self, device, sensor_data):
+    def _process_sensor_data(self, device, sensor_data, client_ip: str | None = None):
         """
         Process incoming sensor data from ESP32 device.
 
@@ -351,6 +471,16 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         """
         from apps.sensors.models import Sensor, SensorData
         from apps.sensors.views import broadcast_sensor_update
+
+        # Update device heartbeat info
+        try:
+            device.last_seen = timezone.now()
+            if client_ip:
+                device.ip_address = client_ip
+            # Save without touching other fields
+            device.save(update_fields=["last_seen", "ip_address"])
+        except Exception as e:
+            print(f"[DeviceWS] Warning: failed to update heartbeat for {device.device_serial}: {e}")
 
         sensor_types = {
             'ph': ('ph', 'pH'),

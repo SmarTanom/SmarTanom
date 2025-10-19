@@ -30,6 +30,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <DNSServer.h>
+#include <time.h>
 // Sensor + WebSocket libraries
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -38,12 +39,15 @@
 // =============================================
 // DEVICE CONFIGURATION - SET BEFORE FLASHING
 // =============================================
-#define DEVICE_SERIAL "SMRT-0RE-ZQ8"  // * CHANGE THIS BEFORE FLASHING *
+#define DEVICE_SERIAL "SMRT-DQX-0HO"  // * CHANGE THIS BEFORE FLASHING *
 #define FIRMWARE_VERSION "1.2.0"
 
 // =============================================
 // BACKEND CONFIGURATION
 // =============================================
+// Updated to match Render service domain (ALLOWED_HOSTS)
+// Note: Do NOT include a trailing slash to avoid double-slash when joining paths
+// Example: health = BACKEND_URL + "/healthz" -> https://smartanom.onrender.com/healthz
 #define BACKEND_URL "https://smartanom.onrender.com"
 #define PROVISION_ENDPOINT "/api/devices/provision/"
 #define CONFIG_ENDPOINT "/api/devices/" DEVICE_SERIAL "/config/"
@@ -51,6 +55,33 @@
 // Optional: Set if your backend requires device auth
 // Set to your production API key for security
 #define DEVICE_API_KEY "b58e766d66ea4fededf05d3ccfe44475"  // Production API key
+
+// Optional: Force non-TLS WebSocket (ws) if your ESP32 TLS is failing in dev
+// WARNING: Use only for development on trusted networks
+// Force non-TLS WebSocket (ws) even if BACKEND_URL is https
+// Use only in local development with trusted networks
+#define FORCE_WS_INSECURE false
+
+// Optional: Allow automatic fallback to ws (insecure) if wss fails repeatedly.
+// This is useful when your backend is configured to accept insecure WS (e.g., WS_TLS_INSECURE=true)
+// and the ESP32 cannot validate TLS due to CA/fingerprint issues. Log warns clearly when used.
+#define ALLOW_WS_INSECURE_FALLBACK false
+
+// Optional: Send Origin header with WebSocket handshake. Some proxies/servers can be strict.
+// Disable by default for device clients to reduce early handshake rejections.
+#define WS_SEND_ORIGIN_HEADER false
+
+// Optional TLS server fingerprint for wss (Render issues valid certs; this is optional)
+// If you supply a SHA1 fingerprint string (e.g., "AA BB CC ..."), it will be used for validation.
+// Leave empty to use default TLS behavior (requires correct time via NTP and a valid CA path in core).
+#define WS_SSL_FINGERPRINT ""
+
+// Optional: Let’s Encrypt ISRG Root X1 (PEM) if using a WebSocketsClient variant that supports setCACert.
+// Some versions of arduinoWebSockets allow providing a WiFiClientSecure with setCACert.
+// Keeping it here for future use when upgrading libraries.
+// Placeholder for ISRG Root X1 PEM. Paste the correct CA here when upgrading
+// to a WebSocketsClient variant that accepts setCACert on a provided client.
+static const char ISRG_ROOT_X1_CA[] PROGMEM = ""; // not used in current build
 
 // =============================================
 // AP CONFIGURATION
@@ -110,6 +141,10 @@ DallasTemperature tempSensors(&oneWire);
 #define PH_CALIBRATION_OFFSET 0.00
 #define DRY_VALUE 250
 #define WET_VALUE 1000
+// Turbidity calibration (adjust per ESP32 + sensor calibration)
+// Higher voltage = clearer water, lower voltage = more turbid
+#define TURBIDITY_CLEAR_VOLTAGE 3.0   // voltage in clear water (approx; calibrate)
+#define TURBIDITY_MAX_VOLTAGE 0.5     // voltage at high turbidity (approx; calibrate)
 
 // Sensor buffers/values
 int tdsBuffer[SCOUNT];
@@ -124,6 +159,7 @@ float phValue = 0.0;
 int waterPercent = 0;
 int rawTurb = 0;
 float voltageTurb = 0.0;
+float turbidityNTU = 0.0;
 
 // =============================================
 // WEBSOCKET (Device -> Backend Channels)
@@ -132,6 +168,8 @@ WebSocketsClient wsClient;
 bool wsConnected = false;
 unsigned long lastSensorSend = 0;
 const unsigned long SENSOR_SEND_INTERVAL_MS = 2000;  // 2 seconds
+// Track WS fallback state
+bool wsTriedInsecureFallback = false;
 
 // Derived from BACKEND_URL
 String WS_HOST = "";      // e.g., smartanom.onrender.com
@@ -403,6 +441,14 @@ void initWebSocket();
 void wsEvent(WStype_t type, uint8_t * payload, size_t length);
 void sendHandshake();
 void sendSensorData();
+bool syncTimeIfNeeded();  // Returns true if time sync successful
+void maintainWiFiConnection();
+
+// Utils
+static inline float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
+    if (in_max - in_min == 0) return out_min;
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
 
 // =============================================
 // SETUP
@@ -471,6 +517,9 @@ void loop() {
     } else {
         // Normal operation mode
         // WebSocket loop and periodic sensor send
+        // Ensure WiFi stays connected
+        maintainWiFiConnection();
+
         wsClient.loop();
 
         unsigned long now = millis();
@@ -1002,6 +1051,12 @@ bool reportProvisionStatus(const String& status, const String& ipAddress) {
 
             if (httpCode == 200 || httpCode == 201) {
                 Serial.println("✓ Provisioning status reported successfully");
+
+                // Give Render backend time to fully wake up WebSocket service
+                // Free-tier instances may need extra time after initial HTTP wake
+                Serial.println("[Backend] Allowing 3s for WebSocket service to initialize...");
+                delay(3000);
+
                 return true;
             } else if (httpCode == 429) {
                 Serial.println("✗ Rate limited. Try again later.");
@@ -1159,6 +1214,10 @@ void readSensorsOnce() {
     // Turbidity
     rawTurb = analogRead(TURBIDITY_PIN);
     voltageTurb = rawTurb * (VREF / ADC_RES);
+    // Convert to NTU using simple linear model between calibrated endpoints
+    // 0 NTU at clear voltage, increasing to 1000 NTU at max turbidity voltage
+    turbidityNTU = mapFloat(voltageTurb, TURBIDITY_CLEAR_VOLTAGE, TURBIDITY_MAX_VOLTAGE, 0.0, 1000.0);
+    if (turbidityNTU < 0) turbidityNTU = 0;
 }
 
 void deriveWsEndpointFromBackend() {
@@ -1171,6 +1230,10 @@ void deriveWsEndpointFromBackend() {
     } else if (url.startsWith("https://")) {
         url = url.substring(8);
         WS_PORT = 443;
+    }
+    if (FORCE_WS_INSECURE) {
+        WS_SECURE = false;
+        WS_PORT = 80;
     }
     // Strip trailing slash
     if (url.endsWith("/")) url = url.substring(0, url.length() - 1);
@@ -1187,49 +1250,237 @@ void initWebSocket() {
 
     wsClient.onEvent(wsEvent);
     wsClient.setReconnectInterval(5000); // 5s
-    wsClient.enableHeartbeat(15000, 3000, 2); // ping every 15s
+
+    // Enable protocol-level heartbeat to keep connection alive behind proxies
+    wsClient.enableHeartbeat(15000, 3000, 2); // ping every 15s, 3s timeout, 2 fails
+
+    Serial.println("[WS] Heartbeat enabled (15s/3s/2)");
+
+    // Set Origin header to match backend host (helps when strict origin checks are enabled)
+    // Optionally send Origin header if required by server
+    if (WS_SEND_ORIGIN_HEADER) {
+        String originHeader = String("Origin: ") + String(BACKEND_URL) + String("\r\n");
+        wsClient.setExtraHeaders(originHeader.c_str());
+        Serial.printf("[WS] Extra header set: %s\n", originHeader.c_str());
+    } else {
+        // Clear any previous extra headers
+        wsClient.setExtraHeaders("");
+    }
+
+    // ==========================================
+    // CRITICAL: Ensure NTP time sync before TLS
+    // ==========================================
+    if (WS_SECURE) {
+        Serial.println("[WS] Secure WebSocket (wss) requires valid system time...");
+
+        bool timeOk = syncTimeIfNeeded();
+
+        if (!timeOk) {
+            Serial.println("[WS] ⚠️  WARNING: Time sync failed!");
+            Serial.println("[WS] TLS handshake will likely fail.");
+
+            if (ALLOW_WS_INSECURE_FALLBACK) {
+                Serial.println("[WS] → Falling back to insecure ws:// immediately");
+                WS_SECURE = false;
+                WS_PORT = 80;
+            } else {
+                Serial.println("[WS] → Will attempt wss anyway (expect failures)");
+                Serial.println("[WS] → Set ALLOW_WS_INSECURE_FALLBACK=true to auto-fallback");
+            }
+        } else {
+            Serial.println("[WS] ✓ Time synced - TLS handshake can proceed");
+        }
+
+        // Small delay to ensure time propagates through system
+        delay(1000);
+    }
+
+    Serial.printf("[WS] Connecting to %s://%s:%u%s\n",
+                  WS_SECURE ? "wss" : "ws",
+                  WS_HOST.c_str(),
+                  WS_PORT,
+                  WS_PATH.c_str());
 
     if (WS_SECURE) {
-        wsClient.beginSSL(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
-        // Note: To validate TLS, set CA cert/fingerprint via library-specific APIs.
+        if (strlen(WS_SSL_FINGERPRINT) > 0) {
+            Serial.println("[WS] → Using TLS with SHA1 fingerprint validation");
+            wsClient.beginSSL(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str(), WS_SSL_FINGERPRINT);
+        } else {
+            Serial.println("[WS] → Using TLS with default certificate validation");
+            Serial.println("[WS] → Server must have valid certificate chain");
+            wsClient.beginSSL(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
+        }
     } else {
+        Serial.println("[WS] → Using INSECURE WebSocket (ws://)");
+        Serial.println("[WS] ⚠️  Data transmitted in PLAIN TEXT!");
         wsClient.begin(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
     }
 
-    Serial.println("Initializing WebSocket client...");
+    Serial.println("[WS] ✓ WebSocket client initialized");
+    Serial.println("[WS] Waiting for connection...");
 }
 
 void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
     switch (type) {
-        case WStype_CONNECTED:
+        case WStype_CONNECTED: {
             wsConnected = true;
-            Serial.println("[WS] Connected to server");
+            wsTriedInsecureFallback = true; // mark that a successful connection occurred
+            Serial.println("[WS] ✓✓✓ Connected to server ✓✓✓");
+            Serial.printf("[WS] Protocol: %s://%s:%u\n",
+                          WS_SECURE ? "wss" : "ws",
+                          WS_HOST.c_str(),
+                          WS_PORT);
+            Serial.printf("[WS] Path: %s\n", WS_PATH.c_str());
+
+            // Get current time for debugging
+            time_t now = time(nullptr);
+            struct tm tm_info;
+            localtime_r(&now, &tm_info);
+            char timeBuf[32];
+            strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &tm_info);
+            Serial.printf("[WS] Connected at: %s PHT\n", timeBuf);
+
+            // Small delay to ensure connection is fully established
+            Serial.println("[WS] Waiting 500ms for connection stabilization...");
+            delay(500);
+
             sendHandshake();
             break;
-        case WStype_DISCONNECTED:
+        }        case WStype_DISCONNECTED: {
             wsConnected = false;
-            Serial.println("[WS] Disconnected");
+            Serial.println("[WS] ✗ Disconnected from server");
+
+            // Check if we received a close code
+            if (length >= 2) {
+                uint16_t closeCode = (payload[0] << 8) | payload[1];
+                Serial.printf("[WS] Close code: %u\n", closeCode);
+
+                // Decode common close codes
+                switch (closeCode) {
+                    case 1000: Serial.println("[WS] → Normal closure"); break;
+                    case 1001: Serial.println("[WS] → Going away"); break;
+                    case 1002: Serial.println("[WS] → Protocol error"); break;
+                    case 1003: Serial.println("[WS] → Unsupported data"); break;
+                    case 1006: Serial.println("[WS] → Abnormal closure (no close frame)"); break;
+                    case 1007: Serial.println("[WS] → Invalid frame payload"); break;
+                    case 1008: Serial.println("[WS] → Policy violation"); break;
+                    case 1009: Serial.println("[WS] → Message too big"); break;
+                    case 1011: Serial.println("[WS] → Internal server error"); break;
+                    default: Serial.printf("[WS] → Unknown close code: %u\n", closeCode); break;
+                }
+
+                if (length > 2) {
+                    String reason = String((char*)(payload + 2)).substring(0, length - 2);
+                    Serial.printf("[WS] Close reason: %s\n", reason.c_str());
+                }
+            }
+
+            Serial.printf("[WS] Auto-reconnect in 5s...\n");
+
+            // If secure WS repeatedly fails and we haven't tried fallback yet
+            if (ALLOW_WS_INSECURE_FALLBACK && !wsTriedInsecureFallback && WS_SECURE) {
+                Serial.println("[WS] ⚠️  wss:// connection unstable");
+                Serial.println("[WS] → Attempting ws:// fallback (insecure)");
+                Serial.println("[WS] → Ensure backend has WS_TLS_INSECURE=true");
+
+                wsTriedInsecureFallback = true;
+                WS_SECURE = false;
+                WS_PORT = 80;
+
+                // Reinitialize with insecure connection
+                wsClient.disconnect();
+                delay(500);
+                wsClient.begin(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
+                wsClient.setReconnectInterval(5000);
+                wsClient.enableHeartbeat(15000, 3000, 2);
+            }
             break;
+        }
+
         case WStype_TEXT: {
             String msg = String((char*)payload).substring(0, length);
-            Serial.printf("[WS] Message: %s\n", msg.c_str());
+            Serial.printf("[WS] ← Message: %s\n", msg.c_str());
+
             // Try parse JSON
             StaticJsonDocument<256> doc;
             DeserializationError err = deserializeJson(doc, msg);
             if (!err) {
+                const char* type = doc["type"] | "";
+                if (strcmp(type, "ping") == 0) {
+                    // Application-level pong response to server keepalive
+                    StaticJsonDocument<128> pong;
+                    pong["type"] = "pong";
+                    pong["t"] = (uint32_t)millis();
+                    String out; serializeJson(pong, out);
+                    wsClient.sendTXT(out);
+                    Serial.println("[WS] → pong");
+                    break;
+                }
+                {
+                    const char* status = doc["status"] | "";
+                    if (strcmp(type, "ack") == 0 || strcmp(status, "ok") == 0) {
+                    // Explicitly mark connection as healthy after ACK
+                    wsConnected = true;
+                    Serial.println("[WS] ✓ ACK received from server");
+                        break;
+                    }
+                }
                 const char* action = doc["action"] | "";
                 if (String(action) == "reset_wifi") {
-                    Serial.println("[WS] Received reset_wifi command -> clearing prefs and restarting provisioning...");
+                    Serial.println("[WS] ⚠️  Received reset_wifi command");
+                    Serial.println("[WS] → Clearing credentials and restarting...");
                     clearPreferences();
-                    // Soft restart into provisioning mode
-                    WiFi.disconnect(true);
                     delay(500);
                     ESP.restart();
                 }
             }
             break;
         }
+
+        case WStype_ERROR: {
+            Serial.println("[WS] ✗✗✗ ERROR EVENT ✗✗✗");
+            Serial.printf("[WS] WiFi Status: %d, RSSI: %d dBm\n",
+                          WiFi.status(),
+                          WiFi.RSSI());
+
+            // Check if this is likely a TLS error
+            time_t now = time(nullptr);
+            struct tm tm_info;
+            localtime_r(&now, &tm_info);
+
+            if (WS_SECURE && tm_info.tm_year + 1900 < 2020) {
+                Serial.println("[WS] ⚠️  System time NOT synced - TLS will fail!");
+                Serial.println("[WS] → This is the root cause of the error");
+            }
+
+            // Trigger fallback if enabled
+            if (ALLOW_WS_INSECURE_FALLBACK && !wsTriedInsecureFallback && WS_SECURE) {
+                Serial.println("[WS] → Attempting insecure ws:// fallback");
+                wsTriedInsecureFallback = true;
+                WS_SECURE = false;
+                WS_PORT = 80;
+
+                wsClient.disconnect();
+                delay(500);
+                wsClient.begin(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
+                wsClient.setReconnectInterval(5000);
+                wsClient.enableHeartbeat(15000, 3000, 2);
+            }
+            break;
+        }        case WStype_BIN:
+            Serial.printf("[WS] Binary message (%u bytes)\n", (unsigned)length);
+            break;
+
+        case WStype_PING:
+            Serial.println("[WS] ← Ping from server");
+            break;
+
+        case WStype_PONG:
+            Serial.println("[WS] ← Pong from server (heartbeat OK)");
+            break;
+
         default:
+            Serial.printf("[WS] Unknown event type: %d\n", type);
             break;
     }
 }
@@ -1241,37 +1492,66 @@ void sendHandshake() {
     doc["status"] = "connected";
     String out;
     serializeJson(doc, out);
-    wsClient.sendTXT(out);
+
+    Serial.println("[WS] → Sending handshake...");
+    Serial.printf("[WS] Payload: %s\n", out.c_str());
+
+    bool sent = wsClient.sendTXT(out);
+    if (sent) {
+        Serial.println("[WS] ✓ Handshake sent successfully");
+    } else {
+        Serial.println("[WS] ✗ Failed to send handshake");
+    }
 }
 
 void sendSensorData() {
     if (!wsConnected) {
+        Serial.println("[WS] Not connected, skipping sensor send");
         return;
     }
-    // Build payload per backend consumer expectations
+
+    // Build array-based payload per requirement
     StaticJsonDocument<512> doc;
-    doc["type"] = "sensor_data";
+    doc["type"] = "sensor_data"; // explicit type for backend
     doc["device_serial"] = DEVICE_SERIAL;
-    JsonObject data = doc.createNestedObject("data");
-    data["water_level"] = waterPercent;        // %
-    data["water_temp"] = waterTempC;           // °C
-    data["tds"] = tdsValue;                    // ppm
-    data["ph"] = phValue;                      // pH
-    data["turbidity"] = voltageTurb;           // report voltage or map to NTU if calibrated
-    // Optional EC approximation (mS/cm); requires calibration
-    data["ec"] = tdsValue / 640.0;             // rough estimate
+    JsonArray arr = doc.createNestedArray("data");
+
+    JsonObject o1 = arr.createNestedObject();
+    o1["type"] = "ph";
+    o1["value"] = phValue;
+
+    JsonObject o2 = arr.createNestedObject();
+    o2["type"] = "tds";
+    o2["value"] = tdsValue; // ppm
+
+    JsonObject o3 = arr.createNestedObject();
+    o3["type"] = "ec";
+    o3["value"] = tdsValue / 640.0; // rough estimate mS/cm
+
+    JsonObject o4 = arr.createNestedObject();
+    o4["type"] = "turbidity";
+    o4["value"] = turbidityNTU; // NTU
+
+    JsonObject o5 = arr.createNestedObject();
+    o5["type"] = "water_temperature"; // standardize key with backend
+    o5["value"] = waterTempC; // °C
+
+    JsonObject o6 = arr.createNestedObject();
+    o6["type"] = "water_level";
+    o6["value"] = waterPercent; // %
 
     String out;
     serializeJson(doc, out);
     wsClient.sendTXT(out);
 
-    // Log to serial
+    // Log to serial for quick debugging
     Serial.println("========== SENSOR READINGS ==========");
     Serial.printf("Water Level   : %d%%\n", waterPercent);
     Serial.printf("Water Temp    : %.2f °C\n", waterTempC);
     Serial.printf("TDS           : %.0f ppm\n", tdsValue);
+    Serial.printf("EC (est)      : %.2f mS/cm\n", (tdsValue / 640.0));
     Serial.printf("pH            : %.2f\n", phValue);
-    Serial.printf("Turbidity V   : %.2f V (%s)\n", voltageTurb, getTurbidityStatus(rawTurb).c_str());
+    Serial.printf("Turbidity     : %.2f NTU (V=%.2f, %s)\n", turbidityNTU, voltageTurb, getTurbidityStatus(rawTurb).c_str());
     Serial.println("======================================\n");
 }
 
@@ -1279,4 +1559,103 @@ void startNormalOperation() {
     Serial.println("\n=== Starting Normal Operation ===");
     initSensors();
     initWebSocket();
+}
+
+// =============================================
+// Connectivity helpers
+// =============================================
+
+/**
+ * Synchronize system time via NTP with extended timeout and retry logic.
+ *
+ * Critical for TLS/SSL certificate validation on WebSocket connections.
+ * Without proper time sync, certificate validation will fail and cause
+ * immediate disconnections.
+ *
+ * Returns: true if time is synced successfully, false on timeout
+ */
+bool syncTimeIfNeeded() {
+    time_t now = time(nullptr);
+    struct tm tm_info;
+    localtime_r(&now, &tm_info);
+
+    // Check if time is already set
+    if (tm_info.tm_year + 1900 >= 2020) {
+        char buf[32];
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_info);
+        Serial.printf("[Time] ✓ Already synced: %s PHT (UTC+8)\n", buf);
+        return true;
+    }
+
+    Serial.println("[Time] ⏳ System time not set. Syncing via NTP...");
+    Serial.println("[Time] This may take 20-30 seconds on some networks...");
+
+    // Configure NTP with Philippine servers and timezone offset
+    // GMT+8 = 28800 seconds offset (8 hours * 3600 seconds)
+    // Using Philippine NTP servers for better connectivity
+    configTime(28800, 0, "ph.pool.ntp.org", "asia.pool.ntp.org", "time.google.com");
+
+    const uint32_t TIMEOUT_MS = 30000; // 30 seconds - extended for reliability
+    const uint32_t start = millis();
+    uint8_t dots = 0;
+
+    while ((millis() - start) < TIMEOUT_MS) {
+        now = time(nullptr);
+        localtime_r(&now, &tm_info);
+
+        // Check if sync succeeded
+        if (tm_info.tm_year + 1900 >= 2020) {
+            Serial.println(); // new line after dots
+            char buf[32];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_info);
+            Serial.printf("[Time] ✓ NTP sync successful: %s PHT (UTC+8)\n", buf);
+            Serial.printf("[Time] Sync took %lu ms\n", millis() - start);
+            return true;
+        }
+
+        // Visual progress indicator
+        if (dots++ % 4 == 0) {
+            Serial.print(".");
+        }
+
+        delay(500);
+    }
+
+    // Timeout - critical failure
+    Serial.println(); // new line after dots
+    Serial.println("[Time] ✗ NTP sync FAILED after 30s timeout");
+    Serial.println("[Time] ⚠️  TLS certificate validation WILL FAIL");
+    Serial.println("[Time] → Check: WiFi connectivity, firewall, NTP port 123");
+    return false;
+}
+
+void maintainWiFiConnection() {
+    static unsigned long lastCheck = 0;
+    const unsigned long CHECK_INTERVAL = 5000; // 5s
+
+    unsigned long now = millis();
+    if (now - lastCheck < CHECK_INTERVAL) return;
+    lastCheck = now;
+
+    wl_status_t st = WiFi.status();
+    if (st != WL_CONNECTED) {
+        Serial.printf("[WiFi] Disconnected (status=%d). Attempting reconnect to %s...\n", st, savedSSID.c_str());
+        if (savedSSID.length() > 0) {
+            WiFi.disconnect();
+            delay(100);
+            WiFi.begin(savedSSID.c_str(), savedPassword.c_str());
+
+            uint8_t attempts = 0;
+            while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+                delay(250);
+                attempts++;
+            }
+
+            if (WiFi.status() == WL_CONNECTED) {
+                Serial.printf("[WiFi] Reconnected. IP: %s, RSSI: %d dBm\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
+            } else {
+                Serial.println("[WiFi] Reconnect attempt failed");
+            }
+        }
+    }
 }

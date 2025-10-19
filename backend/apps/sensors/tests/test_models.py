@@ -1,49 +1,45 @@
-"""Tests for sensor management."""
+"""Tests for sensor management models."""
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
-from .models import Sensor, SensorData
+from apps.sensors.models import Sensor, SensorData
 from apps.devices.models import Device
 
 User = get_user_model()
 
 
 class SensorModelTests(TestCase):
-    """Tests for the Sensor model."""
-
     def setUp(self):
-        # Device has no direct user FK; ownership is via bound_email. Create a simple device.
-        self.device = Device.objects.create(
-            device_name='Test Device'
-        )
+        # Device has no direct user FK; ownership is via bound_email
+        self.device = Device.objects.create(device_name='Test Device')
 
     def test_create_sensor(self):
-        """Test creating a sensor."""
-        sensor = Sensor.objects.create(
+        # Sensors are auto-created via devices.signals on device creation.
+        # Ensure the expected sensor exists and has correct defaults.
+        sensor, created = Sensor.objects.get_or_create(
             device=self.device,
             sensor_type=Sensor.SensorType.PH,
-            unit='pH'
+            defaults={"unit": "pH"}
         )
         self.assertEqual(sensor.sensor_type, Sensor.SensorType.PH)
         self.assertEqual(sensor.unit, 'pH')
         self.assertEqual(sensor.device, self.device)
 
     def test_default_units(self):
-        """Test that default units are set based on sensor type."""
-        sensor = Sensor.objects.create(
+        sensor = Sensor.objects.get(
             device=self.device,
             sensor_type=Sensor.SensorType.TDS
         )
         self.assertEqual(sensor.unit, 'ppm')
 
-        sensor = Sensor.objects.create(
+        sensor = Sensor.objects.get(
             device=self.device,
             sensor_type=Sensor.SensorType.WATER_TEMPERATURE
         )
         self.assertEqual(sensor.unit, '°C')
 
-        sensor = Sensor.objects.create(
+        sensor = Sensor.objects.get(
             device=self.device,
             sensor_type=Sensor.SensorType.TURBIDITY
         )
@@ -51,23 +47,15 @@ class SensorModelTests(TestCase):
 
 
 class SensorDataModelTests(TestCase):
-    """Tests for the SensorData model."""
-
     def setUp(self):
-        self.device = Device.objects.create(
-            device_name='Test Device'
-        )
-        self.sensor = Sensor.objects.create(
+        self.device = Device.objects.create(device_name='Test Device')
+        # Use the auto-created pH sensor
+        self.sensor = Sensor.objects.get(
             device=self.device,
             sensor_type=Sensor.SensorType.PH,
-            unit='pH'
         )
 
     def test_create_sensor_data(self):
-        """Test creating sensor data."""
-        data = SensorData.objects.create(
-            sensor=self.sensor,
-            value=7.0
-        )
+        data = SensorData.objects.create(sensor=self.sensor, value=7.0)
         self.assertEqual(data.value, 7.0)
         self.assertEqual(data.sensor, self.sensor)
