@@ -13,7 +13,10 @@ import {
   ChevronDown,
   X,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Activity,
+  Calendar,
+  Boxes
 } from 'lucide-react';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
 import { getAdminAlerts } from '../services/api/admin';
@@ -355,7 +358,10 @@ export default function AdminAlerts() {
 
           {/* Status Filters */}
           <div className="filter-group">
-            <label className="filter-label">Status</label>
+            <label className="filter-label">
+              <Activity size={14} />
+              Status
+            </label>
             <div className="filter-tabs">
               <button
                 className={`filter-tab ${statusFilter === 'all' ? 'active' : ''}`}
@@ -387,7 +393,10 @@ export default function AdminAlerts() {
           {/* Advanced Filters */}
           <div className="filter-group inline">
             <div className="filter-dropdown">
-              <label>Device</label>
+              <label>
+                <Boxes size={14} />
+                Device
+              </label>
               <select value={deviceFilter} onChange={(e) => setDeviceFilter(e.target.value)}>
                 <option value="all">All Devices</option>
                 {devices.map((device, index) => (
@@ -397,7 +406,10 @@ export default function AdminAlerts() {
             </div>
 
             <div className="filter-dropdown">
-              <label>Time Range</label>
+              <label>
+                <Calendar size={14} />
+                Time Range
+              </label>
               <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}>
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
