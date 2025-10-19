@@ -204,6 +204,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
             tds: latest.tds,
             waterLevel: latest.waterLevel,
             turbidity: latest.turbidity,
+            water_temperature: latest.water_temperature,
           },
           environment: {
             ...(prev.environment || {}),
