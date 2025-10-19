@@ -1070,18 +1070,20 @@ export default function AdminDevices() {
 				{/* Device list */}
 				<section className="devices-list">
 					{filteredDevices.map((device) => (
-						<article key={device.id} className="device-card">
-							<div className={`device-icon ${device.operationalStatus.toLowerCase()}`}>
-								<Leaf size={24} strokeWidth={2} />
+						<article key={device.id} className="device-card" data-status={device.operationalStatus.toLowerCase()}>
+							<div className={`device-icon ${device.status.toLowerCase()}`} data-status={device.operationalStatus.toLowerCase()}>
+								<Leaf size={24} strokeWidth={2.5} />
 							</div>
 							<div className="device-info">
-								<h3 className="device-serial">{device.serial}</h3>
-								{device.owner && (
-									<div className="device-meta">
-										<User size={14} />
-										<span>{device.owner}</span>
-									</div>
-								)}
+								<div className="device-main-info">
+									<h3 className="device-serial">{device.serial}</h3>
+									{device.owner && (
+										<div className="device-meta">
+											<User size={13} strokeWidth={2} />
+											<span>{device.owner}</span>
+										</div>
+									)}
+								</div>
 								<div className="device-status-row">
 									<span className={`device-status ${device.status.toLowerCase()}`}>
 										{device.status}
@@ -1089,7 +1091,9 @@ export default function AdminDevices() {
 									<span className="device-operational-status">
 										{getStatusLabel(device.operationalStatus)}
 									</span>
-									<span className="device-last-seen">Last seen: {device.lastSeen}</span>
+									<span className="device-last-seen">
+										{device.lastSeen}
+									</span>
 								</div>
 							</div>
 							<div className="device-actions">
@@ -1097,23 +1101,23 @@ export default function AdminDevices() {
 									className="btn-view-details"
 									onClick={() => setSelectedDevice(device)}
 								>
-									<Boxes size={16} />
-									View Details
+									<Boxes size={15} strokeWidth={2.5} />
+									View
 								</button>
 								<button
 									className="btn-set-status"
 									onClick={() => setStatusModal({ isOpen: true, device: device, newStatus: null })}
 									title="Set Device Status"
 								>
-									<SettingsIcon size={16} />
-									Set Status
+									<SettingsIcon size={15} strokeWidth={2.5} />
+									Status
 								</button>
 								<button
 									className="btn-delete-device"
 									onClick={() => handleDeleteDevice(device)}
 									title="Delete Device"
 								>
-									<Trash2 size={16} />
+									<Trash2 size={15} strokeWidth={2.5} />
 									Delete
 								</button>
 							</div>
