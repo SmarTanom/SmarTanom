@@ -69,12 +69,10 @@ html {
   height: 48px;
   min-width: 48px; /* Prevent shrinking */
   min-height: 48px; /* Prevent shrinking */
-  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  background: rgba(255,255,255,0.15);
+  overflow: visible;
   flex-shrink: 0; /* Prevent logo from shrinking */
   position: relative; /* For proper image positioning */
 }
@@ -99,14 +97,13 @@ html {
 
 .brand-name {
   font-family: 'Montserrat', sans-serif;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.3px;
   color: #fff;
   line-height: 1.2;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
 }
 
 .brand-subtitle {
@@ -118,6 +115,14 @@ html {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Navigation divider */
+.nav-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 16px 0;
+  border: none;
 }
 
 /* Navigation */
