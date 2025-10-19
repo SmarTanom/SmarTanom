@@ -3,13 +3,12 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
-from .models import PushSubscription, NotificationLog, NotificationPreferences, Alert
+from .models import PushSubscription, NotificationLog, NotificationPreferences
 from .serializers import (
     PushSubscriptionSerializer,
     NotificationLogSerializer,
     SendNotificationSerializer,
-    NotificationPreferencesSerializer,
-    AlertSerializer,
+    NotificationPreferencesSerializer
 )
 from .services import PushNotificationService
 import logging
@@ -336,49 +335,6 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
                 {'error': 'Failed to mark all alerts as read'},
                 status=500
             )
-
-
-class AlertViewSet(viewsets.ReadOnlyModelViewSet):
-    """API to read alerts from the canonical Alert table.
-
-    Query params: device, severity, sensor_type, limit (<=200)
-    Scoping: only alerts for devices the user owns or collaborates on.
-    """
-
-    permission_classes = [IsAuthenticated]
-    serializer_class = AlertSerializer
-
-    def get_queryset(self):
-        from apps.devices.models import Device, DeviceCollaboration
-        owned = Device.objects.filter(bound_email=self.request.user.email).values_list('id', flat=True)
-        shared = DeviceCollaboration.objects.filter(
-            collaborator_email=self.request.user.email,
-            status=DeviceCollaboration.Status.ACTIVE
-        ).values_list('device_id', flat=True)
-        device_ids = list(owned) + list(shared)
-        qs = Alert.objects.filter(user=self.request.user, device_id__in=device_ids)
-
-        device = self.request.GET.get('device')
-        if device:
-            try:
-                device = int(device)
-                if device in device_ids:
-                    qs = qs.filter(device_id=device)
-                else:
-                    return Alert.objects.none()
-            except ValueError:
-                pass
-
-        severity = self.request.GET.get('severity')
-        if severity:
-            qs = qs.filter(severity=severity)
-
-        sensor_type = self.request.GET.get('sensor_type')
-        if sensor_type:
-            qs = qs.filter(sensor_type=sensor_type)
-
-        limit = min(int(self.request.GET.get('limit', 50) or 50), 200)
-        return qs.order_by('-created_at')[:limit]
 
 
 class NotificationPreferencesViewSet(viewsets.ModelViewSet):

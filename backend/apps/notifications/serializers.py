@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PushSubscription, NotificationLog, NotificationPreferences, Alert
+from .models import PushSubscription, NotificationLog, NotificationPreferences
 
 
 class PushSubscriptionSerializer(serializers.ModelSerializer):
@@ -41,29 +41,6 @@ class NotificationLogSerializer(serializers.ModelSerializer):
             'status', 'sent_at', 'metadata'
         ]
         read_only_fields = fields
-
-
-class AlertSerializer(serializers.ModelSerializer):
-    """Serializer for persisted alerts."""
-
-    device = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Alert
-        fields = [
-            'id', 'device', 'device_id', 'sensor_type', 'metric_name', 'measured_value', 'unit',
-            'threshold_min', 'threshold_max', 'classification', 'severity', 'title', 'message',
-            'recommendation', 'is_read', 'created_at', 'updated_at', 'reading_id'
-        ]
-        read_only_fields = fields
-
-    def get_device(self, obj):
-        d = obj.device
-        return {
-            'id': d.id,
-            'serial': d.device_serial,
-            'name': d.device_name or f'Device {d.device_serial}'
-        } if d else None
 
 
 class SendNotificationSerializer(serializers.Serializer):
