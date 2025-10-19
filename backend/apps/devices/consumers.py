@@ -490,7 +490,8 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
             'water_level': ('water_level', '%'),
             'water_temp': ('water_temperature', '°C'),
             'water_temperature': ('water_temperature', '°C'),
-            'turbidity': ('turbidity', 'NTU'),
+            # Turbidity is captured as RAW ADC units (0-4095) to match backend thresholds
+            'turbidity': ('turbidity', 'raw'),
         }
 
         for key, (sensor_type, unit) in sensor_types.items():

@@ -360,17 +360,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
       return;
     }
 
-    // Ignore updates for devices that aren't in the user's device list
-    try {
-      const devices = get().devices || [];
-      const isKnownDevice = Array.isArray(devices) && devices.some(d => d && d.id === device_id);
-      if (!isKnownDevice) {
-        console.debug('[RealtimeStore] Skipping update for unknown device_id:', device_id);
-        return;
-      }
-    } catch (e) {
-      // non-fatal; proceed if check fails
-    }
+    // Apply updates even if devices list hasn't loaded yet; merge later when devices arrive
 
     console.log('[RealtimeStore] Applying realtime update for device', device_id, ':', sensors);
 
@@ -385,6 +375,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
       if (sensors.tds !== undefined) nextSensors.tds = sensors.tds;
       if (sensors.water_level !== undefined) nextSensors.waterLevel = sensors.water_level;
       if (sensors.turbidity !== undefined) nextSensors.turbidity = sensors.turbidity;
+  if (sensors.water_temperature !== undefined) nextSensors.water_temperature = sensors.water_temperature;
       if (sensors.temperature !== undefined) nextEnv.temperature = sensors.temperature;
       if (sensors.humidity !== undefined) nextEnv.humidity = sensors.humidity;
       if (sensors.light_lux !== undefined) nextEnv.light = sensors.light_lux;
