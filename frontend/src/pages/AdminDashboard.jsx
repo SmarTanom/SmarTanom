@@ -395,7 +395,7 @@ export default function AdminDashboard() {
 						</div>
 					</article>
 
-					<article className="panel">
+					<article className="panel error-reports">
 						<header className="panel-head">
 							<div className="panel-title">
 								<BarChart2 size={18} />
