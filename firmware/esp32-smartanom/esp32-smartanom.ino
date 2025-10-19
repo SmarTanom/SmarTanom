@@ -52,6 +52,10 @@
 // Set to your production API key for security
 #define DEVICE_API_KEY "b58e766d66ea4fededf05d3ccfe44475"  // Production API key
 
+// Optional: Force non-TLS WebSocket (ws) if your ESP32 TLS is failing in dev
+// WARNING: Use only for development on trusted networks
+#define FORCE_WS_INSECURE false
+
 // =============================================
 // AP CONFIGURATION
 // =============================================
@@ -110,6 +114,10 @@ DallasTemperature tempSensors(&oneWire);
 #define PH_CALIBRATION_OFFSET 0.00
 #define DRY_VALUE 250
 #define WET_VALUE 1000
+// Turbidity calibration (adjust per ESP32 + sensor calibration)
+// Higher voltage = clearer water, lower voltage = more turbid
+#define TURBIDITY_CLEAR_VOLTAGE 3.0   // voltage in clear water (approx; calibrate)
+#define TURBIDITY_MAX_VOLTAGE 0.5     // voltage at high turbidity (approx; calibrate)
 
 // Sensor buffers/values
 int tdsBuffer[SCOUNT];
@@ -124,6 +132,7 @@ float phValue = 0.0;
 int waterPercent = 0;
 int rawTurb = 0;
 float voltageTurb = 0.0;
+float turbidityNTU = 0.0;
 
 // =============================================
 // WEBSOCKET (Device -> Backend Channels)
@@ -403,6 +412,12 @@ void initWebSocket();
 void wsEvent(WStype_t type, uint8_t * payload, size_t length);
 void sendHandshake();
 void sendSensorData();
+
+// Utils
+static inline float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
+    if (in_max - in_min == 0) return out_min;
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
 
 // =============================================
 // SETUP
@@ -1159,6 +1174,10 @@ void readSensorsOnce() {
     // Turbidity
     rawTurb = analogRead(TURBIDITY_PIN);
     voltageTurb = rawTurb * (VREF / ADC_RES);
+    // Convert to NTU using simple linear model between calibrated endpoints
+    // 0 NTU at clear voltage, increasing to 1000 NTU at max turbidity voltage
+    turbidityNTU = mapFloat(voltageTurb, TURBIDITY_CLEAR_VOLTAGE, TURBIDITY_MAX_VOLTAGE, 0.0, 1000.0);
+    if (turbidityNTU < 0) turbidityNTU = 0;
 }
 
 void deriveWsEndpointFromBackend() {
@@ -1171,6 +1190,10 @@ void deriveWsEndpointFromBackend() {
     } else if (url.startsWith("https://")) {
         url = url.substring(8);
         WS_PORT = 443;
+    }
+    if (FORCE_WS_INSECURE) {
+        WS_SECURE = false;
+        WS_PORT = 80;
     }
     // Strip trailing slash
     if (url.endsWith("/")) url = url.substring(0, url.length() - 1);
@@ -1229,6 +1252,18 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
             }
             break;
         }
+        case WStype_ERROR:
+            Serial.println("[WS] Error event");
+            break;
+        case WStype_BIN:
+            Serial.printf("[WS] Binary message (%u bytes)\n", (unsigned)length);
+            break;
+        case WStype_PING:
+            Serial.println("[WS] Ping");
+            break;
+        case WStype_PONG:
+            Serial.println("[WS] Pong");
+            break;
         default:
             break;
     }
@@ -1246,32 +1281,51 @@ void sendHandshake() {
 
 void sendSensorData() {
     if (!wsConnected) {
+        Serial.println("[WS] Not connected, skipping sensor send");
         return;
     }
-    // Build payload per backend consumer expectations
+
+    // Build array-based payload per requirement
     StaticJsonDocument<512> doc;
-    doc["type"] = "sensor_data";
     doc["device_serial"] = DEVICE_SERIAL;
-    JsonObject data = doc.createNestedObject("data");
-    data["water_level"] = waterPercent;        // %
-    data["water_temp"] = waterTempC;           // °C
-    data["tds"] = tdsValue;                    // ppm
-    data["ph"] = phValue;                      // pH
-    data["turbidity"] = voltageTurb;           // report voltage or map to NTU if calibrated
-    // Optional EC approximation (mS/cm); requires calibration
-    data["ec"] = tdsValue / 640.0;             // rough estimate
+    JsonArray arr = doc.createNestedArray("data");
+
+    JsonObject o1 = arr.createNestedObject();
+    o1["type"] = "ph";
+    o1["value"] = phValue;
+
+    JsonObject o2 = arr.createNestedObject();
+    o2["type"] = "tds";
+    o2["value"] = tdsValue; // ppm
+
+    JsonObject o3 = arr.createNestedObject();
+    o3["type"] = "ec";
+    o3["value"] = tdsValue / 640.0; // rough estimate mS/cm
+
+    JsonObject o4 = arr.createNestedObject();
+    o4["type"] = "turbidity";
+    o4["value"] = turbidityNTU; // NTU
+
+    JsonObject o5 = arr.createNestedObject();
+    o5["type"] = "water_temp";
+    o5["value"] = waterTempC; // °C
+
+    JsonObject o6 = arr.createNestedObject();
+    o6["type"] = "water_level";
+    o6["value"] = waterPercent; // %
 
     String out;
     serializeJson(doc, out);
     wsClient.sendTXT(out);
 
-    // Log to serial
+    // Log to serial for quick debugging
     Serial.println("========== SENSOR READINGS ==========");
     Serial.printf("Water Level   : %d%%\n", waterPercent);
     Serial.printf("Water Temp    : %.2f °C\n", waterTempC);
     Serial.printf("TDS           : %.0f ppm\n", tdsValue);
+    Serial.printf("EC (est)      : %.2f mS/cm\n", (tdsValue / 640.0));
     Serial.printf("pH            : %.2f\n", phValue);
-    Serial.printf("Turbidity V   : %.2f V (%s)\n", voltageTurb, getTurbidityStatus(rawTurb).c_str());
+    Serial.printf("Turbidity     : %.2f NTU (V=%.2f, %s)\n", turbidityNTU, voltageTurb, getTurbidityStatus(rawTurb).c_str());
     Serial.println("======================================\n");
 }
 

@@ -16,6 +16,7 @@ import logging
 from apps.common.views import BaseAuthViewSet
 from .models import Sensor, SensorData
 from apps.devices.models import DeviceCollaboration
+from django.contrib.auth import get_user_model
 from .serializers import SensorSerializer, SensorDataSerializer
 from .alert_service import SensorAlertService
 
@@ -48,15 +49,85 @@ def broadcast_sensor_update(sensor_data):
                 "timestamp": sensor_data.created_at.isoformat() if sensor_data.created_at else timezone.now().isoformat(),
             }
 
+            # 1) Legacy format for existing admin dashboards
             async_to_sync(channel_layer.group_send)(
                 "devices",
                 {
                     "type": "device_update",
                     "action": "sensor_data",
-                    "data": payload_data
+                    "data": payload_data,
+                    "timestamp": payload_data.get("timestamp"),
                 }
             )
-            logger.info(f"[WebSocket] Broadcasted sensor_data: {sensor.sensor_type if sensor else 'unknown'}={payload_data.get('value')} for device {device.device_serial if device else 'unknown'}")
+
+            # 2) New typed event for user dashboards: sensor.update
+            async_to_sync(channel_layer.group_send)(
+                "devices",
+                {
+                    "type": "sensor_update",
+                    "payload": {
+                        "type": "sensor.update",
+                        "device_id": payload_data.get("device_id"),
+                        "device_serial": payload_data.get("device_serial"),
+                        "sensor_id": payload_data.get("sensor_id"),
+                        "sensor_type": payload_data.get("sensor_type"),
+                        "value": payload_data.get("value"),
+                        "unit": payload_data.get("unit"),
+                        "timestamp": payload_data.get("timestamp"),
+                    },
+                }
+            )
+
+            # 3) Target user-specific channels (owner and active collaborators)
+            try:
+                User = get_user_model()
+                owner_group = None
+                if getattr(device, "bound_email", None):
+                    user = User.objects.filter(email__iexact=device.bound_email).first()
+                    if user:
+                        owner_group = f"user_{user.id}"
+                        async_to_sync(channel_layer.group_send)(
+                            owner_group,
+                            {
+                                "type": "sensor_update",
+                                "payload": {
+                                    "type": "sensor.update",
+                                    **payload_data,
+                                },
+                            },
+                        )
+
+                # Collaborators
+                collaborator_ids = list(
+                    DeviceCollaboration.objects.filter(
+                        device=device,
+                        status=DeviceCollaboration.Status.ACTIVE,
+                    ).values_list("collaborator_email", flat=True)
+                )
+                if collaborator_ids:
+                    users = User.objects.filter(email__in=collaborator_ids)
+                    for u in users:
+                        group = f"user_{u.id}"
+                        # Avoid duplicate send if same as owner
+                        if group == owner_group:
+                            continue
+                        async_to_sync(channel_layer.group_send)(
+                            group,
+                            {
+                                "type": "sensor_update",
+                                "payload": {
+                                    "type": "sensor.update",
+                                    **payload_data,
+                                },
+                            },
+                        )
+            except Exception as ex:
+                logger.warning(f"[WebSocket] User-specific broadcast failed: {ex}")
+
+            logger.info(
+                f"[WebSocket] Broadcasted sensor_data: {sensor.sensor_type if sensor else 'unknown'}="
+                f"{payload_data.get('value')} for device {device.device_serial if device else 'unknown'}"
+            )
     except Exception as e:
         # Don't fail the request if WebSocket broadcast fails
         logger.error(f"[WebSocket] Broadcast failed: {str(e)}", exc_info=True)

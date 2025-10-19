@@ -261,11 +261,40 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         if wifi_flag and not device.wifi_configured:
             await self._mark_wifi_configured(device)
 
-        # Handle sensor data streaming
-        if data.get("type") == "sensor_data":
-            sensor_data = data.get("data", {})
+        # Handle sensor data streaming (accept dict or array formats)
+        payload_type = data.get("type")
+        sensor_data = data.get("data", {})
+
+        # Support array payloads as per firmware requirement
+        # Example: {"device_serial":"...","data":[{"type":"ph","value":6.8}, ...]}
+        if isinstance(sensor_data, list):
+            parsed = {}
+            for item in sensor_data:
+                try:
+                    t = str(item.get("type", "")).strip().lower()
+                    v = item.get("value", None)
+                    if t and v is not None:
+                        parsed[t] = v
+                except Exception:
+                    # Skip malformed entries
+                    continue
+            sensor_data = parsed
+
+        # If type explicitly says sensor_data OR data looks like sensor dict, process
+        if payload_type == "sensor_data" or isinstance(sensor_data, dict) and sensor_data:
             if sensor_data:
-                await self._process_sensor_data(device, sensor_data)
+                # Debug log
+                try:
+                    keys = ",".join(list(sensor_data.keys()))
+                except Exception:
+                    keys = ""
+                print(f"[DeviceWS] RX sensor data for {serial}: keys=[{keys}] raw={sensor_data}")
+
+                # Capture client IP from scope
+                client = self.scope.get("client") or (None, None)
+                client_ip = client[0] if isinstance(client, (list, tuple)) and client else None
+
+                await self._process_sensor_data(device, sensor_data, client_ip)
 
                 # Acknowledge receipt
                 await self.send(text_data=json.dumps({
@@ -274,6 +303,9 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                     "timestamp": timezone.now().isoformat(),
                 }))
                 return
+
+        # Not a sensor payload; treat as handshake/keepalive
+        print(f"[DeviceWS] Handshake/keepalive received from {serial}")
 
         # Respond to device (initial handshake)
         await self.send(text_data=json.dumps({
@@ -338,7 +370,7 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         print(f"[DeviceWS] Sent WiFi reset command to device {event.get('device_serial')}")
 
     @database_sync_to_async
-    def _process_sensor_data(self, device, sensor_data):
+    def _process_sensor_data(self, device, sensor_data, client_ip: str | None = None):
         """
         Process incoming sensor data from ESP32 device.
 
@@ -351,6 +383,16 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         """
         from apps.sensors.models import Sensor, SensorData
         from apps.sensors.views import broadcast_sensor_update
+
+        # Update device heartbeat info
+        try:
+            device.last_seen = timezone.now()
+            if client_ip:
+                device.ip_address = client_ip
+            # Save without touching other fields
+            device.save(update_fields=["last_seen", "ip_address"])
+        except Exception as e:
+            print(f"[DeviceWS] Warning: failed to update heartbeat for {device.device_serial}: {e}")
 
         sensor_types = {
             'ph': ('ph', 'pH'),

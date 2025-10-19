@@ -317,23 +317,45 @@ const useAdminRealtimeStore = create(
        * Connect to WebSocket and subscribe to admin updates
        */
       connectAdminWS: () => {
-        const unsubscribe = wsClient.subscribe((update) => {
+        // Initiate connection to global devices stream
+        wsClient.connect(null);
+
+        // Subscribe to messages
+        const unsubscribeMessages = wsClient.subscribe((update) => {
           console.log('[AdminStore] WebSocket update:', update);
 
-          // Handle new admin-specific message types
-          if (update?.type?.startsWith('admin.')) {
-            get().handleAdminUpdate(update);
-          } else {
-            // Handle legacy format (action-based)
-            get().applyAdminUpdate(update);
+          if (!update) return;
+
+          // New typed message family (e.g., 'sensor.update', 'admin.*')
+          if (update.type) {
+            if (typeof update.type === 'string' && update.type.startsWith('admin.')) {
+              get().handleAdminUpdate(update);
+              return;
+            }
+            if (update.type === 'sensor.update') {
+              const { device_id, device_serial, timestamp } = update;
+              get().applyAdminUpdate({
+                action: 'sensor_data',
+                data: { device_id, device_serial, timestamp }
+              });
+              return;
+            }
           }
+
+          // Legacy action-based broadcast
+          get().applyAdminUpdate(update);
         });
 
-        // Update connection status
-        set({ wsStatus: 'connected' });
+        // Track connection status
+        const unsubscribeStatus = wsClient.onStatusChange((status) => {
+          set({ wsStatus: status });
+        });
 
         // Return cleanup function
-        return unsubscribe;
+        return () => {
+          unsubscribeMessages();
+          unsubscribeStatus();
+        };
       },
 
       /**
