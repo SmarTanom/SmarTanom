@@ -30,6 +30,7 @@ import { listPlants } from '../services/api/plants.js';
 import { authApi } from '../services/apiClient.js';
 import { wsClient } from '../services/websocketClient';
 import { useRealtimeStore } from '../store/realtimeStore';
+import { listAlerts } from '../services/api/alerts.js';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -247,188 +248,7 @@ const getConnectivityStatus = (lastSensorUpdate) => {
   }
 };
 
-// Helper function to generate alert text based on plant-specific ranges, mirroring AlertsPage descriptions
-const generateAlertText = (sensors, plant) => {
-  if (!sensors) return 'All systems normal';
-
-  const candidates = [];
-  const plantName = plant?.plant_name || 'this plant';
-
-  // Helper to push with priority and severity
-  const pushCandidate = (severity, priority, message) => {
-    if (!message) return;
-    candidates.push({ severity, priority, message });
-  };
-
-  // Water level (no plant needed)
-  if (typeof sensors.waterLevel === 'number') {
-    const v = Number(sensors.waterLevel);
-    if (v === 0) {
-      pushCandidate('critical', 0, 'Water level is 0% — reservoir empty. Refill with fresh nutrient solution immediately, check pumps for priming issues, and inspect for leaks.');
-    } else if (v > 0 && v <= 40) {
-      pushCandidate('warning', 1, `Water level is ${v}%. Low reservoir level (<=40%). Refill soon and verify auto-refill settings or inspect for slow leaks.`);
-    }
-  }
-
-  // pH relative to plant target
-  if (typeof sensors.ph === 'number' && plant) {
-    const v = Number(sensors.ph);
-    const min = plant.ph_min;
-    const max = plant.ph_max;
-    const cls = classifyPH(v, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 2, `pH is ${v} — below optimal range (${min}–${max}) for ${plantName}. Raise pH slowly using pH Up; mix thoroughly and re-test.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 2, `pH is ${v} — above optimal range (${min}–${max}) for ${plantName}. Lower pH gradually using pH Down; mix thoroughly and re-test.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 5, `pH is ${v}, approaching ${min} for ${plantName}. Monitor trend and adjust if it continues downward.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 5, `pH is ${v}, approaching ${max} for ${plantName}. Monitor and plan gentle adjustment if rising further.`);
-      }
-    }
-  }
-
-  // TDS relative to plant target
-  if (typeof sensors.tds === 'number' && plant) {
-    const v = Number(sensors.tds);
-    const min = plant.ppm_min;
-    const max = plant.ppm_max;
-    const cls = classifyTDS(v, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 3, `TDS is ${v} ppm which is below the optimal range (${min}–${max} ppm) for ${plantName}. Increase nutrient concentration gradually and re-test.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 3, `TDS is ${v} ppm which is above the optimal range (${min}–${max} ppm) for ${plantName}. Dilute or perform a partial drain/refill and re-test.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 6, `TDS is ${v} ppm and nearing the lower limit (${min} ppm) for ${plantName}. Monitor and consider a mild nutrient top-up.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 6, `TDS is ${v} ppm and nearing the upper limit (${max} ppm) for ${plantName}. Monitor and consider dilution if trend continues.`);
-      }
-    }
-  }
-
-  // EC relative to plant target
-  if (typeof sensors.ec === 'number' && plant) {
-    const v = Number(sensors.ec);
-    const min = plant.ec_min;
-    const max = plant.ec_max;
-    const cls = classifyEC(v, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 4, `EC is ${v} mS/cm which is below the optimal range (${min}–${max} mS/cm) for ${plantName}. Increase nutrient concentration gradually and re-test.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 4, `EC is ${v} mS/cm which is above the optimal range (${min}–${max} mS/cm) for ${plantName}. Dilute or perform a partial drain/refill and re-test.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 6.5, `EC is ${v} mS/cm and nearing the lower limit (${min} mS/cm) for ${plantName}. Monitor and consider a mild nutrient top-up.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 6.5, `EC is ${v} mS/cm and nearing the upper limit (${max} mS/cm) for ${plantName}. Monitor and consider dilution if trend continues.`);
-      }
-    }
-  }
-
-  // Light relative to plant target
-  if (typeof sensors.light === 'number' && plant) {
-    const lux = Number(sensors.light);
-    const min = plant.light_min;
-    const max = plant.light_max;
-    const cls = classifyLight(lux, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 7, `Light is ${lux} lux — below optimal range (${min}–${max} lux) for ${plantName}. Increase exposure or adjust lighting.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 7, `Light is ${lux} lux — above optimal range (${min}–${max} lux) for ${plantName}. Provide shading or reduce supplemental lighting.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 8, `Light is ${lux} lux, approaching the lower bound (${min} lux) for ${plantName}. Monitor and adjust if it trends lower.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 8, `Light is ${lux} lux, approaching the upper bound (${max} lux) for ${plantName}. Monitor to prevent stress.`);
-      }
-    }
-  }
-
-  // Humidity relative to plant target
-  if (typeof sensors.humidity === 'number' && plant) {
-    const h = Number(sensors.humidity);
-    const min = plant.humidity_min;
-    const max = plant.humidity_max;
-    const cls = classifyHumidity(h, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 9, `Humidity is ${h}% — below optimal range (${min}–${max}%) for ${plantName}. Add humidity (misters, trays) and reduce excessive ventilation.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 9, `Humidity is ${h}% — above optimal range (${min}–${max}%) for ${plantName}. Increase airflow or dehumidify to prevent mold.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 10, `Humidity is ${h}% and nearing ${min}% for ${plantName}. Monitor to avoid plant stress.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 10, `Humidity is ${h}% and nearing ${max}% for ${plantName}. Improve ventilation if trend continues.`);
-      }
-    }
-  }
-
-  // Air temperature (environment) relative to plant target
-  if (typeof sensors.temperature === 'number' && plant) {
-    const t = Number(sensors.temperature);
-    const min = plant.environment_temp_min;
-    const max = plant.environment_temp_max;
-    const cls = classifyEnvTemp(t, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 11, `Air temperature is ${t}°C — below optimal (${min}–${max}°C) for ${plantName}. Add heating or reduce drafts.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 11, `Air temperature is ${t}°C — above optimal (${min}–${max}°C) for ${plantName}. Improve cooling, shading, or airflow.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 12, `Air temperature is ${t}°C, approaching ${min}°C for ${plantName}. Monitor to avoid chilling stress.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 12, `Air temperature is ${t}°C, approaching ${max}°C for ${plantName}. Enhance ventilation or shading.`);
-      }
-    }
-  }
-
-  // Water temperature relative to plant target
-  if (typeof sensors.waterTemperature === 'number' && plant) {
-    const wt = Number(sensors.waterTemperature);
-    const min = plant.water_temp_min;
-    const max = plant.water_temp_max;
-    const cls = classifyWaterTemp(wt, plant);
-    if (cls.severity === 'critical') {
-      if (cls.reason === 'below_min') {
-        pushCandidate('critical', 13, `Water temperature is ${wt}°C — below optimal (${min}–${max}°C) for ${plantName}. Add a heater or insulate reservoir.`);
-      } else if (cls.reason === 'above_max') {
-        pushCandidate('critical', 13, `Water temperature is ${wt}°C — above optimal (${min}–${max}°C) for ${plantName}. Cool reservoir (chiller / frozen bottles) and increase circulation.`);
-      }
-    } else if (cls.severity === 'warning') {
-      if (cls.reason === 'near_min') {
-        pushCandidate('warning', 14, `Water temp is ${wt}°C, approaching ${min}°C for ${plantName}. Monitor and prepare heating if it drops further.`);
-      } else if (cls.reason === 'near_max') {
-        pushCandidate('warning', 14, `Water temp is ${wt}°C, approaching ${max}°C for ${plantName}. Consider cooling actions to avoid root stress.`);
-      }
-    }
-  }
-
-  if (candidates.length === 0) return 'All systems normal';
-
-  // Sort by severity (critical first), then priority asc
-  candidates.sort((a, b) => {
-    if (a.severity !== b.severity) {
-      return a.severity === 'critical' ? -1 : 1;
-    }
-    return a.priority - b.priority;
-  });
-
-  return candidates[0].message;
-};
+// (Removed previous alert text generator; dashboard now uses DB-backed alerts only)
 
 // Helper function to determine nutrient status relative to plant ppm range
 const getNutrientStatus = (tdsValue, plant) => {
@@ -440,22 +260,7 @@ const getNutrientStatus = (tdsValue, plant) => {
   return 'Optimal';
 };
 
-// Helper functions for alert detection (shared with AlertsPage logic)
-const loadReadAlerts = () => {
-  try {
-    const raw = localStorage.getItem('alerts.readingIds');
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw);
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch (_e) {
-    return new Set();
-  }
-};
-
-const isAlertRead = (readingId) => {
-  const readAlerts = loadReadAlerts();
-  return readAlerts.has(readingId);
-};
+// (Removed local read/unread tracking for derived alerts)
 
 // --- BEGIN shared alert classification (duplicated from AlertsPage; consider refactor to shared module) ---
 const DEFAULT_PROXIMITY_MIN = 50;
@@ -647,7 +452,7 @@ export default function Dashboard() {
   const devicesData = useRealtimeStore(s => s.deviceData);
   const fetchInitial = useRealtimeStore(s => s.fetchInitial);
   const connectWS = useRealtimeStore(s => s.connectWS);
-  const latestAlerts = useRealtimeStore(s => s.latestAlerts);
+
   const totalUnread = useRealtimeStore(s => s.totalUnread);
   const perDeviceUnreadCounts = useRealtimeStore(s => s.unreadCounts);
   const loadingInitial = useRealtimeStore(s => s.loadingInitial);
@@ -729,10 +534,7 @@ export default function Dashboard() {
     }
   }); // { [deviceId]: { phHistory, phLabels, lastFetch } }
 
-  // Shared helper to compute a stable reading key (match AlertsPage logic)
-  const readingKeyOf = (reading) => {
-    return (reading && (reading.id || reading.created_at || reading.timestamp)) || JSON.stringify(reading || {});
-  };
+
 
   // Helper to persist pH data to localStorage
   const persistPhData = (deviceId, phHistory, phLabels, timeRange) => {
@@ -933,85 +735,6 @@ export default function Dashboard() {
         sensorDataResults.forEach(({ sensorId, data }) => { sensorDataMap[sensorId] = data; });
       }
       const transformedSensors = transformSensorData(sensors || [], sensorDataMap);
-      // Compute latest alert per device using plant-based classification (consider latest reading per sensor)
-      const pickLatest = (arr) => {
-        if (!Array.isArray(arr) || arr.length === 0) return null;
-        return arr.reduce((best, cur) => {
-          const tb = best?.created_at ? new Date(best.created_at).getTime() : (best?.timestamp ? new Date(best.timestamp).getTime() : 0);
-          const tc = cur?.created_at ? new Date(cur.created_at).getTime() : (cur?.timestamp ? new Date(cur.timestamp).getTime() : 0);
-          return tc > tb ? cur : best;
-        }, arr[0]);
-      };
-      const buildLatestAlert = (sensorsList, dataMap, plant) => {
-        if (!Array.isArray(sensorsList) || sensorsList.length === 0) return null;
-        const relevant = sensorsList.filter(s => ['ph', 'water_level', 'tds', 'ec', 'turbidity', 'light', 'humidity', 'air_temperature', 'water_temperature'].includes(s.sensor_type));
-        const candidates = [];
-        relevant.forEach(sensor => {
-          const latest = pickLatest(dataMap[sensor.id] || []);
-          if (!latest || typeof latest.value === 'undefined') return;
-          const val = Number(latest.value);
-          if (Number.isNaN(val)) return;
-          let cls = { severity: 'none', reason: null };
-          if (sensor.sensor_type === 'ph') cls = classifyPH(val, plant);
-          else if (sensor.sensor_type === 'tds') cls = classifyTDS(val, plant);
-          else if (sensor.sensor_type === 'ec') cls = classifyEC(val, plant);
-          else if (sensor.sensor_type === 'light') cls = classifyLight(val, plant);
-          else if (sensor.sensor_type === 'air_temperature') cls = classifyEnvTemp(val, plant);
-          else if (sensor.sensor_type === 'humidity') cls = classifyHumidity(val, plant);
-          else if (sensor.sensor_type === 'water_temperature') cls = classifyWaterTemp(val, plant);
-          else if (sensor.sensor_type === 'water_level') {
-            if (val === 0) cls = { severity: 'critical', reason: 'empty' };
-            else if (val <= 40) cls = { severity: 'warning', reason: 'low' };
-          } else if (sensor.sensor_type === 'turbidity') {
-            if (val <= 1800) cls = { severity: 'critical', reason: 'turbid' };
-            else if (val <= 2100) cls = { severity: 'warning', reason: 'cloudy' };
-          }
-          if (cls.severity === 'none') return;
-          const iso = latest.created_at || latest.timestamp || new Date().toISOString();
-          const severity = cls.severity;
-          let title = 'Alert';
-          let message = '';
-          if (sensor.sensor_type === 'ph') {
-            if (cls.reason === 'below_min') { title = 'Low pH detected'; message = `pH is ${val}`; }
-            else if (cls.reason === 'above_max') { title = 'High pH detected'; message = `pH is ${val}`; }
-            else { title = 'pH nearing limit'; message = `pH is ${val}`; }
-          } else if (sensor.sensor_type === 'tds') {
-            if (cls.reason === 'below_min') { title = 'TDS low'; message = `TDS ${val} ppm`; }
-            else if (cls.reason === 'above_max') { title = 'TDS high'; message = `TDS ${val} ppm`; }
-            else { title = 'TDS near bound'; message = `TDS ${val} ppm`; }
-          } else if (sensor.sensor_type === 'ec') {
-            if (cls.reason === 'below_min') { title = 'EC low'; message = `EC ${val} mS/cm`; }
-            else if (cls.reason === 'above_max') { title = 'EC high'; message = `EC ${val} mS/cm`; }
-            else { title = 'EC near bound'; message = `EC ${val} mS/cm`; }
-          } else if (sensor.sensor_type === 'air_temperature') {
-            if (cls.reason === 'below_min') { title = 'Air temperature low'; message = `Air temp ${val}°C`; }
-            else if (cls.reason === 'above_max') { title = 'Air temperature high'; message = `Air temp ${val}°C`; }
-            else { title = 'Air temperature near bound'; message = `Air temp ${val}°C`; }
-          } else if (sensor.sensor_type === 'humidity') {
-            if (cls.reason === 'below_min') { title = 'Humidity low'; message = `Humidity ${val}%`; }
-            else if (cls.reason === 'above_max') { title = 'Humidity high'; message = `Humidity ${val}%`; }
-            else { title = 'Humidity near bound'; message = `Humidity ${val}%`; }
-          } else if (sensor.sensor_type === 'light') {
-            if (cls.reason === 'below_min') { title = 'Light low'; message = `Light ${val}`; }
-            else if (cls.reason === 'above_max') { title = 'Light high'; message = `Light ${val}`; }
-            else { title = 'Light near bound'; message = `Light ${val}`; }
-          } else if (sensor.sensor_type === 'water_temperature') {
-            if (cls.reason === 'below_min') { title = 'Water temp low'; message = `Water temp ${val}°C`; }
-            else if (cls.reason === 'above_max') { title = 'Water temp high'; message = `Water temp ${val}°C`; }
-            else { title = 'Water temp near bound'; message = `Water temp ${val}°C`; }
-          } else if (sensor.sensor_type === 'water_level') {
-            if (cls.reason === 'empty') { title = 'Water level empty'; message = 'Water level 0% — refill immediately.'; }
-            else { title = 'Low water level'; message = `Water level ${val}% — refill soon.`; }
-          } else if (sensor.sensor_type === 'turbidity') {
-            if (cls.reason === 'turbid') { title = 'Water turbid'; message = `Turbidity ${val} — consider drain/refill.`; }
-            else { title = 'Water cloudy'; message = `Turbidity ${val} — clean filters or partial change.`; }
-          }
-          candidates.push({ severity, title, message, createdAt: iso });
-        });
-        if (candidates.length === 0) return null;
-        candidates.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        return candidates[0];
-      };
       const phSensor = Array.isArray(sensors) ? sensors.find(s => s.sensor_type === 'ph') : null;
       console.log('[Dashboard] pH sensor found:', phSensor?.id, 'with data:', sensorDataMap[phSensor?.id]?.length || 0);
       const phHistory = getPHHistory(sensorDataMap, phSensor?.id, timeRange);
@@ -1038,18 +761,32 @@ export default function Dashboard() {
       const deviceMeta = devices.find(d => d.id === deviceId);
       // Prefer resolved devicePlant (from reservoirs + catalog), fall back to any plant bundled on device meta
       const plant = devicePlant || deviceMeta?.plant || null;
-      const alertText = Object.keys(transformedSensors).length ? generateAlertText(transformedSensors, plant) : undefined;
       const nutrientText = typeof transformedSensors.tds === 'number' ? getNutrientStatus(transformedSensors.tds, plant) : undefined;
 
-      const latestDerivedAlert = buildLatestAlert(sensors || [], sensorDataMap, plant);
+      // Fetch the latest alert from alerts table for this device (backend scopes owned + shared)
+      let latestDbAlert = null;
+      try {
+        const alertsResp = await listAlerts({ deviceId, ordering: '-created_at', page: 1 });
+        const results = alertsResp?.results ?? (Array.isArray(alertsResp) ? alertsResp : []);
+        const top = Array.isArray(results) && results.length ? results[0] : null;
+        if (top) {
+          latestDbAlert = {
+            severity: top.severity || 'warning',
+            title: top.title || (top.metric ? `${String(top.metric).toUpperCase()} alert` : 'Alert'),
+            message: top.recommendation || top.message || top.body || '',
+            createdAt: top.created_at || top.timestamp || new Date().toISOString(),
+          };
+        }
+      } catch (e) {
+        console.warn('[Dashboard] Latest DB alert fetch failed for device', deviceId, e);
+      }
 
       const dataPayload = {
-        alertText,
         connectivity,
         lastSyncLabel: lastSync,
         lastUpdate: lastSensorUpdate ? lastSensorUpdate.toISOString() : undefined,
         nutrientText,
-        latestDerivedAlert,
+        latestDbAlert,
         phHistory,
         phLabels,
         sensors: {
@@ -1872,21 +1609,18 @@ export default function Dashboard() {
           <div className="alert-card-top">
             <div className="icon-circle" style={{ position: 'relative' }}>
               <AlertCircle size={20} color={
-                data?.latestDerivedAlert ?
-                  (data.latestDerivedAlert.severity === 'critical' ? '#e74c3c' : data.latestDerivedAlert.severity === 'warning' ? '#f59e0b' : '#339432') :
-                  latestAlerts[currentDevice?.id] ?
-                    (latestAlerts[currentDevice.id].severity === 'critical' ? '#e74c3c' : latestAlerts[currentDevice.id].severity === 'warning' ? '#f59e0b' : '#339432') :
-                    (data?.alertText && data.alertText !== 'All systems normal' ? '#339432' : PRIMARY_GREEN)
+                data?.latestDbAlert
+                  ? (data.latestDbAlert.severity === 'critical' ? '#e74c3c' : data.latestDbAlert.severity === 'warning' ? '#f59e0b' : '#339432')
+                  : PRIMARY_GREEN
               } strokeWidth={2.5} />
               {(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && (
                 <span className="alert-notification-badge" style={{
                   position: 'absolute',
                   top: '-4px',
                   right: '-4px',
-                  backgroundColor: data?.alertText && data.alertText !== 'All systems normal' ?
-                    (latestAlerts[currentDevice?.id]?.severity === 'critical' ? '#e74c3c' :
-                      latestAlerts[currentDevice?.id]?.severity === 'warning' ? '#f59e0b' :
-                        '#339432') : '#e74c3c',
+                  backgroundColor: data?.latestDbAlert
+                    ? (data.latestDbAlert.severity === 'critical' ? '#e74c3c' : data.latestDbAlert.severity === 'warning' ? '#f59e0b' : '#339432')
+                    : '#e74c3c',
                   color: 'white',
                   borderRadius: '50%',
                   width: '16px',
@@ -1911,10 +1645,9 @@ export default function Dashboard() {
             {currentDevice ? `${currentDevice.device_name || currentDevice.plant_name || 'Device'} Alerts` : 'Alert Summary'}
             {(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && (
               <span style={{
-                color: data?.alertText && data.alertText !== 'All systems normal' ?
-                  (latestAlerts[currentDevice?.id]?.severity === 'critical' ? '#e74c3c' :
-                    latestAlerts[currentDevice?.id]?.severity === 'warning' ? '#f59e0b' :
-                      '#339432') : '#e74c3c',
+                color: data?.latestDbAlert
+                  ? (data.latestDbAlert.severity === 'critical' ? '#e74c3c' : data.latestDbAlert.severity === 'warning' ? '#f59e0b' : '#339432')
+                  : '#e74c3c',
                 fontWeight: 'bold',
                 marginLeft: '8px'
               }}>
@@ -1923,29 +1656,14 @@ export default function Dashboard() {
             )}
           </h3>
           <div className="alert-card-message" style={{
-            color: (() => {
-              if (data?.latestDerivedAlert) {
-                return data.latestDerivedAlert.severity === 'critical' ? '#e74c3c' : data.latestDerivedAlert.severity === 'warning' ? '#f59e0b' : '#339432';
-              }
-              if (latestAlerts[currentDevice?.id]) {
-                const severity = latestAlerts[currentDevice.id].severity;
-                return severity === 'critical' ? '#e74c3c' : severity === 'warning' ? '#f59e0b' : '#339432';
-              }
-              if (data?.alertText && data.alertText !== 'All systems normal') {
-                const text = data.alertText.toLowerCase();
-                if (text.includes('critical') || text.includes('empty') || text.includes('0%')) return '#e74c3c';
-                if (text.includes('warning') || text.includes('low') || text.includes('high') || text.includes('approaching')) return '#f59e0b';
-                return '#339432';
-              }
-              return 'rgba(17, 17, 17, 0.86)';
-            })()
+            color: data?.latestDbAlert
+              ? (data.latestDbAlert.severity === 'critical' ? '#e74c3c' : data.latestDbAlert.severity === 'warning' ? '#f59e0b' : '#339432')
+              : 'rgba(17, 17, 17, 0.86)'
           }}>
-            {/* Prefer derived latest alert; fallback to realtime latest, then generated summary */}
-            {data?.latestDerivedAlert
-              ? `${data.latestDerivedAlert.title}: ${data.latestDerivedAlert.message}`
-              : latestAlerts[currentDevice?.id]
-                ? `${latestAlerts[currentDevice.id].title}: ${latestAlerts[currentDevice.id].body}`
-                : (data?.alertText || 'All systems normal')}
+            {/* Show only latest DB-backed alert */}
+            {data?.latestDbAlert
+              ? `${data.latestDbAlert.title}: ${data.latestDbAlert.message}`
+              : 'No alerts'}
           </div>
           {currentDevice && (
             <p style={{
