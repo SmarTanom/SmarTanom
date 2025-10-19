@@ -1246,7 +1246,11 @@ void initWebSocket() {
 
     wsClient.onEvent(wsEvent);
     wsClient.setReconnectInterval(5000); // 5s
-    wsClient.enableHeartbeat(15000, 3000, 2); // ping every 15s
+
+    // TEMPORARILY DISABLE heartbeat to test if it's causing disconnects
+    // wsClient.enableHeartbeat(15000, 3000, 2); // ping every 15s
+
+    Serial.println("[WS] Note: Heartbeat disabled for debugging");
 
     // Set Origin header to match backend host (helps when strict origin checks are enabled)
     String originHeader = String("Origin: ") + String(BACKEND_URL) + String("\r\n");
@@ -1325,11 +1329,13 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
             strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &tm_info);
             Serial.printf("[WS] Connected at: %s PHT\n", timeBuf);
 
+            // Small delay to ensure connection is fully established
+            Serial.println("[WS] Waiting 500ms for connection stabilization...");
+            delay(500);
+
             sendHandshake();
             break;
-        }
-
-        case WStype_DISCONNECTED: {
+        }        case WStype_DISCONNECTED: {
             wsConnected = false;
             Serial.println("[WS] ✗ Disconnected from server");
 
