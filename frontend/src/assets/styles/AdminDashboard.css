@@ -3,8 +3,8 @@
 
 /* Dashboard header */
 .admin-header { padding:8px 4px 0; }
-.admin-title { font-family:'Abril Fatface', serif; font-size:28px; margin:0; color:#111; }
-.admin-sub { margin:6px 0 0; color:#6f8876; font-weight:500; }
+.admin-title { font-family:'Abril Fatface', serif; font-size:40px; margin:0; color:#111111e7; }
+.admin-sub { margin:3px 0 0; color:#6f8876; font-weight:500; }
 
 /* Summary cards */
 .summary-grid { display:grid; grid-template-columns:1fr; gap:16px; }
