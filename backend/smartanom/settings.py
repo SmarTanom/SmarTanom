@@ -430,35 +430,45 @@ ASGI_APPLICATION = 'smartanom.asgi.application'
 USE_X_FORWARDED_HOST = True
 
 # Channel Layers for WebSocket communication
-# Use Redis in production (Render), in-memory for local development
-REDIS_URL = os.getenv('REDIS_URL', '')
+REDIS_URL = os.getenv('REDIS_URL', '').strip()
 
+use_redis_layer = False
 if REDIS_URL:
-	# Production: Use Redis for channel layer (required for multi-worker setups)
-	# TLS is handled via rediss:// scheme; no extra 'ssl' kw supported by channels_redis 4.x
+	# Validate REDIS_URL to avoid defaulting to localhost when host is missing (e.g., "rediss://")
 	from urllib.parse import urlparse as _urlparse
 
-	parsed = _urlparse(REDIS_URL)
-	netloc = parsed.netloc or ''
-	safe_host = f"{parsed.scheme}://{netloc.split('@')[-1]}" if netloc else REDIS_URL
-	print(f"[Channels] Using Redis channel layer: {safe_host}")
-	redis_config = {
-		'hosts': [REDIS_URL],
-		'capacity': 1500,
-		'expiry': 10,
-		'group_expiry': 60,
-	}
+	try:
+		parsed = _urlparse(REDIS_URL)
+		scheme = (parsed.scheme or '').lower()
+		host = parsed.hostname
+		port = parsed.port  # may be None (defaults to 6379)
 
-	CHANNEL_LAYERS = {
-		'default': {
-			'BACKEND': 'channels_redis.core.RedisChannelLayer',
-			'CONFIG': redis_config,
-		},
-	}
-else:
+		if scheme in ("redis", "rediss") and host:
+			netloc = parsed.netloc or ''
+			safe_host = f"{scheme}://{netloc.split('@')[-1]}"
+			print(f"[Channels] Using Redis channel layer: {safe_host}")
+			redis_config = {
+				'hosts': [REDIS_URL],
+				'capacity': 1500,
+				'expiry': 10,
+				'group_expiry': 60,
+			}
+			CHANNEL_LAYERS = {
+				'default': {
+					'BACKEND': 'channels_redis.core.RedisChannelLayer',
+					'CONFIG': redis_config,
+				},
+			}
+			use_redis_layer = True
+		else:
+			print(f"[Channels] WARNING: Invalid REDIS_URL '{REDIS_URL}'. Expected redis[s]://<host>[:port]. Falling back to in-memory channel layer.")
+	except Exception as _e:
+		print(f"[Channels] WARNING: Failed to parse REDIS_URL '{REDIS_URL}': {_e}. Falling back to in-memory channel layer.")
+
+if not use_redis_layer:
 	# Development or misconfigured production: Use in-memory channel layer (single-worker only)
 	if not DEBUG:
-		print("[Channels] WARNING: REDIS_URL not set; falling back to in-memory channel layer (NOT PRODUCTION SAFE)")
+		print("[Channels] WARNING: Using in-memory channel layer (REDIS_URL unset/invalid). This is NOT recommended for production.")
 	else:
 		print("[Channels] Using in-memory channel layer (dev mode)")
 	CHANNEL_LAYERS = {

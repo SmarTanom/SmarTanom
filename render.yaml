@@ -5,7 +5,7 @@ services:
     plan: free
     # rootDir tells Render to run build/start commands from this folder
     rootDir: backend
-    # Commands are run relative to rootDir, so don't `cd backend` here.
+  # Commands are run relative to rootDir, so don't `cd backend` here.
     buildCommand: "pip install -r requirements.txt"
     # Render will automatically use the Procfile in the rootDir (backend/)
     # to determine the start command.
@@ -25,12 +25,13 @@ services:
         fromDatabase:
           name: smartanom-db
           property: connectionString
-      # Temporarily commented out to test without Redis
-      # - key: REDIS_URL
-      #   fromService:
-      #     type: redis
-      #     name: smartanom-redis
-      #     property: connectionString
+  # Recommended: attach a Redis instance for WebSockets (Django Channels)
+  # If omitted, app will fall back to in-memory channel layer (single worker only).
+  # - key: REDIS_URL
+  #   fromService:
+  #     type: redis
+  #     name: smartanom-redis
+  #     property: connectionString
       - key: CORS_ALLOWED_ORIGINS
         value: https://your-frontend-domain.com
       - key: EMAIL_BACKEND

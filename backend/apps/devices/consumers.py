@@ -255,7 +255,8 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
             self._keepalive_task = asyncio.create_task(self._keepalive_loop())
         except Exception as e:
             print(f"[DeviceWS] ✗ Connection failed: {e}")
-            await self.close(code=1011)
+            # Use an application-defined close code in the allowed range (3000-4999)
+            await self.close(code=4000)
 
     # Explicit protocol-level event handlers (optional, for more granular logs)
     async def websocket_connect(self, event):
@@ -272,7 +273,8 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         except Exception as ex:
             import traceback
             print("[DeviceWS] websocket_connect exception:\n" + traceback.format_exc())
-            await self.close(code=1011)
+            # Use an application-defined close code in the allowed range (3000-4999)
+            await self.close(code=4000)
 
     async def disconnect(self, close_code):
         # Leave device-specific group
