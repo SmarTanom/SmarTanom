@@ -25,11 +25,12 @@ services:
         fromDatabase:
           name: smartanom-db
           property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: smartanom-redis
-          property: connectionString
+      # Temporarily commented out to test without Redis
+      # - key: REDIS_URL
+      #   fromService:
+      #     type: redis
+      #     name: smartanom-redis
+      #     property: connectionString
       - key: CORS_ALLOWED_ORIGINS
         value: https://your-frontend-domain.com
       - key: EMAIL_BACKEND
@@ -50,5 +51,6 @@ databases:
     databaseName: smartanom_prod
     user: smartanom
 
-redis:
-  - name: smartanom-redis
+# Temporarily commented out - uncomment after creating Redis instance
+# redis:
+#   - name: smartanom-redis

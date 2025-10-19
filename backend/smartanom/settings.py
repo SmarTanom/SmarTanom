@@ -424,16 +424,20 @@ REDIS_URL = os.getenv('REDIS_URL', '')
 
 if REDIS_URL:
     # Production: Use Redis for channel layer (required for multi-worker setups)
+    print(f"[Channels] Using Redis channel layer: {REDIS_URL[:20]}...")
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels_redis.core.RedisChannelLayer',
             'CONFIG': {
                 'hosts': [REDIS_URL],
+                'capacity': 1500,  # Max messages per channel
+                'expiry': 10,      # Message expiry in seconds
             },
         },
     }
 else:
     # Development: Use in-memory channel layer (single-worker only)
+    print("[Channels] Using in-memory channel layer (dev mode)")
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels.layers.InMemoryChannelLayer',

@@ -231,10 +231,19 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         self.serial = self.scope['url_route']['kwargs'].get('serial')
         self.device_group = f"device_{self.serial}"
 
-        # Join device-specific group for targeted messages
-        await self.channel_layer.group_add(self.device_group, self.channel_name)
-        await self.accept()
-        print(f"[DeviceWS] Device channel connected for serial={self.serial}, joined group={self.device_group}")
+        print(f"[DeviceWS] Connection attempt for serial={self.serial}")
+        print(f"[DeviceWS] Scope: {self.scope.get('type')}, Path: {self.scope.get('path')}")
+
+        try:
+            # Join device-specific group for targeted messages
+            await self.channel_layer.group_add(self.device_group, self.channel_name)
+            print(f"[DeviceWS] ✓ Joined group: {self.device_group}")
+
+            await self.accept()
+            print(f"[DeviceWS] ✓ Connection accepted for serial={self.serial}")
+        except Exception as e:
+            print(f"[DeviceWS] ✗ Connection failed: {e}")
+            await self.close(code=1011)
 
     async def disconnect(self, close_code):
         # Leave device-specific group
@@ -243,9 +252,12 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         print(f"[DeviceWS] Device channel disconnected serial={getattr(self, 'serial', None)} code={close_code}")
 
     async def receive(self, text_data):
+        print(f"[DeviceWS] ← Received message from {getattr(self, 'serial', 'unknown')}: {text_data[:200]}")
+
         try:
             data = json.loads(text_data or '{}')
         except json.JSONDecodeError:
+            print(f"[DeviceWS] ✗ Invalid JSON received")
             await self.send(text_data=json.dumps({"status": "error", "message": "invalid json"}))
             return
 
