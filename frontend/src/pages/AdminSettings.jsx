@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminSettings.css';
-import logoMarkWhite from '../assets/images/logo-mark-white.png';
+import AdminNavbar from '../components/admin/AdminNavbar';
 import { getAdminProfile, updateAdminProfile, updateAdminPreferences } from '../services/api/admin';
 import {
 	isPushNotificationSupported,
@@ -11,11 +11,6 @@ import {
 } from '../services/api/notifications';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
 import {
-	LayoutDashboard,
-	Boxes,
-	Plus,
-	Users,
-	Settings,
 	User,
 	Shield,
 	Bell,
@@ -181,54 +176,16 @@ function AdminSettings() {
 
 	return (
 	<div className="admin-root">
-		{/* Sidebar navigation (desktop) */}
-		<aside className="admin-sidebar" aria-label="Admin sidebar">
-			<div className="brand">
-				<div className="brand-logo">
-					<img src={logoMarkWhite} alt="SmarTanom" />
-				</div>
-				<div className="brand-text">
-					<div className="brand-name">SmarTanom</div>
-					<div className="brand-subtitle">Dashboard</div>
-				</div>
-			</div>
-			<div className="side-nav-label">MENU</div>
-				<nav className="side-nav">
-					<button className="side-link" onClick={() => navigate('/admin')}>
-						<LayoutDashboard size={18} />
-						<span>Dashboard</span>
-					</button>
-					<button className="side-link" onClick={() => navigate('/admin/alerts')}>
-						<Bell size={18} />
-						<span>Alerts</span>
-					</button>
-					<button className="side-link" onClick={() => navigate('/admin/devices')}>
-						<Boxes size={18} />
-						<span>Devices</span>
-					</button>
-					<button className="side-link" onClick={() => navigate('/admin/create')}>
-						<Plus size={18} />
-						<span>Create</span>
-					</button>
-					<button className="side-link" onClick={() => navigate('/admin/users')}>
-						<Users size={18} />
-						<span>Users</span>
-					</button>
-					<button className="side-link active" onClick={() => navigate('/admin/settings')}>
-						<Settings size={18} />
-						<span>Settings</span>
-					</button>
-				</nav>
-				<div className="system-status">
-					<span className="status-dot online" />
-					<div>
-						<div className="status-title">System Online</div>
-						<div className="status-sub">All services operational</div>
-					</div>
-				</div>
-			</aside>
+		<AdminNavbar activePage="settings" />
 
-			{/* Main content */}
+		{loading ? (
+			<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+				<div style={{ textAlign: 'center' }}>
+					<Loader2 size={48} className="spinner" style={{ color: '#339432' }} />
+					<p style={{ marginTop: '16px', color: '#6f8876' }}>Loading settings...</p>
+				</div>
+			</main>
+		) : (
 			<main className="admin-main">
 				<header className="settings-header">
 					<div>
@@ -247,14 +204,8 @@ function AdminSettings() {
 					)}
 				</header>
 
-				{loading ? (
-					<div style={{ textAlign: 'center', padding: '60px 20px' }}>
-						<Loader2 size={48} className="spinner" style={{ color: '#339432' }} />
-						<p style={{ marginTop: '16px', color: '#6f8876' }}>Loading settings...</p>
-					</div>
-				) : (
-					<>
-					<div className="settings-grid">
+				<>
+				<div className="settings-grid">
 						{/* Account Settings */}
 						<section className="settings-card">
 							<div className="card-header">
@@ -576,32 +527,8 @@ function AdminSettings() {
 					</button>
 				</section>
 				</>
-				)}
 			</main>
-
-			{/* Bottom navigation (mobile) */}
-			<nav className="admin-bottom-nav" aria-label="Admin primary">
-				<button className="bn-item" onClick={() => navigate('/admin')}>
-					<LayoutDashboard size={20} />
-					<span>Dashboard</span>
-				</button>
-				<button className="bn-item" onClick={() => navigate('/admin/devices')}>
-					<Boxes size={20} />
-					<span>Devices</span>
-				</button>
-				<button className="bn-item" onClick={() => navigate('/admin/create')}>
-					<Plus size={20} />
-					<span>Add</span>
-				</button>
-				<button className="bn-item" onClick={() => navigate('/admin/users')}>
-					<Users size={20} />
-					<span>Users</span>
-				</button>
-				<button className="bn-item active" onClick={() => navigate('/admin/settings')}>
-					<Settings size={20} />
-					<span>Settings</span>
-				</button>
-			</nav>
+		)}
 
 			{/* Logout Confirmation Modal */}
 			<ConfirmModal
