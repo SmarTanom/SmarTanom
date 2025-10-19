@@ -1,8 +1,15 @@
 """
 WebSocket consumers for real-time device and collaborator updates.
 Broadcasts changes to all connected clients (admin and users).
+
+Production hardening notes:
+- Render can aggressively close idle WebSocket connections. We implement an
+    application-level heartbeat (ping/pong JSON messages) to keep connections
+    alive even if Daphne does not send protocol-level pings.
+- The device (ESP32) should also send periodic pings; we reply with pong.
 """
 import json
+import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils import timezone
@@ -230,6 +237,7 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.serial = self.scope['url_route']['kwargs'].get('serial')
         self.device_group = f"device_{self.serial}"
+        self._keepalive_task = None
 
         print(f"[DeviceWS] Connection attempt for serial={self.serial}")
         print(f"[DeviceWS] Scope: {self.scope.get('type')}, Path: {self.scope.get('path')}")
@@ -241,6 +249,10 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
 
             await self.accept()
             print(f"[DeviceWS] ✓ Connection accepted for serial={self.serial}")
+
+            # Start server-side keepalive pings (JSON) every 20 seconds
+            # This helps prevent Render proxy timeouts and keeps the TCP flow active
+            self._keepalive_task = asyncio.create_task(self._keepalive_loop())
         except Exception as e:
             print(f"[DeviceWS] ✗ Connection failed: {e}")
             await self.close(code=1011)
@@ -249,16 +261,35 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         # Leave device-specific group
         if hasattr(self, 'device_group'):
             await self.channel_layer.group_discard(self.device_group, self.channel_name)
+        # Stop keepalive task if any
+        if getattr(self, '_keepalive_task', None):
+            try:
+                self._keepalive_task.cancel()
+            except Exception:
+                pass
         print(f"[DeviceWS] Device channel disconnected serial={getattr(self, 'serial', None)} code={close_code}")
 
-    async def receive(self, text_data):
-        print(f"[DeviceWS] ← Received message from {getattr(self, 'serial', 'unknown')}: {text_data[:200]}")
+    async def receive(self, text_data=None, bytes_data=None):
+        # Support both text and binary payloads (common in ESP32 libs)
+        raw = text_data
+        if raw is None and bytes_data is not None:
+            try:
+                raw = bytes_data.decode('utf-8', errors='replace')
+            except Exception:
+                raw = ''
+
+        print(f"[DeviceWS] ← Received message from {getattr(self, 'serial', 'unknown')}: {str(raw)[:200]}")
 
         try:
-            data = json.loads(text_data or '{}')
+            data = json.loads(raw or '{}')
         except json.JSONDecodeError:
             print(f"[DeviceWS] ✗ Invalid JSON received")
             await self.send(text_data=json.dumps({"status": "error", "message": "invalid json"}))
+            return
+
+        # Respond to device heartbeat pings promptly
+        if data.get("type") == "ping":
+            await self.send(text_data=json.dumps({"type": "pong", "t": timezone.now().isoformat()}))
             return
 
         serial = (data.get("device_serial") or self.serial or "").upper()
@@ -340,6 +371,24 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                 "timestamp": timezone.now().isoformat(),
             },
         )
+
+    async def _keepalive_loop(self):
+        """Send periodic application-level pings to keep the WebSocket alive."""
+        try:
+            while True:
+                await asyncio.sleep(20)  # seconds
+                payload = {"type": "ping", "t": timezone.now().isoformat(), "serial": self.serial}
+                try:
+                    await self.send(text_data=json.dumps(payload))
+                    # Note: ESP32 should reply with {"type":"pong"}; absence is tolerated
+                    print(f"[DeviceWS] → Sent keepalive ping to {self.serial}")
+                except Exception as e:
+                    print(f"[DeviceWS] Keepalive send failed for {self.serial}: {e}")
+                    # Break to let connection close gracefully
+                    break
+        except asyncio.CancelledError:
+            # Task cancelled on disconnect
+            pass
 
     @database_sync_to_async
     def _get_or_create_device(self, serial: str):

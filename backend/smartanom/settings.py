@@ -423,18 +423,30 @@ ASGI_APPLICATION = 'smartanom.asgi.application'
 REDIS_URL = os.getenv('REDIS_URL', '')
 
 if REDIS_URL:
-    # Production: Use Redis for channel layer (required for multi-worker setups)
-    print(f"[Channels] Using Redis channel layer: {REDIS_URL[:20]}...")
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                'hosts': [REDIS_URL],
-                'capacity': 1500,  # Max messages per channel
-                'expiry': 10,      # Message expiry in seconds
-            },
-        },
-    }
+	# Production: Use Redis for channel layer (required for multi-worker setups)
+	# Support TLS via rediss:// scheme on Render Redis
+	from urllib.parse import urlparse as _urlparse
+
+	parsed = _urlparse(REDIS_URL)
+	is_tls = parsed.scheme == 'rediss'
+	safe_host = f"{parsed.scheme}://{parsed.hostname}:{parsed.port or 6379}"
+	print(f"[Channels] Using Redis channel layer: {safe_host}")
+	redis_config = {
+		'hosts': [REDIS_URL],
+		'capacity': 1500,  # Max messages per channel
+		'expiry': 10,      # Message expiry in seconds
+	}
+	# channels_redis will respect TLS when given rediss://; for some environments,
+	# explicit SSL flag improves compatibility.
+	if is_tls:
+		redis_config['ssl'] = True
+
+	CHANNEL_LAYERS = {
+		'default': {
+			'BACKEND': 'channels_redis.core.RedisChannelLayer',
+			'CONFIG': redis_config,
+		},
+	}
 else:
     # Development: Use in-memory channel layer (single-worker only)
     print("[Channels] Using in-memory channel layer (dev mode)")
