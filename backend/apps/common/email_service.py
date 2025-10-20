@@ -72,7 +72,7 @@ def _send_via_brevo_api(to_emails: List[str], subject: str, text: str, html: Opt
         return False
 
 
-def _send_via_smtp(to_emails: List[str], subject: str, text: str, html: Optional[str] = None) -> bool:
+def _send_via_smtp(to_emails: List[str], subject: str, text: str, html: Optional[str] = None, *, reply_to: Optional[str] = None, list_unsubscribe: Optional[str] = None) -> bool:
     from django.core.mail import EmailMultiAlternatives
     try:
         msg = EmailMultiAlternatives(
@@ -83,6 +83,19 @@ def _send_via_smtp(to_emails: List[str], subject: str, text: str, html: Optional
         )
         if html:
             msg.attach_alternative(html, "text/html")
+        # Optional anti-spam friendly headers
+        if reply_to:
+            try:
+                msg.extra_headers = msg.extra_headers or {}
+                msg.extra_headers['Reply-To'] = reply_to
+            except Exception:
+                pass
+        if list_unsubscribe:
+            try:
+                msg.extra_headers = msg.extra_headers or {}
+                msg.extra_headers['List-Unsubscribe'] = f"<{list_unsubscribe}>"
+            except Exception:
+                pass
         msg.send(fail_silently=False)
         logger.info("SMTP email sent: to=%s subject=%s", to_emails, subject)
         return True
@@ -91,7 +104,7 @@ def _send_via_smtp(to_emails: List[str], subject: str, text: str, html: Optional
         return False
 
 
-def send_email(to: str | List[str], subject: str, text: str, html: Optional[str] = None) -> bool:
+def send_email(to: str | List[str], subject: str, text: str, html: Optional[str] = None, *, reply_to: Optional[str] = None, list_unsubscribe: Optional[str] = None) -> bool:
     """Send an email using configured transport.
 
     Args:
@@ -106,11 +119,12 @@ def send_email(to: str | List[str], subject: str, text: str, html: Optional[str]
     transport = getattr(settings, 'EMAIL_TRANSPORT', 'smtp')
 
     if transport == 'brevo_api':
+        # Brevo API supports headers but we keep minimal payload for now
         ok = _send_via_brevo_api(recipients, subject, text, html)
         if ok:
             return True
         # fall back to SMTP if API fails and SMTP is configured
-        return _send_via_smtp(recipients, subject, text, html)
+        return _send_via_smtp(recipients, subject, text, html, reply_to=reply_to, list_unsubscribe=list_unsubscribe)
 
     # default SMTP path (or console backend if configured)
-    return _send_via_smtp(recipients, subject, text, html)
+    return _send_via_smtp(recipients, subject, text, html, reply_to=reply_to, list_unsubscribe=list_unsubscribe)

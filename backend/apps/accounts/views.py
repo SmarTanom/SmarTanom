@@ -52,10 +52,10 @@ def send_otp_email(email, code, purpose='login', device_name=None):
         logger.info(f"DEBUG MODE - OTP Code for {email}: {code} (Purpose: {purpose})")
 
     subject_map = {
-        'login': 'Your Login Code',
-        'register': 'Welcome! Your Verification Code',
-        'reset': 'Password Reset Code',
-        'revoke': '🔒 Device Access Revocation Confirmation'
+        'login': 'SmarTanom sign-in code',
+        'register': 'SmarTanom verification code',
+        'reset': 'SmarTanom password reset code',
+        'revoke': '🔒 Device access revocation confirmation'
     }
     subject = subject_map.get(purpose, 'Your Verification Code')
 
@@ -109,6 +109,8 @@ def send_otp_email(email, code, purpose='login', device_name=None):
             subject=subject,
             text=plain_message,
             html=html_message,
+            reply_to=support_email,
+            list_unsubscribe=(getattr(settings, 'LIST_UNSUBSCRIBE_URL', None) or getattr(settings, 'FRONTEND_URL', None)),
         )
         if ok:
             logger.info(f"OTP email sent successfully to {email}")
