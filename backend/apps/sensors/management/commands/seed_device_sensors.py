@@ -148,14 +148,11 @@ class Command(BaseCommand):
             return 1.6 + 0.3 * dv  # mS/cm typical hydroponic target
         if sensor_type == Sensor.SensorType.WATER_LEVEL:
             return float(wl_value) + 5.0 * dv
-        if sensor_type == Sensor.SensorType.AIR_TEMPERATURE:
-            return float(air_temp_value) - 2.0 * dv
+        
         if sensor_type == Sensor.SensorType.WATER_TEMPERATURE:
             return 22.0 + 1.0 * dv
-        if sensor_type == Sensor.SensorType.HUMIDITY:
-            return 45.0 + 5.0 * dv
-        if sensor_type == Sensor.SensorType.LIGHT:
-            return 3000.0 - 500.0 * dv
+        
+        
         if sensor_type == Sensor.SensorType.TURBIDITY:
             return 8.0 + 100.0 * dv
         # Default fallback

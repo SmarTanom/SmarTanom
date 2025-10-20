@@ -478,6 +478,7 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             logger.info(f"Device created: {device.device_serial} by admin {request.user.email}")
 
             # Automatically create a default set of sensors for the new device
+            # Environment sensors (air temperature, humidity, light) have been removed permanently
             default_sensor_types = [
                 Sensor.SensorType.PH,
                 Sensor.SensorType.TDS,
@@ -485,9 +486,6 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                 Sensor.SensorType.WATER_TEMPERATURE,
                 Sensor.SensorType.WATER_LEVEL,
                 Sensor.SensorType.TURBIDITY,
-                Sensor.SensorType.AIR_TEMPERATURE,
-                Sensor.SensorType.HUMIDITY,
-                Sensor.SensorType.LIGHT,
             ]
 
             created_sensors = []

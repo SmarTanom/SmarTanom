@@ -21,6 +21,7 @@ class Sensor(TimeStampedModel):
         WATER_TEMPERATURE = "water_temperature", "Water Temperature Sensor (°C)"
         WATER_LEVEL = "water_level", "Water Level Sensor"
         TURBIDITY = "turbidity", "Turbidity Sensor (NTU)"
+        # Environment sensors (air temperature, humidity, light) removed permanently
 
 
     device = models.ForeignKey(
