@@ -46,14 +46,7 @@ const generateAlertText = (s) => {
     }
   }
 
-  // Air temperature alerts (matching backend: AIR_TEMP_MIN=18, AIR_TEMP_MAX=26)
-  if (typeof s.temperature === 'number') {
-    if (s.temperature < 18) {
-      alerts.push(`Low Air Temperature: ${s.temperature.toFixed(1)}°C (below 18°C). Increase heating or insulation`);
-    } else if (s.temperature > 26) {
-      alerts.push(`High Air Temperature: ${s.temperature.toFixed(1)}°C (above 26°C). Improve ventilation or add cooling`);
-    }
-  }
+  // Air temperature removed
 
   // Turbidity alerts (matching backend: TURBIDITY_CLEAR=2100, TURBIDITY_CLOUDY=1800)
   if (typeof s.turbidity === 'number') {
@@ -64,21 +57,9 @@ const generateAlertText = (s) => {
     }
   }
 
-  // Light alerts (matching backend: LIGHT_HIGH=1500)
-  if (typeof s.light === 'number') {
-    if (s.light > 1500) {
-      alerts.push(`Very Bright Light: ${Math.round(s.light)} lux (above 1500). Provide shading or reduce lighting`);
-    }
-  }
+  // Light removed
 
-  // Humidity alerts (matching backend: HUMIDITY_MIN=50, HUMIDITY_MAX=70)
-  if (typeof s.humidity === 'number') {
-    if (s.humidity < 50) {
-      alerts.push(`Low Humidity: ${Math.round(s.humidity)}% (below 50%). Increase humidity with misters or humidifier`);
-    } else if (s.humidity > 70) {
-      alerts.push(`High Humidity: ${Math.round(s.humidity)}% (above 70%). Improve ventilation or dehumidify`);
-    }
-  }
+  // Humidity removed
 
   return alerts.length ? alerts[0] : 'All systems normal';
 };
@@ -168,9 +149,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
               case 'ec': latest.ec = last.value; break;
               case 'water_level': latest.waterLevel = last.value; break;
               case 'turbidity': latest.turbidity = last.value; break;
-              case 'air_temperature': latest.temperature = last.value; break;
-              case 'humidity': latest.humidity = last.value; break;
-              case 'light': latest.light = last.value; break;
+              // removed environment metrics
               case 'water_temperature': latest.water_temperature = last.value; break;
             }
           }
@@ -188,10 +167,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
           ph: latest.ph,
           tds: latest.tds,
           waterLevel: latest.waterLevel,
-          temperature: latest.temperature,
           turbidity: latest.turbidity,
-          light: latest.light,
-          humidity: latest.humidity
         });
 
         const prev = deviceData[d.id] || {};
@@ -206,12 +182,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
             turbidity: latest.turbidity,
             water_temperature: latest.water_temperature,
           },
-          environment: {
-            ...(prev.environment || {}),
-            temperature: latest.temperature,
-            humidity: latest.humidity,
-            light: latest.light,
-          },
+          // environment removed (humidity, temperature, light)
           nutrientText: getNutrientStatus(latest.tds),
           alertText,
           connectivity,
@@ -377,9 +348,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
       if (sensors.water_level !== undefined) nextSensors.waterLevel = sensors.water_level;
       if (sensors.turbidity !== undefined) nextSensors.turbidity = sensors.turbidity;
   if (sensors.water_temperature !== undefined) nextSensors.water_temperature = sensors.water_temperature;
-      if (sensors.temperature !== undefined) nextEnv.temperature = sensors.temperature;
-      if (sensors.humidity !== undefined) nextEnv.humidity = sensors.humidity;
-      if (sensors.light_lux !== undefined) nextEnv.light = sensors.light_lux;
+  // removed environment metrics from realtime updates
 
       // Recalculate derived values
       const nutrientText = getNutrientStatus(nextSensors.tds);
@@ -387,10 +356,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
         ph: nextSensors.ph,
         tds: nextSensors.tds,
         waterLevel: nextSensors.waterLevel,
-        temperature: nextEnv.temperature,
         turbidity: nextSensors.turbidity,
-        light: nextEnv.light,
-        humidity: nextEnv.humidity
       });
 
       // Update connectivity status
@@ -484,12 +450,9 @@ export const useRealtimeStore = create(persist((set, get) => ({
   const userId = getCurrentUserId();
   console.log('[RealtimeStore] Connecting with user ID:', userId);
 
-  // Important: connect to GLOBAL stream to ensure updates even for unbound devices.
-  // The backend always broadcasts sensor.update to the global "devices" group,
-  // and additionally to user-specific groups when a device is bound.
-  // Using the global stream guarantees the user dashboard receives real-time updates
-  // regardless of binding status.
-  wsClient.connect(null);
+  // Connect to USER-SPECIFIC stream so non-admin users only see their own device updates
+  // Admin pages can continue using global connections.
+  wsClient.connect(userId);
 
     // Subscribe to WebSocket messages
     const unsub = wsClient.subscribe(msg => {

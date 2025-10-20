@@ -26,14 +26,10 @@ class SensorAlertService:
     TDS_WARNING_HIGH = 1301  # 1301-1500: warning (fallback)
     WATER_LEVEL_CRITICAL = 0
     WATER_LEVEL_WARNING = 40
-    AIR_TEMP_MIN = 18
-    AIR_TEMP_MAX = 26
     TURBIDITY_CLEAR = 2100  # > 2100: clear (no alert)
     TURBIDITY_CLOUDY = 1800  # 1800-2100: cloudy (warning)
     # < 1800: turbid (critical)
-    LIGHT_HIGH = 1500  # > 1500: critical
-    HUMIDITY_MIN = 50
-    HUMIDITY_MAX = 70
+    # Removed environment sensors (air temp, humidity, light)
 
     # Plant-specific recommendation templates
     PLANT_RECOMMENDATION_TEMPLATES = {
@@ -253,7 +249,7 @@ class SensorAlertService:
         plant_ranges = None
         reservoir = None
         try:
-            if sensor_type in {"tds", "ec", "ph", "water_temperature", "light", "humidity", "air_temperature"}:
+            if sensor_type in {"tds", "ec", "ph", "water_temperature"}:
                 # Resolve the most recent reservoir for this device to get plant ranges
                 from apps.reservoirs.models import Reservoir
                 reservoir = (
@@ -273,12 +269,7 @@ class SensorAlertService:
                         "ph_max": float(plant.ph_max),
                         "water_temp_min": float(plant.water_temp_min),
                         "water_temp_max": float(plant.water_temp_max),
-                        "light_min": float(plant.light_min),
-                        "light_max": float(plant.light_max),
-                        "environment_temp_min": float(plant.environment_temp_min),
-                        "environment_temp_max": float(plant.environment_temp_max),
-                        "humidity_min": float(plant.humidity_min),
-                        "humidity_max": float(plant.humidity_max),
+                        # environment-related ranges intentionally omitted
                         "plant_name": plant.plant_name,
                         "plant_category": SensorAlertService._plant_category_for(plant.plant_name),
                     }
@@ -535,26 +526,7 @@ class SensorAlertService:
             if value <= SensorAlertService.WATER_LEVEL_WARNING:
                 return {"severity": "warning", "title": "Low Water Level", "body": (f"Water level is {value:.0f}% (below {SensorAlertService.WATER_LEVEL_WARNING}%). Refill soon and verify auto-refill settings or inspect for slow leaks.")}
 
-        # Air/environment temperature alerts
-        elif sensor_type == "air_temperature":
-            if plant_ranges:
-                tmin = plant_ranges.get("environment_temp_min")
-                tmax = plant_ranges.get("environment_temp_max")
-                span = max(0.0, float(tmax) - float(tmin))
-                buf = max(0.2, min(1.0, span * 0.1))
-                if value < tmin:
-                    return SensorAlertService._build_alert("environment_temp", "below_min", "warning", value, tmin, tmax, buf, plant_ranges)
-                if value <= (tmin + buf):
-                    return SensorAlertService._build_alert("environment_temp", "near_min", "warning", value, tmin, tmax, buf, plant_ranges)
-                if value > tmax:
-                    return SensorAlertService._build_alert("environment_temp", "above_max", "warning", value, tmin, tmax, buf, plant_ranges)
-                if value >= (tmax - buf):
-                    return SensorAlertService._build_alert("environment_temp", "near_max", "warning", value, tmin, tmax, buf, plant_ranges)
-            else:
-                if value < SensorAlertService.AIR_TEMP_MIN:
-                    return {"severity": "warning", "title": "Low Air Temperature", "body": (f"Air temperature is {value:.1f}°C (below {SensorAlertService.AIR_TEMP_MIN}°C). Increase heating or insulation."), "metric": "environment_temp", "trigger": "below_min"}
-                if value > SensorAlertService.AIR_TEMP_MAX:
-                    return {"severity": "warning", "title": "High Air Temperature", "body": (f"Air temperature is {value:.1f}°C (above {SensorAlertService.AIR_TEMP_MAX}°C). Improve ventilation or add cooling."), "metric": "environment_temp", "trigger": "above_max"}
+        # Air/environment temperature alerts removed
 
         # Turbidity alerts
         elif sensor_type == "turbidity":
@@ -564,24 +536,7 @@ class SensorAlertService:
                 return {"severity": "warning", "title": "Water Cloudy", "body": (f"Turbidity is {value:.0f} (cloudy range). Clean filters and consider partial water change.")}
             return {"severity": "critical", "title": "Water Turbid", "body": (f"Turbidity is {value:.0f} (turbid). Drain/refill, clean filters and tubing.")}
 
-        # Light alerts
-        elif sensor_type == "light":
-            if plant_ranges:
-                light_min = plant_ranges.get("light_min")
-                light_max = plant_ranges.get("light_max")
-                span = max(0.0, float(light_max) - float(light_min))
-                buf = max(10.0, min(200.0, span * 0.1))
-                if value < light_min:
-                    return SensorAlertService._build_alert("light", "below_min", "warning", value, light_min, light_max, buf, plant_ranges)
-                if value <= (light_min + buf):
-                    return SensorAlertService._build_alert("light", "near_min", "warning", value, light_min, light_max, buf, plant_ranges)
-                if value > light_max:
-                    return SensorAlertService._build_alert("light", "above_max", "critical", value, light_min, light_max, buf, plant_ranges)
-                if value >= (light_max - buf):
-                    return SensorAlertService._build_alert("light", "near_max", "warning", value, light_min, light_max, buf, plant_ranges)
-            else:
-                if value > SensorAlertService.LIGHT_HIGH:
-                    return {"severity": "critical", "title": "Very Bright Light Detected", "body": (f"Light is {value:.0f} lux (above {SensorAlertService.LIGHT_HIGH}). Provide shading or reduce lighting."), "metric": "light", "trigger": "above_max"}
+        # Light alerts removed
 
         # Water temperature alerts (plant-specific)
         elif sensor_type == "water_temperature":
@@ -615,26 +570,7 @@ class SensorAlertService:
                 if value >= (emax - buf):
                     return SensorAlertService._build_alert("ec", "near_max", "warning", value, emin, emax, buf, plant_ranges)
 
-        # Humidity alerts
-        elif sensor_type == "humidity":
-            if plant_ranges:
-                hmin = plant_ranges.get("humidity_min")
-                hmax = plant_ranges.get("humidity_max")
-                span = max(0.0, float(hmax) - float(hmin))
-                buf = max(2.0, min(10.0, span * 0.1))
-                if value < hmin:
-                    return SensorAlertService._build_alert("humidity", "below_min", "warning", value, hmin, hmax, buf, plant_ranges)
-                if value <= (hmin + buf):
-                    return SensorAlertService._build_alert("humidity", "near_min", "warning", value, hmin, hmax, buf, plant_ranges)
-                if value > hmax:
-                    return SensorAlertService._build_alert("humidity", "above_max", "warning", value, hmin, hmax, buf, plant_ranges)
-                if value >= (hmax - buf):
-                    return SensorAlertService._build_alert("humidity", "near_max", "warning", value, hmin, hmax, buf, plant_ranges)
-            else:
-                if value < SensorAlertService.HUMIDITY_MIN:
-                    return {"severity": "warning", "title": "Low Humidity Detected", "body": (f"Humidity is {value:.0f}% (below {SensorAlertService.HUMIDITY_MIN}%). Increase humidity (misters, trays, humidifier)."), "metric": "humidity", "trigger": "below_min"}
-                if value > SensorAlertService.HUMIDITY_MAX:
-                    return {"severity": "warning", "title": "High Humidity Detected", "body": (f"Humidity is {value:.0f}% (above {SensorAlertService.HUMIDITY_MAX}%). Improve ventilation or dehumidify."), "metric": "humidity", "trigger": "above_max"}
+        # Humidity alerts removed
 
         return None
 
@@ -672,22 +608,10 @@ class SensorAlertService:
             ("ec", "above_max"): "EC Above Optimal Range",
             ("ec", "near_min"): "EC Near Lower Limit",
             ("ec", "near_max"): "EC Near Upper Limit",
-            ("light", "below_min"): "Low Light Detected",
-            ("light", "above_max"): "High Light Detected",
-            ("light", "near_min"): "Light Near Lower Limit",
-            ("light", "near_max"): "Light Near Upper Limit",
-            ("environment_temp", "below_min"): "Low Environment Temperature",
-            ("environment_temp", "above_max"): "High Environment Temperature",
-            ("environment_temp", "near_min"): "Env Temp Near Lower Limit",
-            ("environment_temp", "near_max"): "Env Temp Near Upper Limit",
             ("water_temperature", "below_min"): "Low Water Temperature",
             ("water_temperature", "above_max"): "High Water Temperature",
             ("water_temperature", "near_min"): "Water Temp Near Lower Limit",
             ("water_temperature", "near_max"): "Water Temp Near Upper Limit",
-            ("humidity", "below_min"): "Low Humidity Detected",
-            ("humidity", "above_max"): "High Humidity Detected",
-            ("humidity", "near_min"): "Humidity Near Lower Limit",
-            ("humidity", "near_max"): "Humidity Near Upper Limit",
         }
 
         # Human body text include ranges
@@ -699,13 +623,10 @@ class SensorAlertService:
             "ph": "",
             "tds": " ppm",
             "ec": " mS/cm",
-            "light": " lux",
-            "environment_temp": " °C",
             "water_temperature": " °C",
-            "humidity": " %",
         }.get(metric, "")
 
-        if metric in ("ph", "tds", "ec", "light", "environment_temp", "water_temperature", "humidity"):
+        if metric in ("ph", "tds", "ec", "water_temperature"):
             body = (
                 f"{metric.upper()} is {value:.1f}{unit} (trigger: {trigger}{rng}{plant_suffix}). "
                 f"{rec}"

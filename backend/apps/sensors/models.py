@@ -22,12 +22,6 @@ class Sensor(TimeStampedModel):
         WATER_LEVEL = "water_level", "Water Level Sensor"
         TURBIDITY = "turbidity", "Turbidity Sensor (NTU)"
 
-        # DHT22 sensor (dual function)
-        AIR_TEMPERATURE = "air_temperature", "Air Temperature - DHT22 (°C)"
-        HUMIDITY = "humidity", "Humidity - DHT22 (%)"
-
-        # BH1750 light sensor
-        LIGHT = "light", "Light Sensor - BH1750 (lux)"
 
     device = models.ForeignKey(
         Device, on_delete=models.CASCADE, related_name="sensors", db_index=True
@@ -59,12 +53,9 @@ class Sensor(TimeStampedModel):
             # Set default units based on sensor type
             default_units = {
                 self.SensorType.WATER_TEMPERATURE: "°C",
-                self.SensorType.HUMIDITY: "%",
-                self.SensorType.AIR_TEMPERATURE: "°C",
                 self.SensorType.PH: "pH",
                 self.SensorType.TDS: "ppm",
                 self.SensorType.EC: "mS/cm",
-                self.SensorType.LIGHT: "lux",
                 self.SensorType.WATER_LEVEL: "%",
                 self.SensorType.TURBIDITY: "NTU",
             }
@@ -115,10 +106,7 @@ class Alert(TimeStampedModel):
         PH = "ph", _("pH")
         TDS = "tds", _("TDS (ppm)")
         EC = "ec", _("Electrical Conductivity (mS/cm)")
-        LIGHT = "light", _("Light (lux)")
-        ENVIRONMENT_TEMP = "environment_temp", _("Environment Temperature (°C)")
         WATER_TEMPERATURE = "water_temperature", _("Water Temperature (°C)")
-        HUMIDITY = "humidity", _("Humidity (%)")
 
     class PlantCategory(models.TextChoices):
         LETTUCE = "Lettuce", _("Lettuce")

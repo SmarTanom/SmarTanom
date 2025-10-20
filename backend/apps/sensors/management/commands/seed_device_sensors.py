@@ -11,9 +11,9 @@ from apps.sensors.models import Sensor, SensorData
 
 class Command(BaseCommand):
     help = (
-        "Seed sensors and one SensorData per sensor for the specified devices. "
-        "Ensures key sensors exist (ph, tds, water_level, air_temperature) and assigns values "
-        "that will trigger dashboard alerts (e.g., low TDS, high pH, low water level, high temp)."
+    "Seed sensors and one SensorData per sensor for the specified devices. "
+    "Ensures key sensors exist (ph, tds, ec, water_level, water_temperature, turbidity) and assigns values "
+    "that will trigger dashboard alerts (e.g., low TDS, high pH, low water level)."
     )
 
     def add_arguments(self, parser):
@@ -30,8 +30,7 @@ class Command(BaseCommand):
                             help="pH reading value. Default 7.2 triggers high pH alert.")
         parser.add_argument("--water-level-value", type=float, default=10.0,
                             help="Water level reading (percent). Default 10 triggers low water alert.")
-        parser.add_argument("--air-temp-value", type=float, default=30.0,
-                            help="Air temperature (°C). Default 30 triggers temp alert.")
+    # Air temperature deprecated
         parser.add_argument("--update-existing", action="store_true",
                             help="If set, update the value of an existing reading for each sensor instead of skipping.")
         parser.add_argument(
@@ -49,7 +48,7 @@ class Command(BaseCommand):
         tds_value = options.get("tds_value", 250.0)
         ph_value = options.get("ph_value", 7.2)
         wl_value = options.get("water_level_value", 10.0)
-        air_temp_value = options.get("air_temp_value", 30.0)
+    # deprecated air_temp_value not used
         update_existing = bool(options.get("update_existing", False))
         ph_history_add = int(options.get("ph_history_add", 0) or 0)
 
@@ -73,9 +72,7 @@ class Command(BaseCommand):
                     Sensor.SensorType.TDS: "ppm",
                     Sensor.SensorType.EC: "mS/cm",
                     Sensor.SensorType.WATER_LEVEL: "%",
-                    Sensor.SensorType.AIR_TEMPERATURE: "°C",
-                    Sensor.SensorType.HUMIDITY: "%",
-                    Sensor.SensorType.LIGHT: "lux",
+                    Sensor.SensorType.WATER_TEMPERATURE: "°C",
                     Sensor.SensorType.TURBIDITY: "NTU",
                 }
                 for s_type, unit in key_sensor_units.items():
@@ -94,7 +91,7 @@ class Command(BaseCommand):
                         ph_value=ph_value,
                         tds_value=tds_value,
                         wl_value=wl_value,
-                        air_temp_value=air_temp_value,
+                        air_temp_value=0.0,
                         offset_index=idx,
                     )
 

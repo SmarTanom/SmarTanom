@@ -81,15 +81,7 @@ const transformSensorData = (sensors, sensorDataMap) => {
       case 'turbidity':
         sensorMap.turbidity = value;
         break;
-      case 'air_temperature':
-        sensorMap.temperature = value;
-        break;
-      case 'humidity':
-        sensorMap.humidity = value;
-        break;
-      case 'light':
-        sensorMap.light = value;
-        break;
+      // removed environment metrics
     }
   });
 
@@ -286,9 +278,7 @@ function classifyValue(value, min, max) {
 const classifyPH = (v, plant) => plant ? classifyValue(Number(v), plant.ph_min, plant.ph_max) : { severity: 'none' };
 const classifyTDS = (v, plant) => plant ? classifyValue(Number(v), plant.ppm_min, plant.ppm_max) : { severity: 'none' };
 const classifyEC = (v, plant) => plant ? classifyValue(Number(v), plant.ec_min, plant.ec_max) : { severity: 'none' };
-const classifyEnvTemp = (v, plant) => plant ? classifyValue(Number(v), plant.environment_temp_min, plant.environment_temp_max) : { severity: 'none' };
-const classifyHumidity = (v, plant) => plant ? classifyValue(Number(v), plant.humidity_min, plant.humidity_max) : { severity: 'none' };
-const classifyLight = (v, plant) => plant ? classifyValue(Number(v), plant.light_min, plant.light_max) : { severity: 'none' };
+// removed environment classifiers
 const classifyWaterTemp = (v, plant) => plant ? classifyValue(Number(v), plant.water_temp_min, plant.water_temp_max) : { severity: 'none' };
 // --- END shared alert classification ---
 
@@ -799,8 +789,7 @@ export default function Dashboard() {
         },
         environment: {
           ...(typeof transformedSensors.temperature === 'number' ? { temperature: transformedSensors.temperature } : {}),
-          ...(typeof transformedSensors.humidity === 'number' ? { humidity: transformedSensors.humidity } : {}),
-          ...(typeof transformedSensors.light === 'number' ? { light: transformedSensors.light } : {}),
+          // environment metrics removed
         },
         sensors_raw: sensors || [],
         reservoirs: reservoirs || [],

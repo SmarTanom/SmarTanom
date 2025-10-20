@@ -18,9 +18,7 @@ SENSOR_TYPES = [
     "tds",
     "water_level",
     "turbidity",
-    "air_temperature",
-    "humidity",
-    "light",
+    "water_temperature",
 ]
 
 # Nominal demo ranges (adjust as needed)
@@ -30,9 +28,7 @@ RANGES: Dict[str, tuple] = {
     "tds": (820, 1400),
     "water_level": (45, 95),
     "turbidity": (5, 30),
-    "air_temperature": (20, 26),
-    "humidity": (45, 70),
-    "light": (250, 1200),
+    "water_temperature": (18, 28),
 }
 
 

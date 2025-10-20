@@ -69,9 +69,6 @@ def broadcast_sensor_realtime(sender, instance, created, **kwargs):
                     'ph': 'ph',
                     'ec': 'ec',
                     'tds': 'tds',
-                    'air_temperature': 'temperature',
-                    'humidity': 'humidity',
-                    'light': 'light_lux',
                     'water_level': 'water_level',
                     'turbidity': 'turbidity',
                     'water_temperature': 'water_temperature'
