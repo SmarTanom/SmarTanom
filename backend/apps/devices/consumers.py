@@ -12,6 +12,8 @@ import json
 import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 from django.utils import timezone
 from apps.devices.models import Device
 
@@ -493,6 +495,67 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
             # Turbidity stored as NTU (dashboard displays NTU)
             'turbidity': ('turbidity', 'NTU'),
         }
+
+        # 1) Pre-broadcast to dashboard BEFORE saving, so UI updates instantly
+        try:
+            # Build an immediate sensors map from incoming payload
+            outgoing_keys = {
+                'ph': 'ph',
+                'tds': 'tds',
+                'ec': 'ec',
+                'water_level': 'water_level',
+                'turbidity': 'turbidity',
+                'water_temp': 'water_temperature',
+                'water_temperature': 'water_temperature',
+            }
+            sensors_out = {}
+            for key, val in (sensor_data or {}).items():
+                if key not in outgoing_keys or val is None:
+                    continue
+                try:
+                    v = float(val)
+                except Exception:
+                    continue
+                # Convert turbidity RAW -> NTU if needed
+                if key == 'turbidity':
+                    try:
+                        if v > 1000.0:
+                            VREF = 3.3
+                            ADC_RES = 4095.0
+                            TURBIDITY_CLEAR_VOLTAGE = 3.0   # 0 NTU
+                            TURBIDITY_MAX_VOLTAGE = 0.5     # 1000 NTU
+                            voltage = max(0.0, min(VREF, (v * VREF) / ADC_RES))
+                            span_in = TURBIDITY_CLEAR_VOLTAGE - TURBIDITY_MAX_VOLTAGE
+                            ntu = 0.0 if span_in == 0 else (TURBIDITY_CLEAR_VOLTAGE - voltage) * (1000.0 / span_in)
+                            v = max(0.0, min(1000.0, ntu))
+                        else:
+                            v = max(0.0, min(1000.0, v))
+                    except Exception:
+                        pass
+                sensors_out[outgoing_keys[key]] = v
+
+            if sensors_out:
+                channel_layer = get_channel_layer()
+                if channel_layer:
+                    pre_payload = {
+                        "type": "sensor.update",
+                        "device_id": device.id,
+                        "device_serial": device.device_serial,
+                        "device_name": device.device_name,
+                        "timestamp": timezone.now().isoformat(),
+                        "sensors": sensors_out,
+                        "pre_save": True,
+                    }
+                    async_to_sync(channel_layer.group_send)(
+                        "devices",
+                        {
+                            "type": "sensor_update",
+                            "payload": pre_payload,
+                        },
+                    )
+                    print(f"[DeviceWS] Pre-broadcast sensor.update for {device.device_serial}: keys={list(sensors_out.keys())}")
+        except Exception as e:
+            print(f"[DeviceWS] Warning: pre-broadcast failed for {device.device_serial}: {e}")
 
         for key, (sensor_type, unit) in sensor_types.items():
             value = sensor_data.get(key)
