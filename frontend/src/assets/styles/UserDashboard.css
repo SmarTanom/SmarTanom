@@ -49,7 +49,17 @@ body { background: var(--color-bg); }
 .dashboard-root { min-height:100vh; padding-bottom:80px; background:var(--color-bg); display:flex; flex-direction:column; }
 
 /* 1. Header */
-.dash-header { padding: var(--space-4) var(--space-4) var(--space-2); display:flex; justify-content:space-between; align-items:center; background:var(--color-bg); }
+.dash-header {
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:var(--color-bg);
+  /* Ensure header sits above subsequent sections and adds separation to avoid overlap */
+  position: relative;
+  z-index: 1;
+  margin-bottom: var(--space-4);
+}
 .dash-header-title { font-family: 'Abril Fatface', serif; font-size: 32px; font-weight: 400; color: rgba(17, 17, 17, 0.86); display:flex; align-items:center; gap:8px; margin:0; }
 .dash-header-title svg { display:none; }
 .dash-header-emoji { font-size:1.2em; line-height:1; display:inline-block; transform:translateY(1px); font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Twemoji Mozilla","EmojiOne Color",sans-serif !important; }
