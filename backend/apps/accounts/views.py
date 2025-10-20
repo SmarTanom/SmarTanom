@@ -61,6 +61,10 @@ def send_otp_email(email, code, purpose='login', device_name=None):
 
     expire_minutes = getattr(settings, 'OTP_EXPIRE_MINUTES', 5)
 
+    # Helpful defaults for templates
+    app_url = getattr(settings, 'FRONTEND_URL', None)
+    support_email = getattr(settings, 'SUPPORT_EMAIL', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None)
+
     # Use custom templates for device revocation
     if purpose == 'revoke':
         from django.template.loader import render_to_string
@@ -74,6 +78,8 @@ def send_otp_email(email, code, purpose='login', device_name=None):
             'request_ip': 'system',
             'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC'),
             'year': timezone.now().year,
+            'app_url': app_url,
+            'support_email': support_email,
         }
 
         html_message = render_to_string('emails/device_revoke_otp_email.html', context)
@@ -89,6 +95,8 @@ def send_otp_email(email, code, purpose='login', device_name=None):
             'request_ip': 'system',
             'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC'),
             'year': timezone.now().year,
+            'app_url': app_url,
+            'support_email': support_email,
         }
         html_message = render_to_string('emails/otp_email.html', context)
         plain_message = render_to_string('emails/otp_email.txt', context)
