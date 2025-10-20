@@ -101,15 +101,19 @@ function AdminUsers() {
 	const totalRegularDevices = regularUsers.reduce((sum, user) => sum + user.totalDeviceCount, 0);
 	const avgPerRegularUser = totalRegularUsers > 0 ? (totalRegularDevices / totalRegularUsers).toFixed(1) : '0.0';
 
-	const filteredAdmins = adminUsers.filter(user =>
-		user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-		user.email.toLowerCase().includes(searchQuery.toLowerCase())
-	);
+	// Safe, case-insensitive filtering (handles missing name/email)
+	const normalizedQuery = (searchQuery || '').toLowerCase();
+	const filteredAdmins = adminUsers.filter(user => {
+		const name = (user?.name || '').toLowerCase();
+		const email = (user?.email || '').toLowerCase();
+		return name.includes(normalizedQuery) || email.includes(normalizedQuery);
+	});
 
-	const filteredRegularUsers = regularUsers.filter(user =>
-		user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-		user.email.toLowerCase().includes(searchQuery.toLowerCase())
-	);
+	const filteredRegularUsers = regularUsers.filter(user => {
+		const name = (user?.name || '').toLowerCase();
+		const email = (user?.email || '').toLowerCase();
+		return name.includes(normalizedQuery) || email.includes(normalizedQuery);
+	});
 
 	// Handle device button click
 	const handleViewDevices = async (user) => {

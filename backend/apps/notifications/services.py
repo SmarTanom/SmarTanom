@@ -206,9 +206,9 @@ class PushNotificationService:
         # Send email notification if enabled
         try:
             from apps.accounts.models import UserPreferences
-            from django.core.mail import EmailMultiAlternatives
             from django.template.loader import render_to_string
             from django.utils import timezone
+            from apps.common.email_service import send_email as _send_email
 
             notif_prefs = NotificationPreferences.objects.filter(user=user).first()
             user_prefs = UserPreferences.objects.filter(user=user).first()
@@ -248,17 +248,18 @@ class PushNotificationService:
                 text_content = render_to_string('emails/alert_notification.txt', context)
                 html_content = render_to_string('emails/alert_notification.html', context)
 
-                # Create email with both text and HTML versions
-                email = EmailMultiAlternatives(
-                    subject=subject,
-                    body=text_content,
-                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@smartanom.com'),
-                    to=[user.email]
-                )
-                email.attach_alternative(html_content, "text/html")
-                email.send(fail_silently=False)
-
-                logger.info(f"Email notification sent to {user.email}: {title.replace('🌱 ', '')}")
+                # Send via centralized email service (Brevo API or SMTP)
+                if _send_email(
+                    user.email,
+                    subject,
+                    text_content,
+                    html_content,
+                    reply_to=getattr(settings, 'SUPPORT_EMAIL', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+                    list_unsubscribe=f"{frontend_url}/profile/notifications",
+                ):
+                    logger.info(f"Email notification sent to {user.email}: {title.replace('🌱 ', '')}")
+                else:
+                    logger.error(f"Email service reported failure for {user.email}: {title}")
         except Exception as e:
             logger.error(f"Failed to send email notification to {user.email}: {e}")
 
@@ -401,9 +402,9 @@ class PushNotificationService:
                 email_enabled = False
 
             if email_enabled and user.email:
-                from django.core.mail import EmailMultiAlternatives
                 from django.template.loader import render_to_string
                 from django.utils import timezone
+                from apps.common.email_service import send_email as _send_email
 
                 # Get device name if device_id provided
                 device_name = None
@@ -438,17 +439,18 @@ class PushNotificationService:
                 text_content = render_to_string('emails/alert_notification.txt', context)
                 html_content = render_to_string('emails/alert_notification.html', context)
 
-                # Create email with both text and HTML versions
-                email = EmailMultiAlternatives(
-                    subject=subject,
-                    body=text_content,
-                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@smartanom.com'),
-                    to=[user.email]
-                )
-                email.attach_alternative(html_content, "text/html")
-                email.send(fail_silently=False)
-
-                logger.info(f"Alert email sent to {user.email}: {alert_title}")
+                # Send via centralized email service
+                if _send_email(
+                    user.email,
+                    subject,
+                    text_content,
+                    html_content,
+                    reply_to=getattr(settings, 'SUPPORT_EMAIL', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+                    list_unsubscribe=f"{frontend_url}/profile/notifications",
+                ):
+                    logger.info(f"Alert email sent to {user.email}: {alert_title}")
+                else:
+                    logger.error(f"Alert email failed for {user.email}: {alert_title}")
         except NotificationPreferences.DoesNotExist:
             pass
         except Exception as e:

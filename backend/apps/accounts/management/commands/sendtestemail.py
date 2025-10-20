@@ -1,8 +1,8 @@
 from django.core.management.base import BaseCommand, CommandError
-from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils import timezone
+from apps.common.email_service import send_email as _send_email
 
 TEST_SUBJECT = "SmarTanom Email Transport Test"
 
@@ -43,22 +43,16 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.WARNING(f"HTML template render failed: {e}"))
 
-        message = EmailMultiAlternatives(
-            subject=TEST_SUBJECT,
-            body=text_body,
-            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None) or settings.EMAIL_HOST_USER,
-            to=[recipient],
-        )
-        if html_body:
-            message.attach_alternative(html_body, "text/html")
-
         try:
-            sent = message.send()
+            sent = _send_email(recipient, TEST_SUBJECT, text_body, html_body)
         except Exception as e:
             raise CommandError(f"Failed to send test email: {e}")
 
         if sent:
             self.stdout.write(self.style.SUCCESS(f"Test email dispatched to {recipient}"))
+            transport = getattr(settings, 'EMAIL_TRANSPORT', 'smtp')
+            if transport == 'brevo_api':
+                self.stdout.write(f"Transport=brevo_api (BREVO_API_KEY configured: {'YES' if getattr(settings,'BREVO_API_KEY','') else 'NO'})")
             self.stdout.write(
                 f"Backend={settings.EMAIL_BACKEND} Host={getattr(settings,'EMAIL_HOST', '')}:{getattr(settings,'EMAIL_PORT','')} TLS={'YES' if getattr(settings,'EMAIL_USE_TLS', False) else 'NO'}"
             )

@@ -81,15 +81,7 @@ const transformSensorData = (sensors, sensorDataMap) => {
       case 'turbidity':
         sensorMap.turbidity = value;
         break;
-      case 'air_temperature':
-        sensorMap.temperature = value;
-        break;
-      case 'humidity':
-        sensorMap.humidity = value;
-        break;
-      case 'light':
-        sensorMap.light = value;
-        break;
+      // removed environment metrics
     }
   });
 
@@ -286,9 +278,7 @@ function classifyValue(value, min, max) {
 const classifyPH = (v, plant) => plant ? classifyValue(Number(v), plant.ph_min, plant.ph_max) : { severity: 'none' };
 const classifyTDS = (v, plant) => plant ? classifyValue(Number(v), plant.ppm_min, plant.ppm_max) : { severity: 'none' };
 const classifyEC = (v, plant) => plant ? classifyValue(Number(v), plant.ec_min, plant.ec_max) : { severity: 'none' };
-const classifyEnvTemp = (v, plant) => plant ? classifyValue(Number(v), plant.environment_temp_min, plant.environment_temp_max) : { severity: 'none' };
-const classifyHumidity = (v, plant) => plant ? classifyValue(Number(v), plant.humidity_min, plant.humidity_max) : { severity: 'none' };
-const classifyLight = (v, plant) => plant ? classifyValue(Number(v), plant.light_min, plant.light_max) : { severity: 'none' };
+// removed environment classifiers
 const classifyWaterTemp = (v, plant) => plant ? classifyValue(Number(v), plant.water_temp_min, plant.water_temp_max) : { severity: 'none' };
 // --- END shared alert classification ---
 
@@ -799,8 +789,7 @@ export default function Dashboard() {
         },
         environment: {
           ...(typeof transformedSensors.temperature === 'number' ? { temperature: transformedSensors.temperature } : {}),
-          ...(typeof transformedSensors.humidity === 'number' ? { humidity: transformedSensors.humidity } : {}),
-          ...(typeof transformedSensors.light === 'number' ? { light: transformedSensors.light } : {}),
+          // environment metrics removed
         },
         sensors_raw: sensors || [],
         reservoirs: reservoirs || [],
@@ -2200,35 +2189,17 @@ export default function Dashboard() {
               <span className="sensor-value">{data && typeof data.sensors?.turbidity === 'number' ? `${data.sensors.turbidity.toFixed(1)} NTU` : 'Loading...'}</span>
             </div>
           </div>
-        </section>
-
-        {/* Environment */}
-        <section className="card environment-card" aria-label="Environment conditions">
-          <h3 className="environment-title">Environment Conditions</h3>
-          <div className="environment-list">
-            <div className="environment-row">
-              <div className="icon-circle">
-                <Thermometer size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              </div>
-              <span className="environment-label">Temperature</span>
-              <span className="environment-value">{data && typeof data.environment?.temperature === 'number' ? `${data.environment.temperature.toFixed(1)}°C` : 'Loading...'}</span>
+          <div className="sensor-cell">
+            <div className="icon-circle">
+              <Thermometer size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
-            <div className="environment-row">
-              <div className="icon-circle">
-                <Wind size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              </div>
-              <span className="environment-label">Humidity</span>
-              <span className="environment-value">{data && typeof data.environment?.humidity === 'number' ? `${Math.round(data.environment.humidity)}%` : 'Loading...'}</span>
-            </div>
-            <div className="environment-row">
-              <div className="icon-circle">
-                <Sun size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              </div>
-              <span className="environment-label">Light Intensity</span>
-              <span className="environment-value">{data && typeof data.environment?.light === 'number' ? `${Math.round(data.environment.light).toLocaleString()} Lux` : 'Loading...'}</span>
+            <div className="sensor-cell-content">
+              <span className="sensor-label">Water Temp</span>
+              <span className="sensor-value">{data && typeof data.sensors?.water_temperature === 'number' ? `${data.sensors.water_temperature.toFixed(1)}°C` : 'Loading...'}</span>
             </div>
           </div>
         </section>
+        {/* Environment card removed per request */}
       </main>
 
       {/* Bottom navigation */}

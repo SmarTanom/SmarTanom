@@ -119,16 +119,20 @@ def send_bind_otp_email(device, email, code):
     )
 
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            html_message=html_message,
-            fail_silently=False,
+        from apps.common.email_service import send_email as _send_email
+        ok = _send_email(
+            email,
+            subject,
+            plain_message,
+            html_message,
+            reply_to=getattr(settings, 'SUPPORT_EMAIL', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            list_unsubscribe=getattr(settings, 'LIST_UNSUBSCRIBE_URL', None) or getattr(settings, 'FRONTEND_URL', None),
         )
-        logger.info(f"Bind OTP email sent for device {device.device_serial} to {email}")
-        return True
+        if ok:
+            logger.info(f"Bind OTP email sent for device {device.device_serial} to {email}")
+            return True
+        logger.error(f"Bind OTP email service reported failure for {email}")
+        return False
     except Exception as e:
         logger.error(f"Failed to send bind OTP email: {str(e)}")
         return False
@@ -182,16 +186,13 @@ def send_ownership_removal_otp_email(device, admin_email, code):
     )
 
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[device.bound_email],
-            html_message=html_message,
-            fail_silently=False,
-        )
-        logger.info(f"Ownership removal OTP email sent for device {device.device_serial} to {device.bound_email} (admin: {admin_email})")
-        return True
+        from apps.common.email_service import send_email as _send_email
+        ok = _send_email(device.bound_email, subject, plain_message, html_message)
+        if ok:
+            logger.info(f"Ownership removal OTP email sent for device {device.device_serial} to {device.bound_email} (admin: {admin_email})")
+            return True
+        logger.error(f"Ownership removal OTP email service reported failure for {device.bound_email}")
+        return False
     except Exception as e:
         logger.error(f"Failed to send ownership removal OTP email: {str(e)}")
         return False
@@ -245,16 +246,13 @@ def send_collaborator_otp_email(device, collaborator_email, code):
     )
 
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[collaborator_email],
-            html_message=html_message,
-            fail_silently=False,
-        )
-        logger.info(f"Collaborator OTP email sent for device {device.device_serial} to {collaborator_email}")
-        return True
+        from apps.common.email_service import send_email as _send_email
+        ok = _send_email(collaborator_email, subject, plain_message, html_message)
+        if ok:
+            logger.info(f"Collaborator OTP email sent for device {device.device_serial} to {collaborator_email}")
+            return True
+        logger.error(f"Collaborator OTP email service reported failure for {collaborator_email}")
+        return False
     except Exception as e:
         logger.error(f"Failed to send collaborator OTP email: {str(e)}")
         return False
@@ -306,16 +304,13 @@ def send_collaborator_invite_email(device, collaborator_email):
     """
 
     try:
-        send_mail(
-            subject,
-            plain_message,
-            settings.DEFAULT_FROM_EMAIL,
-            [collaborator_email],
-            html_message=html_message,
-            fail_silently=False,
-        )
-        logger.info(f"Collaborator invite email sent to {collaborator_email} for device {device.device_serial}")
-        return True
+        from apps.common.email_service import send_email as _send_email
+        ok = _send_email(collaborator_email, subject, plain_message, html_message)
+        if ok:
+            logger.info(f"Collaborator invite email sent to {collaborator_email} for device {device.device_serial}")
+            return True
+        logger.error(f"Collaborator invite email service reported failure for {collaborator_email}")
+        return False
     except Exception as e:
         logger.error(f"Failed to send collaborator invite email: {str(e)}")
         return False
@@ -326,49 +321,30 @@ def send_device_otp_email(device_serial, email, code):
     expire_minutes = getattr(settings, 'OTP_EXPIRE_MINUTES', 5)
     subject = f"SmarTanom - Device Binding Verification"
 
-    html_message = f"""
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    </head>
-    <body style="margin: 0; padding: 20px; font-family: Arial, sans-serif; background-color: #f5f5f5;">
-        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; padding: 30px;">
-            <h2 style="color: #333; text-align: center;">SmarTanom</h2>
-            <h3 style="color: #666;">Device Binding Verification</h3>
-            <p style="color: #666;">Use the verification code below to bind device <strong>{device_serial}</strong> to your email address.</p>
-            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                <h1 style="color: #007bff; font-size: 36px; letter-spacing: 8px; margin: 0;">{code}</h1>
-            </div>
-            <p style="color: #666;">This code will expire in {expire_minutes} minute(s).</p>
-            <p style="color: #666;">If you didn't request this code, please ignore this email.</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-            <p style="color: #999; font-size: 12px; text-align: center;">
-                This is an automated message from SmarTanom. Please do not reply.
-            </p>
-        </div>
-    </body>
-    </html>
-    """
-
-    plain_message = (
-        "SmarTanom - Device Binding Verification\n\n"
-        f"Your verification code for device {device_serial} is: {code}\n\n"
-        f"This code will expire in {expire_minutes} minute(s).\n\n"
-        "If you didn't request this code, please ignore this email."
-    )
+    # Use unified templates
+    context = {
+        'code': code,
+        'device_serial': device_serial,
+        'expiry_minutes': expire_minutes,
+        'site_name': 'SmarTanom',
+        'request_ip': 'system',
+        'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC'),
+        'year': timezone.now().year,
+        'app_url': getattr(settings, 'FRONTEND_URL', None),
+        'support_email': getattr(settings, 'SUPPORT_EMAIL', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+    }
+    from django.template.loader import render_to_string
+    html_message = render_to_string('emails/device_binding_otp_email.html', context)
+    plain_message = render_to_string('emails/device_binding_otp_email.txt', context)
 
     try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            html_message=html_message,
-            fail_silently=False,
-        )
-        logger.info(f"Device OTP email sent successfully for {device_serial} to {email}")
-        return True
+        from apps.common.email_service import send_email as _send_email
+        ok = _send_email(email, subject, plain_message, html_message)
+        if ok:
+            logger.info(f"Device OTP email sent successfully for {device_serial} to {email}")
+            return True
+        logger.error(f"Device OTP email service reported failure for {email}")
+        return False
     except Exception as e:
         logger.error(f"Failed to send device OTP email for {device_serial} to {email}: {str(e)}")
         return False
@@ -395,16 +371,13 @@ def send_device_invitation_email(invitation):
         html_message = render_to_string('emails/device_invitation_email.html', context)
         plain_message = render_to_string('emails/device_invitation_email.txt', context)
 
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[invitation.invite_email],
-            html_message=html_message,
-            fail_silently=False,
-        )
-        logger.info("Invitation email sent to %s for device %s", invitation.invite_email, invitation.device.device_serial)
-        return True
+        from apps.common.email_service import send_email as _send_email
+        ok = _send_email(invitation.invite_email, subject, plain_message, html_message)
+        if ok:
+            logger.info("Invitation email sent to %s for device %s", invitation.invite_email, invitation.device.device_serial)
+            return True
+        logger.error("Invitation email service reported failure for %s", invitation.invite_email)
+        return False
     except Exception as e:
         logger.exception("Failed to send device invitation email: %s", e)
         return False

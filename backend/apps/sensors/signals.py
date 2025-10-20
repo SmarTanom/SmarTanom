@@ -50,7 +50,7 @@ def broadcast_sensor_realtime(sender, instance, created, **kwargs):
 
         # Get all latest sensor readings for this device efficiently
         device_sensors = Sensor.objects.filter(device=device).select_related('device')
-        
+
         sensor_data_dict = {}
         for dev_sensor in device_sensors:
             # Get the most recent reading for each sensor type
@@ -59,7 +59,7 @@ def broadcast_sensor_realtime(sender, instance, created, **kwargs):
                 .order_by('-created_at')
                 .first()
             )
-            
+
             if latest_reading:
                 sensor_type = dev_sensor.sensor_type
                 value = float(latest_reading.value)
@@ -67,18 +67,37 @@ def broadcast_sensor_realtime(sender, instance, created, **kwargs):
                 # Map to your desired payload structure
                 sensor_mapping = {
                     'ph': 'ph',
-                    'ec': 'ec', 
+                    'ec': 'ec',
                     'tds': 'tds',
-                    'air_temperature': 'temperature',
-                    'humidity': 'humidity',
-                    'light': 'light_lux',
                     'water_level': 'water_level',
                     'turbidity': 'turbidity',
                     'water_temperature': 'water_temperature'
                 }
-                
+
                 if sensor_type in sensor_mapping:
-                    sensor_data_dict[sensor_mapping[sensor_type]] = value
+                    key = sensor_mapping[sensor_type]
+                    # Special handling: ensure turbidity is in NTU. If stored unit
+                    # is already NTU (current ingestion behavior) or value looks like NTU
+                    # (<= 1000), pass through; otherwise convert RAW ADC -> NTU.
+                    if sensor_type == 'turbidity':
+                        try:
+                            if getattr(dev_sensor, 'unit', '').upper() == 'NTU' or value <= 1000.0:
+                                sensor_data_dict[key] = round(value, 1)
+                            else:
+                                # Convert RAW (0-4095) to voltage then map to NTU
+                                VREF = 3.3
+                                ADC_RES = 4095.0
+                                TURBIDITY_CLEAR_VOLTAGE = 3.0   # 0 NTU
+                                TURBIDITY_MAX_VOLTAGE = 0.5     # 1000 NTU
+                                voltage = max(0.0, min(VREF, (value * VREF) / ADC_RES))
+                                span_in = TURBIDITY_CLEAR_VOLTAGE - TURBIDITY_MAX_VOLTAGE
+                                ntu = 0.0 if span_in == 0 else (TURBIDITY_CLEAR_VOLTAGE - voltage) * (1000.0 / span_in)
+                                ntu = max(0.0, min(1000.0, ntu))
+                                sensor_data_dict[key] = round(ntu, 1)
+                        except Exception:
+                            sensor_data_dict[key] = value  # fallback
+                    else:
+                        sensor_data_dict[key] = value
 
         # Calculate nutrient level from TDS (simplified calculation)
         if 'tds' in sensor_data_dict:

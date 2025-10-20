@@ -1,0 +1,16 @@
+Device Binding Verification - {{ site_name|default:"SmarTanom" }}
+
+Use the one-time code below to confirm binding for device {{ device_serial }}.
+
+Code: {{ code }}
+Expires in: {{ expiry_minutes|default:10 }} minutes
+
+If you didn't request this, you can safely ignore this email.
+
+Requested IP: {{ request_ip|default:'system' }}
+Time: {{ timestamp|default:'unknown' }}
+
+{% if app_url %}Open the app: {{ app_url }}{% endif %}
+{% if support_email %}Support: {{ support_email }}{% endif %}
+
+© {% if year %}{{ year }}{% else %}{% now "Y" %}{% endif %} {{ site_name|default:"SmarTanom" }}

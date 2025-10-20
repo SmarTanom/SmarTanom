@@ -251,14 +251,14 @@ DB_HOST=localhost
 DB_PORT=5432
 ```
 
-#### Email (Gmail example)
+#### Email (Brevo SMTP example)
 ```bash
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USER=your-brevo-smtp-username
+SMTP_PASS=your-brevo-smtp-password
 EMAIL_USE_TLS=true
-EMAIL_HOST_USER=your-email@gmail.com
-EMAIL_HOST_PASSWORD=your-app-password
 DEFAULT_FROM_EMAIL=SmarTanom <noreply@yourdomain.com>
 ```
 
@@ -400,6 +400,28 @@ curl http://localhost:8000/healthz
 curl -X POST http://localhost:8000/api/auth/request-otp/ \
      -H "Content-Type: application/json" \
      -d '{"email":"test@example.com"}'
+```
+
+## ✉️ Unified OTP Email Templates
+
+The backend ships with a single, unified OTP email design used across authentication flows (login, registration, reset) and a matching variant for device revocation.
+
+Templates:
+- `templates/emails/otp_email.html` and `templates/emails/otp_email.txt`
+- `templates/emails/device_revoke_otp_email.html` and `templates/emails/device_revoke_otp_email.txt`
+
+Context variables supported (optional unless noted):
+- `code` / `otp` (required): the verification code
+- `expiry_minutes` (int): minutes until code expires
+- `site_name` (string): brand name (default `SmarTanom`)
+- `site_logo_url` (string): absolute URL to logo (optional)
+- `app_url` (string): CTA link destination (optional)
+- `support_email` (string): support contact (optional)
+- `request_ip`, `timestamp`, `year`: metadata (optional)
+
+Preview the template with the current email backend:
+```bash
+python manage.py sendtestemail you@example.com --code 123456
 ```
 
 ## 📝 Development Notes

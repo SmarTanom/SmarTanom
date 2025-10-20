@@ -114,11 +114,15 @@ export default function AdminAlerts() {
 
   // Filter alerts based on all criteria
   const filteredAlerts = alerts.filter(alert => {
-    // Search filter
-    const matchesSearch = searchQuery === '' ||
-      alert.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      alert.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      alert.device.toLowerCase().includes(searchQuery.toLowerCase());
+    // Search filter (safe, handles missing fields)
+    const q = (searchQuery || '').toLowerCase();
+    const title = (alert?.title || '').toLowerCase();
+    const message = (alert?.message || '').toLowerCase();
+    const deviceName = (alert?.device || '').toLowerCase();
+    const matchesSearch = q === '' ||
+      title.includes(q) ||
+      message.includes(q) ||
+      deviceName.includes(q);
 
     // Device filter
     const matchesDevice = deviceFilter === 'all' || alert.deviceId === deviceFilter;

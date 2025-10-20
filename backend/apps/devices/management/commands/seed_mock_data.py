@@ -230,19 +230,13 @@ class Command(BaseCommand):
         """Create sensors for devices."""
         sensors = []
 
-        # Create all 8 sensor types matching actual hardware
+        # Create supported sensor types (environment sensors removed)
         sensor_configs = [
-            # Water quality sensors
             (Sensor.SensorType.PH, 'pH'),
             (Sensor.SensorType.TDS, 'ppm'),
             (Sensor.SensorType.WATER_TEMPERATURE, '°C'),
             (Sensor.SensorType.WATER_LEVEL, '%'),
             (Sensor.SensorType.TURBIDITY, 'NTU'),
-            # DHT22 (dual sensor)
-            (Sensor.SensorType.AIR_TEMPERATURE, '°C'),
-            (Sensor.SensorType.HUMIDITY, '%'),
-            # BH1750
-            (Sensor.SensorType.LIGHT, 'lux'),
         ]
 
         for device in devices:
@@ -296,19 +290,11 @@ class Command(BaseCommand):
         elif sensor_type == Sensor.SensorType.TDS:
             # 300-1200 ppm for hydroponic nutrients
             return round(random.uniform(300, 1200))
-        elif sensor_type == Sensor.SensorType.HUMIDITY:
-            # 40-80% relative humidity
-            return round(random.uniform(40, 80), 1)
-        elif sensor_type == Sensor.SensorType.LIGHT:
-            # 0-50000 lux (varies with day/night cycle)
-            base_light = random.uniform(0, 50000)
-            return round(base_light)
+        
         elif sensor_type == Sensor.SensorType.WATER_LEVEL:
             # 20-100% water level
             return round(random.uniform(20, 100), 1)
-        elif sensor_type == Sensor.SensorType.AIR_TEMPERATURE:
-            # Air temperature from DHT22 (20-35°C ambient)
-            return round(random.uniform(20.0, 35.0), 1)
+        
         elif sensor_type == Sensor.SensorType.TURBIDITY:
             # 0-10 NTU for clean water systems (lower is clearer)
             return round(random.uniform(0, 10), 2)

@@ -135,18 +135,7 @@ function classifyWaterTemp(value, plant) {
   if (!plant) return { severity: 'none', reason: null };
   return classifyValue(Number(value), plant.water_temp_min, plant.water_temp_max);
 }
-function classifyLight(value, plant) {
-  if (!plant) return { severity: 'none', reason: null };
-  return classifyValue(Number(value), plant.light_min, plant.light_max);
-}
-function classifyEnvTemp(value, plant) {
-  if (!plant) return { severity: 'none', reason: null };
-  return classifyValue(Number(value), plant.environment_temp_min, plant.environment_temp_max);
-}
-function classifyHumidity(value, plant) {
-  if (!plant) return { severity: 'none', reason: null };
-  return classifyValue(Number(value), plant.humidity_min, plant.humidity_max);
-}
+// Environment metrics removed (light, air temperature, humidity)
 
 const PLANT_RECOMMENDATION_TEMPLATES = {
   Lettuce: {
@@ -169,30 +158,14 @@ const PLANT_RECOMMENDATION_TEMPLATES = {
       near_min: 'Plan a mild nutrient top-up soon.',
       near_max: 'Monitor for signs of nutrient burn.'
     },
-    light: {
-      below_min: 'Add supplemental light or reduce canopy shading.',
-      above_max: 'Too intense light can cause tip burn; raise fixture or diffuse.',
-      near_min: 'Consider extending photoperiod if growth slows.',
-      near_max: 'Watch for leaf edge curl — may need to raise lights.'
-    },
-    environment_temp: {
-      below_min: 'Cool air slows growth — ensure adequate circulation but avoid drafts.',
-      above_max: 'High heat risks bolting — increase ventilation or shading.',
-      near_min: 'If trend continues, pre‑warm incoming air.',
-      near_max: 'Improve airflow to stabilize temperature.'
-    },
+    // environment metrics removed
     water_temperature: {
       below_min: 'Cold roots slow nutrient uptake — insulate reservoir.',
       above_max: 'Warm solution lowers dissolved oxygen; consider chilling.',
       near_min: 'Monitor nightly lows; add insulation if dropping further.',
       near_max: 'Aerate more or partially replace with cooler water.'
     },
-    humidity: {
-      below_min: 'Low RH increases transpiration — add gentle misting.',
-      above_max: 'High RH risks mildew — add airflow / dehumidify.',
-      near_min: 'If leaves wilt mid‑day, raise RH slightly.',
-      near_max: 'Ensure leaves dry before dark period.'
-    }
+
   },
   Basil: {
     general: 'Ensure consistent pruning to encourage airflow.',
@@ -214,30 +187,14 @@ const PLANT_RECOMMENDATION_TEMPLATES = {
       near_min: 'Consider mild feed if new growth is pale.',
       near_max: 'Maintain airflow; high EC plus heat stresses basil.'
     },
-    light: {
-      below_min: 'Increase PPFD for compact, aromatic growth.',
-      above_max: 'Too much light may cause chlorosis — raise fixture.',
-      near_min: 'Extend photoperiod a little for fuller canopy.',
-      near_max: 'Watch for leaf curl; diffuse if necessary.'
-    },
-    environment_temp: {
-      below_min: 'Basil slows < optimal temp — avoid cold drafts.',
-      above_max: 'High heat + high RH invites fungus — vent promptly.',
-      near_min: 'If nights are cool, buffer with thermal mass.',
-      near_max: 'Improve evaporative cooling or shading.'
-    },
+    // environment metrics removed
     water_temperature: {
       below_min: 'Cool solution reduces root vigor — gently warm.',
       above_max: 'Warm solution invites pathogen pressure — cool it.',
       near_min: 'Insulate lines if chill is recurring.',
       near_max: 'Increase aeration to maintain oxygen.'
     },
-    humidity: {
-      below_min: 'Low RH can stunt tender tips — raise slightly.',
-      above_max: 'Prone to downy mildew — dehumidify now.',
-      near_min: 'Monitor leaf edge dry‑out.',
-      near_max: 'Ensure canopy dries before dark.'
-    }
+
   }
 };
 
@@ -250,9 +207,7 @@ function enrichAlertMessage(plantInfo, sensorType, classificationReason, baseMes
     ph: 'ph',
     tds: 'tds',
     ec: 'ec',
-    light: 'light',
-    humidity: 'humidity',
-    air_temperature: 'environment_temp',
+    // environment metrics removed
     water_temperature: 'water_temperature'
   };
   const domain = domainMap[sensorType];
@@ -391,8 +346,8 @@ export default function DeviceDetails() {
           return;
         }
 
-        const relevantSensors = sensors.filter(s => ['ph', 'water_level', 'tds', 'ec', 'turbidity', 'light', 'humidity', 'air_temperature', 'water_temperature'].includes(s.sensor_type));
-        const abnormal = [];
+  const relevantSensors = sensors.filter(s => ['ph', 'water_level', 'tds', 'ec', 'turbidity', 'water_temperature'].includes(s.sensor_type));
+        const built = [];
 
         await Promise.all(relevantSensors.map(async (sensor) => {
           try {
@@ -402,76 +357,23 @@ export default function DeviceDetails() {
             readings.forEach(r => {
               const val = r && typeof r.value !== 'undefined' ? Number(r.value) : null;
               if (val === null || Number.isNaN(val)) return;
-
+              let title = '';
+              let baseMessage = '';
+              let type = 'warning';
+              const iso = r.created_at || new Date().toISOString();
+              const value = val;
               let cls = { severity: 'none', reason: null };
               if (sensor.sensor_type === 'ph') cls = classifyPH(val, devicePlant);
               else if (sensor.sensor_type === 'tds') cls = classifyTDS(val, devicePlant);
               else if (sensor.sensor_type === 'ec') cls = classifyEC(val, devicePlant);
-              else if (sensor.sensor_type === 'light') cls = classifyLight(val, devicePlant);
-              else if (sensor.sensor_type === 'air_temperature') cls = classifyEnvTemp(val, devicePlant);
-              else if (sensor.sensor_type === 'humidity') cls = classifyHumidity(val, devicePlant);
               else if (sensor.sensor_type === 'water_temperature') cls = classifyWaterTemp(val, devicePlant);
-              else if (sensor.sensor_type === 'water_level') {
-                // not plant-based
-                if (val === 0) cls = { severity: 'critical', reason: 'empty' };
-                else if (val <= 40) cls = { severity: 'warning', reason: 'low' };
-              } else if (sensor.sensor_type === 'turbidity') {
-                // generic clarity thresholds
-                if (val <= 1800) cls = { severity: 'critical', reason: 'turbid' };
-                else if (val <= 2100) cls = { severity: 'warning', reason: 'cloudy' };
-              }
 
-              if (cls.severity === 'none') return;
-              abnormal.push({ sensor, reading: r, value: val, cls });
-            });
-          } catch (_e) { /* ignore a sensor failure */ }
-        }));
-
-        // Build entries mirroring AlertsPage semantics
-        let nextId = 1;
-        const built = abnormal
-          .sort((a, b) => {
-            const ta = a.reading && (a.reading.created_at || a.reading.timestamp) ? new Date(a.reading.created_at || a.reading.timestamp).getTime() : 0;
-            const tb = b.reading && (b.reading.created_at || b.reading.timestamp) ? new Date(b.reading.created_at || b.reading.timestamp).getTime() : 0;
-            return tb - ta;
-          })
-          .map(({ sensor, reading, value, cls }) => {
-            const iso = reading.created_at || reading.timestamp || new Date().toISOString();
-            const severity = cls.severity;
-            let type = severity === 'critical' ? 'critical' : 'warning';
-            let title = 'Alert';
-            let baseMessage = '';
-
-            if (sensor.sensor_type === 'ph') {
-              if (cls.reason === 'below_min') { title = 'Low pH detected'; baseMessage = `pH is ${value}`; }
-              else if (cls.reason === 'above_max') { title = 'High pH detected'; baseMessage = `pH is ${value}`; }
-              else if (cls.reason === 'near_min' || cls.reason === 'near_max') { title = 'pH nearing limit'; baseMessage = `pH is ${value}`; }
-              baseMessage = enrichAlertMessage(devicePlant, 'ph', cls.reason, baseMessage);
-            } else if (sensor.sensor_type === 'tds') {
-              if (cls.reason === 'below_min') { title = 'TDS low'; baseMessage = `TDS ${value} ppm`; }
-              else if (cls.reason === 'above_max') { title = 'TDS high'; baseMessage = `TDS ${value} ppm`; }
-              else { title = 'TDS near bound'; baseMessage = `TDS ${value} ppm`; }
-              baseMessage = enrichAlertMessage(devicePlant, 'tds', cls.reason, baseMessage);
-            } else if (sensor.sensor_type === 'ec') {
+            if (sensor.sensor_type === 'ec') {
               if (cls.reason === 'below_min') { title = 'EC low'; baseMessage = `EC ${value} mS/cm`; }
               else if (cls.reason === 'above_max') { title = 'EC high'; baseMessage = `EC ${value} mS/cm`; }
-              else { title = 'EC near bound'; baseMessage = `EC ${value} mS/cm`; }
+              else if (cls.reason === 'near_min') { title = 'EC near lower limit'; baseMessage = `EC ${value} mS/cm`; }
+              else if (cls.reason === 'near_max') { title = 'EC near upper limit'; baseMessage = `EC ${value} mS/cm`; }
               baseMessage = enrichAlertMessage(devicePlant, 'ec', cls.reason, baseMessage);
-            } else if (sensor.sensor_type === 'air_temperature') {
-              if (cls.reason === 'below_min') { title = 'Air temperature low'; baseMessage = `Air temp ${value}°C`; }
-              else if (cls.reason === 'above_max') { title = 'Air temperature high'; baseMessage = `Air temp ${value}°C`; }
-              else { title = 'Air temperature near bound'; baseMessage = `Air temp ${value}°C`; }
-              baseMessage = enrichAlertMessage(devicePlant, 'air_temperature', cls.reason, baseMessage);
-            } else if (sensor.sensor_type === 'humidity') {
-              if (cls.reason === 'below_min') { title = 'Humidity low'; baseMessage = `Humidity ${value}%`; }
-              else if (cls.reason === 'above_max') { title = 'Humidity high'; baseMessage = `Humidity ${value}%`; }
-              else { title = 'Humidity near bound'; baseMessage = `Humidity ${value}%`; }
-              baseMessage = enrichAlertMessage(devicePlant, 'humidity', cls.reason, baseMessage);
-            } else if (sensor.sensor_type === 'light') {
-              if (cls.reason === 'below_min') { title = 'Light low'; baseMessage = `Light ${value}`; }
-              else if (cls.reason === 'above_max') { title = 'Light high'; baseMessage = `Light ${value}`; }
-              else { title = 'Light near bound'; baseMessage = `Light ${value}`; }
-              baseMessage = enrichAlertMessage(devicePlant, 'light', cls.reason, baseMessage);
             } else if (sensor.sensor_type === 'water_temperature') {
               if (cls.reason === 'below_min') { title = 'Water temp low'; baseMessage = `Water temp ${value}°C`; }
               else if (cls.reason === 'above_max') { title = 'Water temp high'; baseMessage = `Water temp ${value}°C`; }
@@ -484,17 +386,21 @@ export default function DeviceDetails() {
               if (cls.reason === 'turbid') { title = 'Water turbid'; type = 'critical'; baseMessage = `Turbidity ${value} — consider drain/refill.`; }
               else { title = 'Water cloudy'; baseMessage = `Turbidity ${value} — clean filters or partial change.`; }
             }
-
-            return {
-              id: nextId++,
+            built.push({
+              id: `${sensor.id}-${iso}`,
               type,
               title,
               message: baseMessage,
               time: relativeTimeFromISO(iso),
               date: new Date(iso).toLocaleDateString(),
               createdAt: iso,
-            };
-          });
+            });
+            });
+          } catch (err) {
+            // ignore per-sensor errors to continue building other entries
+            // console.warn('Failed building alerts for sensor', sensor, err);
+          }
+        }));
 
         if (mounted) setLogEntries(built);
       } catch (e) {
