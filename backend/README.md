@@ -251,14 +251,14 @@ DB_HOST=localhost
 DB_PORT=5432
 ```
 
-#### Email (Gmail example)
+#### Email (Brevo SMTP example)
 ```bash
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USER=your-brevo-smtp-username
+SMTP_PASS=your-brevo-smtp-password
 EMAIL_USE_TLS=true
-EMAIL_HOST_USER=your-email@gmail.com
-EMAIL_HOST_PASSWORD=your-app-password
 DEFAULT_FROM_EMAIL=SmarTanom <noreply@yourdomain.com>
 ```
 

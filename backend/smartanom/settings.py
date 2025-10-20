@@ -325,27 +325,56 @@ ADMIN_URL = os.getenv("ADMIN_URL", "admin/")
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
 
-# Email Configuration
-# SendGrid configuration (production)
-SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
+"""
+Email configuration (Brevo SMTP by default)
 
-# Email backend selection
-if SENDGRID_API_KEY:
-    # Use custom SendGrid backend when API key is available
-    EMAIL_BACKEND = 'apps.common.email_backend.SendGridBackend'
-else:
-    # Fallback to console backend for development
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+Environment variables supported:
+  - SMTP_HOST (e.g., smtp-relay.brevo.com)
+  - SMTP_PORT (e.g., 587)
+  - SMTP_USER (Brevo SMTP username)
+  - SMTP_PASS (Brevo SMTP password)
+  - EMAIL_USE_TLS (true/false; defaults true)
+  - DEFAULT_FROM_EMAIL (e.g., SmarTanom <noreply@yourdomain.com>)
 
-# SMTP settings (fallback, not used with SendGrid)
-EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+Backwards-compatibility:
+  If EMAIL_HOST/EMAIL_PORT/EMAIL_HOST_USER/EMAIL_HOST_PASSWORD are set, they are used as fallback.
+"""
+
+# Resolve SMTP host/port/user/pass from new Brevo-style envs, with legacy fallbacks
+SMTP_HOST = os.getenv('SMTP_HOST') or os.getenv('EMAIL_HOST', '')
+SMTP_PORT = os.getenv('SMTP_PORT') or os.getenv('EMAIL_PORT', '')
+SMTP_USER = os.getenv('SMTP_USER') or os.getenv('EMAIL_HOST_USER', '')
+SMTP_PASS = os.getenv('SMTP_PASS') or os.getenv('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 
-# From email (must be verified in SendGrid for production)
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'smartanom01@gmail.com')
+# Choose email backend: allow explicit override via EMAIL_BACKEND env var
+_env_email_backend = os.getenv('EMAIL_BACKEND', '').strip()
+if _env_email_backend:
+	EMAIL_BACKEND = _env_email_backend
+else:
+	# Default logic: use SMTP when SMTP_HOST provided, else console in dev
+	if SMTP_HOST:
+		EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+	else:
+		EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Map to Django email settings if SMTP is configured
+if EMAIL_BACKEND.endswith('smtp.EmailBackend'):
+	EMAIL_HOST = SMTP_HOST
+	EMAIL_PORT = int(SMTP_PORT or '587')
+	EMAIL_HOST_USER = SMTP_USER
+	EMAIL_HOST_PASSWORD = SMTP_PASS
+	# TLS is recommended for Brevo on 587
+	# EMAIL_USE_TLS already computed above
+
+# Optional transport override: 'smtp' (default) or 'brevo_api'
+EMAIL_TRANSPORT = os.getenv('EMAIL_TRANSPORT', 'smtp').strip().lower()
+
+# Brevo API key for HTTP transport (no SMTP ports needed)
+BREVO_API_KEY = os.getenv('BREVO_API_KEY', '').strip()
+
+# From email (should be verified in Brevo)
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'SmarTanom <no-reply@smartanom.com>')
 
 # OTP Configuration
 OTP_EXPIRE_MINUTES = int(os.getenv('OTP_EXPIRE_MINUTES', '5'))

@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.utils import timezone
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -79,94 +79,34 @@ def send_otp_email(email, code, purpose='login', device_name=None):
         html_message = render_to_string('emails/device_revoke_otp_email.html', context)
         plain_message = render_to_string('emails/device_revoke_otp_email.txt', context)
     else:
-        # Default template for other purposes - optimized to avoid spam
-        html_message = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Your Verification Code</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f4;">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f4f4f4;">
-                <tr>
-                    <td style="padding: 40px 20px;">
-                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                            <!-- Header -->
-                            <tr>
-                                <td style="padding: 40px 40px 20px; text-align: center; border-bottom: 3px solid #007bff;">
-                                    <h1 style="margin: 0; color: #007bff; font-size: 28px; font-weight: 600;">SmarTanom</h1>
-                                    <p style="margin: 10px 0 0; color: #666; font-size: 14px;">Smart Water Tank Monitoring System</p>
-                                </td>
-                            </tr>
-                            <!-- Content -->
-                            <tr>
-                                <td style="padding: 40px;">
-                                    <h2 style="margin: 0 0 20px; color: #333; font-size: 24px; font-weight: 600;">Your Verification Code</h2>
-                                    <p style="margin: 0 0 30px; color: #666; font-size: 16px; line-height: 1.5;">
-                                        Use the following code to complete your {purpose} request:
-                                    </p>
-                                    <!-- OTP Code Box -->
-                                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                                        <tr>
-                                            <td style="background-color: #f8f9fa; border: 2px dashed #007bff; border-radius: 8px; padding: 30px; text-align: center;">
-                                                <span style="font-size: 40px; font-weight: 700; color: #007bff; letter-spacing: 8px; font-family: 'Courier New', monospace;">{code}</span>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                    <p style="margin: 30px 0 20px; color: #666; font-size: 14px; line-height: 1.5;">
-                                        <strong>Important:</strong> This code will expire in <strong>{expire_minutes} minute(s)</strong>.
-                                    </p>
-                                    <p style="margin: 0 0 20px; color: #666; font-size: 14px; line-height: 1.5;">
-                                        If you did not request this code, please ignore this email or contact support if you have concerns.
-                                    </p>
-                                </td>
-                            </tr>
-                            <!-- Footer -->
-                            <tr>
-                                <td style="padding: 30px 40px; background-color: #f8f9fa; border-top: 1px solid #e9ecef; border-radius: 0 0 8px 8px;">
-                                    <p style="margin: 0 0 10px; color: #999; font-size: 12px; text-align: center; line-height: 1.5;">
-                                        This is an automated message from SmarTanom. Please do not reply to this email.
-                                    </p>
-                                    <p style="margin: 0; color: #999; font-size: 12px; text-align: center;">
-                                        &copy; {timezone.now().year} SmarTanom. All rights reserved.
-                                    </p>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
-        </body>
-        </html>
-        """
-
-        plain_message = (
-            "SmarTanom - Your Verification Code\n"
-            "=" * 50 + "\n\n"
-            f"Hello,\n\n"
-            f"Use the following code to complete your {purpose} request:\n\n"
-            f"CODE: {code}\n\n"
-            f"This code will expire in {expire_minutes} minute(s).\n\n"
-            f"If you did not request this code, please ignore this email.\n\n"
-            "=" * 50 + "\n"
-            f"SmarTanom - Smart Water Tank Monitoring System\n"
-            f"© {timezone.now().year} All rights reserved.\n"
-            "This is an automated message. Please do not reply."
-        )
+        # Default template for other purposes - use shared templates
+        from django.template.loader import render_to_string
+        context = {
+            'code': code,
+            'otp': code,
+            'expiry_minutes': expire_minutes,
+            'site_name': 'SmarTanom',
+            'request_ip': 'system',
+            'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC'),
+            'year': timezone.now().year,
+        }
+        html_message = render_to_string('emails/otp_email.html', context)
+        plain_message = render_to_string('emails/otp_email.txt', context)
 
     try:
-        send_mail(
+        # Prefer centralized email service (Brevo API or SMTP)
+        from apps.common.email_service import send_email as _send
+        ok = _send(
+            to=email,
             subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            html_message=html_message,
-            fail_silently=False,
+            text=plain_message,
+            html=html_message,
         )
-        logger.info(f"OTP email sent successfully to {email}")
-        return True
+        if ok:
+            logger.info(f"OTP email sent successfully to {email}")
+            return True
+        logger.error(f"OTP email dispatch returned False for {email}")
+        return False
     except Exception as e:
         logger.error(f"Failed to send OTP email to {email}: {str(e)}")
         return False

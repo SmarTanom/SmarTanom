@@ -1,17 +1,17 @@
 # SmartAnom Backend — Setup & Deploy
 
-This document describes how to run the SmartAnom Django backend locally and deploy it to Render with SendGrid (API) for email and Channels (WebSockets) support.
+This document describes how to run the SmartAnom Django backend locally and deploy it to Render with Brevo (SMTP) for email and Channels (WebSockets) support.
 
 ## Quick environment
 
 - Backend (Django + Channels + Daphne)
 - Frontend (Vite) runs separately at `http://localhost:5173`
 - Postgres on Render configured via `DATABASE_URL`
-- SendGrid API for email delivery (no SMTP)
+- Brevo SMTP for email delivery
 
 ## Files added/changed
 
-- `smartanom/settings.py` — updated for Render/Postgres, SendGrid, Channels, CORS
+- `smartanom/settings.py` — updated for Render/Postgres, Brevo SMTP, Channels, CORS
 - `.env.example` — environment variable example
 - `Procfile` — runs Daphne on Render
 - `requirements.txt` — packages required for deployment
@@ -56,8 +56,12 @@ npm run dev
 3. Set environment variables on Render (at minimum):
 
 - `DATABASE_URL` — your Render Postgres URL
-- `SENDGRID_API_KEY` — SendGrid API Key
-- `EMAIL_BACKEND=sendgrid_backend.SendgridBackend`
+SMTP (Brevo):
+- `SMTP_HOST=smtp-relay.brevo.com`
+- `SMTP_PORT=587`
+- `SMTP_USER=your-brevo-smtp-username`
+- `SMTP_PASS=your-brevo-smtp-password`
+- `DEFAULT_FROM_EMAIL=SmarTanom <noreply@yourdomain.com>`
 - `DEFAULT_FROM_EMAIL` — e.g. "SmartAnom System <smartanom01@gmail.com>"
 - `SUPERUSER_EMAIL`, `SUPERUSER_USERNAME`, `SUPERUSER_PASSWORD` — credentials to auto-create superuser
 - `REDIS_URL` — (optional) Redis URL for Channels in production
@@ -70,10 +74,9 @@ npm run dev
 - `smartanom/asgi.py` is configured to route WebSocket connections through Channels using `AuthMiddlewareStack` and `AllowedHostsOriginValidator`.
 - For multi-worker (production) you must provide `REDIS_URL` and channels_redis will be used for channel layers.
 
-## Email / OTP (SendGrid)
+## Email / OTP (SMTP: Brevo)
 
-- The project is configured to use SendGrid API backend when `EMAIL_BACKEND` is set to `sendgrid_backend.SendgridBackend` and `SENDGRID_API_KEY` is provided.
-- For local testing you can keep `EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend` to print emails to the console.
+- The project uses Django's SMTP EmailBackend. Configure Brevo SMTP via environment variables (see above). For local testing you can keep `EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend` to print emails to the console.
 
 ## Auto-create superuser
 

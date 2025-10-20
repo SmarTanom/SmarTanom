@@ -23,11 +23,11 @@
       <div class="card">
         <h1>Verify your email</h1>
         <p>Use the one‑time code below to continue signing in to <strong>{{ site_name|default:"SmarTanom" }}</strong>.</p>
-        <div class="code-box">{{ code }}</div>
+        <div class="code-box">{% firstof code otp %}</div>
         <p style="margin-top:24px;">This code expires in <strong>{{ expiry_minutes|default:10 }} minutes</strong>. If you didn't request it, you can safely ignore this email.</p>
-        <p class="meta">Requested from IP: {{ request_ip|default:"unknown" }}<br/>Time: {{ timestamp|default:request_timestamp }}</p>
+        <p class="meta">Requested from IP: {% firstof request_ip "unknown" %}<br/>Time: {% firstof timestamp request_timestamp %}</p>
       </div>
-      <div class="footer">&copy; {{ year|default:now|date:"Y" }} SmarTanom. All rights reserved.</div>
+      <div class="footer">&copy; {% if year %}{{ year }}{% else %}{% now "Y" %}{% endif %} SmarTanom. All rights reserved.</div>
     </div>
   </body>
 </html>

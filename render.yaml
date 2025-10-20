@@ -36,6 +36,14 @@ services:
         value: https://your-frontend-domain.com
       - key: EMAIL_BACKEND
         value: django.core.mail.backends.smtp.EmailBackend
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT
