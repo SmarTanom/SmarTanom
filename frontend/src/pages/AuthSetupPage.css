@@ -2112,9 +2112,9 @@
   --panel-pad-x: clamp(10px, 1.6vw, 22px);
   padding: var(--panel-pad-y) var(--panel-pad-x);
   border-radius: clamp(10px, 1.2vw, 14px);
-  border: 1px solid rgba(255,255,255,0.22);
-  background: linear-gradient(160deg, rgba(1,107,34,0.58), rgba(1,107,34,0.32));
-  box-shadow: 0 20px 42px -28px rgba(1,107,34,0.55);
+  border: 0px solid rgba(255,255,255,0.22);
+  background:  rgba(29, 95, 48, 0.603);
+  box-shadow: 0 20px 42px -28px rgba(8, 63, 20, 0.308);
 }
 
 .setup-verify-panel h4 {

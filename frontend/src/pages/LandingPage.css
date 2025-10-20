@@ -9,7 +9,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #339432;
+  background: rgba(51, 148, 50, 0.9);
   color: #fff;
   padding: 32px clamp(16px,4vw,48px);
   box-sizing: border-box;
