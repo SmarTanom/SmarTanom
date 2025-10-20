@@ -249,7 +249,14 @@ class PushNotificationService:
                 html_content = render_to_string('emails/alert_notification.html', context)
 
                 # Send via centralized email service (Brevo API or SMTP)
-                if _send_email(user.email, subject, text_content, html_content):
+                if _send_email(
+                    user.email,
+                    subject,
+                    text_content,
+                    html_content,
+                    reply_to=getattr(settings, 'SUPPORT_EMAIL', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+                    list_unsubscribe=f"{frontend_url}/profile/notifications",
+                ):
                     logger.info(f"Email notification sent to {user.email}: {title.replace('🌱 ', '')}")
                 else:
                     logger.error(f"Email service reported failure for {user.email}: {title}")
@@ -433,7 +440,14 @@ class PushNotificationService:
                 html_content = render_to_string('emails/alert_notification.html', context)
 
                 # Send via centralized email service
-                if _send_email(user.email, subject, text_content, html_content):
+                if _send_email(
+                    user.email,
+                    subject,
+                    text_content,
+                    html_content,
+                    reply_to=getattr(settings, 'SUPPORT_EMAIL', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+                    list_unsubscribe=f"{frontend_url}/profile/notifications",
+                ):
                     logger.info(f"Alert email sent to {user.email}: {alert_title}")
                 else:
                     logger.error(f"Alert email failed for {user.email}: {alert_title}")
