@@ -239,7 +239,6 @@ class SensorAlertService:
         if not user_email:
             logger.debug(f"Device {device.id} has no bound user, skipping notification")
             return None
-
         # Get user object from email (optimized lookup)
         try:
             user = User.objects.only('id', 'email').get(email=user_email)
@@ -368,19 +367,27 @@ class SensorAlertService:
         # Create NotificationLog entry for the alert
         from apps.notifications.models import NotificationLog
         try:
+            meta = {
+                'device_id': device.id,
+                'device_serial': device.device_serial,
+                'sensor_type': sensor_type,
+                'sensor_value': float(value),
+                'alert_id': sensor_data.id,
+            }
+            # Include the persisted Alert row id when available for easier correlation/deletion later
+            try:
+                if 'alert_obj' in locals() and alert_obj:
+                    meta['alert_row_id'] = alert_obj.id
+            except Exception:
+                pass
+
             notification_log = NotificationLog.objects.create(
                 user=user,
                 notification_type=severity,
                 title=title,
                 message=body,
                 status='sent',
-                metadata={
-                    'device_id': device.id,
-                    'device_serial': device.device_serial,
-                    'sensor_type': sensor_type,
-                    'sensor_value': float(value),
-                    'alert_id': sensor_data.id
-                }
+                metadata=meta
             )
             logger.info(f"Created NotificationLog entry {notification_log.id} for alert: {title}")
         except Exception as e:

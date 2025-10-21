@@ -95,6 +95,9 @@ export const useRealtimeStore = create(persist((set, get) => ({
   loadingAlerts: false,
   errorAlerts: null,
 
+  // Clear all alert-related state (useful to avoid stale entries after deletions)
+  clearAlerts: () => set({ deviceAlerts: {}, unreadCounts: {}, totalUnread: 0, latestAlerts: {} }),
+
   // Allow pages to update per-device data snapshots (e.g., plant-aware alerts on Dashboard)
   updateDeviceData: (deviceId, dataPayload) => {
     if (!deviceId || !dataPayload) return;

@@ -65,12 +65,15 @@ export default function AlertsPage() {
   const fetchAlertsStore = useRealtimeStore(s => s.fetchAlerts);
   const markAlertAsRead = useRealtimeStore(s => s.markAlertAsRead);
   const markAllDeviceAlertsRead = useRealtimeStore(s => s.markAllDeviceAlertsRead);
+  const clearAlerts = useRealtimeStore(s => s.clearAlerts);
 
   const [filteredDeviceName, setFilteredDeviceName] = useState(null);
 
   // Ensure store is hydrated and alerts loaded
   useEffect(() => {
     const hasDevices = Array.isArray(devices) && devices.length > 0;
+    // Clear locally cached alerts to avoid showing stale entries that may have been deleted server-side
+    try { clearAlerts(); } catch (_) { }
     if (!hasDevices) {
       fetchInitial();
     } else {

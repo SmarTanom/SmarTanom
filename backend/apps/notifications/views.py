@@ -210,8 +210,36 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
             except ValueError:
                 limit = 50
 
-            # Order by most recent first
-            alerts = queryset.order_by('-sent_at')[:limit]
+            # Order by most recent first and prefetch a working set
+            alerts = list(queryset.order_by('-sent_at')[:limit])
+
+            # Filter out logs that refer to alerts/readings that no longer exist
+            # This prevents showing stale entries on the Alerts page after admins delete them.
+            try:
+                from apps.sensors.models import Alert as SensorAlert
+                # Collect referenced reading_ids from metadata.alert_id
+                referenced_reading_ids = [
+                    meta.get('alert_id')
+                    for meta in (getattr(a, 'metadata', None) or {} for a in alerts)
+                    if isinstance(meta, dict) and meta.get('alert_id') is not None
+                ]
+                if referenced_reading_ids:
+                    # Query existing alerts by their stored reading_id in metadata
+                    existing_reading_ids = set(
+                        SensorAlert.objects.filter(metadata__reading_id__in=referenced_reading_ids)
+                        .values_list('metadata__reading_id', flat=True)
+                    )
+                    # Keep only logs with no reference or with an existing backing Alert row
+                    alerts = [
+                        a for a in alerts
+                        if (
+                            not isinstance(getattr(a, 'metadata', None), dict)
+                            or a.metadata.get('alert_id') is None
+                            or a.metadata.get('alert_id') in existing_reading_ids
+                        )
+                    ]
+            except Exception as _filter_err:
+                logger.warning(f"Skipping stale-alert filtering due to error: {_filter_err}")
 
             # Format response to match frontend expectations
             alert_data = []
