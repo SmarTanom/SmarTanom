@@ -91,6 +91,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
   wsLastError: null,
   loadingInitial: false,
   errorInitial: null,
+  _initialFetchedAt: null,
   loadingAlerts: false,
   errorAlerts: null,
 
@@ -110,6 +111,11 @@ export const useRealtimeStore = create(persist((set, get) => ({
 
   // --- Actions ---
   fetchInitial: async () => {
+    // Idempotency guard to avoid duplicate heavy requests on mount/WS reconnects
+    const state = get();
+    if (state.loadingInitial) return;
+    const alreadyFetched = state._initialFetchedAt && (Date.now() - state._initialFetchedAt < 15_000);
+    if (alreadyFetched) return;
     try {
       set({ loadingInitial: true, errorInitial: null });
       console.log('[RealtimeStore] Fetching initial data...');
@@ -234,7 +240,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
         }
       });
 
-      set({ devices, deviceData, deviceAlerts, unreadCounts, totalUnread, latestAlerts, loadingInitial: false });
+      set({ devices, deviceData, deviceAlerts, unreadCounts, totalUnread, latestAlerts, loadingInitial: false, _initialFetchedAt: Date.now() });
       console.log('[RealtimeStore] Initial data fetch completed (combined endpoint)');
     } catch (e) {
       console.error('[RealtimeStore] Failed to fetch initial data:', e);
@@ -347,8 +353,8 @@ export const useRealtimeStore = create(persist((set, get) => ({
       if (sensors.tds !== undefined) nextSensors.tds = sensors.tds;
       if (sensors.water_level !== undefined) nextSensors.waterLevel = sensors.water_level;
       if (sensors.turbidity !== undefined) nextSensors.turbidity = sensors.turbidity;
-  if (sensors.water_temperature !== undefined) nextSensors.water_temperature = sensors.water_temperature;
-  // removed environment metrics from realtime updates
+      if (sensors.water_temperature !== undefined) nextSensors.water_temperature = sensors.water_temperature;
+      // removed environment metrics from realtime updates
 
       // Recalculate derived values
       const nutrientText = getNutrientStatus(nextSensors.tds);
@@ -437,22 +443,25 @@ export const useRealtimeStore = create(persist((set, get) => ({
       try {
         const token = localStorage.getItem('authToken');
         if (token) {
-          // Decode JWT token to get user ID
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          return payload.user_id || payload.id;
+          // Decode JWT token to get user ID (only if well-formed JWT)
+          const parts = token.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            return payload.user_id || payload.id || payload.sub || null;
+          }
         }
       } catch (e) {
-        console.warn('[RealtimeStore] Could not get user ID from token:', e);
+        // Quietly ignore non-JWT tokens to avoid console noise
       }
       return null;
     };
 
-  const userId = getCurrentUserId();
-  console.log('[RealtimeStore] Connecting with user ID:', userId);
+    const userId = getCurrentUserId();
+    console.log('[RealtimeStore] Connecting with user ID:', userId);
 
-  // Connect to USER-SPECIFIC stream so non-admin users only see their own device updates
-  // Admin pages can continue using global connections.
-  wsClient.connect(userId);
+    // Connect to USER-SPECIFIC stream so non-admin users only see their own device updates
+    // Admin pages can continue using global connections.
+    wsClient.connect(userId);
 
     // Subscribe to WebSocket messages
     const unsub = wsClient.subscribe(msg => {
@@ -482,12 +491,11 @@ export const useRealtimeStore = create(persist((set, get) => ({
       if (status === 'connected') {
         // Refresh data when connection is established
         console.log('[RealtimeStore] WebSocket connected, refreshing data...');
-        // Only refresh if we don't have data yet or if it's been a while
-        const state = get();
-        if (state.devices.length === 0 || !state.deviceData || Object.keys(state.deviceData).length === 0) {
+        const s = get();
+        // Only trigger initial fetch once; otherwise fetch alerts only
+        if (!s._initialFetchedAt) {
           get().fetchInitial();
         } else {
-          // Just refresh alerts to ensure we have the latest
           get().fetchAlerts();
         }
       } else if (status === 'disconnected') {

@@ -22,17 +22,10 @@ class PWANotificationService {
     }
 
     try {
-      // Skip explicit SW registration in Vite dev to avoid 404 on /sw.js
+      // In this app, SW registration is handled by pwaInit (vite-plugin-pwa)
       const isDev = typeof window !== 'undefined' && window.location && /localhost|127\.0\.0\.1/.test(window.location.host);
-      if (!isDev) {
-        // Register service worker if not already registered (production build)
-        if (!navigator.serviceWorker.controller) {
-          await navigator.serviceWorker.register('/sw.js');
-        }
-      }
-
-      // Wait for service worker to be ready
-  this.registration = isDev ? null : await navigator.serviceWorker.ready;
+      // Wait for service worker to be ready in production; dev returns null to no-op
+      this.registration = isDev ? null : await navigator.serviceWorker.ready;
       console.log('Notification service initialized with registration:', this.registration);
       return true;
     } catch (error) {

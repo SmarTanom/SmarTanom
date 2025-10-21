@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { authApi } from '../../services/apiClient';
+import { useAuthStatus as useGlobalAuthStatus } from '../../contexts/AuthContext.jsx';
 import './auth.css';
 
 /**
@@ -13,65 +13,11 @@ import './auth.css';
  * - Handles redirect destination from state
  */
 export function PublicRoute({ children, redirectTo = '/dashboard' }) {
-  const [authState, setAuthState] = useState({
-    loading: true,
-    isAuthenticated: false,
-    user: null
-  });
-
   const location = useLocation();
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function checkAuth() {
-      try {
-        const token = localStorage.getItem('authToken');
-
-        if (!token) {
-          if (mounted) {
-            setAuthState({
-              loading: false,
-              isAuthenticated: false,
-              user: null
-            });
-          }
-          return;
-        }
-
-        // Validate token with backend
-        const profile = await authApi.getProfile(token);
-
-        if (mounted) {
-          setAuthState({
-            loading: false,
-            isAuthenticated: true,
-            user: profile
-          });
-        }
-      } catch (error) {
-        // Clear invalid token
-        localStorage.removeItem('authToken');
-
-        if (mounted) {
-          setAuthState({
-            loading: false,
-            isAuthenticated: false,
-            user: null
-          });
-        }
-      }
-    }
-
-    checkAuth();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { loading, isAuthenticated } = useGlobalAuthStatus();
 
   // Show loading spinner while checking authentication
-  if (authState.loading) {
+  if (loading) {
     return (
       <div className="protected-route-loading">
         <div className="protected-route-spinner" />
@@ -80,7 +26,7 @@ export function PublicRoute({ children, redirectTo = '/dashboard' }) {
   }
 
   // Redirect authenticated users
-  if (authState.isAuthenticated) {
+  if (isAuthenticated) {
     // Check if there's a redirect destination in state (from ProtectedRoute)
     const from = location.state?.from;
     const destination = from || redirectTo;

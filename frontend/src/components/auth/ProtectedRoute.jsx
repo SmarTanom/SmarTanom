@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { authApi } from '../../services/apiClient';
+import { useAuthStatus as useGlobalAuthStatus } from '../../contexts/AuthContext.jsx';
 import './auth.css';
 
 /**
@@ -14,71 +14,12 @@ import './auth.css';
  * - Preserves the intended destination for redirect after login
  */
 export function ProtectedRoute({ children, requireAdmin = false }) {
-  const [authState, setAuthState] = useState({
-    loading: true,
-    isAuthenticated: false,
-    user: null,
-    error: null
-  });
-
   const location = useLocation();
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function checkAuth() {
-      try {
-        const token = localStorage.getItem('authToken');
-
-        if (!token) {
-          if (mounted) {
-            setAuthState({
-              loading: false,
-              isAuthenticated: false,
-              user: null,
-              error: null
-            });
-          }
-          return;
-        }
-
-        // Validate token with backend
-        const profile = await authApi.getProfile(token);
-
-        if (mounted) {
-          setAuthState({
-            loading: false,
-            isAuthenticated: true,
-            user: profile,
-            error: null
-          });
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-
-        // Clear invalid token
-        localStorage.removeItem('authToken');
-
-        if (mounted) {
-          setAuthState({
-            loading: false,
-            isAuthenticated: false,
-            user: null,
-            error: error.message
-          });
-        }
-      }
-    }
-
-    checkAuth();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // Use global AuthContext to avoid duplicate profile calls per page
+  const { loading, isAuthenticated, user } = useGlobalAuthStatus();
 
   // Show loading spinner while checking authentication
-  if (authState.loading) {
+  if (loading) {
     return (
       <div className="protected-route-loading">
         <div className="protected-route-spinner" />
@@ -87,14 +28,14 @@ export function ProtectedRoute({ children, requireAdmin = false }) {
   }
 
   // Redirect to landing if not authenticated
-  if (!authState.isAuthenticated) {
+  if (!isAuthenticated) {
     // Store current location for redirect after login
     const redirectTo = location.pathname !== '/' ? location.pathname + location.search : '/dashboard';
     return <Navigate to="/" state={{ from: redirectTo }} replace />;
   }
 
   // Check admin requirement
-  if (requireAdmin && !authState.user?.is_admin && !authState.user?.is_staff) {
+  if (requireAdmin && !user?.is_admin && !user?.is_staff) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -106,64 +47,8 @@ export function ProtectedRoute({ children, requireAdmin = false }) {
  * Hook to get current authentication state
  */
 export function useAuthStatus() {
-  const [authState, setAuthState] = useState({
-    loading: true,
-    isAuthenticated: false,
-    user: null,
-    error: null
-  });
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function checkAuth() {
-      try {
-        const token = localStorage.getItem('authToken');
-
-        if (!token) {
-          if (mounted) {
-            setAuthState({
-              loading: false,
-              isAuthenticated: false,
-              user: null,
-              error: null
-            });
-          }
-          return;
-        }
-
-        const profile = await authApi.getProfile(token);
-
-        if (mounted) {
-          setAuthState({
-            loading: false,
-            isAuthenticated: true,
-            user: profile,
-            error: null
-          });
-        }
-      } catch (error) {
-        localStorage.removeItem('authToken');
-
-        if (mounted) {
-          setAuthState({
-            loading: false,
-            isAuthenticated: false,
-            user: null,
-            error: error.message
-          });
-        }
-      }
-    }
-
-    checkAuth();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  return authState;
+  // Backward-compatible hook export that now proxies to global AuthContext
+  return useGlobalAuthStatus();
 }
 
 /**

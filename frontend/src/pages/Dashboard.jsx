@@ -546,28 +546,10 @@ export default function Dashboard() {
     }
   };
 
-  // Initialize store and fetch profile on mount
+  // Initialize store and fetch initial data on mount
   useEffect(() => {
     const initDashboard = async () => {
-      // Check authentication first
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-
-      // Fetch user profile for greeting (non-blocking)
-      try {
-        const profile = await authApi.getProfile(token);
-        const name =
-          (profile && (profile.full_name?.trim() || profile.first_name?.trim() || profile.username?.trim())) ||
-          (profile && profile.email ? (profile.email.split('@')[0] || 'User') : 'User');
-        setDisplayName(name);
-      } catch (e) {
-        console.warn('Failed to fetch profile:', e);
-      }
-
-      // Trigger store's initial device fetch
+      // Trigger store's initial device fetch (idempotent guard in store)
       await fetchInitial();
     };
 

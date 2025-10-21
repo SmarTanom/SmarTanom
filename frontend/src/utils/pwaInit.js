@@ -8,11 +8,18 @@ import notificationService from '../services/notificationService.js';
 
 // PWA update available flag
 let updateAvailable = false;
+let alreadyInitialized = false; // guard against StrictMode double effects
 
 /**
  * Initialize PWA features
  */
 export function initializePWA() {
+  if (alreadyInitialized) {
+    return {
+      updateSW: () => { },
+      isUpdateAvailable: () => updateAvailable
+    };
+  }
   // In development, only enable PWA if explicitly allowed via env flag
   const enablePwaInDev = String(import.meta.env?.VITE_ENABLE_PWA_IN_DEV || '').toLowerCase() === 'true';
   if (import.meta.env.DEV) {
@@ -64,6 +71,7 @@ export function initializePWA() {
       }
     });
 
+    alreadyInitialized = true;
     // Return update function for manual updates
     return {
       updateSW,
