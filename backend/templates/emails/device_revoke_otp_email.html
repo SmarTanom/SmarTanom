@@ -74,13 +74,7 @@
                   </div>
                 </div>
 
-                {% if app_url %}
-                <div style="text-align:center; margin-top:16px;">
-                  <a href="{{ app_url }}" style="display:inline-block; background:#339432; color:#FFFFFF; text-decoration:none; font-weight:700; font-size:14px; padding:12px 18px; border-radius:10px; box-shadow:0 2px 8px rgba(51,148,50,0.28);">Review in Dashboard</a>
-                </div>
-                {% endif %}
-
-                <p style="margin:16px 0 0; font-size:14px; line-height:1.55; color:#374151; text-align:center;">
+                <p style="margin:18px 0 0; font-size:14px; line-height:1.55; color:#374151; text-align:center;">
                   This code expires in <strong>{{ expiry_minutes|default:10 }} minutes</strong>.
                 </p>
 
