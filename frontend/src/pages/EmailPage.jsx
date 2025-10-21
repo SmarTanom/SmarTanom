@@ -5,6 +5,7 @@ import BrandMark from '../components/brand/BrandMark.jsx';
 import '../pages/AuthEmailPage.css';
 import { Mail as MailIcon, ChevronLeftFilled } from '../components/ui/Icon.jsx';
 import { authApi } from '../services/apiClient.js';
+import { useAuthActions } from '../contexts/AuthContext.jsx';
 // OtpInput removed per request; inlining digit inputs locally
 
 // Inline validation helpers
@@ -13,6 +14,7 @@ function isValidEmail(email) { return /[^@\s]+@[^@\s]+\.[^@\s]+/.test(email); }
 export default function EmailPage({ mode = 'signin' }) {
   const navigate = useNavigate();
   const { setMode, email, setEmail, codeSent, setCodeSent } = useAuthFlow();
+  const { login } = useAuthActions();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -26,9 +28,9 @@ export default function EmailPage({ mode = 'signin' }) {
   const [showSwitchToSignin, setShowSwitchToSignin] = useState(false);
 
   // Auto-focus the switch-to-sign-in button when it appears for accessibility
-  useEffect(()=>{
+  useEffect(() => {
     if (showSwitchToSignin && switchModeBtnRef.current) {
-      try { switchModeBtnRef.current.focus(); } catch {}
+      try { switchModeBtnRef.current.focus(); } catch { }
     }
   }, [showSwitchToSignin]);
 
@@ -71,20 +73,20 @@ export default function EmailPage({ mode = 'signin' }) {
   }
 
   // resend logic
-  useEffect(()=>{
+  useEffect(() => {
     if (resendCooldown <= 0) return;
-    const t = setInterval(()=> setResendCooldown(c=>c-1), 1000);
-    return ()=> clearInterval(t);
+    const t = setInterval(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearInterval(t);
   }, [resendCooldown]);
 
   // auto-focus first empty OTP digit when entering code phase
-  useEffect(()=>{
+  useEffect(() => {
     if (!codeSent) return;
-    const firstEmpty = code.split('').findIndex(c=>!c);
+    const firstEmpty = code.split('').findIndex(c => !c);
     const idx = firstEmpty === -1 ? 0 : firstEmpty;
     const el = otpRefs.current[idx];
     if (el && el.focus) {
-      try { el.focus(); } catch {}
+      try { el.focus(); } catch { }
     }
   }, [codeSent, code]);
 
@@ -99,9 +101,9 @@ export default function EmailPage({ mode = 'signin' }) {
     setTimeout(() => inputRef.current?.focus(), 100);
   };
 
-  async function handleVerify(e){
+  async function handleVerify(e) {
     e.preventDefault();
-    if (code.length !== 6){
+    if (code.length !== 6) {
       setOtpError('Enter the complete 6-digit code');
       return;
     }
@@ -113,7 +115,7 @@ export default function EmailPage({ mode = 'signin' }) {
       setStatusMsg('Verification successful!');
       // Persist token if provided (login or register)
       if (resp?.token) {
-        try { localStorage.setItem('authToken', resp.token); } catch {}
+        try { localStorage.setItem('authToken', resp.token); } catch { }
       }
       // If this is a signup-first flow, continue onboarding to username
       if (mode === 'signup' || resp?.flow_hint === 'signup_created') {
@@ -123,32 +125,32 @@ export default function EmailPage({ mode = 'signin' }) {
       // Otherwise, after successful sign-in, fetch profile and route by role
       const token = resp?.token || localStorage.getItem('authToken');
 
-      // Check if there's a last visited page to restore (for regular users)
+      // Update global auth context immediately to avoid ProtectedRoute bouncing back to landing
+      let userProfile = null;
+      if (token) {
+        try {
+          const result = await login(token);
+          if (result?.success) {
+            userProfile = result.user;
+          }
+        } catch (_) { }
+      }
+
+      // Decide destination based on role and last visited page
       const lastPage = localStorage.getItem('lastVisitedPage');
+      const role = userProfile?.role || userProfile?.user?.role;
+      const isAdmin = userProfile?.is_admin === true || userProfile?.user?.is_admin === true || role === 'admin';
+
       let target = '/dashboard';
-
-      try {
-        if (token) {
-          const prof = await authApi.getProfile(token);
-          const role = prof?.role || prof?.user?.role;
-          const isAdmin = prof?.is_admin === true || prof?.user?.is_admin === true;
-
-          // Admin users always go to admin dashboard
-          if (role === 'admin' || isAdmin) {
-            target = '/admin';
-          }
-          // Regular users: restore last page if available
-          else if (lastPage && lastPage !== '/') {
-            console.log('[EmailPage] Redirecting to last visited page:', lastPage);
-            target = lastPage;
-          }
-        }
-      } catch (_) {
-        // default to user dashboard if profile lookup fails
+      if (isAdmin) {
+        target = '/admin';
+      } else if (lastPage && lastPage !== '/') {
+        console.log('[EmailPage] Redirecting to last visited page:', lastPage);
+        target = lastPage;
       }
 
       navigate(target, { replace: true });
-    } catch (err){
+    } catch (err) {
       setStatusMsg('');
       const errorMsg = err?.message || 'Invalid or expired code.';
 
@@ -167,7 +169,7 @@ export default function EmailPage({ mode = 'signin' }) {
       setTimeout(() => {
         const firstInput = otpRefs.current[0];
         if (firstInput && firstInput.focus) {
-          try { firstInput.focus(); } catch {}
+          try { firstInput.focus(); } catch { }
         }
       }, 100);
     } finally {
@@ -175,15 +177,15 @@ export default function EmailPage({ mode = 'signin' }) {
     }
   }
 
-  async function handleResend(){
-    if (resendCooldown>0) return;
+  async function handleResend() {
+    if (resendCooldown > 0) return;
     try {
       const purpose = mode === 'signup' ? 'register' : 'login';
       await authApi.requestOtp(email, purpose);
       setStatusMsg('Code resent!');
       setResendCooldown(30);
       setOtpError('');
-    } catch (err){
+    } catch (err) {
       setOtpError(err?.message || 'Could not resend code');
       setResendCooldown(10);
     }
@@ -251,7 +253,7 @@ export default function EmailPage({ mode = 'signin' }) {
                     ref={switchModeBtnRef}
                     type="button"
                     className="auth-alt-action"
-                    onClick={()=> { setShowSwitchToSignin(false); setMode('signin'); setStatusMsg('Switched to Sign In. Enter your email to receive a code.'); }}
+                    onClick={() => { setShowSwitchToSignin(false); setMode('signin'); setStatusMsg('Switched to Sign In. Enter your email to receive a code.'); }}
                     aria-describedby={statusMsg ? 'status-msg' : undefined}
                   >
                     Switch to Sign In
@@ -262,8 +264,8 @@ export default function EmailPage({ mode = 'signin' }) {
             )}
             {codeSent && (
               <form className="auth-form" onSubmit={handleVerify} noValidate>
-                <div className={`inline-otp-group ${otpError ? 'error': ''}`} role="group" aria-label="Verification code">
-                  {Array.from({length:6}).map((_,i)=> (
+                <div className={`inline-otp-group ${otpError ? 'error' : ''}`} role="group" aria-label="Verification code">
+                  {Array.from({ length: 6 }).map((_, i) => (
                     <input
                       key={i}
                       id={`otp-${i}`}
@@ -272,12 +274,12 @@ export default function EmailPage({ mode = 'signin' }) {
                       pattern="[0-9]*"
                       maxLength={1}
                       className="inline-otp-cell"
-                      aria-label={`Digit ${i+1}`}
+                      aria-label={`Digit ${i + 1}`}
                       aria-invalid={otpError || undefined}
                       value={code[i] || ''}
-                      data-filled={code[i] ? 'true':'false'}
-                      onChange={(e)=>{
-                        const val = e.target.value.replace(/\D/g,'');
+                      data-filled={code[i] ? 'true' : 'false'}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
                         if (!val) {
                           const next = code.split('');
                           next[i] = '';
@@ -285,37 +287,37 @@ export default function EmailPage({ mode = 'signin' }) {
                           setCode(joined);
                           return;
                         }
-                        const next = code.padEnd(6,'').split('');
+                        const next = code.padEnd(6, '').split('');
                         next[i] = val[0];
                         const joined = next.join('');
                         setCode(joined);
                         if (i < 5) {
-                          const nextEl = document.getElementById(`otp-${i+1}`);
+                          const nextEl = document.getElementById(`otp-${i + 1}`);
                           nextEl && nextEl.focus();
                         } else {
                           // all digits maybe filled
                           if (!next.includes('')) setStatusMsg('Code entered. Ready to verify.');
                         }
                       }}
-                      onKeyDown={(e)=>{
-                        if (e.key === 'Backspace' && !code[i] && i>0){
-                          const prev = document.getElementById(`otp-${i-1}`);
+                      onKeyDown={(e) => {
+                        if (e.key === 'Backspace' && !code[i] && i > 0) {
+                          const prev = document.getElementById(`otp-${i - 1}`);
                           prev && prev.focus();
-                        } else if (e.key==='ArrowLeft' && i>0){
+                        } else if (e.key === 'ArrowLeft' && i > 0) {
                           e.preventDefault();
-                          document.getElementById(`otp-${i-1}`)?.focus();
-                        } else if (e.key==='ArrowRight' && i<5){
+                          document.getElementById(`otp-${i - 1}`)?.focus();
+                        } else if (e.key === 'ArrowRight' && i < 5) {
                           e.preventDefault();
-                          document.getElementById(`otp-${i+1}`)?.focus();
+                          document.getElementById(`otp-${i + 1}`)?.focus();
                         }
                       }}
-                      onPaste={(e)=>{
+                      onPaste={(e) => {
                         const text = e.clipboardData.getData('text');
                         if (!text) return;
-                        const digits = text.replace(/\D/g,'').slice(0,6).split('');
+                        const digits = text.replace(/\D/g, '').slice(0, 6).split('');
                         if (!digits.length) return;
                         e.preventDefault();
-                        const next = Array.from({length:6}, (_,idx)=> digits[idx] || code[idx] || '');
+                        const next = Array.from({ length: 6 }, (_, idx) => digits[idx] || code[idx] || '');
                         setCode(next.join(''));
                         if (!next.includes('')) {
                           setStatusMsg('Code entered. Ready to verify.');
