@@ -31,6 +31,7 @@
 #include <ArduinoJson.h>
 #include <DNSServer.h>
 #include <time.h>
+#include <EEPROM.h>
 // Sensor + WebSocket libraries
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -121,11 +122,11 @@ bool provisioningMode = true;
 // =============================================
 // SENSOR PINS (KEEP AS PROVIDED)
 // =============================================
-#define WATER_SENSOR_PIN 33
+#define WATER_SENSOR_PIN 32  // HW-03 Water Sensor (AO) on GPIO32
 #define ONE_WIRE_BUS 4
 #define TDS_PIN 39
 #define PH_PIN 36
-#define TURBIDITY_PIN 32
+#define TURBIDITY_PIN 35     // Moved from 32 to 35 (GPIO32 now used for water level)
 
 // Sensor objects
 OneWire oneWire(ONE_WIRE_BUS);
@@ -136,7 +137,90 @@ DallasTemperature tempSensors(&oneWire);
 #define ADC_RES 4095.0
 #define SCOUNT 30
 
-// Calibration constants
+// =============================================
+// WATER LEVEL SENSOR - State Machine & Calibration
+// =============================================
+// State definitions (NORMAL/WARNING based on ADC threshold)
+enum LevelState { STATE_WARNING, STATE_NORMAL };
+LevelState currentWaterLevelState = STATE_NORMAL;
+
+const char* waterLevelStateToText(LevelState s) {
+  switch (s) {
+    case STATE_WARNING: return "WARNING";
+    case STATE_NORMAL:  return "NORMAL";
+    default:            return "UNKNOWN";
+  }
+}
+
+// Thresholds & Hysteresis for state transitions
+int ADC_WARNING_THRESH = 500;  // < 500 => WARNING
+int HYST_ADC = 20;             // hysteresis (ADC counts)
+
+LevelState classifyWaterLevelAdc(int adc) {
+  switch (currentWaterLevelState) {
+    case STATE_WARNING:
+      if (adc >= ADC_WARNING_THRESH + HYST_ADC) return STATE_NORMAL;
+      return STATE_WARNING;
+    case STATE_NORMAL:
+      if (adc < ADC_WARNING_THRESH - HYST_ADC) return STATE_WARNING;
+      return STATE_NORMAL;
+  }
+  return STATE_NORMAL;
+}
+
+// Moving average filter for water level ADC
+constexpr int WATER_SAMPLE_COUNT = 10;
+int waterLevelSamples[WATER_SAMPLE_COUNT];
+int waterLevelSampleIndex = 0;
+bool waterLevelBufferFilled = false;
+
+// Zero fault detection
+uint32_t waterLevelZeroStartMs = 0;
+bool waterLevelZeroFaultNotified = false;
+
+// Display calibration for percentage (EEPROM-backed)
+constexpr size_t EEPROM_SIZE = 64;
+constexpr int EEPROM_ADDR_FLAG = 0;
+constexpr int EEPROM_ADDR_DRY  = 4;
+constexpr int EEPROM_ADDR_WET  = 8;
+
+int calibDry = 600;   // 0% wetness
+int calibWet = 1700;  // 100% wetness
+
+// Utility functions for water level percentage
+float clampf(float x, float a, float b) {
+  if (x < a) return a;
+  if (x > b) return b;
+  return x;
+}
+
+float waterAdcToPercent(int adc) {
+  int span = calibWet - calibDry;
+  if (span <= 0) return 0.0f;
+  float pct = 100.0f * (float)(adc - calibDry) / (float)span;
+  return clampf(pct, 0.0f, 100.0f);
+}
+
+// EEPROM calibration persistence
+void eepromLoadWaterCalibration() {
+  EEPROM.begin(EEPROM_SIZE);
+  uint8_t flag = EEPROM.read(EEPROM_ADDR_FLAG);
+  if (flag == 0xA5) {
+    calibDry = EEPROM.readInt(EEPROM_ADDR_DRY);
+    calibWet = EEPROM.readInt(EEPROM_ADDR_WET);
+  }
+}
+
+void eepromSaveWaterCalibration() {
+  EEPROM.write(EEPROM_ADDR_FLAG, 0xA5);
+  EEPROM.writeInt(EEPROM_ADDR_DRY, calibDry);
+  EEPROM.writeInt(EEPROM_ADDR_WET, calibWet);
+  EEPROM.commit();
+}
+
+// =============================================
+// LEGACY CALIBRATION (kept for compatibility)
+// =============================================
 #define TDS_FACTOR 0.5
 #define PH_CALIBRATION_OFFSET 0.00
 #define DRY_VALUE 250
@@ -1149,6 +1233,17 @@ void initSensors() {
     analogReadResolution(12);
     analogSetAttenuation(ADC_11db);
 
+    // Initialize water level sensor ADC settings
+    analogSetPinAttenuation(WATER_SENSOR_PIN, ADC_11db);
+
+    // Load water level calibration from EEPROM
+    eepromLoadWaterCalibration();
+
+    // Pre-fill water level moving average buffer
+    for (int i = 0; i < WATER_SAMPLE_COUNT; i++) {
+        waterLevelSamples[i] = 0;
+    }
+
     // Pre-fill buffers with current readings to avoid initial zeros
     for (int i = 0; i < SCOUNT; i++) {
         tdsBuffer[i] = analogRead(TDS_PIN);
@@ -1156,7 +1251,9 @@ void initSensors() {
     }
     bufferIndex = 0;
 
-    Serial.println("✓ Sensors initialized (DS18B20, TDS, pH, Turbidity, HW-03)");
+    Serial.println("✓ Sensors initialized (DS18B20, TDS, pH, Turbidity, HW-03 Water Level)");
+    Serial.printf("  Water Level Calibration: 0%%=%d ADC, 100%%=%d ADC\n", calibDry, calibWet);
+    Serial.printf("  Water Level Threshold: WARNING < %d ADC (hysteresis=%d)\n", ADC_WARNING_THRESH, HYST_ADC);
 }
 
 String getTurbidityStatus(int raw) {
@@ -1170,11 +1267,51 @@ String getTurbidityStatus(int raw) {
 }
 
 void readSensorsOnce() {
-    // HW-03 Water Sensor
+    // ========================================
+    // HW-03 Water Sensor - Moving Average & State Machine
+    // ========================================
     int rawWater = analogRead(WATER_SENSOR_PIN);
-    waterRaw = rawWater;
-    waterPercent = map(rawWater, DRY_VALUE, WET_VALUE, 0, 100);
-    waterPercent = constrain(waterPercent, 0, 100);
+
+    // Add to moving average buffer
+    waterLevelSamples[waterLevelSampleIndex] = rawWater;
+    waterLevelSampleIndex = (waterLevelSampleIndex + 1) % WATER_SAMPLE_COUNT;
+    if (waterLevelSampleIndex == 0) waterLevelBufferFilled = true;
+
+    // Compute moving average
+    long sumWater = 0;
+    int countWater = waterLevelBufferFilled ? WATER_SAMPLE_COUNT : waterLevelSampleIndex;
+    if (countWater == 0) countWater = 1;
+    for (int i = 0; i < countWater; ++i) sumWater += waterLevelSamples[i];
+    int adcAvgWater = sumWater / countWater;
+
+    // Store for reporting
+    waterRaw = adcAvgWater;
+
+    // Map to percentage (display-only, based on calibration)
+    waterPercent = (int)waterAdcToPercent(adcAvgWater);
+
+    // State decision (WARNING/NORMAL) with hysteresis
+    LevelState newState = classifyWaterLevelAdc(adcAvgWater);
+    if (newState != currentWaterLevelState) {
+        Serial.printf("[WATER LEVEL STATE] %s -> %s (ADC=%d)\n",
+                      waterLevelStateToText(currentWaterLevelState),
+                      waterLevelStateToText(newState),
+                      adcAvgWater);
+        currentWaterLevelState = newState;
+    }
+
+    // Zero fault detection (ADC stuck at 0)
+    uint32_t now = millis();
+    if (adcAvgWater == 0) {
+        if (waterLevelZeroStartMs == 0) waterLevelZeroStartMs = now;
+        if (!waterLevelZeroFaultNotified && (now - waterLevelZeroStartMs > 5000)) {
+            waterLevelZeroFaultNotified = true;
+            Serial.println(F("[WATER LEVEL FAULT] ADC stuck at 0. Check: AO->GPIO32, GND common, VCC"));
+        }
+    } else {
+        waterLevelZeroStartMs = 0;
+        waterLevelZeroFaultNotified = false;
+    }
 
     // DS18B20 Water Temp
     tempSensors.requestTemperatures();
@@ -1548,13 +1685,18 @@ void sendSensorData() {
     o6["type"] = "water_level";
     o6["value"] = waterPercent; // %
 
+    // Add water level state (NORMAL/WARNING)
+    JsonObject o7 = arr.createNestedObject();
+    o7["type"] = "water_level_state";
+    o7["value"] = waterLevelStateToText(currentWaterLevelState);
+
     String out;
     serializeJson(doc, out);
     wsClient.sendTXT(out);
 
     // Log to serial for quick debugging
     Serial.println("========== SENSOR READINGS ==========");
-    Serial.printf("Water Level   : %d%% (raw=%d)\n", waterPercent, waterRaw);
+    Serial.printf("Water Level   : %d%% (raw=%d, state=%s)\n", waterPercent, waterRaw, waterLevelStateToText(currentWaterLevelState));
     Serial.printf("Water Temp    : %.2f °C\n", waterTempC);
     Serial.printf("TDS           : %.0f ppm\n", tdsValue);
     Serial.printf("EC (est)      : %.2f mS/cm\n", (tdsValue / 640.0));
