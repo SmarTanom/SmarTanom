@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import logging
 from typing import Optional
+from datetime import timedelta
 
 from apps.notifications.services import PushNotificationService
 from django.utils import timezone
 from typing import Tuple
+from django.conf import settings
 
 
 logger = logging.getLogger("apps.sensors")
@@ -286,6 +288,17 @@ class SensorAlertService:
         severity = alert_info["severity"]
         title = alert_info["title"]
         body = alert_info["body"]
+        metric = alert_info.get("metric") or getattr(sensor, "sensor_type", None)
+
+        # Cooldown suppression: skip creating duplicate/lower-severity alerts within window
+        try:
+            if SensorAlertService._should_suppress_alert(sensor=sensor, metric=metric, current_severity=severity):
+                logger.info(
+                    f"Suppressing alert due to cooldown: sensor={sensor.id} metric={metric} severity={severity}"
+                )
+                return None
+        except Exception as _cooldown_err:
+            logger.error(f"Cooldown check failed; proceeding with alert creation. Error: {_cooldown_err}")
 
         logger.info(
             f"Alert detected: {sensor_type}={value} for device {device.id} ({device.device_name}), "
@@ -407,6 +420,40 @@ class SensorAlertService:
             logger.info(f"Skipping admin broadcast for {severity} alert on user-owned device {device.id}")
 
         return body
+
+    @staticmethod
+    def _should_suppress_alert(*, sensor, metric: Optional[str], current_severity: str) -> bool:
+        """Return True if a recent alert should suppress creating a new one.
+
+        Rules:
+        - If an alert of the same metric for this sensor exists within the cooldown window
+          and its severity is the same or higher, suppress.
+        - If the new alert is higher severity than the recent one (escalation), allow.
+        """
+        from .models import Alert
+
+        if not sensor or not metric:
+            return False
+
+        cooldown_minutes = int(getattr(settings, "ALERT_COOLDOWN_MINUTES", 30))
+        window_start = timezone.now() - timedelta(minutes=cooldown_minutes)
+
+        # Find the most recent alert for this sensor+metric in the cooldown window
+        last_alert = (
+            Alert.objects
+            .filter(sensor=sensor, metric=metric, created_at__gte=window_start)
+            .order_by("-created_at")
+            .first()
+        )
+        if not last_alert:
+            return False
+
+        severity_rank = {"warning": 1, "critical": 2}
+        last_rank = severity_rank.get(last_alert.severity, 0)
+        curr_rank = severity_rank.get(current_severity, 0)
+
+        # Suppress when last severity is same or higher; allow only if escalation
+        return last_rank >= curr_rank
 
     @staticmethod
     def _plant_category_for(plant_name: Optional[str]) -> str:

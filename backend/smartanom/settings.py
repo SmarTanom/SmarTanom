@@ -602,3 +602,11 @@ AUTO_CREATE_DEVICE_ON_FIRST_CONNECT = os.getenv('AUTO_CREATE_DEVICE_ON_FIRST_CON
 # Device provisioning throttle rate (separate from general API throttling)
 DEVICE_PROVISION_THROTTLE_RATE = os.getenv('DEVICE_PROVISION_THROTTLE_RATE', '10/hour')
 
+# =============================================
+# Alerts & Notifications
+# =============================================
+# Cooldown window (in minutes) to suppress duplicate alerts of the same or lower
+# severity for the same sensor+metric. Escalations (e.g., warning -> critical)
+# are allowed within the window.
+ALERT_COOLDOWN_MINUTES = int(os.getenv('ALERT_COOLDOWN_MINUTES', '30'))
+
