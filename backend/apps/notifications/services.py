@@ -229,12 +229,15 @@ class PushNotificationService:
                 if not notification_url.startswith('http'):
                     notification_url = f"{frontend_url}{notification_url}"
 
+                # Extract device_name from data if provided
+                device_name = data.get('device_name') if data else None
+
                 context = {
                     'user_name': user.full_name or user.email.split('@')[0],
                     'alert_title': title,
                     'alert_message': message,
                     'alert_type': notification_type,
-                    'device_name': None,
+                    'device_name': device_name,
                     'timestamp': timezone.now().strftime('%B %d, %Y at %I:%M %p'),
                     'alert_url': notification_url,
                     'settings_url': f"{frontend_url}/admin/settings",
@@ -371,7 +374,18 @@ class PushNotificationService:
         # Build URL to alert page
         url = f"/alerts?device={device_id}" if device_id else "/alerts"
 
-        # Send push notification
+        # Get device name if device_id provided (for email context)
+        device_name = None
+        if device_id:
+            try:
+                from apps.devices.models import Device
+                device = Device.objects.get(id=device_id)
+                device_name = device.device_name or f"Device {device_id}"
+            except:
+                device_name = f"Device {device_id}"
+
+        # Send push notification AND email (send_notification handles both)
+        # Pass device_name in data so email template can use it
         push_result = PushNotificationService.send_notification(
             user=user,
             title=f"🌱 {alert_title}",
@@ -380,80 +394,9 @@ class PushNotificationService:
             url=url,
             data={
                 'device_id': device_id,
-                'alert_type': alert_type
+                'alert_type': alert_type,
+                'device_name': device_name  # Pass to email template
             }
         )
-
-        # Send email if enabled in preferences
-        try:
-            # Check both NotificationPreferences and UserPreferences
-            from apps.accounts.models import UserPreferences
-
-            notif_prefs = NotificationPreferences.objects.filter(user=user).first()
-            user_prefs = UserPreferences.objects.filter(user=user).first()
-
-            # Email is sent if:
-            # 1. NotificationPreferences.email_enabled is True (or doesn't exist - default allow)
-            # 2. UserPreferences.email_notifications is True (admin dashboard setting)
-            email_enabled = True
-            if notif_prefs and not notif_prefs.email_enabled:
-                email_enabled = False
-            if user_prefs and not user_prefs.email_notifications:
-                email_enabled = False
-
-            if email_enabled and user.email:
-                from django.template.loader import render_to_string
-                from django.utils import timezone
-                from apps.common.email_service import send_email as _send_email
-
-                # Get device name if device_id provided
-                device_name = None
-                if device_id:
-                    try:
-                        from apps.devices.models import Device
-                        device = Device.objects.get(id=device_id)
-                        device_name = device.device_name or f"Device {device_id}"
-                    except:
-                        device_name = f"Device {device_id}"
-
-                # Prepare context for email templates
-                frontend_url = getattr(settings, 'FRONTEND_URL', 'https://smartanom.com')
-                alert_url = f"{frontend_url}/alerts{'?device=' + str(device_id) if device_id else ''}"
-
-                context = {
-                    'user_name': user.full_name or user.email.split('@')[0],
-                    'alert_title': alert_title,
-                    'alert_message': alert_message,
-                    'alert_type': alert_type,
-                    'device_name': device_name,
-                    'timestamp': timezone.now().strftime('%B %d, %Y at %I:%M %p'),
-                    'alert_url': alert_url,
-                    'settings_url': f"{frontend_url}/profile/notifications",
-                    'website_url': frontend_url,
-                    'support_url': f"{frontend_url}/support",
-                    'unsubscribe_url': f"{frontend_url}/profile/notifications",
-                }
-
-                # Render email templates
-                subject = f"[SmarTanom Alert] {alert_title}"
-                text_content = render_to_string('emails/alert_notification.txt', context)
-                html_content = render_to_string('emails/alert_notification.html', context)
-
-                # Send via centralized email service
-                if _send_email(
-                    user.email,
-                    subject,
-                    text_content,
-                    html_content,
-                    reply_to=getattr(settings, 'SUPPORT_EMAIL', None) or getattr(settings, 'DEFAULT_FROM_EMAIL', None),
-                    list_unsubscribe=f"{frontend_url}/profile/notifications",
-                ):
-                    logger.info(f"Alert email sent to {user.email}: {alert_title}")
-                else:
-                    logger.error(f"Alert email failed for {user.email}: {alert_title}")
-        except NotificationPreferences.DoesNotExist:
-            pass
-        except Exception as e:
-            logger.error(f"Failed to send alert email to {user.email}: {e}")
 
         return push_result
