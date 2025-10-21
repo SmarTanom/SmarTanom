@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../assets/styles/AlertsPage.css';
 import {
@@ -18,51 +18,7 @@ import {
   Bell
 } from 'lucide-react';
 
-import { getUserDevices } from '../services/api/devices.js';
-import { listAlerts } from '../services/api/alerts.js';
 import { useRealtimeStore } from '../store/realtimeStore';
-
-// Local persistence for read alerts (database alerts only)
-const READ_STORAGE_KEY = 'alerts.readingIds';
-
-function loadIdSet(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw);
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch (_e) {
-    return new Set();
-  }
-}
-
-function saveIdSet(key, set) {
-  try {
-    localStorage.setItem(key, JSON.stringify(Array.from(set)));
-  } catch (_e) {
-    // ignore
-  }
-}
-
-// Check if an alert has been marked as read before (supports legacy and new keys)
-function isPersistedRead(alert) {
-  const readingIds = loadIdSet(READ_STORAGE_KEY);
-  if (!alert) return false;
-  if (alert.readingId && readingIds.has(alert.readingId)) return true;
-  // Backward compatibility: some older persisted entries used a different key
-  if (alert.legacyReadingId && readingIds.has(alert.legacyReadingId)) return true;
-  return false;
-}
-
-function persistMarkRead(alert) {
-  if (!alert || !alert.readingId) return;
-  const s = loadIdSet(READ_STORAGE_KEY);
-  s.add(alert.readingId);
-  saveIdSet(READ_STORAGE_KEY, s);
-  try {
-    window.dispatchEvent(new Event('alerts-read-updated'));
-  } catch (_e) { }
-}
 
 // Helper: format a ISO date string to a relative time (minutes/hours/days ago)
 function relativeTimeFromISO(iso) {
@@ -99,113 +55,93 @@ export default function AlertsPage() {
   const [searchParams] = useSearchParams();
   const deviceId = searchParams.get('deviceId'); // Get device filter from URL
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'critical'
-  // Alerts state initialized as empty - only real database alerts will be shown
-  const [alerts, setAlerts] = useState([]);
-  const [filteredDeviceName, setFilteredDeviceName] = useState(null); // Store device name when filtering
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Pull alerts and devices from the realtime store (same source Dashboard uses)
+  const devices = useRealtimeStore(s => s.devices);
+  const deviceAlerts = useRealtimeStore(s => s.deviceAlerts);
+  const loadingInitial = useRealtimeStore(s => s.loadingInitial);
+  const loadingAlerts = useRealtimeStore(s => s.loadingAlerts);
+  const errorAlerts = useRealtimeStore(s => s.errorAlerts);
+  const fetchInitial = useRealtimeStore(s => s.fetchInitial);
+  const fetchAlertsStore = useRealtimeStore(s => s.fetchAlerts);
+  const markAlertAsRead = useRealtimeStore(s => s.markAlertAsRead);
+  const markAllDeviceAlertsRead = useRealtimeStore(s => s.markAllDeviceAlertsRead);
 
-  // On first mount, apply persisted read flags to initial alerts
-  React.useEffect(() => {
-    setAlerts(prev => prev.map(a => ({ ...a, read: isPersistedRead(a) || a.read }))); // preserve existing read true
-  }, []);
+  const [filteredDeviceName, setFilteredDeviceName] = useState(null);
 
-  // On mount: fetch user's bound devices (for device name lookup) and alerts from backend
-  React.useEffect(() => {
-    let mounted = true;
-    const fetchAlerts = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // Get devices for name lookup
-        const devicesResp = await getUserDevices();
-        const devices = devicesResp && devicesResp.results ? devicesResp.results : devicesResp;
-
-        // Fetch alerts from backend with optional device filter
-        const res = await listAlerts({ deviceId, ordering: '-created_at' });
-        const results = res && res.results ? res.results : (Array.isArray(res) ? res : []);
-
-        // Map device id to display name
-        const deviceNameById = new Map();
-        if (Array.isArray(devices)) {
-          devices.forEach(d => {
-            if (d && d.id) {
-              const name = d.device_name || d.plant_name || `Device ${d.device_serial || d.id}`;
-              deviceNameById.set(d.id, name);
-            }
-          });
-        }
-
-        // Set filtered device name if filtering
-        if (deviceId) {
-          const did = Number(deviceId);
-          const dn = deviceNameById.get(did) || null;
-          setFilteredDeviceName(dn);
-        } else {
-          setFilteredDeviceName(null);
-        }
-
-        const mapped = (results || []).map(a => {
-          const id = a.id;
-          const deviceIdVal = a.device || (a.sensor && a.sensor.device) || null;
-          const deviceName = (deviceIdVal && deviceNameById.get(deviceIdVal)) || a.device_name || `Device ${a.device_serial || deviceIdVal || ''}`;
-          const createdIso = a.created_at || a.created || a.timestamp || a.date || new Date().toISOString();
-          // Choose icon based on metric
-          const metric = a.metric || '';
-          let icon = 'droplet';
-          if (['tds', 'ec'].includes(metric)) icon = 'zap';
-          else if (['water_temperature', 'air_temperature', 'environment_temp', 'env_temp', 'temp'].includes(metric)) icon = 'thermometer';
-          else if (metric === 'light') icon = 'sun';
-          else if (metric === 'humidity') icon = 'sprout';
-          else if (metric === 'turbidity') icon = 'waves';
-
-          // Map severity to UI type
-          const type = a.severity === 'critical' ? 'critical' : (a.severity === 'warning' ? 'warning' : 'info');
-
-          const title = a.title || `${(metric || 'Sensor').toUpperCase()} alert`;
-          const message = a.recommendation || a.message || a.body || a.description || '';
-
-          const readingKey = `${deviceIdVal || 'dev'}:${metric || 'metric'}:${createdIso}`;
-          const legacyKey = a.legacy_key || a.id || createdIso;
-
-          const obj = {
-            id,
-            type,
-            icon,
-            title,
-            device: deviceName,
-            deviceId: deviceIdVal,
-            deviceSerial: a.device_serial || null,
-            message,
-            timestamp: relativeTimeFromISO(createdIso),
-            date: createdIso,
-            read: false,
-            readingId: readingKey,
-            legacyReadingId: legacyKey,
-          };
-          if (isPersistedRead(obj)) obj.read = true;
-          return obj;
-        });
-
-        if (!mounted) return;
-        setAlerts(mapped);
-      } catch (err) {
-        // Non-fatal; alerts page should still render (empty if no database alerts)
-        // eslint-disable-next-line no-console
-        console.warn('AlertsPage: failed to fetch alerts', err);
-        if (mounted) setError('Failed to load alerts');
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    fetchAlerts();
-    return () => { mounted = false; };
+  // Ensure store is hydrated and alerts loaded
+  useEffect(() => {
+    const hasDevices = Array.isArray(devices) && devices.length > 0;
+    if (!hasDevices) {
+      fetchInitial();
+    } else {
+      // refresh alerts each time deviceId filter changes to be safe
+      fetchAlertsStore();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
-  const filteredAlerts = alerts.filter(alert => {
+  // Update filtered device name
+  useEffect(() => {
+    if (deviceId && Array.isArray(devices)) {
+      const did = Number(deviceId);
+      const d = devices.find(x => x && x.id === did);
+      const name = d ? (d.device_name || d.plant_name || d.name || `Device ${d.device_serial || d.id}`) : null;
+      setFilteredDeviceName(name);
+    } else {
+      setFilteredDeviceName(null);
+    }
+  }, [deviceId, devices]);
+
+  // Map store alerts into UI shape
+  const mappedAlerts = useMemo(() => {
+    if (!deviceAlerts || !devices) return [];
+    const deviceNameById = new Map();
+    devices.forEach(d => {
+      if (d && d.id) {
+        const name = d.device_name || d.plant_name || d.name || `Device ${d.device_serial || d.id}`;
+        deviceNameById.set(d.id, name);
+      }
+    });
+
+    const list = [];
+    Object.entries(deviceAlerts).forEach(([didStr, alerts]) => {
+      const did = Number(didStr);
+      (alerts || []).forEach(a => {
+        const createdIso = a.timestamp || a.created_at || new Date().toISOString();
+        const sensor = a.sensor_type || a.metric || '';
+        let icon = 'droplet';
+        if (['tds', 'ec'].includes(sensor)) icon = 'zap';
+        else if (['water_temperature', 'air_temperature', 'environment_temp', 'env_temp', 'temp', 'temperature'].includes(sensor)) icon = 'thermometer';
+        else if (sensor === 'light') icon = 'sun';
+        else if (sensor === 'humidity') icon = 'sprout';
+        else if (sensor === 'turbidity') icon = 'waves';
+
+        const type = a.severity === 'critical' ? 'critical' : (a.severity === 'warning' ? 'warning' : 'info');
+
+        list.push({
+          id: a.id || a.reading_id || `${did}:${sensor}:${createdIso}`,
+          readingId: a.reading_id || a.id,
+          type,
+          icon,
+          title: a.title || `${(sensor || 'Sensor').toUpperCase()} alert`,
+          device: deviceNameById.get(did) || `Device ${did}`,
+          deviceId: did,
+          deviceSerial: null,
+          message: a.body || a.message || '',
+          timestamp: relativeTimeFromISO(createdIso),
+          date: createdIso,
+          read: !!a.is_read,
+        });
+      });
+    });
+    return list;
+  }, [deviceAlerts, devices]);
+
+  const filteredAlerts = mappedAlerts.filter(alert => {
     if (filter === 'unread') return !alert.read;
     if (filter === 'critical') return alert.type === 'critical';
+    // Device filter
+    if (deviceId) return String(alert.deviceId) === String(deviceId);
     return true;
   });
 
@@ -216,33 +152,29 @@ export default function AlertsPage() {
     return tb - ta; // newest first
   });
 
-  const unreadCount = alerts.filter(a => !a.read).length;
+  const unreadCount = mappedAlerts.filter(a => !a.read && (!deviceId || String(a.deviceId) === String(deviceId))).length;
 
-  const markAsRead = (alertId) => {
-    setAlerts(prev => prev.map(alert => {
-      if (alert.id === alertId) {
-        // persist
-        persistMarkRead(alert);
-        return { ...alert, read: true };
-      }
-      return alert;
-    }));
+  const markAsRead = (alertObj) => {
+    if (!alertObj?.deviceId || !alertObj?.readingId) return;
+    try {
+      markAlertAsRead(alertObj.deviceId, alertObj.readingId);
+    } catch (_e) { /* ignore */ }
   };
 
   const markAllAsRead = () => {
-    setAlerts(prev => {
-      // persist all alerts currently present
-      prev.forEach(a => persistMarkRead(a));
-      try { window.dispatchEvent(new Event('alerts-read-updated')); } catch (_e) { }
-      return prev.map(alert => ({ ...alert, read: true }));
-    });
+    // If filtering to a device, mark all for that device, else all devices
+    if (deviceId) {
+      const did = Number(deviceId);
+      markAllDeviceAlertsRead(did);
+    } else {
+      const ids = Object.keys(deviceAlerts || {});
+      ids.forEach(id => markAllDeviceAlertsRead(Number(id)));
+    }
   };
 
   const handleAlertClick = (alert) => {
-    // Persist and update state immediately before navigating
-    try { persistMarkRead(alert); } catch (_e) { }
-    try { window.dispatchEvent(new Event('alerts-read-updated')); } catch (_e) { }
-    setAlerts(prev => prev.map(a => (a.id === alert.id ? { ...a, read: true } : a)));
+    // Mark as read via store and navigate
+    try { markAsRead(alert); } catch (_e) { }
     navigate(`/device/${alert.deviceId}`, { state: { deviceId: alert.deviceId, deviceName: alert.device, deviceSerial: alert.deviceSerial } });
   };
 
@@ -292,12 +224,8 @@ export default function AlertsPage() {
                 marginRight: '12px',
                 transition: 'all 0.2s ease'
               }}
-              onMouseEnter={(e) => {
-                e.target.style.background = 'rgba(51, 148, 50, 0.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = 'none';
-              }}
+              onMouseEnter={(e) => { e.target.style.background = 'rgba(51, 148, 50, 0.1)'; }}
+              onMouseLeave={(e) => { e.target.style.background = 'none'; }}
             >
               Show All Devices
             </button>
@@ -311,7 +239,7 @@ export default function AlertsPage() {
       </header>
 
       {/* Loading / Error states */}
-      {loading && (
+      {(loadingInitial || loadingAlerts) && (
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -324,7 +252,7 @@ export default function AlertsPage() {
           <p style={{ color: '#666' }}>Loading alerts...</p>
         </div>
       )}
-      {!loading && error && (
+      {!loadingInitial && !loadingAlerts && errorAlerts && (
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -334,22 +262,9 @@ export default function AlertsPage() {
           gap: '12px'
         }}>
           <AlertCircle size={40} color="#e74c3c" />
-          <p style={{ color: '#e74c3c' }}>{error}</p>
+          <p style={{ color: '#e74c3c' }}>{errorAlerts}</p>
           <button
-            onClick={() => {
-              // re-trigger effect by toggling a trivial state or calling fetch again; simplest: rely on deviceId dep
-              // For same deviceId, force reload by flipping a query param fragment
-              setLoading(true);
-              setError(null);
-              // naive retry: just call the effect's fetch again by temporarily pushing a no-op state update
-              // we can simulate by updating the URL with the same params to retrigger useEffect
-              // but simpler: directly invoke the inner fetch via a small inline function
-              (async () => {
-                // mimic effect by updating searchParams (optional). Here we just refresh the page section by resetting state
-                const evt = new Event('popstate');
-                window.dispatchEvent(evt);
-              })();
-            }}
+            onClick={() => { fetchAlertsStore(); }}
             style={{
               padding: '8px 16px',
               background: PRIMARY_GREEN,
@@ -365,7 +280,7 @@ export default function AlertsPage() {
       )}
 
       {/* Filter buttons */}
-      {!loading && !error && (
+      {!loadingInitial && !loadingAlerts && !errorAlerts && (
         <div className="alerts-filters">
           <button
             className={`filter-button ${filter === 'all' ? 'active' : ''}`}
@@ -389,7 +304,7 @@ export default function AlertsPage() {
       )}
 
       {/* Alerts list */}
-      {!loading && !error && (
+      {!loadingInitial && !loadingAlerts && !errorAlerts && (
         <main className="alerts-content">
           {sortedAlerts.length === 0 ? (
             <div className="alerts-empty">

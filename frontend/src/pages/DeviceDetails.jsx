@@ -137,88 +137,9 @@ function classifyWaterTemp(value, plant) {
 }
 // Environment metrics removed (light, air temperature, humidity)
 
-const PLANT_RECOMMENDATION_TEMPLATES = {
-  Lettuce: {
-    general: 'Keep roots cool and solution well oxygenated.',
-    ph: {
-      below_min: 'Raise slowly to avoid nutrient lockout; aim 5.8–6.2.',
-      above_max: 'Slightly high pH can reduce iron uptake; adjust 0.2 at a time.',
-      near_min: 'Trend downward? Buffer with small pH Up dose.',
-      near_max: 'Monitor — drifting high may cause tip burn risk.'
-    },
-    tds: {
-      below_min: 'Increase EC gradually (no more than +100 ppm per adjustment).',
-      above_max: 'Dilute to avoid bitterness; target mid‑range.',
-      near_min: 'Plan a mild nutrient top-up soon.',
-      near_max: 'If leaves pale or edges curl, dilute slightly.'
-    },
-    ec: {
-      below_min: 'Increase EC gradually (0.2-0.3 mS/cm per adjustment).',
-      above_max: 'Dilute to avoid nutrient lockout; target mid‑range.',
-      near_min: 'Plan a mild nutrient top-up soon.',
-      near_max: 'Monitor for signs of nutrient burn.'
-    },
-    // environment metrics removed
-    water_temperature: {
-      below_min: 'Cold roots slow nutrient uptake — insulate reservoir.',
-      above_max: 'Warm solution lowers dissolved oxygen; consider chilling.',
-      near_min: 'Monitor nightly lows; add insulation if dropping further.',
-      near_max: 'Aerate more or partially replace with cooler water.'
-    },
-
-  },
-  Basil: {
-    general: 'Ensure consistent pruning to encourage airflow.',
-    ph: {
-      below_min: 'Low pH can mute aroma compounds — raise gradually.',
-      above_max: 'High pH reduces micronutrient availability — adjust slowly.',
-      near_min: 'Stabilize with small pH Up micro‑dose.',
-      near_max: 'If trending higher, perform partial dilution.'
-    },
-    tds: {
-      below_min: 'Slight boost supports leaf mass; add balanced nutrients.',
-      above_max: 'Excess salts can dull flavor — dilute 10–20%.',
-      near_min: 'Consider mild feed if new growth is pale.',
-      near_max: 'Maintain airflow; high EC plus heat stresses basil.'
-    },
-    ec: {
-      below_min: 'Slight boost supports leaf mass; add balanced nutrients.',
-      above_max: 'Excess salts can dull flavor — dilute 10–20%.',
-      near_min: 'Consider mild feed if new growth is pale.',
-      near_max: 'Maintain airflow; high EC plus heat stresses basil.'
-    },
-    // environment metrics removed
-    water_temperature: {
-      below_min: 'Cool solution reduces root vigor — gently warm.',
-      above_max: 'Warm solution invites pathogen pressure — cool it.',
-      near_min: 'Insulate lines if chill is recurring.',
-      near_max: 'Increase aeration to maintain oxygen.'
-    },
-
-  }
-};
-
-function enrichAlertMessage(plantInfo, sensorType, classificationReason, baseMessage) {
-  if (!plantInfo) return baseMessage;
-  const name = plantInfo.plant_name;
-  const tips = PLANT_RECOMMENDATION_TEMPLATES[name];
-  if (!tips) return baseMessage;
-  const domainMap = {
-    ph: 'ph',
-    tds: 'tds',
-    ec: 'ec',
-    // environment metrics removed
-    water_temperature: 'water_temperature'
-  };
-  const domain = domainMap[sensorType];
-  let extra = '';
-  if (domain && tips[domain]) {
-    const domainTips = tips[domain];
-    extra = domainTips[classificationReason] || '';
-  }
-  if (!extra && tips.general) extra = tips.general;
-  if (!extra) return baseMessage;
-  return `${baseMessage} Recommendation: ${extra}`;
+// Removed PLANT_RECOMMENDATION_TEMPLATES and recommendations logic; keep API but no-op for safety
+function enrichAlertMessage(_plantInfo, _sensorType, _classificationReason, baseMessage) {
+  return baseMessage;
 }
 
 export default function DeviceDetails() {
@@ -238,6 +159,13 @@ export default function DeviceDetails() {
   const connectWS = useRealtimeStore(state => state.connectWS);
   const fetchInitial = useRealtimeStore(state => state.fetchInitial);
   const totalUnread = useRealtimeStore(state => state.totalUnread);
+  const deviceAlertsStore = useRealtimeStore(state => state.deviceAlerts);
+  const loadingInitial = useRealtimeStore(state => state.loadingInitial);
+  const loadingAlerts = useRealtimeStore(state => state.loadingAlerts);
+  const errorAlerts = useRealtimeStore(state => state.errorAlerts);
+  const fetchAlertsStore = useRealtimeStore(state => state.fetchAlerts);
+  const markAlertAsRead = useRealtimeStore(state => state.markAlertAsRead);
+  const markAllDeviceAlertsRead = useRealtimeStore(state => state.markAllDeviceAlertsRead);
 
   // Plant photo change states
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -317,101 +245,48 @@ export default function DeviceDetails() {
     };
   }, [fetchInitial, connectWS, navigate]);
 
-  // Build alert entries for this device in the Log tab using AlertsPage logic
+  // Build log entries from store alerts for THIS device only
   useEffect(() => {
     let mounted = true;
-    async function buildDeviceAlerts() {
+    const buildFromStore = async () => {
       try {
         if (activeTab !== 'log') return;
-        const id = (device && (device.id || device.device_id)) || deviceId || (location.state && location.state.deviceId);
-        if (!id) return;
+        const didRaw = (device && (device.id || device.device_id)) || deviceId || (location.state && location.state.deviceId);
+        if (!didRaw) return;
+        const did = Number(didRaw);
 
-        // Resolve plant thresholds via plant catalog and active reservoir
-        let plantCatalog = [];
-        try {
-          const plantResp = await listPlants();
-          plantCatalog = plantResp && plantResp.results ? plantResp.results : plantResp;
-        } catch (_e) { /* plant catalog optional */ }
-
-        let devicePlant = null;
-        const plantName = (reservoir && (reservoir.plant_type || reservoir.plant)) || (device && device.plant_name) || null;
-        if (plantName && Array.isArray(plantCatalog)) {
-          devicePlant = plantCatalog.find(p => p.plant_name === plantName) || null;
+        const alerts = (deviceAlertsStore && deviceAlertsStore[did]) || [];
+        if ((!alerts || alerts.length === 0) && !loadingAlerts) {
+          // Try to refresh if nothing yet
+          await fetchAlertsStore();
         }
 
-        const sensorsResp = await getDeviceSensors(id);
-        const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
-        if (!Array.isArray(sensors) || sensors.length === 0) {
-          if (mounted) setLogEntries([]);
-          return;
-        }
+        const list = (alerts || []).map(a => {
+          const iso = a.timestamp || a.created_at || new Date().toISOString();
+          const severity = a.severity || a.type || 'info';
+          return {
+            id: a.id || a.reading_id || `${did}:${iso}`,
+            readingId: a.reading_id || a.id,
+            type: severity === 'critical' ? 'critical' : (severity === 'warning' ? 'warning' : 'info'),
+            title: a.title || 'Alert',
+            message: a.body || a.message || '',
+            time: relativeTimeFromISO(iso),
+            date: new Date(iso).toLocaleDateString(),
+            createdAt: iso,
+            isRead: !!a.is_read,
+          };
+        });
 
-  const relevantSensors = sensors.filter(s => ['ph', 'water_level', 'tds', 'ec', 'turbidity', 'water_temperature'].includes(s.sensor_type));
-        const built = [];
-
-        await Promise.all(relevantSensors.map(async (sensor) => {
-          try {
-            const dataResp = await getSensorData(sensor.id, 60);
-            const data = dataResp && dataResp.results ? dataResp.results : dataResp;
-            const readings = Array.isArray(data) ? data : (data ? [data] : []);
-            readings.forEach(r => {
-              const val = r && typeof r.value !== 'undefined' ? Number(r.value) : null;
-              if (val === null || Number.isNaN(val)) return;
-              let title = '';
-              let baseMessage = '';
-              let type = 'warning';
-              const iso = r.created_at || new Date().toISOString();
-              const value = val;
-              let cls = { severity: 'none', reason: null };
-              if (sensor.sensor_type === 'ph') cls = classifyPH(val, devicePlant);
-              else if (sensor.sensor_type === 'tds') cls = classifyTDS(val, devicePlant);
-              else if (sensor.sensor_type === 'ec') cls = classifyEC(val, devicePlant);
-              else if (sensor.sensor_type === 'water_temperature') cls = classifyWaterTemp(val, devicePlant);
-
-            if (sensor.sensor_type === 'ec') {
-              if (cls.reason === 'below_min') { title = 'EC low'; baseMessage = `EC ${value} mS/cm`; }
-              else if (cls.reason === 'above_max') { title = 'EC high'; baseMessage = `EC ${value} mS/cm`; }
-              else if (cls.reason === 'near_min') { title = 'EC near lower limit'; baseMessage = `EC ${value} mS/cm`; }
-              else if (cls.reason === 'near_max') { title = 'EC near upper limit'; baseMessage = `EC ${value} mS/cm`; }
-              baseMessage = enrichAlertMessage(devicePlant, 'ec', cls.reason, baseMessage);
-            } else if (sensor.sensor_type === 'water_temperature') {
-              if (cls.reason === 'below_min') { title = 'Water temp low'; baseMessage = `Water temp ${value}°C`; }
-              else if (cls.reason === 'above_max') { title = 'Water temp high'; baseMessage = `Water temp ${value}°C`; }
-              else { title = 'Water temp near bound'; baseMessage = `Water temp ${value}°C`; }
-              baseMessage = enrichAlertMessage(devicePlant, 'water_temperature', cls.reason, baseMessage);
-            } else if (sensor.sensor_type === 'water_level') {
-              if (cls.reason === 'empty') { title = 'Water level empty'; type = 'critical'; baseMessage = 'Water level 0% — refill immediately.'; }
-              else { title = 'Low water level'; baseMessage = `Water level ${value}% — refill soon.`; }
-            } else if (sensor.sensor_type === 'turbidity') {
-              if (cls.reason === 'turbid') { title = 'Water turbid'; type = 'critical'; baseMessage = `Turbidity ${value} — consider drain/refill.`; }
-              else { title = 'Water cloudy'; baseMessage = `Turbidity ${value} — clean filters or partial change.`; }
-            }
-            built.push({
-              id: `${sensor.id}-${iso}`,
-              type,
-              title,
-              message: baseMessage,
-              time: relativeTimeFromISO(iso),
-              date: new Date(iso).toLocaleDateString(),
-              createdAt: iso,
-            });
-            });
-          } catch (err) {
-            // ignore per-sensor errors to continue building other entries
-            // console.warn('Failed building alerts for sensor', sensor, err);
-          }
-        }));
-
-        if (mounted) setLogEntries(built);
+        if (mounted) setLogEntries(list);
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.warn('DeviceDetails: failed to build device alerts (plant-based)', e);
+        console.warn('DeviceDetails: failed to build alerts from store', e);
         if (mounted) setLogEntries([]);
       }
-    }
-    buildDeviceAlerts();
+    };
+    buildFromStore();
     return () => { mounted = false; };
-  }, [activeTab, device, deviceId, location.state, reservoir]);
+  }, [activeTab, device, deviceId, location.state, deviceAlertsStore, loadingAlerts, fetchAlertsStore]);
 
   const toggleSortOrder = () => {
     setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
@@ -779,25 +654,68 @@ export default function DeviceDetails() {
                 <span>Date: {sortOrder === 'desc' ? 'Descending' : 'Ascending'}</span>
                 <ChevronDown size={16} />
               </button>
+              {/* Optional: mark all as read for this device */}
+              <div style={{ marginLeft: 'auto' }}>
+                <button
+                  className="log-sort-button"
+                  onClick={() => {
+                    const didRaw = (device && (device.id || device.device_id)) || deviceId || (location.state && location.state.deviceId);
+                    if (didRaw) markAllDeviceAlertsRead(Number(didRaw));
+                  }}
+                >
+                  Mark device alerts read
+                </button>
+              </div>
             </div>
 
             {/* Log entries */}
-            <div className="log-entries">
-              {sortedLogEntries.map((entry) => (
-                <div key={entry.id} className="log-entry">
-                  <div className="log-entry-icon">
-                    {getLogIcon(entry.type)}
+            {(loadingInitial || loadingAlerts) ? (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '24px' }}>
+                <Clock size={20} color={PRIMARY_GREEN} style={{ marginRight: 8 }} />
+                <span>Loading alerts…</span>
+              </div>
+            ) : errorAlerts ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: '#E1554A' }}>
+                <p>Failed to load alerts: {errorAlerts}</p>
+                <button
+                  onClick={() => fetchAlertsStore()}
+                  style={{
+                    marginTop: '8px',
+                    padding: '8px 12px',
+                    background: PRIMARY_GREEN,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <div className="log-entries">
+                {sortedLogEntries.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '24px', color: '#6B7D75' }}>
+                    No alerts for this device yet.
                   </div>
-                  <div className="log-entry-content">
-                    <div className="log-entry-header">
-                      <h4 className="log-entry-title">{entry.title}</h4>
-                      <span className="log-entry-time">{entry.time}</span>
+                ) : (
+                  sortedLogEntries.map((entry) => (
+                    <div key={entry.id} className="log-entry">
+                      <div className="log-entry-icon">
+                        {getLogIcon(entry.type)}
+                      </div>
+                      <div className="log-entry-content">
+                        <div className="log-entry-header">
+                          <h4 className="log-entry-title">{entry.title}</h4>
+                          <span className="log-entry-time">{entry.time}</span>
+                        </div>
+                        <p className="log-entry-message">{entry.message}</p>
+                      </div>
                     </div>
-                    <p className="log-entry-message">{entry.message}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  ))
+                )}
+              </div>
+            )}
           </>
         )}
 
