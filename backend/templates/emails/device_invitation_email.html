@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SmarTanom Device Invitation</title>
   <style>
-    .btn { display: inline-block; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; }
-    .btn-primary { background: #339432; color: #fff; }
-    .btn-muted { background: #6B7D75; color: #fff; }
     .box { background: #f8fafc; padding: 12px 16px; border-radius: 8px; }
     .muted { color: #64748b; font-size: 12px; }
   </style>
@@ -28,16 +25,19 @@
 
     <p style="color:#374151">This invitation grants you secure access to view real-time sensor data, monitoring dashboards, and system alerts for this device.</p>
 
-    <p style="color:#374151">To accept this invitation and begin monitoring, please click the button below:</p>
+    <p style="color:#374151">To accept this invitation and begin monitoring, please use the following URLs:</p>
 
-    <p>
-      <a href="{{ accept_url }}" class="btn btn-primary" style="display: inline-block; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; background: #339432; color: #ffffff; border: none;">Accept Invitation</a>
-    </p>
+    <div class="box" style="margin:16px 0;background:#f8fafc;padding:12px 16px;border-radius:8px;">
+      <p style="margin:4px 0;color:#374151;font-size:13px;"><strong>Accept Invitation:</strong><br />
+      <a href="{{ accept_url }}" style="color:#339432;text-decoration:none;word-break:break-all;">{{ accept_url }}</a></p>
+    </div>
 
-    <p style="margin-top:12px;">If you did not request this access or do not wish to participate, you may decline:</p>
-    <p>
-      <a href="{{ decline_url }}" class="btn btn-muted" style="display: inline-block; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; background: #6B7D75; color: #ffffff; border: none;">Decline Invitation</a>
-    </p>
+    <p style="margin-top:12px;">If you did not request this access or do not wish to participate, you may decline using this URL:</p>
+
+    <div class="box" style="margin:16px 0;background:#f8fafc;padding:12px 16px;border-radius:8px;">
+      <p style="margin:4px 0;color:#374151;font-size:13px;"><strong>Decline Invitation:</strong><br />
+      <a href="{{ decline_url }}" style="color:#6B7280;text-decoration:none;word-break:break-all;">{{ decline_url }}</a></p>
+    </div>
 
     <p class="muted" style="margin-top:24px;color:#6b7280;font-size:12px;">For security reasons, this invitation will expire in 24 hours. Please respond within this timeframe to maintain access.</p>
 
