@@ -52,6 +52,8 @@ const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 export default function AlertsPage() {
   const navigate = useNavigate();
   const totalUnread = useRealtimeStore(s => s.totalUnread);
+  const connectWS = useRealtimeStore(s => s.connectWS);
+  const wsStatus = useRealtimeStore(s => s.wsStatus);
   const [searchParams] = useSearchParams();
   const deviceId = searchParams.get('deviceId'); // Get device filter from URL
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'critical'
@@ -82,6 +84,35 @@ export default function AlertsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
+
+  // Establish WebSocket connection for real-time alerts; refetch on tab focus as a safety net
+  useEffect(() => {
+    // Connect to user-specific WebSocket stream; returns unsubscribe/cleanup
+    const cleanupWS = typeof connectWS === 'function' ? connectWS() : undefined;
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        // light refresh when user returns to the tab (covers missed pushes)
+        try { fetchAlertsStore(); } catch (_) { }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (typeof cleanupWS === 'function') cleanupWS();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Optional polling fallback when WebSocket isn't connected
+  useEffect(() => {
+    if (wsStatus === 'connected') return; // no polling needed
+    const id = setInterval(() => {
+      try { fetchAlertsStore(); } catch (_) { }
+    }, 60000); // 60s fallback
+    return () => clearInterval(id);
+  }, [wsStatus, fetchAlertsStore]);
 
   // Update filtered device name
   useEffect(() => {
