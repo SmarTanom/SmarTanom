@@ -166,6 +166,7 @@ export default function DeviceDetails() {
   const fetchAlertsStore = useRealtimeStore(state => state.fetchAlerts);
   const markAlertAsRead = useRealtimeStore(state => state.markAlertAsRead);
   const markAllDeviceAlertsRead = useRealtimeStore(state => state.markAllDeviceAlertsRead);
+  const clearAlerts = useRealtimeStore(state => state.clearAlerts);
 
   // Plant photo change states
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -287,6 +288,17 @@ export default function DeviceDetails() {
     buildFromStore();
     return () => { mounted = false; };
   }, [activeTab, device, deviceId, location.state, deviceAlertsStore, loadingAlerts, fetchAlertsStore]);
+
+  // Clear cached alerts and refetch when entering LOG tab or switching device
+  useEffect(() => {
+    if (activeTab !== 'log') return;
+    // Clear local list immediately to avoid showing deleted/stale entries while reloading
+    setLogEntries([]);
+    try { clearAlerts(); } catch (_) { /* no-op */ }
+    // Always refetch to avoid showing deleted/stale alerts
+    fetchAlertsStore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, deviceId]);
 
   const toggleSortOrder = () => {
     setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
