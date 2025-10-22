@@ -14,7 +14,7 @@ import './auth.css';
  */
 export function PublicRoute({ children, redirectTo = '/dashboard' }) {
   const location = useLocation();
-  const { loading, isAuthenticated } = useGlobalAuthStatus();
+  const { loading, isAuthenticated, user } = useGlobalAuthStatus();
 
   // Show loading spinner while checking authentication
   if (loading) {
@@ -29,7 +29,9 @@ export function PublicRoute({ children, redirectTo = '/dashboard' }) {
   if (isAuthenticated) {
     // Check if there's a redirect destination in state (from ProtectedRoute)
     const from = location.state?.from;
-    const destination = from || redirectTo;
+    // If no explicit "from" path, route admins to /admin by default
+    const isAdmin = user?.is_admin === true || user?.is_staff === true || user?.role === 'admin';
+    const destination = from || (isAdmin ? '/admin' : redirectTo);
     return <Navigate to={destination} replace />;
   }
 
