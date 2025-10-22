@@ -27,7 +27,7 @@ import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 import { getDeviceReservoirs } from '../services/api/reservoirs.js';
 import { listPlants } from '../services/api/plants.js';
 import { useRealtimeStore } from '../store/realtimeStore';
-import { wsClient } from '../services/websocketClient';
+import { getUserAlerts } from '../services/api/userAlerts';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -153,6 +153,9 @@ export default function DeviceDetails() {
   const [error, setError] = useState(null);
   const [logEntries, setLogEntries] = useState([]);
   const [reservoir, setReservoir] = useState(null);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [errorLogs, setErrorLogs] = useState(null);
+  const [alertsReloadKey, setAlertsReloadKey] = useState(0);
 
   // Real-time data integration
   const deviceData = useRealtimeStore(state => state.deviceData[deviceId]);
@@ -161,12 +164,7 @@ export default function DeviceDetails() {
   const totalUnread = useRealtimeStore(state => state.totalUnread);
   const deviceAlertsStore = useRealtimeStore(state => state.deviceAlerts);
   const loadingInitial = useRealtimeStore(state => state.loadingInitial);
-  const loadingAlerts = useRealtimeStore(state => state.loadingAlerts);
-  const errorAlerts = useRealtimeStore(state => state.errorAlerts);
-  const fetchAlertsStore = useRealtimeStore(state => state.fetchAlerts);
-  const markAlertAsRead = useRealtimeStore(state => state.markAlertAsRead);
   const markAllDeviceAlertsRead = useRealtimeStore(state => state.markAllDeviceAlertsRead);
-  const clearAlerts = useRealtimeStore(state => state.clearAlerts);
 
   // Plant photo change states
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -246,58 +244,75 @@ export default function DeviceDetails() {
     };
   }, [fetchInitial, connectWS, navigate]);
 
-  // Build log entries from store alerts for THIS device only
+  // Fetch fresh alerts for THIS device only to avoid showing deleted/stale entries
   useEffect(() => {
     let mounted = true;
-    const buildFromStore = async () => {
+    const fetchDeviceAlerts = async () => {
       try {
         if (activeTab !== 'log') return;
         const didRaw = (device && (device.id || device.device_id)) || deviceId || (location.state && location.state.deviceId);
         if (!didRaw) return;
         const did = Number(didRaw);
 
-        const alerts = (deviceAlertsStore && deviceAlertsStore[did]) || [];
-        if ((!alerts || alerts.length === 0) && !loadingAlerts) {
-          // Try to refresh if nothing yet
-          await fetchAlertsStore();
-        }
+        setLoadingLogs(true);
+        setErrorLogs(null);
 
-        const list = (alerts || []).map(a => {
-          const iso = a.timestamp || a.created_at || new Date().toISOString();
-          const severity = a.severity || a.type || 'info';
-          return {
-            id: a.id || a.reading_id || `${did}:${iso}`,
-            readingId: a.reading_id || a.id,
-            type: severity === 'critical' ? 'critical' : (severity === 'warning' ? 'warning' : 'info'),
-            title: a.title || 'Alert',
-            message: a.body || a.message || '',
-            time: relativeTimeFromISO(iso),
-            date: new Date(iso).toLocaleDateString(),
-            createdAt: iso,
-            isRead: !!a.is_read,
-          };
+        // Fetch without device filter to avoid backend JSON string/number matching issues; filter client-side
+        const resp = await getUserAlerts({ limit: 200 });
+        const alerts = Array.isArray(resp?.alerts) ? resp.alerts : [];
+
+        // Filter by device here to ensure type-safe match (number vs string in JSON)
+        const filteredByDevice = alerts.filter(a => {
+          const aid = a?.device_id;
+          if (aid == null) return false;
+          // loose equal to match '123' and 123
+          return aid == did;
         });
 
-        if (mounted) setLogEntries(list);
+        // Map and sanitize; drop any entry explicitly marked deleted in metadata
+        const mapped = filteredByDevice
+          .filter(a => !(a?.metadata && a.metadata.deleted === true))
+          .map(a => {
+            const iso = a.timestamp || a.created_at || new Date().toISOString();
+            const severity = a.severity || a.type || 'info';
+            return {
+              id: a.id || a.reading_id || `${did}:${iso}`,
+              readingId: a.reading_id || a.id,
+              type: severity === 'critical' ? 'critical' : (severity === 'warning' ? 'warning' : 'info'),
+              title: a.title || 'Alert',
+              message: a.body || a.message || '',
+              time: relativeTimeFromISO(iso),
+              date: new Date(iso).toLocaleDateString(),
+              createdAt: iso,
+              isRead: !!a.is_read,
+            };
+          });
+
+        // Dedupe by readingId/id to avoid duplicates from any persisted state
+        const seen = new Set();
+        const deduped = mapped.filter(e => {
+          const key = e.readingId || e.id;
+          if (!key) return true;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        if (mounted) setLogEntries(deduped);
       } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('DeviceDetails: failed to build alerts from store', e);
-        if (mounted) setLogEntries([]);
+        if (mounted) setErrorLogs(e?.message || 'Failed to load alerts');
+      } finally {
+        if (mounted) setLoadingLogs(false);
       }
     };
-    buildFromStore();
+    fetchDeviceAlerts();
     return () => { mounted = false; };
-  }, [activeTab, device, deviceId, location.state, deviceAlertsStore, loadingAlerts, fetchAlertsStore]);
+  }, [activeTab, device, deviceId, location.state, alertsReloadKey]);
 
-  // Clear cached alerts and refetch when entering LOG tab or switching device
+  // Reset visible list when entering LOG tab or switching device (fresh fetch effect above will repopulate)
   useEffect(() => {
     if (activeTab !== 'log') return;
-    // Clear local list immediately to avoid showing deleted/stale entries while reloading
     setLogEntries([]);
-    try { clearAlerts(); } catch (_) { /* no-op */ }
-    // Always refetch to avoid showing deleted/stale alerts
-    fetchAlertsStore();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, deviceId]);
 
   const toggleSortOrder = () => {
@@ -681,16 +696,16 @@ export default function DeviceDetails() {
             </div>
 
             {/* Log entries */}
-            {(loadingInitial || loadingAlerts) ? (
+            {(loadingInitial || loadingLogs) ? (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '24px' }}>
                 <Clock size={20} color={PRIMARY_GREEN} style={{ marginRight: 8 }} />
                 <span>Loading alerts…</span>
               </div>
-            ) : errorAlerts ? (
+            ) : errorLogs ? (
               <div style={{ textAlign: 'center', padding: '24px', color: '#E1554A' }}>
-                <p>Failed to load alerts: {errorAlerts}</p>
+                <p>Failed to load alerts: {errorLogs}</p>
                 <button
-                  onClick={() => fetchAlertsStore()}
+                  onClick={() => setAlertsReloadKey(v => v + 1)}
                   style={{
                     marginTop: '8px',
                     padding: '8px 12px',
