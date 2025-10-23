@@ -111,8 +111,17 @@ class Alert(TimeStampedModel):
 
     class PlantCategory(models.TextChoices):
         LETTUCE = "Lettuce", _("Lettuce")
+        LETTUCE_GERMINATION = "Lettuce_Germination", _("Lettuce - Germination")
+        LETTUCE_SEEDLING = "Lettuce_Seedling", _("Lettuce - Seedling")
+        
         BASIL = "Basil", _("Basil")
+        BASIL_GERMINATION = "Basil_Germination", _("Basil - Germination")
+        BASIL_SEEDLING = "Basil_Seedling", _("Basil - Seedling")
+
         PECHAY = "Pechay", _("Pechay")
+        PECHAY_GERMINATION = "Pechay_Germination", _("Pechay - Germination")
+        PECHAY_SEEDLING = "Pechay_Seedling", _("Pechay - Seedling")
+        
         GENERIC = "Generic", _("Generic")
 
     device = models.ForeignKey(

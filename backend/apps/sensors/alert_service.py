@@ -80,6 +80,96 @@ class SensorAlertService:
                 "near_max": "Ensure leaves dry before dark period.",
             },
         },
+        "Lettuce_Germination": {
+            "general": "Fill reservoir with clean, pH-balanced water (5.5-6.0). Keep solution temperature stable (18-24°C) and aerated, even if using plain water, to prevent stagnation.",
+            "ph": {
+            "below_min": "Too acidic for germination. Raise slowly; aim 5.5–6.0.",
+            "above_max": "Too alkaline. Gently lower to 5.5-6.0 range.",
+            "near_min": "Monitor closely. Buffer with a very small pH Up dose if trend continues.",
+            "near_max": "Monitor. Drifting high can affect initial root nutrient uptake."
+            },
+            "tds": {
+            "below_min": "Nutrients low (OK for sprouting). Introduce 1/4 strength solution only after cotyledons appear.",
+            "above_max": "Too high! High salts can kill new roots. Dilute reservoir with plain pH'd water.",
+            "near_min": "Nutrient level is low, which is ideal for germination.",
+            "near_max": "Nearing upper limit for germination. Watch for signs of salt stress."
+            },
+            "ec": {
+            "below_min": "EC low (OK for sprouting). Introduce 1/4 strength solution (e.g., 0.8-1.0 mS/cm) after cotyledons appear.",
+            "above_max": "Too high! High EC can dehydrate and burn new roots. Dilute reservoir immediately.",
+            "near_min": "EC is low, which is ideal for germination.",
+            "near_max": "Nearing upper limit for germination. Monitor closely."
+            },
+            "light": {
+            "below_min": "Add supplemental light or reduce canopy shading.",
+            "above_max": "Too intense light can cause tip burn; raise fixture or diffuse.",
+            "near_min": "Consider extending photoperiod if growth slows.",
+            "near_max": "Watch for leaf edge curl — may need to raise lights."
+            },
+            "environment_temp": {
+            "below_min": "Cool air slows growth — ensure adequate circulation but avoid drafts.",
+            "above_max": "High heat risks bolting — increase ventilation or shading.",
+            "near_min": "If trend continues, pre-warm incoming air.",
+            "near_max": "Improve airflow to stabilize temperature."
+            },
+            "water_temperature": {
+            "below_min": "Cold solution slows germination. Insulate reservoir or add a reservoir heater.",
+            "above_max": "Warm solution (>24°C) risks root rot (Pythium). Add a water chiller or drop in frozen water bottles.",
+            "near_min": "Monitor nightly lows; add insulation or heater if dropping further.",
+            "near_max": "Increase aeration to add oxygen; consider adding frozen bottles to cool reservoir."
+            },
+            "humidity": {
+            "below_min": "CRITICAL: Germination requires high RH. Add humidity dome or mist frequently.",
+            "above_max": "High RH is good, but >90% can invite mold. Allow brief 'airing out' daily.",
+            "near_min": "Too low for optimal germination. Add humidity dome.",
+            "near_max": "Ideal humidity for sprouting."
+            }
+        },
+        "Lettuce_Seedling": {
+            "general": "Introduce a light (1/2 strength) nutrient solution to the reservoir (target 560-840 ppm). Ensure strong aeration with an air stone to promote healthy root development.",
+            "ph": {
+            "below_min": "Too acidic for seedlings. Raise pH in reservoir slowly to 5.5–6.0.",
+            "above_max": "Too alkaline. Gently lower pH in reservoir to 5.5-6.0 range.",
+            "near_min": "Trend downward? Add small pH Up dose to reservoir.",
+            "near_max": "Monitor. Drifting high can limit nutrient uptake for new roots."
+            },
+            "tds": {
+            "below_min": "Nutrients low. Add 1/2 strength nutrient mix to reservoir (target ~700 ppm).",
+            "above_max": "Too high for young seedlings. Dilute reservoir with fresh pH'd water.",
+            "near_min": "Plan to add a mild nutrient top-up to reservoir soon.",
+            "near_max": "Nearing upper limit. Watch leaf tips for burn; top-off with plain water."
+            },
+            "ec": {
+            "below_min": "Nutrients low. Add 1/2 strength nutrient mix to reservoir (target ~1.0 mS/cm).",
+            "above_max": "Too high for young seedlings. Dilute reservoir with fresh pH'd water.",
+            "near_min": "Plan to add a mild nutrient top-up to reservoir soon.",
+            "near_max": "Nearing upper limit. Watch leaf tips for burn; top-off with plain water."
+            },
+            "light": {
+            "below_min": "Seedlings stretching (leggy). Lower light fixture or increase intensity.",
+            "above_max": "Too intense. Can scorch young leaves. Raise fixture or dim light.",
+            "near_min": "May be too low if seedlings look pale or 'leggy'.",
+            "near_max": "Good intensity. Watch for any leaf curl or bleaching."
+            },
+            "environment_temp": {
+            "below_min": "Too cool. Target 18°C for sturdy seedling growth.",
+            "above_max": "Too warm. Target 18°C. High temps can cause stretching and weak stems.",
+            "near_min": "Slightly cool. Monitor closely, aim for 18°C target.",
+            "near_max": "Slightly warm. Monitor closely, aim for 18°C target."
+            },
+            "water_temperature": {
+            "below_min": "Cold roots slow nutrient uptake. Insulate reservoir or add heater.",
+            "above_max": "Warm solution (>22°C) lowers dissolved O2. Add chiller or frozen bottles to reservoir.",
+            "near_min": "Monitor nightly lows; insulate reservoir if dropping further.",
+            "near_max": "Add more aeration to reservoir; top-off with cooler water."
+            },
+            "humidity": {
+            "below_min": "Too dry for young seedlings. Can slow growth. Add gentle misting.",
+            "above_max": "High RH + young leaves = damping-off risk. Increase airflow *gently*.",
+            "near_min": "If new leaves look dry, raise RH slightly.",
+            "near_max": "Ensure good airflow to prevent mildew on tender leaves."
+            }
+        },
         "Basil": {
             "general": "Ensure consistent pruning to encourage airflow.",
             "ph": {
@@ -124,6 +214,96 @@ class SensorAlertService:
                 "near_min": "Monitor leaf edge dry‑out.",
                 "near_max": "Ensure canopy dries before dark.",
             },
+        },
+        "Basil_Germination": {
+            "general": "Fill reservoir with clean, pH-balanced water (5.5-6.0). Use a reservoir heater if needed to maintain a warm solution (21-26°C), which is critical for basil germination.",
+            "ph": {
+            "below_min": "Too acidic for germination. Raise pH in reservoir slowly; aim 5.5–6.0.",
+            "above_max": "Too alkaline. Gently lower pH in reservoir to 5.5-6.0 range.",
+            "near_min": "Stabilize with small pH Up micro-dose in reservoir.",
+            "near_max": "Monitor. Drifting high can affect initial root nutrient uptake."
+            },
+            "tds": {
+            "below_min": "Nutrient level is low, which is ideal for germination. Use plain pH'd water in reservoir.",
+            "above_max": "Too high! High salts can stop basil seeds from sprouting. Flush reservoir and refill with plain water.",
+            "near_min": "Ideal for germination.",
+            "near_max": "Nearing upper limit for germination. Dilute reservoir solution."
+            },
+            "ec": {
+            "below_min": "EC is low, which is ideal for germination. Use plain pH'd water in reservoir.",
+            "above_max": "Too high! High EC can stop basil seeds from sprouting. Flush reservoir and refill with plain water.",
+            "near_min": "Ideal for germination.",
+            "near_max": "Nearing upper limit for germination. Dilute reservoir solution."
+            },
+            "light": {
+            "below_min": "Basil needs light to germinate. Ensure fixture is on.",
+            "above_max": "Too intense. Can dry out plugs quickly. Raise light.",
+            "near_min": "At the low end. Fine for sprouting.",
+            "near_max": "Good level. Ensure medium stays moist."
+            },
+            "environment_temp": {
+            "below_min": "CRITICAL: Basil needs heat (24°C+) to sprout. Use heat mat or raise room temp.",
+            "above_max": "Too hot. Can dry out plugs. Add gentle ventilation.",
+            "near_min": "Too cool for basil. Sprouting will be slow/fail. Add heat.",
+            "near_max": "Ideal warmth. Ensure high humidity."
+            },
+            "water_temperature": {
+            "below_min": "Solution is too cold for basil germination. Add a reservoir heater.",
+            "above_max": "Warm solution is good for sprouting, but >26°C risks pathogens. Add aeration to reservoir.",
+            "near_min": "A bit cool. Add a reservoir heater or insulate reservoir.",
+            "near_max": "Good temperature. Ensure solution is aerated."
+            },
+            "humidity": {
+            "below_min": "CRITICAL: Germination requires high RH. Add humidity dome.",
+            "above_max": "High RH is good, but >90% can invite mold. Allow brief 'airing out' daily.",
+            "near_min": "Too low for optimal germination. Add humidity dome.",
+            "near_max": "Ideal humidity for sprouting."
+            }
+        },
+        "Basil_Seedling": {
+            "general": "Introduce a light (1/2 strength) nutrient solution to the reservoir (target 350-700 ppm). Keep the solution warm (21-25°C) and well-aerated to support vigorous root growth.",
+            "ph": {
+            "below_min": "Low pH can mute aroma. Raise reservoir pH gradually to 5.5-6.0.",
+            "above_max": "High pH reduces micronutrient availability. Adjust reservoir pH slowly.",
+            "near_min": "Stabilize with small pH Up micro-dose in reservoir.",
+            "near_max": "If trending higher, perform partial dilution of reservoir."
+            },
+            "tds": {
+            "below_min": "Nutrients low. Add 1/2 strength nutrient mix to reservoir (target ~500-700 ppm).",
+            "above_max": "Too strong for young basil. Dilute reservoir solution with fresh pH'd water.",
+            "near_min": "Consider adding a mild nutrient feed to reservoir if new growth is pale.",
+            "near_max": "Nearing upper limit. Watch leaf tips for burn; top-off with plain water."
+            },
+            "ec": {
+            "below_min": "Nutrients low. Add 1/2 strength nutrient mix to reservoir (target ~0.8-1.0 mS/cm).",
+            "above_max": "Too strong for young basil. Dilute reservoir solution with fresh pH'd water.",
+            "near_min": "Consider adding a mild nutrient feed to reservoir if new growth is pale.",
+            "near_max": "Nearing upper limit. Watch leaf tips for burn; top-off with plain water."
+            },
+            "light": {
+            "below_min": "Seedlings are leggy! Lower light fixture or increase intensity NOW.",
+            "above_max": "Too intense. Can scorch young leaves. Raise fixture.",
+            "near_min": "May be too low if seedlings look 'leggy'.",
+            "near_max": "Good intensity. Watch for any leaf curl or bleaching."
+            },
+            "environment_temp": {
+            "below_min": "Basil seedlings slow down < 21°C. Avoid cold drafts.",
+            "above_max": "High heat + humidity risks fungus. Vent promptly.",
+            "near_min": "A bit cool. Aim for 21-25°C range.",
+            "near_max": "Ideal warmth. Ensure good airflow."
+            },
+            "water_temperature": {
+            "below_min": "Cool solution reduces root vigor. Add a reservoir heater to aim for 21°C+.",
+            "above_max": "Warm solution invites pathogen pressure. Add a water chiller or frozen bottles.",
+            "near_min": "Insulate reservoir if chill is recurring.",
+            "near_max": "Increase aeration in reservoir to maintain oxygen."
+            },
+            "humidity": {
+            "below_min": "Low RH can stunt tender tips. Raise slightly.",
+            "above_max": "High RH risks damping-off. Increase airflow.",
+            "near_min": "Monitor leaf edge dry-out.",
+            "near_max": "Ensure canopy dries before dark."
+            }
         },
         "Pechay": {
             "general": "Keep solution fresh; steady feed and airflow help tight heads.",
@@ -170,6 +350,7 @@ class SensorAlertService:
                 "near_max": "Ensure leaves dry before dark to prevent disease.",
             },
         },
+        
         "Generic": {
             "general": "Keep conditions stable; adjust in small steps and re‑test.",
             "ph": {
@@ -213,6 +394,96 @@ class SensorAlertService:
                 "above_max": "Dehumidify or increase airflow to prevent mildew.",
                 "near_min": "Monitor leaf edges; increase RH a bit if drying.",
                 "near_max": "Ensure canopy dries before lights‑off.",
+            },
+        },
+        "Pechay_Germination": {
+            "general": "Fill reservoir with clean, pH-balanced water (6.0-7.0). Ensure solution is stable (18-22°C) and well-aerated to provide a good base for fast-sprouting seeds.",
+            "ph": {
+            "below_min": "Too acidic for Pechay. Raise reservoir pH to 6.0-7.0 range.",
+            "above_max": "Too alkaline. Gently lower reservoir pH to 6.0-7.0 range.",
+            "near_min": "Trend down? Add a small pH Up dose to reservoir and monitor.",
+            "near_max": "If drifting up, plan a gentle pH Down correction in reservoir."
+            },
+            "tds": {
+            "below_min": "Nutrient level is low, which is ideal for germination. Use plain pH'd water or 1/4 strength in reservoir.",
+            "above_max": "Too high! High salts can burn new roots. Dilute reservoir with plain pH'd water.",
+            "near_min": "Ideal for germination.",
+            "near_max": "Nearing upper limit for germination. Dilute reservoir solution."
+            },
+            "ec": {
+            "below_min": "EC is low, which is ideal for germination. Use plain pH'd water or 1/4 strength in reservoir.",
+            "above_max": "Too high! High EC can burn new roots. Dilute reservoir with plain pH'd water.",
+            "near_min": "Ideal for germination.",
+            "near_max": "Nearing upper limit for germination. Dilute reservoir solution."
+            },
+            "light": {
+            "below_min": "Pechay needs light to sprout. Ensure fixture is on.",
+            "above_max": "Too intense. Can dry out plugs quickly. Raise light.",
+            "near_min": "At the low end. Fine for sprouting.",
+            "near_max": "Good level. Ensure medium stays moist."
+            },
+            "environment_temp": {
+            "below_min": "Too cool. Germination will be slow. Raise temp to 21-24°C range.",
+            "above_max": "Too warm. Can dry out plugs. Increase ventilation.",
+            "near_min": "A bit cool. Monitor; raise temp slightly if sprouting is slow.",
+            "near_max": "Ideal warmth. Ensure high humidity."
+            },
+            "water_temperature": {
+            "below_min": "Cold solution slows germination. Insulate reservoir or add a reservoir heater.",
+            "above_max": "Warm solution (>22°C) risks root rot. Add a water chiller or frozen bottles to reservoir.",
+            "near_min": "Monitor nightly lows; insulate reservoir if dropping further.",
+            "near_max": "Aerate reservoir more or partially replace with cooler water."
+            },
+            "humidity": {
+            "below_min": "CRITICAL: Germination requires high RH. Add humidity dome or mist frequently.",
+            "above_max": "High RH is good, but >90% can invite mold. Allow brief 'airing out' daily.",
+            "near_min": "Too low for optimal germination. Add humidity dome.",
+            "near_max": "Ideal humidity for sprouting."
+            }
+        },
+        "Pechay_Seedling": {
+            "general": "Introduce a 1/2 to 3/4 strength nutrient solution to the reservoir (target 700-900 ppm). Pechay roots prefer cooler water (18-22°C); keep solution well-aerated.",
+            "ph": {
+            "below_min": "Too acidic. Raise reservoir pH to 6.0-7.0 range for seedling uptake.",
+            "above_max": "Too alkaline. Lower reservoir pH gently to 6.0-7.0 range.",
+            "near_min": "Trend down? Add a small pH Up dose to reservoir and monitor.",
+            "near_max": "If drifting up, plan a gentle pH Down correction in reservoir."
+            },
+            "tds": {
+            "below_min": "Nutrients low. Add 1/2 to 3/4 strength nutrient mix to reservoir (target 700-900 ppm).",
+            "above_max": "Too high for young seedlings. Dilute reservoir solution with fresh pH'd water.",
+            "near_min": "Plan to add a mild nutrient top-up to reservoir soon.",
+            "near_max": "Nearing upper limit. Watch leaf tips for burn; top-off with plain water."
+            },
+            "ec": {
+            "below_min": "Nutrients low. Add 1/2 to 3/4 strength nutrient mix to reservoir (target 1.0-1.2 mS/cm).",
+            "above_max": "Too high for young seedlings. Dilute reservoir solution with fresh pH'd water.",
+            "near_min": "Plan to add a mild nutrient top-up to reservoir soon.",
+            "near_max": "Nearing upper limit. Watch leaf tips for burn; top-off with plain water."
+            },
+            "light": {
+            "below_min": "Seedlings stretching (leggy). Lower light fixture or increase intensity.",
+            "above_max": "Too intense. Can scorch young leaves. Raise fixture or dim light.",
+            "near_min": "May be too low if seedlings look pale or 'leggy'.",
+            "near_max": "Good intensity. Watch for any leaf curl or bleaching."
+            },
+            "environment_temp": {
+            "below_min": "Too cold for Pechay seedlings. Aim for 15.5-18°C range.",
+            "above_max": "Too warm. Pechay prefers cool temps. Lower temp to prevent stretching.",
+            "near_min": "At the low end. Monitor growth.",
+            "near_max": "At the high end. Increase airflow."
+            },
+            "water_temperature": {
+            "below_min": "Cold roots slow nutrient uptake. Insulate reservoir or add a small heater.",
+            "above_max": "Warm solution (>22°C) lowers dissolved O2. Add a chiller or frozen bottles to reservoir.",
+            "near_min": "Monitor nightly lows; insulate reservoir if dropping further.",
+            "near_max": "Add more aeration to reservoir; top-off with cooler water."
+            },
+            "humidity": {
+            "below_min": "Too dry for young seedlings. Can slow growth. Add gentle misting.",
+            "above_max": "High RH + young leaves = fungal risk. Increase airflow.",
+            "near_min": "If new leaves look dry, raise RH slightly.",
+            "near_max": "Ensure good airflow to prevent mildew on tender leaves."
             },
         },
     }
