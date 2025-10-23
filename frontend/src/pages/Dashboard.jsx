@@ -1061,23 +1061,64 @@ export default function Dashboard() {
     [phHistoryDisplay]
   );
   const phScale = useMemo(() => {
-    if (!phNumbers.length) return { min: 6.0, max: 6.6 };
+    // Derive a readable pH scale with small padding and nice 0.1 rounding
+    if (!phNumbers.length) return { min: 5.5, max: 7.0 };
     let min = Math.min(...phNumbers);
     let max = Math.max(...phNumbers);
-    if (max - min < 0.05) { // ensure some range
-      min = min - 0.1;
-      max = max + 0.1;
+
+    // Ensure some headroom so bars don’t look pegged to top/bottom
+    const desiredMinPad = 0.05;
+    const desiredMaxPad = 0.05;
+    min = Math.max(0, min - desiredMinPad);
+    max = Math.min(14, max + desiredMaxPad);
+
+    // If the span is extremely tight, expand to a reasonable window
+    if (max - min < 0.3) {
+      const mid = (min + max) / 2;
+      min = Math.max(0, mid - 0.15);
+      max = Math.min(14, mid + 0.15);
     }
-    // Round to nearest 0.1
+
+    // Round outward to 0.1 boundaries
     min = Math.floor(min * 10) / 10;
     max = Math.ceil(max * 10) / 10;
+
+    // Guard against equal bounds
+    if (min === max) {
+      min = Math.max(0, min - 0.1);
+      max = Math.min(14, max + 0.1);
+    }
+
     return { min, max };
   }, [phNumbers]);
+
   const phYTicks = useMemo(() => {
-    const N = 7;
-    const range = phScale.max - phScale.min || 0.6;
-    const step = range / (N - 1);
-    return Array.from({ length: N }, (_, i) => (phScale.max - i * step)).map(v => `${v.toFixed(1)} pH`);
+    // Build unique, descending tick values with a “nice” step
+    const MAX_TICKS = 7;
+    let step = 0.1;
+    const span = Math.max(0.1, phScale.max - phScale.min);
+    // Increase step until ticks fit within MAX_TICKS
+    while (((span / step) + 1) > MAX_TICKS) {
+      // 0.1 -> 0.2 -> 0.5 -> 1.0 -> 2.0, etc.
+      step = step === 0.1 ? 0.2 : step === 0.2 ? 0.5 : step * 2;
+    }
+
+    // Start and end on step-aligned boundaries
+    const start = Math.ceil(phScale.max * 10 / (step * 10)) * step; // align up
+    const end = Math.floor(phScale.min * 10 / (step * 10)) * step;  // align down
+
+    const ticks = [];
+    for (let v = start; v >= end - 1e-9; v = Math.round((v - step) * 10) / 10) {
+      ticks.push(Number(v.toFixed(1)));
+      if (ticks.length >= MAX_TICKS) break; // safety guard
+    }
+
+    // Ensure at least two ticks
+    if (ticks.length < 2) {
+      ticks.splice(0, ticks.length, Number(phScale.max.toFixed(1)), Number(phScale.min.toFixed(1)));
+    }
+
+    return ticks.map(v => `${v.toFixed(1)} pH`);
   }, [phScale]);
 
   // Realtime pH -> update the latest bucket of the pH chart so new readings appear without manual refresh
