@@ -18,7 +18,8 @@ import {
   Sun,
   User,
   Plus,
-  Loader
+  Loader,
+  Bell
 } from 'lucide-react';
 // Add left arrow for navigating pH chart windows
 import { ChevronLeft } from 'lucide-react';
@@ -599,6 +600,7 @@ export default function Dashboard() {
 
   // Floating Action Button (FAB) draggable state
   const fabRef = useRef(null);
+  const topBarHeight = 64; // Mobile top bar height from CSS
   const navHeight = 64; // Bottom nav height from CSS
   const fabSize = 56; // FAB size from CSS
   const dragStartRef = useRef({ x: 0, y: 0, fabX: 0, fabY: 0 });
@@ -610,6 +612,11 @@ export default function Dashboard() {
   const [isDragging, setIsDragging] = useState(false);
   const [deviceLoading, setDeviceLoading] = useState({}); // { [deviceId]: boolean }
   const [wifiSetupDevice, setWifiSetupDevice] = useState(null); // Device to show WiFi setup modal for
+  const [selectedMonitoringCard, setSelectedMonitoringCard] = useState(null); // For slide-up modal
+  const [modalDragStart, setModalDragStart] = useState(0);
+  const [modalDragOffset, setModalDragOffset] = useState(0);
+  const modalContentRef = useRef(null);
+  const scrollPositionRef = useRef(0);
 
   // Targeted fetch for a single device: refresh its sensors/reservoirs and readings only
   const fetchDeviceDataById = async (deviceId) => {
@@ -852,7 +859,9 @@ export default function Dashboard() {
       hasDraggedRef.current = true;
     }
     const newX = Math.max(16, Math.min(window.innerWidth - fabSize - 16, dragStartRef.current.fabX + dx));
-    const newY = Math.max(16, Math.min(window.innerHeight - navHeight - fabSize - 16, dragStartRef.current.fabY + dy));
+    const minY = topBarHeight + 16; // Top bar + margin
+    const maxY = window.innerHeight - navHeight - fabSize - 16; // Bottom nav + margin
+    const newY = Math.max(minY, Math.min(maxY, dragStartRef.current.fabY + dy));
     setFabPosition({ x: newX, y: newY });
   };
 
@@ -888,7 +897,9 @@ export default function Dashboard() {
       hasDraggedRef.current = true;
     }
     const newX = Math.max(16, Math.min(window.innerWidth - fabSize - 16, dragStartRef.current.fabX + dx));
-    const newY = Math.max(16, Math.min(window.innerHeight - navHeight - fabSize - 16, dragStartRef.current.fabY + dy));
+    const minY = topBarHeight + 16; // Top bar + margin
+    const maxY = window.innerHeight - navHeight - fabSize - 16; // Bottom nav + margin
+    const newY = Math.max(minY, Math.min(maxY, dragStartRef.current.fabY + dy));
     setFabPosition({ x: newX, y: newY });
   };
 
@@ -920,6 +931,68 @@ export default function Dashboard() {
       window.removeEventListener('touchend', handleFabTouchEnd);
     };
   }, [isDragging, fabPosition]);
+
+  // Modal drag handlers for swipe-down-to-close
+  const handleModalTouchStart = (e) => {
+    const touch = e.touches[0];
+    setModalDragStart(touch.clientY);
+    setModalDragOffset(0);
+  };
+
+  const handleModalTouchMove = (e) => {
+    const modalContent = modalContentRef.current;
+    const touch = e.touches[0];
+    const diff = touch.clientY - modalDragStart;
+    
+    // Check if modal content is scrolled to the top
+    const isAtTop = !modalContent || modalContent.scrollTop === 0;
+    
+    // Only allow dragging down when at top of scroll (positive diff)
+    if (diff > 0 && isAtTop) {
+      e.preventDefault(); // Prevent screen scroll
+      setModalDragOffset(diff);
+    }
+  };
+
+  const handleModalTouchEnd = (e) => {
+    // If dragged down more than 100px, close the modal
+    if (modalDragOffset > 100) {
+      setSelectedMonitoringCard(null);
+    }
+    // Reset drag state
+    setModalDragOffset(0);
+    setModalDragStart(0);
+  };
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (selectedMonitoringCard) {
+      // Save current scroll position
+      scrollPositionRef.current = window.scrollY;
+      
+      // Lock body scroll and maintain position
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollPositionRef.current}px`;
+      document.body.style.width = '100%';
+    } else {
+      // Restore body scroll
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      
+      // Restore scroll position
+      window.scrollTo(0, scrollPositionRef.current);
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+    };
+  }, [selectedMonitoringCard]);
 
   // Infinite scroll disabled to prevent duplicate device appearance
   const isInfinite = false;
@@ -1299,7 +1372,58 @@ export default function Dashboard() {
       console.warn('Failed to restore active device index:', e);
       setActiveIdx(0);
     }
-  }, [ownedDevices.length, isHydrated]);  // Show loading state while hydrating or loading initial data
+  }, [ownedDevices.length, isHydrated]);
+
+  // Monitoring card metadata with importance and recommendations
+  const getMonitoringCardInfo = (cardType) => {
+    const cardData = {
+      ph: {
+        title: 'Current pH Level',
+        icon: <Droplet size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />,
+        getValue: () => data && typeof data.sensors?.ph === 'number' ? `${data.sensors.ph.toFixed(1)} pH` : 'Loading...',
+        importance: "Knowing your SmarTanom's pH level is important in hydroponics because it controls how well plants absorb nutrients.",
+        recommendation: "Maintain pH between 5.5-6.5 for optimal nutrient absorption. Adjust using pH up/down solutions if needed."
+      },
+      ec: {
+        title: 'Electrical Conductivity Levels',
+        icon: <Zap size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />,
+        getValue: () => data && typeof data.sensors?.ec === 'number' ? `${data.sensors.ec.toFixed(1)} mS/cm` : 'Loading...',
+        importance: "EC level shows how much nutrients are in the water. Too low means plants are hungry, and too high can burn their roots.",
+        recommendation: "Keep EC between 1.2-2.4 mS/cm depending on plant growth stage. Lower for seedlings, higher for fruiting plants."
+      },
+      tds: {
+        title: 'Total Dissolved Solids',
+        icon: <Waves size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />,
+        getValue: () => data && typeof data.sensors?.tds === 'number' ? `${Math.round(data.sensors.tds)} ppm` : 'Loading...',
+        importance: "TDS measures the amount of nutrients in the water. It's important because it helps ensure plants get the right amount of food.",
+        recommendation: "Maintain TDS between 600-1200 ppm for most vegetables. Monitor daily and adjust nutrients as plants consume them."
+      },
+      waterLevel: {
+        title: 'Water Level',
+        icon: <Droplet size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />,
+        getValue: () => data && typeof data.sensors?.waterLevel === 'number' ? `${Math.round(data.sensors.waterLevel)}%` : 'Loading...',
+        importance: "Water level monitoring ensures your plants have continuous access to nutrients and prevents pump damage from running dry.",
+        recommendation: "Keep water level above 20%. Refill when it drops below 30% to maintain stable growing conditions."
+      },
+      turbidity: {
+        title: 'Turbidity',
+        icon: <Droplets size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />,
+        getValue: () => data && typeof data.sensors?.turbidity === 'number' ? `${data.sensors.turbidity.toFixed(1)} NTU` : 'Loading...',
+        importance: "Turbidity measures how clear the water is. It's important because dirty or cloudy water can block light, harm roots, and carry diseases.",
+        recommendation: "Aim for turbidity below 5 NTU. If levels are high, clean your reservoir and check for algae growth or root debris."
+      },
+      waterTemp: {
+        title: 'Water Temperature',
+        icon: <Thermometer size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />,
+        getValue: () => data && typeof data.sensors?.water_temperature === 'number' ? `${data.sensors.water_temperature.toFixed(1)}°C` : 'Loading...',
+        importance: "Water temperature affects oxygen levels and nutrient uptake. Too warm encourages harmful bacteria and reduces dissolved oxygen.",
+        recommendation: "Maintain water temperature between 18-22°C (65-72°F). Use a water chiller in hot climates or add frozen water bottles to cool."
+      }
+    };
+    return cardData[cardType] || null;
+  };
+
+  // Show loading state while hydrating or loading initial data
   if (!isHydrated || loadingInitial) {
     return (
       <div className="dashboard-root">
@@ -1461,19 +1585,17 @@ export default function Dashboard() {
             className={`mobile-top-bar-icon ${loadingInitial ? 'syncing' : ''}`}
             aria-label="Sync"
             onClick={fetchInitial}
+            disabled={loadingInitial}
           >
             <RefreshCw size={22} />
           </button>
           <button 
             className="mobile-top-bar-icon mobile-top-bar-bell" 
-            aria-label={`Alerts - ${totalUnread} unread`}
-            onClick={() => {
-              if (currentDevice?.id) {
-                navigate(`/devices/${currentDevice.id}/alerts`);
-              }
-            }}
+            aria-label={`Notifications - ${totalUnread} unread`}
+            onClick={() => navigate('/alerts')}
+            style={{ position: 'relative' }}
           >
-            <AlertCircle size={22} />
+            <Bell size={22} />
             {totalUnread > 0 && (
               <span className="mobile-top-bar-badge">
                 {totalUnread > 9 ? '9+' : totalUnread}
@@ -1506,17 +1628,24 @@ export default function Dashboard() {
                 <div
                   key={`${device.id}-${device._cloneType || 'original'}-${index}`}
                   className={`device-carousel-card ${isActive ? 'active' : ''}`}
-                  onClick={() => {
-                    if (!isInfinite) {
-                      setActiveIdx(index);
-                    } else if (device._cloneType === 'original') {
-                      const realIndex = ownedDevices.findIndex(d => d.id === device.id);
-                      if (realIndex !== -1) setActiveIdx(realIndex);
+                  onClick={(e) => {
+                    // Navigate to device details when clicking anywhere on the card
+                    if (isActive) {
+                      handleDeviceInfoClick(e, device);
+                    } else {
+                      // If not active, just activate the card
+                      if (!isInfinite) {
+                        setActiveIdx(index);
+                      } else if (device._cloneType === 'original') {
+                        const realIndex = ownedDevices.findIndex(d => d.id === device.id);
+                        if (realIndex !== -1) setActiveIdx(realIndex);
+                      }
                     }
                   }}
                   role="button"
                   tabIndex={0}
                   aria-label={`${device.device_name} - ${device.device_serial}`}
+                  style={{ cursor: isActive ? 'pointer' : 'default' }}
                 >
                   <div>
                     {/* Full Background Image */}
@@ -1889,7 +2018,7 @@ export default function Dashboard() {
               ))}
             </div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div className="ph-chart-area" style={{ position: 'relative', marginBottom: '8px' }}>
+              <div className="ph-chart-area" style={{ marginBottom: '8px' }}>
                 {/* Horizontal Grid Lines */}
                 <div className="ph-grid-horizontal" style={{
                   position: 'absolute',
@@ -1954,16 +2083,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* pH Bars */}
-                <div className="ph-bars" role="img" aria-label="pH chart" style={{
-                  position: 'relative',
-                  zIndex: 2,
-                  height: '220px',
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  gap: '2px',
-                  justifyContent: 'space-between',
-                  padding: '8px 0'
-                }}>
+                <div className="ph-bars" role="img" aria-label="pH chart">
                   {phHistoryDisplay && phHistoryDisplay.length > 0
                     ? phHistoryDisplay.map((v, i) => <PHBar key={i} v={v} i={i} min={phScale.min} max={phScale.max} plant={data?.plant || currentDevice?.plant} />)
                     : <div style={{ color: '#999', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', zIndex: 3 }}>
@@ -1971,13 +2091,13 @@ export default function Dashboard() {
                     </div>}
                 </div>
               </div>
-              <div className="ph-x-axis" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0', gap: '2px' }}>
+              <div className="ph-x-axis">
                 {phLabelsDisplay && phLabelsDisplay.length > 0
                   ? phLabelsDisplay.map((label, i) => (
-                    <span key={i} className="ph-x-label" style={{ flex: 1, textAlign: 'center', fontSize: '10px' }}>{label}</span>
+                    <span key={i} className="ph-x-label">{label}</span>
                   ))
                   : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((_, i) => (
-                    <span key={i} className="ph-x-label" style={{ flex: 1, textAlign: 'center', fontSize: '10px' }}>--</span>
+                    <span key={i} className="ph-x-label">--</span>
                   ))}
               </div>
             </div>
@@ -1985,7 +2105,7 @@ export default function Dashboard() {
         </section>
 
         {/* Current pH level (real-time latest reading, independent of history) */}
-        <section className="card current-ph-card" aria-label="Current pH">
+        <section className="card current-ph-card" aria-label="Current pH" onClick={() => setSelectedMonitoringCard('ph')} style={{ cursor: 'pointer' }}>
           {(() => {
             const latestPh = data?.sensors?.ph; // real-time field updated by WebSocket
             const hasPh = typeof latestPh === 'number' && Number.isFinite(latestPh);
@@ -2137,7 +2257,7 @@ export default function Dashboard() {
 
         {/* Sensor grid */}
         <section className="sensor-grid" aria-label="Sensor data">
-          <div className="sensor-cell">
+          <div className="sensor-cell" onClick={() => setSelectedMonitoringCard('ec')} style={{ cursor: 'pointer' }}>
             <div className="icon-circle">
               <Zap size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
@@ -2146,7 +2266,7 @@ export default function Dashboard() {
               <span className="sensor-value">{data && typeof data.sensors?.ec === 'number' ? `${data.sensors.ec.toFixed(1)} mS/cm` : 'Loading...'}</span>
             </div>
           </div>
-          <div className="sensor-cell">
+          <div className="sensor-cell" onClick={() => setSelectedMonitoringCard('tds')} style={{ cursor: 'pointer' }}>
             <div className="icon-circle">
               <Waves size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
@@ -2155,7 +2275,7 @@ export default function Dashboard() {
               <span className="sensor-value">{data && typeof data.sensors?.tds === 'number' ? `${Math.round(data.sensors.tds)} ppm` : 'Loading...'}</span>
             </div>
           </div>
-          <div className="sensor-cell">
+          <div className="sensor-cell" onClick={() => setSelectedMonitoringCard('waterLevel')} style={{ cursor: 'pointer' }}>
             <div className="icon-circle">
               <Droplet size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
@@ -2164,7 +2284,7 @@ export default function Dashboard() {
               <span className="sensor-value">{data && typeof data.sensors?.waterLevel === 'number' ? `${Math.round(data.sensors.waterLevel)}%` : 'Loading...'}</span>
             </div>
           </div>
-          <div className="sensor-cell">
+          <div className="sensor-cell" onClick={() => setSelectedMonitoringCard('turbidity')} style={{ cursor: 'pointer' }}>
             <div className="icon-circle">
               <Droplets size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
@@ -2173,7 +2293,7 @@ export default function Dashboard() {
               <span className="sensor-value">{data && typeof data.sensors?.turbidity === 'number' ? `${data.sensors.turbidity.toFixed(1)} NTU` : 'Loading...'}</span>
             </div>
           </div>
-          <div className="sensor-cell">
+          <div className="sensor-cell" onClick={() => setSelectedMonitoringCard('waterTemp')} style={{ cursor: 'pointer' }}>
             <div className="icon-circle">
               <Thermometer size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
@@ -2393,6 +2513,64 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Monitoring Data Slide-Up Modal */}
+      {selectedMonitoringCard && (() => {
+        const cardInfo = getMonitoringCardInfo(selectedMonitoringCard);
+        if (!cardInfo) return null;
+        
+        return (
+          <div 
+            className="monitoring-modal-overlay"
+            onClick={() => setSelectedMonitoringCard(null)}
+            onTouchMove={(e) => e.preventDefault()}
+          >
+            <div 
+              ref={modalContentRef}
+              className="monitoring-modal-content"
+              onClick={(e) => e.stopPropagation()}
+              onTouchStart={handleModalTouchStart}
+              onTouchMove={handleModalTouchMove}
+              onTouchEnd={handleModalTouchEnd}
+              style={{
+                transform: `translateY(${modalDragOffset}px)`,
+                transition: modalDragOffset === 0 ? 'transform 0.3s ease-out' : 'none'
+              }}
+            >
+              {/* Drag Handle */}
+              <div className="monitoring-modal-handle"></div>
+              
+              {/* Icon and Title */}
+              <div className="monitoring-modal-header">
+                <div className="monitoring-modal-icon">
+                  {cardInfo.icon}
+                </div>
+                <h3 className="monitoring-modal-title">{cardInfo.title}</h3>
+              </div>
+
+              {/* Current Value */}
+              <div className="monitoring-modal-value">
+                {cardInfo.getValue()}
+              </div>
+
+              {/* Divider */}
+              <div className="monitoring-modal-divider"></div>
+
+              {/* Importance Section */}
+              <div className="monitoring-modal-section">
+                <h4 className="monitoring-modal-section-title">Importance</h4>
+                <p className="monitoring-modal-text">{cardInfo.importance}</p>
+              </div>
+
+              {/* Recommended Action Section */}
+              <div className="monitoring-modal-section">
+                <h4 className="monitoring-modal-section-title">Recommended Action</h4>
+                <p className="monitoring-modal-text">{cardInfo.recommendation}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
