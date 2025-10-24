@@ -1437,7 +1437,53 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-root">
-      {/* Header */}
+      {/* Mobile Top Bar */}
+      <header className="mobile-top-bar" role="banner">
+        <div className="mobile-top-bar-left">
+          <button 
+            className="mobile-top-bar-profile"
+            aria-label="Profile Settings"
+            onClick={() => navigate('/profile')}
+          >
+            <User size={20} />
+          </button>
+          <span className="mobile-top-bar-name">{displayName}</span>
+        </div>
+        <div className="mobile-top-bar-right">
+          <button 
+            className="mobile-top-bar-icon" 
+            aria-label="Add Device"
+            onClick={() => navigate('/add-device/setup')}
+          >
+            <Plus size={22} />
+          </button>
+          <button 
+            className={`mobile-top-bar-icon ${loadingInitial ? 'syncing' : ''}`}
+            aria-label="Sync"
+            onClick={fetchInitial}
+          >
+            <RefreshCw size={22} />
+          </button>
+          <button 
+            className="mobile-top-bar-icon mobile-top-bar-bell" 
+            aria-label={`Alerts - ${totalUnread} unread`}
+            onClick={() => {
+              if (currentDevice?.id) {
+                navigate(`/devices/${currentDevice.id}/alerts`);
+              }
+            }}
+          >
+            <AlertCircle size={22} />
+            {totalUnread > 0 && (
+              <span className="mobile-top-bar-badge">
+                {totalUnread > 9 ? '9+' : totalUnread}
+              </span>
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* Desktop Header (hidden on mobile) */}
       <header className="dash-header" role="banner">
         <h1 className="dash-header-title">
           Hello, {displayName} <span className="dash-header-emoji">🌿</span>
@@ -1447,175 +1493,90 @@ export default function Dashboard() {
         </button>
       </header>
 
-      {/* Device carousel */}
-      <section className="device-carousel-wrapper" aria-label="Your devices">
-        <div className="device-carousel" ref={carouselRef}>
-          {infiniteDevices.map((d, i) => (
-            <article
-              className="device-card tap"
-              key={`${d.id}-${d._cloneType || 'original'}-${i}`}
-              aria-label={`${d.device_name} ${(d.is_collaborator && !d.is_owner) ? 'Shared Device' : d.device_serial}`}
-            >
-              <div
-                className="device-card-media"
-                role="button"
-                tabIndex={0}
-                onClick={(e) => handleDeviceMediaClick(e, d)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleDeviceMediaClick(e, d); }}
-                aria-label="Open sensor data dashboard for this device"
-                aria-busy={deviceLoading[d.id] ? 'true' : 'false'}
-                style={{ position: 'relative' }}
-              >
-                <img
-                  src={d.plant_photo_url || '/favicon.png'}
-                  alt={d.plant_name ? `${d.plant_name} in ${d.device_name}` : "Device"}
-                />
-                {deviceLoading[d.id] && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'rgba(0,0,0,0.35)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      letterSpacing: 0.2
-                    }}
-                    aria-live="polite"
-                  >
-                    <Loader size={18} style={{ marginBottom: 6 }} />
-                    Refreshing...
-                  </div>
-                )}
-              </div>
-              <div
-                className="device-card-info"
-                role="button"
-                tabIndex={0}
-                onClick={(e) => handleDeviceInfoClick(e, d)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleDeviceInfoClick(e, d); }}
-                aria-label="Open device details"
-              >
-                <div>
-                  <h3 className="device-name">{d.device_name}</h3>
-                  <p className="device-id">
-                    {d.plant_name ? `Growing: ${d.plant_name}` :
-                      (d.is_collaborator && !d.is_owner) ? 'Shared Device' :
-                        `Serial: ${d.device_serial}`}
-                  </p>
-                  {d.location ? (
-                    <p className="device-location">{d.location}</p>
-                  ) : null}
-                  {/* Status Badges */}
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
-                    {/* Online/Offline Badge */}
-                    {d.is_online ? (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '3px 8px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        backgroundColor: '#e8f5e9',
-                        color: '#2e7d32',
-                        border: '1px solid #4caf50'
-                      }}>
-                        <span style={{
-                          width: '6px',
-                          height: '6px',
-                          borderRadius: '50%',
-                          backgroundColor: '#4caf50',
-                          display: 'inline-block'
-                        }}></span>
-                        Online
-                      </span>
-                    ) : (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '3px 8px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        backgroundColor: '#ffebee',
-                        color: '#c62828',
-                        border: '1px solid #f44336'
-                      }}>
-                        <span style={{
-                          width: '6px',
-                          height: '6px',
-                          borderRadius: '50%',
-                          backgroundColor: '#f44336',
-                          display: 'inline-block'
-                        }}></span>
-                        Offline
-                      </span>
-                    )}
-
-                    {/* WiFi Configured Badge */}
-                    {d.wifi_configured ? (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '3px 8px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        backgroundColor: '#e3f2fd',
-                        color: '#1976d2',
-                        border: '1px solid #2196F3'
-                      }}>
-                        📶 WiFi OK
-                      </span>
-                    ) : (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: '3px 8px',
-                          borderRadius: '12px',
-                          fontSize: '11px',
-                          fontWeight: '600',
-                          backgroundColor: '#fff3e0',
-                          color: '#e65100',
-                          border: '1px solid #ff9800',
-                          cursor: 'pointer'
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setWifiSetupDevice(d);
-                        }}
-                        title="Click for WiFi setup instructions"
-                      >
-                        ⚠️ Setup WiFi
-                      </span>
-                    )}
+      {/* Device Carousel */}
+      <section className="device-carousel-section" aria-label="Your devices">
+        <div className="device-carousel-container">
+          <div className="device-carousel" ref={carouselRef}>
+            {infiniteDevices.map((device, index) => {
+              const isActive = !isInfinite 
+                ? index === activeIdx 
+                : (device._cloneType === 'original' && ownedDevices[activeIdx]?.id === device.id);
+              
+              return (
+                <div
+                  key={`${device.id}-${device._cloneType || 'original'}-${index}`}
+                  className={`device-carousel-card ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    if (!isInfinite) {
+                      setActiveIdx(index);
+                    } else if (device._cloneType === 'original') {
+                      const realIndex = ownedDevices.findIndex(d => d.id === device.id);
+                      if (realIndex !== -1) setActiveIdx(realIndex);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${device.device_name} - ${device.device_serial}`}
+                >
+                  <div>
+                    {/* Full Background Image */}
+                    <div className="device-carousel-card-image">
+                      <img
+                        src={device.plant_photo_url || '/src/assets/images/defaulthydroponic.jpg'}
+                        alt={device.plant_name ? `${device.plant_name} in ${device.device_name}` : device.device_name}
+                        loading="lazy"
+                      />
+                      {deviceLoading[device.id] && (
+                        <div className="device-carousel-loading">
+                          <Loader size={20} className="spin" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Floating White Info Card (Bottom Overlay) */}
+                    <div className="device-carousel-card-overlay">
+                      <div className="device-carousel-card-info">
+                        <div className="device-carousel-card-text">
+                          <h3 className="device-carousel-card-name">{device.device_name}</h3>
+                          <p className="device-carousel-card-id">ID: {device.device_serial}</p>
+                        </div>
+                        <button 
+                          className="device-carousel-card-arrow"
+                          aria-label="View device details"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeviceInfoClick(e, device);
+                          }}
+                        >
+                          <ChevronRight size={20} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="device-card-arrow">
-                  <ChevronRight size={18} />
-                </div>
-              </div>
-            </article>
-          ))}
+              );
+            })}
+          </div>
         </div>
-        {ownedDevices.length > 1 && (
-          <div className="carousel-dots" role="tablist" aria-label="Device position">
-            {ownedDevices.map((_, i) => (
-              <span key={i} className={`carousel-dot ${i === activeIdx ? 'active' : ''}`} role="tab" aria-selected={i === activeIdx} />
+        
+        {/* Navigation Pills (Pagination Dots) */}
+        {ownedDevices.length >= 1 && (
+          <div className="device-carousel-dots" role="tablist" aria-label="Device selection">
+            {ownedDevices.map((device, index) => (
+              <button
+                key={device.id}
+                className={`device-carousel-dot ${index === activeIdx ? 'active' : ''}`}
+                onClick={() => setActiveIdx(index)}
+                role="tab"
+                aria-selected={index === activeIdx}
+                aria-label={`Switch to ${device.device_name}`}
+              />
             ))}
           </div>
         )}
-      </section>      <main className="dash-main" role="main">
+      </section>
+
+      <main className="dash-main" role="main">
         {/* Alert Summary */}
         <section className="card alert-card" aria-label="Alert summary" onClick={() => navigate(`/alerts${currentDevice ? `?deviceId=${currentDevice.id}` : ''}`)} style={{ cursor: 'pointer' }}>
           <div className="alert-card-top">
