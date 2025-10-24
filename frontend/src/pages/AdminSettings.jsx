@@ -23,9 +23,7 @@ import {
 	CheckCircle2,
 	AlertCircle,
 	Edit2,
-	X,
-	Home,
-	ExternalLink
+	X
 } from 'lucide-react';
 
 function AdminSettings() {
@@ -104,16 +102,6 @@ function AdminSettings() {
 
 		fetchProfile();
 	}, []);
-
-	// Apply dark mode theme to document root
-	useEffect(() => {
-		const root = document.documentElement;
-		if (darkMode) {
-			root.setAttribute('data-theme', 'dark');
-		} else {
-			root.removeAttribute('data-theme');
-		}
-	}, [darkMode]);
 
 	const showMessage = (message, type = 'success') => {
 		setSaveMessage({ message, type });
@@ -529,30 +517,6 @@ function AdminSettings() {
 						<button className="support-btn">Video Tutorials</button>
 						<button className="support-btn">FAQ</button>
 					</div>
-				</section>
-
-				{/* Quick Access */}
-				<section className="settings-card quick-access-card">
-					<div className="card-header">
-						<Home size={20} className="card-icon green" />
-						<h2 className="card-title">Quick Access</h2>
-					</div>
-
-					<button 
-						className="user-dashboard-link"
-						onClick={() => navigate('/dashboard')}
-					>
-						<div className="link-content">
-							<div className="link-icon">
-								<Home size={18} />
-							</div>
-							<div className="link-info">
-								<div className="link-label">User Dashboard</div>
-								<div className="link-description">View your personal monitoring dashboard</div>
-							</div>
-						</div>
-						<ExternalLink size={16} className="link-arrow" />
-					</button>
 				</section>
 
 				{/* Logout */}

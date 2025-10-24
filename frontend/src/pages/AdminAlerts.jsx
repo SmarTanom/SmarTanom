@@ -12,16 +12,19 @@ import {
   AlertCircle,
   ChevronDown,
   X,
+  LayoutDashboard,
+  Boxes,
+  Plus,
+  Users,
+  Settings,
   Loader2,
-  RefreshCw,
-  Activity,
-  Calendar,
-  Boxes
+  Bell,
+  RefreshCw
 } from 'lucide-react';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
 import { getAdminAlerts } from '../services/api/admin';
 import { wsClient } from '../services/websocketClient';
-import AdminNavbar from '../components/admin/AdminNavbar';
+import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminAlerts.css';
 
@@ -114,15 +117,11 @@ export default function AdminAlerts() {
 
   // Filter alerts based on all criteria
   const filteredAlerts = alerts.filter(alert => {
-    // Search filter (safe, handles missing fields)
-    const q = (searchQuery || '').toLowerCase();
-    const title = (alert?.title || '').toLowerCase();
-    const message = (alert?.message || '').toLowerCase();
-    const deviceName = (alert?.device || '').toLowerCase();
-    const matchesSearch = q === '' ||
-      title.includes(q) ||
-      message.includes(q) ||
-      deviceName.includes(q);
+    // Search filter
+    const matchesSearch = searchQuery === '' ||
+      alert.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      alert.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      alert.device.toLowerCase().includes(searchQuery.toLowerCase());
 
     // Device filter
     const matchesDevice = deviceFilter === 'all' || alert.deviceId === deviceFilter;
@@ -229,19 +228,64 @@ export default function AdminAlerts() {
 
   return (
     <div className="admin-root">
-      {/* Sidebar and Bottom Nav */}
-      <AdminNavbar activePage="alerts" />
+      {/* Sidebar navigation (desktop) */}
+      <aside className="admin-sidebar" aria-label="Admin sidebar">
+        <div className="brand">
+          <div className="brand-logo">
+            <img src={logoMarkWhite} alt="SmarTanom" />
+          </div>
+          <div className="brand-text">
+            <div className="brand-name">SmarTanom</div>
+            <div className="brand-subtitle">Dashboard</div>
+          </div>
+        </div>
+        <div className="side-nav-label">MENU</div>
+        <nav className="side-nav">
+          <button className="side-link" onClick={() => navigate('/admin')}>
+            <LayoutDashboard size={18} />
+            <span>Dashboard</span>
+          </button>
+          <button className="side-link" onClick={() => navigate('/admin/devices')}>
+            <Boxes size={18} />
+            <span>Devices</span>
+          </button>
+          <button className="side-link" onClick={() => navigate('/admin/create')}>
+            <Plus size={18} />
+            <span>Create</span>
+          </button>
+          <button className="side-link" onClick={() => navigate('/admin/users')}>
+            <Users size={18} />
+            <span>Users</span>
+          </button>
+          <button className="side-link active" onClick={() => navigate('/admin/alerts')}>
+            <Bell size={18} />
+            <span>Alerts</span>
+          </button>
+          <button className="side-link" onClick={() => navigate('/admin/settings')}>
+            <Settings size={18} />
+            <span>Settings</span>
+          </button>
+        </nav>
+        <div className="system-status">
+          <span className="status-dot online" />
+          <div>
+            <div className="status-title">System Online</div>
+            <div className="status-sub">All services operational</div>
+          </div>
+        </div>
+      </aside>
 
       {/* Main content */}
+      <main className="admin-main">
       {loading ? (
-        <main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
           <div style={{ textAlign: 'center' }}>
-            <Loader2 size={48} className="spinner" style={{ color: '#339432' }} />
+            <Loader2 size={48} className="spinner" style={{ color: '#339432', animation: 'spin 1s linear infinite' }} />
             <p style={{ marginTop: '16px', color: '#6f8876' }}>Loading alerts...</p>
           </div>
-        </main>
+        </div>
       ) : error ? (
-        <main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
           <div style={{ textAlign: 'center', maxWidth: '400px' }}>
             <AlertTriangle size={48} style={{ color: '#ef4444' }} />
             <p style={{ marginTop: '16px', color: '#dc2626', fontWeight: 600 }}>{error}</p>
@@ -260,9 +304,8 @@ export default function AdminAlerts() {
               Retry
             </button>
           </div>
-        </main>
+        </div>
       ) : (
-        <main className="admin-main">
       <div className="admin-alerts-page">
         {/* Header */}
         <header className="alerts-page-header">
@@ -362,10 +405,7 @@ export default function AdminAlerts() {
 
           {/* Status Filters */}
           <div className="filter-group">
-            <label className="filter-label">
-              <Activity size={14} />
-              Status
-            </label>
+            <label className="filter-label">Status</label>
             <div className="filter-tabs">
               <button
                 className={`filter-tab ${statusFilter === 'all' ? 'active' : ''}`}
@@ -397,10 +437,7 @@ export default function AdminAlerts() {
           {/* Advanced Filters */}
           <div className="filter-group inline">
             <div className="filter-dropdown">
-              <label>
-                <Boxes size={14} />
-                Device
-              </label>
+              <label>Device</label>
               <select value={deviceFilter} onChange={(e) => setDeviceFilter(e.target.value)}>
                 <option value="all">All Devices</option>
                 {devices.map((device, index) => (
@@ -410,10 +447,7 @@ export default function AdminAlerts() {
             </div>
 
             <div className="filter-dropdown">
-              <label>
-                <Calendar size={14} />
-                Time Range
-              </label>
+              <label>Time Range</label>
               <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}>
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
@@ -592,8 +626,8 @@ export default function AdminAlerts() {
           </div>
         )}
       </div>
-      </main>
       )}
+      </main>
     </div>
   );
 }
