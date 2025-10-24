@@ -1,32 +1,5 @@
 /* Admin Create Device Page Styles */
 
-/* CSS Variables for Theme Support */
-:root {
-	/* Light Mode Colors */
-	--create-bg-primary: #ffffff;
-	--create-bg-surface: #ffffff;
-	--create-bg-subtle: #F5FDF6;
-	--create-border: #E8F1EA;
-	--create-text-primary: #111111;
-	--create-text-secondary: #6f8876;
-	--create-text-muted: #8BA797;
-	--create-green-primary: #2eb72e;
-	--create-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-[data-theme="dark"] {
-	/* Dark Mode Colors - Professional Contrast */
-	--create-bg-primary: #141617;
-	--create-bg-surface: #1e2122;
-	--create-bg-subtle: #2a2d2f;
-	--create-border: #3d4245;
-	--create-text-primary: #f1f3f4;
-	--create-text-secondary: #c5c9ce;
-	--create-text-muted: #9aa0a6;
-	--create-green-primary: #66bb6a;
-	--create-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
 /* Header */
 .create-header {
 	padding: 8px 4px 0;
@@ -35,19 +8,17 @@
 
 .create-title {
 	font-family: 'Abril Fatface', serif;
-	font-size: 40px;
+	font-size: 32px;
 	margin: 0;
-	color: var(--create-text-primary);
-	font-weight: 700;
-	transition: color 0.3s;
+	color: #2eb72e;
+	font-weight: 400;
 }
 
 .create-subtitle {
-	margin: 3px 0 0;
-	color: var(--create-text-secondary);
+	margin: 6px 0 0;
+	color: #8BA797;
 	font-weight: 500;
 	font-size: 15px;
-	transition: color 0.3s;
 }
 
 /* Content Layout */
@@ -60,12 +31,11 @@
 
 /* Registration Card */
 .registration-card {
-	background: var(--create-bg-surface);
-	border: 1px solid var(--create-border);
+	background: #fff;
+	border: 1px solid #E8F1EA;
 	border-radius: 20px;
 	padding: 32px;
-	box-shadow: var(--create-shadow-sm);
-	transition: all 0.3s;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .card-header {
@@ -76,16 +46,14 @@
 }
 
 .card-icon {
-	color: var(--create-green-primary);
-	transition: color 0.3s;
+	color: #2eb72e;
 }
 
 .card-title {
 	font-size: 22px;
 	font-weight: 700;
-	color: var(--create-text-primary);
+	color: #111;
 	margin: 0;
-	transition: color 0.3s;
 }
 
 /* Form Group */
@@ -97,9 +65,8 @@
 	display: block;
 	font-size: 14px;
 	font-weight: 600;
-	color: var(--create-text-secondary);
+	color: #111;
 	margin-bottom: 10px;
-	transition: color 0.3s;
 }
 
 .input-with-button {
@@ -111,24 +78,24 @@
 .form-input {
 	flex: 1;
 	padding: 14px 18px;
-	border: 1px solid var(--create-border);
+	border: 1px solid #E8F1EA;
 	border-radius: 12px;
 	font-size: 15px;
 	font-family: 'Montserrat', sans-serif;
-	color: var(--create-text-primary);
-	background: var(--create-bg-subtle);
+	color: #111;
+	background: #F5FDF6;
 	transition: all 0.2s;
 }
 
 .form-input:focus {
 	outline: none;
-	border-color: var(--create-green-primary);
-	background: var(--create-bg-surface);
+	border-color: #2eb72e;
+	background: #fff;
 	box-shadow: 0 0 0 3px rgba(46, 183, 46, 0.1);
 }
 
 .form-input::placeholder {
-	color: var(--create-text-muted);
+	color: #8BA797;
 }
 
 .btn-generate {

@@ -1,32 +1,5 @@
 /* Admin Users Page Styles */
 
-/* CSS Variables for Theme Support */
-:root {
-	/* Light Mode Colors */
-	--users-bg-primary: #ffffff;
-	--users-bg-surface: #ffffff;
-	--users-bg-subtle: #F5FDF6;
-	--users-border: #E8F1EA;
-	--users-text-primary: #111111;
-	--users-text-secondary: #6f8876;
-	--users-text-muted: #8BA797;
-	--users-green-primary: #2eb72e;
-	--users-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-[data-theme="dark"] {
-	/* Dark Mode Colors - Professional Contrast */
-	--users-bg-primary: #141617;
-	--users-bg-surface: #1e2122;
-	--users-bg-subtle: #2a2d2f;
-	--users-border: #3d4245;
-	--users-text-primary: #f1f3f4;
-	--users-text-secondary: #c5c9ce;
-	--users-text-muted: #9aa0a6;
-	--users-green-primary: #66bb6a;
-	--users-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-}
-
 /* Header */
 .users-header {
 	padding: 8px 4px 0;
@@ -37,17 +10,15 @@
 	font-family: 'Abril Fatface', serif;
 	font-size: 40px;
 	margin: 0;
-	color: var(--users-text-primary);
+	color: #111111e7;
 	font-weight: 700;
-	transition: color 0.3s;
 }
 
 .users-subtitle {
 	margin: 3px 0 0;
-	color: var(--users-text-secondary);
+	color: #6f8876;
 	font-weight: 500;
 	font-size: 15px;
-	transition: color 0.3s;
 }
 
 /* Summary cards */
@@ -59,45 +30,41 @@
 }
 
 .users-stat-card {
-	background: var(--users-bg-surface);
-	border: 1px solid var(--users-border);
+	background: #fff;
+	border: 1px solid #E8F1EA;
 	border-radius: 16px;
 	padding: 20px 22px;
-	box-shadow: var(--users-shadow-sm);
-	transition: all 0.3s;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .stat-label {
 	font-size: 12px;
 	font-weight: 600;
-	color: var(--users-text-muted);
+	color: #8BA797;
 	letter-spacing: 0.5px;
 	text-transform: uppercase;
 	margin-bottom: 8px;
-	transition: color 0.3s;
 }
 
 .stat-value {
 	font-size: 42px;
 	font-weight: 900;
-	color: var(--users-text-primary);
+	color: #111;
 	line-height: 1;
-	transition: color 0.3s;
 }
 
 .stat-value.stat-green {
-	color: var(--users-green-primary);
+	color: #2eb72e;
 }
 
 /* Search section */
 .users-search-section {
-	background: var(--users-bg-surface);
-	border: 1px solid var(--users-border);
+	background: #fff;
+	border: 1px solid #E8F1EA;
 	border-radius: 16px;
 	padding: 18px;
 	margin-bottom: 20px;
-	box-shadow: var(--users-shadow-sm);
-	transition: all 0.3s;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .search-box {
@@ -109,31 +76,30 @@
 	left: 16px;
 	top: 50%;
 	transform: translateY(-50%);
-	color: var(--users-text-muted);
-	transition: color 0.3s;
+	color: #8BA797;
 }
 
 .search-input {
 	width: 100%;
 	padding: 12px 16px 12px 48px;
-	border: 1px solid var(--users-border);
+	border: 1px solid #E8F1EA;
 	border-radius: 12px;
 	font-size: 15px;
 	font-family: 'Montserrat', sans-serif;
-	color: var(--users-text-primary);
-	background: var(--users-bg-subtle);
+	color: #111;
+	background: #F5FDF6;
 	transition: all 0.2s;
 }
 
 .search-input:focus {
 	outline: none;
-	border-color: var(--users-green-primary);
-	background: var(--users-bg-surface);
+	border-color: #2eb72e;
+	background: #fff;
 	box-shadow: 0 0 0 3px rgba(46, 183, 46, 0.1);
 }
 
 .search-input::placeholder {
-	color: var(--users-text-muted);
+	color: #8BA797;
 }
 
 /* Users sections */
@@ -145,9 +111,8 @@
 	font-family: 'Abril Fatface', serif;
 	font-size: 24px;
 	margin: 0 0 16px 0;
-	color: var(--users-green-primary);
+	color: #2eb72e;
 	font-weight: 400;
-	transition: color 0.3s;
 }
 
 /* Users list */
@@ -158,24 +123,24 @@
 }
 
 .user-card {
-	background: var(--users-bg-surface);
-	border: 1px solid var(--users-border);
+	background: #fff;
+	border: 1px solid #E8F1EA;
 	border-radius: 16px;
 	padding: 20px 24px;
 	display: flex;
 	align-items: center;
 	gap: 18px;
-	box-shadow: var(--users-shadow-sm);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 	transition: all 0.2s;
 }
 
 .user-card:hover {
 	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-	border-color: var(--users-green-primary);
+	border-color: #d0ead3;
 }
 
 .admin-card {
-	border-left: 4px solid var(--users-green-primary);
+	border-left: 4px solid #2eb72e;
 }
 
 .user-avatar {
@@ -192,15 +157,14 @@
 .user-initials {
 	font-size: 18px;
 	font-weight: 700;
-	color: var(--users-text-primary);
-	transition: color 0.3s;
+	color: #065f46;
 }
 
 .admin-badge {
 	position: absolute;
 	bottom: -4px;
 	right: -4px;
-	background: var(--users-green-primary);
+	background: #2eb72e;
 	color: white;
 	font-size: 10px;
 	font-weight: 700;
@@ -208,7 +172,6 @@
 	border-radius: 8px;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	transition: background 0.3s;
 }
 
 .user-badge {

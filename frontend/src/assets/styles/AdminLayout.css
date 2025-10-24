@@ -1,58 +1,16 @@
 /* Admin Layout Shared Styles - Common sidebar and layout components */
 :root {
-  /* Brand Colors */
   --color-primary: rgba(51, 148, 50, 0.9);
   --color-primary-solid: #339432;
   --color-secondary: #1E3E28;
-  
-  /* Light Mode Layout Colors */
-  --layout-bg: #F5FDF6;
-  --layout-surface: #FFFFFF;
-  --layout-border: #E8F1EA;
-  --layout-text-primary: #111;
-  --layout-text-secondary: #8BA797;
-  --layout-shadow: 0 8px 24px rgba(0,0,0,0.08);
-  
-  /* Sidebar Colors - Light Mode */
-  --sidebar-bg: rgba(51, 148, 50, 0.9);
-  --sidebar-text: #ffffff;
-  --sidebar-hover: rgba(255, 255, 255, 0.15);
-  --sidebar-active: rgba(255, 255, 255, 0.25);
-  
-  /* Legacy variables for backwards compatibility */
-  --color-bg: var(--layout-bg);
-  --color-surface: var(--layout-surface);
-  --color-border: var(--layout-border);
-  --color-muted: var(--layout-text-secondary);
-  
-  /* Spacing */
+  --color-bg: #F5FDF6;
+  --color-surface: #FFFFFF;
+  --color-border: #E8F1EA;
+  --color-muted: #8BA797;
   --radius-lg: 16px;
   --radius-2xl: 20px;
-  --shadow: var(--layout-shadow);
+  --shadow: 0 8px 24px rgba(0,0,0,0.08);
   --sidebar-width: 260px;
-}
-
-[data-theme="dark"] {
-  /* Dark Mode Layout Colors - Improved Contrast */
-  --layout-bg: #141617;
-  --layout-surface: #1e2122;
-  --layout-border: #2d3134;
-  --layout-text-primary: #f1f3f4;
-  --layout-text-secondary: #b8bdc2;
-  --layout-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  
-  /* Sidebar Colors - Dark Mode (Darker Forest Green with Better Contrast) */
-  --sidebar-bg: #1a2e1b;
-  --sidebar-text: #e8f5e9;
-  --sidebar-hover: rgba(76, 175, 80, 0.2);
-  --sidebar-active: rgba(76, 175, 80, 0.3);
-  
-  /* Update legacy variables */
-  --color-bg: var(--layout-bg);
-  --color-surface: var(--layout-surface);
-  --color-border: var(--layout-border);
-  --color-muted: var(--layout-text-secondary);
-  --shadow: var(--layout-shadow);
 }
 
 /* Utility animations */
@@ -73,27 +31,25 @@ html {
 .admin-root {
   display: flex;
   min-height: 100vh;
-  background: var(--layout-bg);
-  color: var(--layout-text-primary);
+  background: var(--color-bg);
+  color: #111;
   position: relative;
-  transition: background 0.3s, color 0.3s;
 }
 
 /* Sidebar - Fixed and consistent across all pages */
 .admin-sidebar {
   display: none;
   width: var(--sidebar-width);
-  background: var(--sidebar-bg);
+  background: linear-gradient(180deg, #2f8d2e 0%, #2bb35e 100%);
   border-right: 1px solid rgba(255,255,255,0.08);
   padding: 24px 16px;
   position: sticky;
   top: 0;
   height: 100vh;
   box-shadow: 0 6px 30px rgba(0,0,0,0.12);
-  color: var(--sidebar-text);
+  color: #ffffff;
   overflow-y: auto;
-  flex-shrink: 0;
-  transition: background 0.3s, color 0.3s;
+  flex-shrink: 0; /* Prevent sidebar from shrinking */
 }
 
 /* Brand container - Fixed height and alignment */
@@ -102,10 +58,9 @@ html {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  color: var(--sidebar-text);
+  color: #fff;
   margin-bottom: 20px;
-  min-height: 64px;
-  transition: color 0.3s;
+  min-height: 64px; /* Fixed minimum height */
 }
 
 /* Brand logo - Fixed dimensions to prevent distortion */
@@ -114,10 +69,12 @@ html {
   height: 48px;
   min-width: 48px; /* Prevent shrinking */
   min-height: 48px; /* Prevent shrinking */
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: visible;
+  overflow: hidden;
+  background: rgba(255,255,255,0.15);
   flex-shrink: 0; /* Prevent logo from shrinking */
   position: relative; /* For proper image positioning */
 }
@@ -142,13 +99,14 @@ html {
 
 .brand-name {
   font-family: 'Montserrat', sans-serif;
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.3px;
   color: #fff;
   line-height: 1.2;
   white-space: nowrap;
-  overflow: visible;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brand-subtitle {
@@ -160,14 +118,6 @@ html {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* Navigation divider */
-.nav-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.15);
-  margin: 16px 0;
-  border: none;
 }
 
 /* Navigation */
@@ -266,392 +216,51 @@ html {
   min-width: 0; /* Allow content to shrink */
 }
 
-/* Mobile Top Bar with Hamburger Menu - Modern Design */
-.admin-mobile-topbar {
-  display: none; /* Hidden on desktop */
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 56px;
-  background: var(--sidebar-bg);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12),
-              0 1px 3px rgba(0, 0, 0, 0.08);
-  z-index: 1000;
-  padding: 0 16px;
-  align-items: center;
-  justify-content: space-between;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: background 0.3s;
-}
-
-/* Hamburger Button - Top Left */
-.mobile-menu-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--sidebar-text);
-  transition: color 0.3s;
-  border-radius: 10px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.mobile-menu-toggle:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.mobile-menu-toggle:active {
-  transform: scale(0.95);
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* User Icon Button - Top Right */
-.mobile-user-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: #ffffff; /* White icon */
-  border-radius: 50%;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.mobile-user-button:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.mobile-user-button:active {
-  transform: scale(0.95);
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* Overlay - Dims background when menu is open */
-.mobile-menu-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 1100;
-  opacity: 0;
-  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.mobile-menu-overlay.active {
-  display: block;
-  opacity: 1;
-}
-
-/* Slide-in Menu - White background, green text */
-.admin-mobile-menu {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 280px;
-  max-width: 75vw;
-  background: var(--layout-surface);
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
-  z-index: 1200;
-  transform: translateX(-100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.admin-mobile-menu.active {
-  transform: translateX(0);
-}
-
-/* Menu Header */
-.mobile-menu-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--layout-border);
-  transition: border-color 0.3s;
-  background: linear-gradient(135deg, rgba(46, 183, 46, 0.03) 0%, rgba(46, 183, 46, 0.01) 100%);
-  min-height: 72px;
-}
-
-/* Brand in menu */
-.mobile-menu-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.mobile-menu-logo {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #2eb72e 0%, #28a428 100%);
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(46, 183, 46, 0.2);
-}
-
-.mobile-menu-logo img {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-}
-
-.mobile-menu-brand-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.mobile-menu-brand-name {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--settings-green-primary);
-  letter-spacing: 0.3px;
-  line-height: 1.2;
-  transition: color 0.3s;
-}
-
-.mobile-menu-brand-subtitle {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--layout-text-secondary);
-  transition: color 0.3s;
-  letter-spacing: 0.2px;
-}
-
-/* Close button in menu header */
-.mobile-menu-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: #8ba797;
-  border-radius: 8px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.mobile-menu-close:hover {
-  background: rgba(46, 183, 46, 0.08);
-  color: #2eb72e;
-}
-
-.mobile-menu-close:active {
-  transform: scale(0.9);
-}
-
-/* Menu Navigation */
-.mobile-menu-nav {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 0;
-  flex: 1;
-}
-
-/* Menu Section Label */
-.mobile-menu-section {
-  font-size: 11px;
-  font-weight: 700;
-  color: #8ba797;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  padding: 20px 20px 8px;
-  margin-top: 8px;
-}
-
-/* Menu Items - Clean text-focused design */
-.mobile-menu-item {
-  display: flex;
-  align-items: center;
-  padding: 14px 20px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--settings-green-primary);
-  font-family: 'Montserrat', sans-serif;
-  font-size: 15px;
-  font-weight: 500;
-  text-align: left;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-left: 3px solid transparent;
-  min-height: 48px; /* Adequate touch target */
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-}
-
-.mobile-menu-item:hover {
-  background: rgba(76, 175, 80, 0.08);
-  color: var(--settings-green-hover);
-}
-
-.mobile-menu-item:active {
-  background: rgba(76, 175, 80, 0.12);
-}
-
-/* Active menu item */
-.mobile-menu-item.active {
-  background: rgba(76, 175, 80, 0.1);
-  color: var(--settings-green-hover);
-  font-weight: 600;
-  border-left-color: var(--settings-green-primary);
-}
-
-.mobile-menu-item.active::after {
-  content: '';
-  position: absolute;
-  right: 20px;
-  width: 6px;
-  height: 6px;
-  background: var(--settings-green-primary);
-  border-radius: 50%;
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
-}
-
-/* Menu Footer - System Status */
-.mobile-menu-footer {
-  padding: 16px 20px;
-  border-top: 1px solid #e8f1ea;
-  background: linear-gradient(135deg, rgba(46, 183, 46, 0.03) 0%, rgba(46, 183, 46, 0.01) 100%);
-  margin-top: auto;
-}
-
-.mobile-system-status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  background: #ffffff;
-  border: 1px solid #e8f1ea;
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-.mobile-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.mobile-status-dot.online {
-  background: #2eb72e;
-  box-shadow: 0 0 0 3px rgba(46, 183, 46, 0.15);
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.mobile-status-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.mobile-status-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #2eb72e;
-  line-height: 1.2;
-}
-
-.mobile-status-sub {
-  font-size: 11px;
-  color: #8ba797;
-  line-height: 1.3;
-}
-
-/* Bottom navigation (mobile) - HIDDEN when hamburger menu is active */
+/* Bottom navigation (mobile) */
 .admin-bottom-nav {
-  display: none; /* Will be replaced by hamburger menu on mobile */
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, #2f8d2e 0%, #2bb35e 100%);
+  padding: 12px 16px 16px;
+  box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+  z-index: 100;
+  gap: 8px;
 }
 
-/* Show mobile topbar and hide bottom nav on mobile only */
-@media (max-width: 1023.98px) {
-  .admin-mobile-topbar {
-    display: flex;
-  }
-  
-  .admin-main {
-    padding-top: 70px !important; /* Force space for top bar (56px) + extra generous buffer (44px) */
-    padding-bottom: 24px !important;
-  }
+.bn-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 12px;
+  transition: all 0.2s;
+  flex: 1;
+  max-width: 80px;
 }
 
-/* Tablet adjustments */
-@media (min-width: 768px) and (max-width: 1023.98px) {
-  .admin-main {
-    padding: 70px 32px 24px !important;
-  }
+.bn-item:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.95);
 }
 
-/* Mobile adjustments */
-@media (max-width: 767.98px) {
-  .admin-main {
-    padding: 70px 16px 24px !important;
-  }
-  
-  .admin-mobile-menu {
-    max-width: 80vw;
-  }
+.bn-item.active {
+  background: rgba(255,255,255,0.2);
+  color: #ffffff;
 }
 
-/* Very small screens */
-@media (max-width: 360px) {
-  .admin-mobile-topbar {
-    padding: 0 12px;
-  }
-  
-  .mobile-menu-toggle,
-  .mobile-user-button {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .admin-mobile-menu {
-    width: 260px;
-    max-width: 85vw;
-  }
-  
-  .mobile-menu-item {
-    font-size: 14px;
-    padding: 12px 16px;
-  }
-  
-  .admin-main {
-    padding-top: 70px !important; /* Ensure consistent spacing on very small screens */
-  }
+.bn-item span {
+  font-size: 11px;
+  font-weight: 600;
 }
 
 /* Responsive breakpoints */
@@ -661,10 +270,8 @@ html {
     flex-direction: column;
   }
 
-  .admin-mobile-topbar,
-  .admin-mobile-menu,
-  .mobile-menu-overlay {
-    display: none !important;
+  .admin-bottom-nav {
+    display: none;
   }
 
   .admin-main {
@@ -672,7 +279,44 @@ html {
   }
 }
 
-/* These duplicate media queries have been removed - using the ones above with 100px padding */
+@media (max-width: 1023.98px) {
+  .admin-main {
+    padding-bottom: 80px; /* Space for bottom nav */
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .admin-main {
+    padding: 24px 32px 96px;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 767.98px) {
+  .admin-main {
+    padding: 16px 16px 96px;
+  }
+
+  .brand {
+    min-height: 56px;
+  }
+
+  .brand-logo {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .brand-name {
+    font-size: 18px;
+  }
+
+  .brand-subtitle {
+    font-size: 12px;
+  }
+}
 
 /* Dark mode support (optional - for future implementation) */
 @media (prefers-color-scheme: dark) {
