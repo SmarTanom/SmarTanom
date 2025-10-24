@@ -48,27 +48,34 @@
 .back-button {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  gap: 6px;
+  padding: 6px 14px 6px 10px;
+  background: #ffffff;
   border: none;
   border-radius: 20px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--color-primary);
+  color: #52B788;
   cursor: pointer;
-  transition: all var(--transition-fast);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.back-button svg {
+  flex-shrink: 0;
+  color: #52B788;
+  stroke-width: 2.5;
 }
 
 .back-button:hover {
-  background: rgba(255, 255, 255, 1);
+  background: #ffffff;
   transform: translateX(-2px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
 }
 
 .back-button:active {
-  transform: translateX(-4px) scale(0.98);
+  transform: translateX(-3px) scale(0.98);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .more-button {
