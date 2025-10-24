@@ -791,6 +791,109 @@ export default function Dashboard() {
     }
   };
 
+  // Lightweight 2s refresh for key cards: nutrient-card, ph-card, current-ph-card, sensor-grid.
+  // Only fetch the latest readings for relevant sensors and update the last bucket of pH history.
+  const liteRefreshInFlight = useRef(false);
+  const refreshLiteDeviceData = async (deviceId) => {
+    try {
+      if (!deviceId || liteRefreshInFlight.current) return;
+      liteRefreshInFlight.current = true;
+
+      // Use cached sensors when possible to avoid extra calls
+      let sensors = devicesData[deviceId]?.sensors_raw;
+      if (!Array.isArray(sensors) || sensors.length === 0) {
+        try {
+          const sResp = await getDeviceSensors(deviceId);
+          sensors = sResp && sResp.results ? sResp.results : sResp;
+        } catch (_e) {
+          sensors = [];
+        }
+      }
+
+      const neededTypes = new Set(['ph', 'tds', 'ec', 'water_level', 'turbidity', 'water_temperature']);
+      const targetSensors = (Array.isArray(sensors) ? sensors : []).filter(s => neededTypes.has(s.sensor_type));
+
+      const sensorDataMap = {};
+      if (targetSensors.length) {
+        const latestPromises = targetSensors.map(async (s) => {
+          try {
+            const resp = await getSensorData(s.id, 1); // just the latest
+            const arr = resp && resp.results ? resp.results : resp;
+            const list = Array.isArray(arr) ? arr : (arr ? [arr] : []);
+            sensorDataMap[s.id] = list;
+          } catch (_e) {
+            sensorDataMap[s.id] = [];
+          }
+        });
+        await Promise.all(latestPromises);
+      }
+
+      // Derive latest sensor snapshot
+      const snap = transformSensorData(targetSensors, sensorDataMap);
+
+      // Optionally update last bucket of pH history if latest reading is present
+      const phSensor = targetSensors.find(s => s.sensor_type === 'ph');
+      const latestPhReading = phSensor ? (sensorDataMap[phSensor.id]?.[0] || null) : null;
+      let updatedPhHistory = undefined;
+      let updatedPhLabels = undefined;
+      if (latestPhReading && Number.isFinite(Number(latestPhReading.value))) {
+        const existing = useRealtimeStore.getState().deviceData[deviceId]?.phHistory || [];
+        if (existing.length > 0) {
+          updatedPhHistory = existing.slice();
+          updatedPhHistory[updatedPhHistory.length - 1] = Number(latestPhReading.value);
+          updatedPhLabels = useRealtimeStore.getState().deviceData[deviceId]?.phLabels || undefined;
+          // Keep local cache in sync
+          try { persistPhData(deviceId, updatedPhHistory, updatedPhLabels, timeRange); } catch (_e) { }
+        }
+      }
+
+      // Compute deriveds
+      const deviceMeta = devices.find(d => d.id === deviceId);
+      const plant = useRealtimeStore.getState().deviceData[deviceId]?.plant || deviceMeta?.plant || null;
+      const nutrientText = typeof snap.tds === 'number' ? getNutrientStatus(snap.tds, plant) : undefined;
+
+      // Last update based on latest reading timestamps we fetched
+      let lastSensorUpdate = null;
+      Object.values(sensorDataMap).forEach(arr => {
+        (arr || []).forEach(d => { if (d?.created_at) { const t = new Date(d.created_at); if (!lastSensorUpdate || t > lastSensorUpdate) lastSensorUpdate = t; } });
+      });
+      const { connectivity, lastSync } = getConnectivityStatus(lastSensorUpdate);
+
+      const payload = {
+        sensors: {
+          ...(typeof snap.ph === 'number' ? { ph: snap.ph } : {}),
+          ...(typeof snap.ec === 'number' ? { ec: snap.ec } : {}),
+          ...(typeof snap.tds === 'number' ? { tds: snap.tds } : {}),
+          ...(typeof snap.waterLevel === 'number' ? { waterLevel: snap.waterLevel } : {}),
+          ...(typeof snap.turbidity === 'number' ? { turbidity: snap.turbidity } : {}),
+          ...(typeof snap.water_temperature === 'number' ? { water_temperature: snap.water_temperature } : {}),
+        },
+        nutrientText,
+        connectivity,
+        lastSyncLabel: lastSync,
+        lastUpdate: lastSensorUpdate ? lastSensorUpdate.toISOString() : useRealtimeStore.getState().deviceData[deviceId]?.lastUpdate,
+      };
+      if (updatedPhHistory) {
+        payload.phHistory = updatedPhHistory;
+        if (updatedPhLabels) payload.phLabels = updatedPhLabels;
+      }
+
+      updateDeviceData(deviceId, payload);
+    } catch (_e) {
+      // ignore refresh errors silently
+    } finally {
+      liteRefreshInFlight.current = false;
+    }
+  };
+
+  // 2s interval to refresh only the needed cards for the current device
+  useEffect(() => {
+    if (!currentDevice?.id) return;
+    const id = setInterval(() => refreshLiteDeviceData(currentDevice.id), 2000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDevice?.id, timeRange]);
+
   // Handle device card click
   const handleDeviceInfoClick = (e, device) => {
     e.stopPropagation();
@@ -943,10 +1046,10 @@ export default function Dashboard() {
     const modalContent = modalContentRef.current;
     const touch = e.touches[0];
     const diff = touch.clientY - modalDragStart;
-    
+
     // Check if modal content is scrolled to the top
     const isAtTop = !modalContent || modalContent.scrollTop === 0;
-    
+
     // Only allow dragging down when at top of scroll (positive diff)
     if (diff > 0 && isAtTop) {
       e.preventDefault(); // Prevent screen scroll
@@ -969,7 +1072,7 @@ export default function Dashboard() {
     if (selectedMonitoringCard) {
       // Save current scroll position
       scrollPositionRef.current = window.scrollY;
-      
+
       // Lock body scroll and maintain position
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
@@ -981,11 +1084,11 @@ export default function Dashboard() {
       document.body.style.position = '';
       document.body.style.top = '';
       document.body.style.width = '';
-      
+
       // Restore scroll position
       window.scrollTo(0, scrollPositionRef.current);
     }
-    
+
     return () => {
       document.body.style.overflow = '';
       document.body.style.position = '';
@@ -1564,7 +1667,7 @@ export default function Dashboard() {
       {/* Mobile Top Bar */}
       <header className="mobile-top-bar" role="banner">
         <div className="mobile-top-bar-left">
-          <button 
+          <button
             className="mobile-top-bar-profile"
             aria-label="Profile Settings"
             onClick={() => navigate('/profile')}
@@ -1574,14 +1677,14 @@ export default function Dashboard() {
           <span className="mobile-top-bar-name">{displayName}</span>
         </div>
         <div className="mobile-top-bar-right">
-          <button 
-            className="mobile-top-bar-icon" 
+          <button
+            className="mobile-top-bar-icon"
             aria-label="Add Device"
             onClick={() => navigate('/add-device/setup')}
           >
             <Plus size={22} />
           </button>
-          <button 
+          <button
             className={`mobile-top-bar-icon ${loadingInitial ? 'syncing' : ''}`}
             aria-label="Sync"
             onClick={fetchInitial}
@@ -1589,8 +1692,8 @@ export default function Dashboard() {
           >
             <RefreshCw size={22} />
           </button>
-          <button 
-            className="mobile-top-bar-icon mobile-top-bar-bell" 
+          <button
+            className="mobile-top-bar-icon mobile-top-bar-bell"
             aria-label={`Notifications - ${totalUnread} unread`}
             onClick={() => navigate('/alerts')}
             style={{ position: 'relative' }}
@@ -1620,10 +1723,10 @@ export default function Dashboard() {
         <div className="device-carousel-container">
           <div className="device-carousel" ref={carouselRef}>
             {infiniteDevices.map((device, index) => {
-              const isActive = !isInfinite 
-                ? index === activeIdx 
+              const isActive = !isInfinite
+                ? index === activeIdx
                 : (device._cloneType === 'original' && ownedDevices[activeIdx]?.id === device.id);
-              
+
               return (
                 <div
                   key={`${device.id}-${device._cloneType || 'original'}-${index}`}
@@ -1661,7 +1764,7 @@ export default function Dashboard() {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* Floating White Info Card (Bottom Overlay) */}
                     <div className="device-carousel-card-overlay">
                       <div className="device-carousel-card-info">
@@ -1669,7 +1772,7 @@ export default function Dashboard() {
                           <h3 className="device-carousel-card-name">{device.device_name}</h3>
                           <p className="device-carousel-card-id">ID: {device.device_serial}</p>
                         </div>
-                        <button 
+                        <button
                           className="device-carousel-card-arrow"
                           aria-label="View device details"
                           onClick={(e) => {
@@ -1687,7 +1790,7 @@ export default function Dashboard() {
             })}
           </div>
         </div>
-        
+
         {/* Navigation Pills (Pagination Dots) */}
         {ownedDevices.length >= 1 && (
           <div className="device-carousel-dots" role="tablist" aria-label="Device selection">
@@ -2518,14 +2621,14 @@ export default function Dashboard() {
       {selectedMonitoringCard && (() => {
         const cardInfo = getMonitoringCardInfo(selectedMonitoringCard);
         if (!cardInfo) return null;
-        
+
         return (
-          <div 
+          <div
             className="monitoring-modal-overlay"
             onClick={() => setSelectedMonitoringCard(null)}
             onTouchMove={(e) => e.preventDefault()}
           >
-            <div 
+            <div
               ref={modalContentRef}
               className="monitoring-modal-content"
               onClick={(e) => e.stopPropagation()}
@@ -2539,7 +2642,7 @@ export default function Dashboard() {
             >
               {/* Drag Handle */}
               <div className="monitoring-modal-handle"></div>
-              
+
               {/* Icon and Title */}
               <div className="monitoring-modal-header">
                 <div className="monitoring-modal-icon">
