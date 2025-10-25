@@ -1855,7 +1855,127 @@ body { background: var(--color-bg); }
   .ph-bars { height:240px; }
 }
 
-/* Landscape Mode (any height, wide aspect) */
+/* Desktop with Sidebar Layout (1024px+) */
+@media (min-width:1024px){
+  /* When UserLayout is used, hide bottom nav and adjust spacing */
+  .bottom-nav { 
+    display: none;
+  }
+
+  /* Dashboard root adjustments for sidebar layout */
+  .dashboard-root {
+    max-width: 100%;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  /* Header adjustments for desktop with sidebar */
+  .dash-header {
+    padding: var(--space-6) var(--space-6) var(--space-4);
+    margin-bottom: 0;
+  }
+
+  .dash-header-title {
+    font-size: 36px;
+  }
+
+  /* Main content container for desktop */
+  .dash-main {
+    max-width: 100%;
+    margin: 0;
+    padding: 0 var(--space-6) var(--space-6);
+    gap: var(--space-6);
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-auto-flow: row;
+    grid-gap: var(--space-5);
+  }
+
+  /* Device carousel spans full width */
+  .device-carousel-section {
+    grid-column: 1 / -1;
+  }
+
+  /* Alert card spans full width */
+  .alert-card {
+    grid-column: 1 / -1;
+  }
+
+  /* Status grid: 2 equal columns, full width */
+  .status-grid {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-5);
+  }
+
+  /* Nutrient card: Left column (6 cols) */
+  .nutrient-card {
+    grid-column: 1 / 7;
+  }
+
+  /* Current pH card: Right column (6 cols) */
+  .current-ph-card {
+    grid-column: 7 / -1;
+  }
+
+  /* pH chart: Full width, taller */
+  .ph-card {
+    grid-column: 1 / -1;
+  }
+
+  .ph-bars {
+    height: 300px;
+    min-height: 300px;
+  }
+
+  .ph-chart-area {
+    height: 300px;
+    min-height: 300px;
+  }
+
+  /* Sensor grid: 3 columns on desktop */
+  .sensor-grid {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-5);
+  }
+
+  /* Make 5th cell span 1 column (center of 3-column layout would be handled by natural flow) */
+  .sensor-grid > .sensor-cell:nth-child(5) {
+    grid-column: span 1;
+  }
+
+  /* Environment card: Full width, horizontal layout */
+  .environment-card {
+    grid-column: 1 / -1;
+  }
+
+  .environment-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-5);
+  }
+
+  /* Card styling enhancements */
+  .card {
+    padding: var(--space-6);
+    border-radius: 18px;
+  }
+
+  .status-box,
+  .sensor-cell {
+    padding: var(--space-5);
+    border-radius: 16px;
+  }
+
+  /* Device carousel adjustments */
+  .device-carousel {
+    gap: 20px;
+  }
+}
+
+/* Landscape Mode (any height, wide aspect) - Compact vertical spacing */
 @media (max-height:600px) and (min-width:700px){
   .dashboard-root { padding-bottom:70px; }
   .dash-header { padding:var(--space-3) var(--space-5); }
@@ -1865,78 +1985,42 @@ body { background: var(--color-bg); }
   .dash-main { gap:var(--space-3); margin-top:0; }
   .card { padding:var(--space-3); }
   .ph-bars { height:180px; }
-  .bottom-nav { height:56px; }
 }
 
-/* Tablet Landscape & Desktop (1024px+) */
-@media (min-width:1024px){
-  .dashboard-root { max-width:1400px; }
-  .dash-header { padding:var(--space-6) var(--space-6); }
-  .dash-header-title { font-size:36px; }
-
-  .device-carousel-wrapper { margin-top: 32px; margin-bottom: 32px; }
-  .device-carousel { gap: 20px; padding: 0 var(--space-6); }
-  .device-card { flex: 0 0 calc(33.333% - 14px); max-width: 520px; height: 360px; }
-
-  .dash-main {
-    max-width:1200px;
-    padding:0 var(--space-6) var(--space-6);
-    gap:var(--space-5);
-    display:grid;
-    grid-template-columns:repeat(2, 1fr);
-    grid-auto-flow:row;
-  }
-
-  /* Alert card spans full width */
-  .alert-card { grid-column:1 / -1; }
-
-  /* Status grid spans full width but shows 2 items */
-  .status-grid { grid-column:1 / -1; display:grid; grid-template-columns:repeat(2, 1fr); gap:var(--space-5); max-width:100%; }
-
-  /* Nutrient card - left column */
-  .nutrient-card { grid-column:1 / 2; }
-
-  /* pH card - right column, spans 2 rows */
-  .ph-card { grid-column:2 / 3; grid-row:span 2; }
-  .ph-bars { height:280px; }
-
-  /* Current pH - left column */
-  .current-ph-card { grid-column:1 / 2; }
-
-  /* Sensor grid spans full width, 4 columns */
-  .sensor-grid {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--space-5);
-  }
-  
-  /* Make 5th card span 2 columns centered on desktop */
-  .sensor-grid > .sensor-cell:nth-child(5) {
-    grid-column: 2 / 4; /* Span columns 2-3 for centered appearance */
-  }
-
-  /* Environment spans full width, horizontal layout */
-  .environment-card { grid-column:1 / -1; }
-  .environment-list {
-    display:grid;
-    grid-template-columns:repeat(4, 1fr);
-    gap:var(--space-5);
-  }
-
-  /* Larger cards */
-  .card { padding:var(--space-6); }
-  .status-box, .sensor-cell { padding:var(--space-5); }
-
-  /* Bottom nav adjustment */
-  .bottom-nav { height:72px; }
-  .nav-item { font-size:14px; }
-}
-
-/* Extra Large Desktop (1440px+) */
+/* Large Desktop (1440px+) - Maximum width and enhanced spacing */
 @media (min-width:1440px){
-  .dashboard-root { max-width:1600px; }
-  .dash-main { max-width:1400px; }
-  .device-card { flex: 0 0 calc(33.333% - 14px); max-width: 560px; height: 380px; }
+  .dash-main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--space-6) var(--space-6);
+    gap: var(--space-6);
+  }
+
+  .dash-header {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* Sensor grid: 4 columns on large desktop */
+  .sensor-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* Center the 5th sensor card by spanning 2 middle columns */
+  .sensor-grid > .sensor-cell:nth-child(5) {
+    grid-column: 2 / 4;
+  }
+
+  /* pH chart even taller on large screens */
+  .ph-bars {
+    height: 340px;
+    min-height: 340px;
+  }
+
+  .ph-chart-area {
+    height: 340px;
+    min-height: 340px;
+  }
 }
 
 /* Notification badges for alerts */
