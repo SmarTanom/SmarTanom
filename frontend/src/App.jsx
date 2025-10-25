@@ -30,6 +30,7 @@ import NotificationsPage from './pages/NotificationsPage.jsx';
 import PrivacySecurityPage from './pages/PrivacySecurityPage.jsx';
 import DevCacheHelper from './components/dev/DevCacheHelper.jsx';
 import WiFiSetup from './pages/WiFiSetup.jsx';
+import UserLayout from './components/layout/UserLayout.jsx';
 
 function useKeyboardViewport() {
   useEffect(() => {
@@ -234,7 +235,9 @@ export default function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <UserLayout>
+                  <Dashboard />
+                </UserLayout>
               </ProtectedRoute>
             }
           />
@@ -242,7 +245,9 @@ export default function App() {
             path="/add-device"
             element={
               <ProtectedRoute>
-                <AddDevicePage />
+                <UserLayout>
+                  <AddDevicePage />
+                </UserLayout>
               </ProtectedRoute>
             }
           />
@@ -274,7 +279,9 @@ export default function App() {
             path="/device/:deviceId"
             element={
               <ProtectedRoute>
-                <DeviceDetails />
+                <UserLayout>
+                  <DeviceDetails />
+                </UserLayout>
               </ProtectedRoute>
             }
           />
@@ -282,7 +289,9 @@ export default function App() {
             path="/alerts"
             element={
               <ProtectedRoute>
-                <AlertsPage />
+                <UserLayout>
+                  <AlertsPage />
+                </UserLayout>
               </ProtectedRoute>
             }
           />
@@ -290,7 +299,9 @@ export default function App() {
             path="/profile"
             element={
               <ProtectedRoute>
-                <ProfilePage />
+                <UserLayout>
+                  <ProfilePage />
+                </UserLayout>
               </ProtectedRoute>
             }
           />
