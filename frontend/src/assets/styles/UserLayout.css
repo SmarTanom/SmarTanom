@@ -1,0 +1,487 @@
+/* User Layout - Desktop Side Navigation and Responsive Layout */
+:root {
+  --color-primary: rgba(51, 148, 50, 0.9);
+  --color-primary-solid: #339432;
+  --color-secondary: #1E3E28;
+  --color-bg: #F5FDF6;
+  --color-surface: #FFFFFF;
+  --color-border: #E8F1EA;
+  --color-muted: #8BA797;
+  --radius-lg: 16px;
+  --shadow: 0 8px 24px rgba(0,0,0,0.08);
+  --user-sidebar-width: 280px;
+}
+
+/* =========================
+   MOBILE FIRST (Default)
+   ========================= */
+
+.user-layout-root {
+  display: flex;
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: #111;
+  position: relative;
+}
+
+/* Hide sidebar on mobile */
+.user-sidebar {
+  display: none;
+}
+
+/* Main content takes full width on mobile */
+.user-main-content {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding-top: 0;
+  padding-bottom: 80px; /* Space for bottom nav */
+}
+
+/* Mobile Bottom Navigation */
+.user-bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  z-index: 1600;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+}
+
+.user-nav-item {
+  background: none;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 6px 8px;
+  transition: color 0.16s cubic-bezier(0.4, 0, 0.2, 1), transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  flex: 1;
+  max-width: 100px;
+}
+
+.user-nav-item.active {
+  color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.user-nav-item:active {
+  transform: scale(0.94);
+}
+
+.user-nav-notification-badge {
+  position: absolute;
+  top: 8px;
+  right: 18px;
+  background-color: #e74c3c;
+  color: white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  border: 2px solid white;
+  min-width: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* ======================================
+   DESKTOP & LANDSCAPE (1024px and up)
+   ====================================== */
+
+@media (min-width: 1024px) {
+  /* Show sidebar on desktop */
+  .user-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: var(--user-sidebar-width);
+    background: linear-gradient(180deg, #2f8d2e 0%, #2bb35e 100%);
+    border-right: 1px solid rgba(255,255,255,0.08);
+    padding: 32px 20px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.12);
+    color: #ffffff;
+    overflow-y: auto;
+    flex-shrink: 0;
+    z-index: 1000;
+  }
+
+  /* Brand Section */
+  .user-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    color: #fff;
+    margin-bottom: 20px;
+    min-height: 64px; /* Fixed minimum height matching admin */
+  }
+
+  .user-brand-logo {
+    width: 48px;
+    height: 48px;
+    min-width: 48px; /* Prevent shrinking */
+    min-height: 48px; /* Prevent shrinking */
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: rgba(255,255,255,0.15);
+    flex-shrink: 0; /* Prevent logo from shrinking */
+    position: relative; /* For proper image positioning */
+  }
+
+  .user-brand-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Maintain aspect ratio */
+    object-position: center; /* Center the image */
+    display: block; /* Remove inline spacing */
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .user-brand-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0; /* Allow text to shrink if needed */
+  }
+
+  .user-brand-name {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: #fff;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+  }
+
+  .user-brand-subtitle {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+  }
+
+  /* Navigation Label (matching admin) */
+  .user-side-nav-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin: 20px 14px 10px;
+  }
+
+  /* Navigation Links */
+  .user-side-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 18px;
+    margin-bottom: auto;
+  }
+
+  .user-side-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    color: rgba(255,255,255,0.9);
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .user-side-link:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.2);
+    transform: translateX(2px);
+  }
+
+  .user-side-link.active {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.3);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  .user-side-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 70%;
+    background: #fff;
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* Navigation Badge */
+  .user-nav-badge {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    min-width: 20px;
+    height: 20px;
+    background: #ef5350;
+    color: #ffffff;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 6px;
+    border: 2px solid rgba(255,255,255,0.3);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    line-height: 1;
+  }
+
+  /* User Section (Bottom of Sidebar) */
+  .user-sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 24px;
+    margin-top: auto;
+    border-top: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .user-info-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .user-avatar-circle {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.3);
+  }
+
+  .user-info-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .user-info-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+  }
+
+  .user-info-email {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.75);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+  }
+
+  /* Logout Button */
+  .user-logout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 16px;
+    background: rgba(239, 83, 80, 0.15);
+    border: 1px solid rgba(239, 83, 80, 0.3);
+    border-radius: 12px;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .user-logout-btn:hover {
+    background: rgba(239, 83, 80, 0.25);
+    border-color: rgba(239, 83, 80, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(239, 83, 80, 0.3);
+  }
+
+  .user-logout-btn:active {
+    transform: translateY(0);
+  }
+
+  /* Hide mobile bottom nav on desktop */
+  .user-bottom-nav {
+    display: none;
+  }
+
+  /* Main content shifts to the right */
+  .user-main-content {
+    margin-left: var(--user-sidebar-width);
+    padding-bottom: 40px;
+    width: calc(100% - var(--user-sidebar-width));
+  }
+}
+
+/* ===============================
+   TABLET LANDSCAPE (768px-1023px)
+   =============================== */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Keep bottom nav on tablets */
+  .user-sidebar {
+    display: none;
+  }
+
+  .user-main-content {
+    margin-left: 0;
+    width: 100%;
+    padding-bottom: 96px;
+  }
+
+  .user-bottom-nav {
+    display: flex;
+  }
+}
+
+/* ==============================
+   LARGE DESKTOP (1440px and up)
+   ============================== */
+
+@media (min-width: 1440px) {
+  .user-sidebar {
+    width: 300px;
+    padding: 36px 24px;
+  }
+
+  .user-brand {
+    margin-bottom: 36px;
+  }
+
+  .user-brand-logo {
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    min-height: 60px;
+  }
+
+  .user-brand-name {
+    font-size: 26px;
+  }
+
+  .user-side-link {
+    font-size: 17px;
+    padding: 18px 20px;
+  }
+
+  .user-main-content {
+    margin-left: 300px;
+    width: calc(100% - 300px);
+  }
+}
+
+/* =========================
+   ACCESSIBILITY
+   ========================= */
+
+.user-side-link:focus-visible {
+  outline: 2px solid rgba(255,255,255,0.6);
+  outline-offset: 2px;
+}
+
+.user-logout-btn:focus-visible {
+  outline: 2px solid rgba(239, 83, 80, 0.6);
+  outline-offset: 2px;
+}
+
+.user-nav-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* =========================
+   ANIMATIONS
+   ========================= */
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.user-side-nav {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* =========================
+   REDUCED MOTION
+   ========================= */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
