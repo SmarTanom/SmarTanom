@@ -616,6 +616,173 @@
   }
 }
 
+/* Desktop with Sidebar (1024px+) */
+@media (min-width: 1024px) {
+  .device-details-root {
+    max-width: 100%;
+    padding-bottom: 0;
+  }
+
+  /* Hide bottom nav on desktop */
+  .bottom-nav {
+    display: none;
+  }
+
+  /* Header adjustments */
+  .device-header {
+    height: 420px;
+    border-radius: 0 0 24px 24px;
+  }
+
+  .back-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .more-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .device-info-section {
+    padding: var(--space-6) var(--space-6);
+  }
+
+  .device-name {
+    font-size: 36px;
+  }
+
+  .device-id {
+    font-size: 16px;
+  }
+
+  /* Content area */
+  .device-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6) var(--space-6);
+  }
+
+  /* Tabs */
+  .device-tabs {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .tab-button {
+    padding: 16px 24px;
+    font-size: 16px;
+  }
+
+  /* Stats grid */
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-5);
+  }
+
+  .stat-card {
+    padding: var(--space-5);
+    transition: all var(--transition-fast);
+  }
+
+  .stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  }
+
+  /* Plant card */
+  .plant-card {
+    padding: var(--space-6);
+  }
+
+  .plant-image {
+    width: 140px;
+    height: 140px;
+  }
+
+  .plant-name {
+    font-size: 26px;
+  }
+
+  .plant-variety {
+    font-size: 16px;
+  }
+
+  /* Harvest card */
+  .harvest-card {
+    padding: var(--space-6);
+  }
+
+  .harvest-days {
+    font-size: 48px;
+  }
+
+  .harvest-label {
+    font-size: 16px;
+  }
+
+  /* Log entries */
+  .log-entry {
+    padding: var(--space-5);
+    transition: all var(--transition-fast);
+  }
+
+  .log-entry:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  }
+
+  .log-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .log-title {
+    font-size: 17px;
+  }
+
+  .log-message {
+    font-size: 15px;
+  }
+
+  .log-time {
+    font-size: 14px;
+  }
+
+  /* Edit photo button */
+  .edit-photo-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Photo modal */
+  .photo-modal {
+    max-width: 600px;
+  }
+}
+
+/* Large Desktop (1440px+) */
+@media (min-width: 1440px) {
+  .device-content,
+  .device-tabs {
+    max-width: 1400px;
+  }
+
+  .device-header {
+    height: 480px;
+  }
+
+  .device-name {
+    font-size: 40px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+
 /* Edit Photo Button */
 .edit-photo-button {
   width: 40px;
