@@ -42,8 +42,8 @@ export default function UserLayout({ children }) {
             <img src={logoMarkWhite} alt="SmarTanom" />
           </div>
           <div className="user-brand-text">
-            <h1 className="user-brand-name">SmarTanom</h1>
-            <p className="user-brand-subtitle">Dashboard</p>
+            <h1 className="user-brand-name">SMARTANOM</h1>
+            <p className="user-brand-subtitle">User Dashboard</p>
           </div>
         </div>
 
