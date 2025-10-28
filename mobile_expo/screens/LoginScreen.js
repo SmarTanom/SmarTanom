@@ -1,18 +1,20 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import theme from '../src/theme';
+import { logoMarkGreen } from '../src/assets';
 
 export default function LoginScreen({ navigation }) {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
+        <Image source={{ uri: logoMarkGreen }} style={styles.logo} resizeMode="contain" />
         <Text style={styles.brand}>SmarTanom</Text>
         <Text style={styles.h1}>Manage your plants, simply</Text>
         <Text style={styles.subtitle}>Monitor water, pH and sensor data — setup in minutes.</Text>
       </View>
 
       <View style={styles.card}>
-        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('EmailPage')}>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('EmailPage') }>
           <Text style={styles.buttonText}>Sign in with Email</Text>
         </TouchableOpacity>
 
