@@ -11,14 +11,14 @@ import {
   TouchableOpacity,
   FlatList
 } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import theme from '../src/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getInitialDashboard } from '../src/services/api';
 import { getDeviceSensors, getSensorData } from '../src/services/api';
 import { LineChart } from 'react-native-chart-kit';
 // Fonts
-import { useFonts as useAbril, AbrilFatface_400Regular } from '@expo-google-fonts/abril-fatface';
-import { useFonts as useMontserrat, Montserrat_400Regular, Montserrat_600SemiBold } from '@expo-google-fonts/montserrat';
+// fonts are loaded at app entry (App.js) to avoid per-screen loading
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -233,11 +233,7 @@ function transformSensorData(sensors = [], sensorDataMap = {}) {
 }
 
 export default function Dashboard() {
-  // load web fonts to match typography (falls back if not available)
-  const [abrilLoaded] = useAbril({ AbrilFatface_400Regular });
-  const [montserratLoaded] = useMontserrat({ Montserrat_400Regular, Montserrat_600SemiBold });
-
-  const fontsLoaded = abrilLoaded && montserratLoaded;
+  // fonts are loaded in App.js; no per-screen font loading needed
   const [windowSize, setWindowSize] = useState(Dimensions.get('window'));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -294,15 +290,15 @@ export default function Dashboard() {
           try { await AsyncStorage.setItem('dashboard.phData', JSON.stringify(merged)); } catch (_) {}
         }
 
-        // For devices missing phHistory or aggregated sensor summary, attempt to fetch sensor data
-        if (Array.isArray(ds)) {
-          for (const d of ds) {
-            const key = String(d.id);
+        // To avoid many network calls on mount, only fetch pH history and a small sensor summary for the active device
+        if (Array.isArray(ds) && ds.length > 0) {
+          const active = ds[activeIdx] || ds[0];
+          if (active && active.id) {
+            const key = String(active.id);
             const existingPh = (phData && phData[key] && phData[key].phHistory) || (payload && payload.phData && payload.phData[key] && payload.phData[key].phHistory);
-            // try to fetch pH history when missing
             if (!existingPh) {
               try {
-                const sensorsResp = await getDeviceSensors(d.id);
+                const sensorsResp = await getDeviceSensors(active.id);
                 const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
                 if (Array.isArray(sensors) && sensors.length > 0) {
                   const phSensor = sensors.find(s => s.sensor_type === 'ph');
@@ -319,19 +315,18 @@ export default function Dashboard() {
                   }
                 }
               } catch (e) {
-                // ignore individual device failures
+                // ignore
               }
             }
 
-            // Ensure aggregated sensors summary is available in deviceData: transform raw sensor list + sensorData map
+            // Build a small aggregated sensors summary for the active device only when missing
             try {
-              const ddEntry = (dd && dd[String(d.id)]) || (deviceData && deviceData[String(d.id)]) || null;
+              const ddEntry = (dd && dd[String(active.id)]) || (deviceData && deviceData[String(active.id)]) || null;
               const hasSummary = ddEntry && (ddEntry.sensors && Object.keys(ddEntry.sensors).length > 0);
               if (!hasSummary) {
-                const sensorsResp = await getDeviceSensors(d.id);
+                const sensorsResp = await getDeviceSensors(active.id);
                 const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
                 if (Array.isArray(sensors) && sensors.length > 0) {
-                  // fetch recent readings for each sensor to build a summary
                   const sensorDataMap = {};
                   for (const s of sensors) {
                     try {
@@ -341,10 +336,8 @@ export default function Dashboard() {
                       sensorDataMap[s.id] = [];
                     }
                   }
-                  // transform into { ph, tds, ec, ... }
                   const summary = transformSensorData(sensors, sensorDataMap);
-                  // merge into deviceData state
-                  setDeviceData(prev => ({ ...(prev || {}), [String(d.id)]: { ...(prev && prev[String(d.id)] ? prev[String(d.id)] : {}), sensors: summary, last_sensor_at: (prev && prev[String(d.id)] && prev[String(d.id)].last_sensor_at) || null } }));
+                  setDeviceData(prev => ({ ...(prev || {}), [String(active.id)]: { ...(prev && prev[String(active.id)] ? prev[String(active.id)] : {}), sensors: summary, last_sensor_at: (prev && prev[String(active.id)] && prev[String(active.id)].last_sensor_at) || null } }));
                 }
               }
             } catch (_) {}
@@ -366,14 +359,41 @@ export default function Dashboard() {
     }
   }, [activeIdx, devices]);
 
-  // If fonts are not loaded yet, show a spinner until they are ready to avoid layout shifts / font errors
-  if (!fontsLoaded) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
+  // Ensure active device has up-to-date sensor snapshot: fetch latest readings for key types when missing
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!devices || devices.length === 0) return;
+      try {
+        const id = devices[activeIdx] && devices[activeIdx].id;
+        if (!id) return;
+        const dd = deviceData && deviceData[id];
+        if (dd && dd.sensors && Object.keys(dd.sensors).length) return; // already present
+        const sensorsResp = await getDeviceSensors(id);
+        const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
+        const neededTypes = new Set(['ph', 'tds', 'ec', 'water_level', 'turbidity', 'water_temperature']);
+        const target = (Array.isArray(sensors) ? sensors : []).filter(s => neededTypes.has(s.sensor_type));
+        const sensorDataMap = {};
+        const promises = target.map(async (s) => {
+          try {
+            const resp = await getSensorData(s.id, { limit: 1 });
+            const arr = resp && resp.results ? resp.results : resp;
+            sensorDataMap[s.id] = Array.isArray(arr) ? arr : (arr ? [arr] : []);
+          } catch (e) {
+            sensorDataMap[s.id] = [];
+          }
+        });
+        await Promise.all(promises);
+        const summary = transformSensorData(target, sensorDataMap);
+        if (mounted) setDeviceData(prev => ({ ...(prev || {}), [String(id)]: { ...(prev && prev[String(id)] ? prev[String(id)] : {}), sensors: summary } }));
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, [activeIdx, devices]);
+
+  // fonts are loaded at app entry (App.js handles loading)
 
   const onSelectDevice = (idx) => {
     setActiveIdx(idx);
@@ -486,24 +506,57 @@ export default function Dashboard() {
       <View style={styles.sensorsOverview}>
         <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Sensors</Text>
         {activeDevice ? (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <View style={styles.sensorCard}>
-              <Text style={styles.sensorLabel}>pH</Text>
-              <Text style={styles.sensorValue}>{showVal(phValActive)}</Text>
+          <>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={styles.sensorCard}>
+                <View style={styles.iconCircle}><MaterialCommunityIcons name="ph" size={20} color={theme.colors.primary} /></View>
+                <Text style={styles.sensorLabel}>pH</Text>
+                <Text style={styles.sensorValue}>{showVal(phValActive)}</Text>
+              </View>
+              <View style={styles.sensorCard}>
+                <View style={styles.iconCircle}><MaterialCommunityIcons name="beaker" size={18} color={theme.colors.primary} /></View>
+                <Text style={styles.sensorLabel}>TDS</Text>
+                <Text style={styles.sensorValue}>{showVal(tdsValActive)}</Text>
+              </View>
+              <View style={styles.sensorCard}>
+                <View style={styles.iconCircle}><MaterialCommunityIcons name="sine-wave" size={18} color={theme.colors.primary} /></View>
+                <Text style={styles.sensorLabel}>EC</Text>
+                <Text style={styles.sensorValue}>{showVal(ecValActive)}</Text>
+              </View>
+              <View style={styles.sensorCard}>
+                <View style={styles.iconCircle}><Ionicons name="water" size={18} color={theme.colors.primary} /></View>
+                <Text style={styles.sensorLabel}>Water Lvl</Text>
+                <Text style={styles.sensorValue}>{showVal(wlValActive)}</Text>
+              </View>
             </View>
-            <View style={styles.sensorCard}>
-              <Text style={styles.sensorLabel}>TDS</Text>
-              <Text style={styles.sensorValue}>{showVal(tdsValActive)}</Text>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={styles.sensorCard}>
+                <View style={styles.iconCircle}><Ionicons name="thermometer" size={18} color={theme.colors.primary} /></View>
+                <Text style={styles.sensorLabel}>Water Temp</Text>
+                <Text style={styles.sensorValue}>{showVal(Number(activeSensorsSummary.waterTemperature || activeSensorsSummary.water_temperature))}</Text>
+              </View>
+              <View style={styles.sensorCard}>
+                <View style={styles.iconCircle}><MaterialCommunityIcons name="water-alert" size={18} color={theme.colors.primary} /></View>
+                <Text style={styles.sensorLabel}>Turbidity</Text>
+                <Text style={styles.sensorValue}>{showVal(Number(activeSensorsSummary.turbidity))}</Text>
+              </View>
+              <View style={{ flex: 1 }} />
+              <View style={{ flex: 1 }} />
             </View>
-            <View style={styles.sensorCard}>
-              <Text style={styles.sensorLabel}>EC</Text>
-              <Text style={styles.sensorValue}>{showVal(ecValActive)}</Text>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ color: theme.colors.muted }}>{(activeDD && activeDD.nutrientText) ? `Nutrient: ${activeDD.nutrientText}` : 'Nutrient: --'}</Text>
+              <Text style={{ color: theme.colors.muted }}>{(activeDD && activeDD.lastSyncLabel) ? activeDD.lastSyncLabel : 'Last sync: --'}</Text>
             </View>
-            <View style={styles.sensorCard}>
-              <Text style={styles.sensorLabel}>Water Lvl</Text>
-              <Text style={styles.sensorValue}>{showVal(wlValActive)}</Text>
-            </View>
-          </View>
+
+            {activeDD && activeDD.latestDbAlert ? (
+              <View style={{ marginTop: 8 }}>
+                <Text style={{ fontWeight: '700', color: '#cc3333' }}>{activeDD.latestDbAlert.title}</Text>
+                <Text style={{ color: '#6F8876' }}>{activeDD.latestDbAlert.message}</Text>
+              </View>
+            ) : null}
+          </>
         ) : (
           <Text style={styles.sectionNote}>No active device</Text>
         )}
@@ -603,6 +656,8 @@ const styles = StyleSheet.create({
   deviceCarouselInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }
   ,
   sensorsOverview: { padding: theme.spacing.m, borderRadius: 12, backgroundColor: '#FFFFFF', marginBottom: theme.spacing.m, borderWidth: 1, borderColor: '#E8F1EA' },
-  sensorCard: { flex: 1, alignItems: 'center', paddingVertical: 8 }
+  sensorCard: { flex: 1, alignItems: 'center', paddingVertical: 8 },
+  iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(51,148,50,0.08)', borderWidth: 1, borderColor: 'rgba(51,148,50,0.18)', alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  iconText: { color: theme.colors.primary, fontWeight: '700', fontSize: 12 }
 });
 
