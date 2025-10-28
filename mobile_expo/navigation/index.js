@@ -2,6 +2,8 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import theme from '../src/theme';
 
 // Auth / entry
 import LoginScreen from '../screens/LoginScreen';
@@ -43,9 +45,22 @@ const Tab = createBottomTabNavigator();
 
 function MainTabs() {
   return (
-    <Tab.Navigator initialRouteName="Dashboard">
+    <Tab.Navigator
+      initialRouteName="Dashboard"
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarIcon: ({ color, size }) => {
+          let name = 'home-outline';
+          if (route.name === 'Dashboard') name = 'home-outline';
+          else if (route.name === 'Notifications') name = 'notifications-outline';
+          else if (route.name === 'Profile') name = 'person-outline';
+          return <Ionicons name={name} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: theme.colors.primary || '#2a9d8f',
+        tabBarInactiveTintColor: '#666',
+      })}
+    >
       <Tab.Screen name="Dashboard" component={Dashboard} />
-      <Tab.Screen name="Devices" component={DeviceListScreen} />
       <Tab.Screen name="Notifications" component={NotificationsPage} />
       <Tab.Screen name="Profile" component={ProfilePage} />
     </Tab.Navigator>

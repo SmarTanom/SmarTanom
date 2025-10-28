@@ -9,6 +9,20 @@ const DEFAULT_BASES = [
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Helper to build query strings (React Native may not implement URLSearchParams)
+function buildQuery(params) {
+  if (!params || typeof params !== 'object') return '';
+  const parts = [];
+  for (const key of Object.keys(params)) {
+    const val = params[key];
+    if (val === undefined || val === null) continue;
+    // skip empty strings as well
+    if (typeof val === 'string' && val.length === 0) continue;
+    parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(val)));
+  }
+  return parts.join('&');
+}
+
 function getBaseCandidates() {
   const list = [];
   // Prefer expo config `extra.API_BASE_URL` when present (app.json / eas build)
@@ -23,6 +37,17 @@ function getBaseCandidates() {
   for (const b of DEFAULT_BASES) list.push(b.replace(/\/+$/, ''));
   return list;
 }
+
+  // Ensure token helper: prefer provided token, fall back to AsyncStorage-stored authToken
+  async function ensureToken(token) {
+    if (token) return token;
+    try {
+      const t = await AsyncStorage.getItem('authToken');
+      return t || null;
+    } catch (_) {
+      return null;
+    }
+  }
 
 async function fetchWithTimeout(url, opts = {}, ms = 7000) {
   const controller = new AbortController();
@@ -96,11 +121,110 @@ export async function verifyDeviceOTP(serial, email, code, extras = {}) {
   return request('/api/devices/verify-otp/', { method: 'POST', body: { serial_number: serial, email, code, ...extras } });
 }
 
-export async function listDevices(token) { return request('/api/devices/', { method: 'GET', token }); }
-export async function createReservoir(payload, token) { return request('/api/reservoirs/', { method: 'POST', body: payload, token }); }
+export async function listDevices(token) {
+  const t = await ensureToken(token);
+  return request('/api/devices/', { method: 'GET', token: t });
+}
 
-export async function getProfile(token) { return request('/api/auth/profile/', { method: 'GET', token }); }
-export async function updateProfile(token, data) { return request('/api/auth/profile/update/', { method: 'PATCH', body: data, token }); }
+export async function createReservoir(payload, token) {
+  const t = await ensureToken(token);
+  return request('/api/reservoirs/reservoirs/', { method: 'POST', body: payload, token: t });
+}
+
+export async function getProfile(token) {
+  const t = await ensureToken(token);
+  return request('/api/auth/profile/', { method: 'GET', token: t });
+}
+
+export async function updateProfile(token, data) {
+  const t = await ensureToken(token);
+  return request('/api/auth/profile/update/', { method: 'PATCH', body: data, token: t });
+}
+
+// Dashboard aggregated API (mirrors frontend /api/devices/dashboard/initial/)
+export async function getInitialDashboard(params = {}) {
+  try {
+    const token = await AsyncStorage.getItem('authToken');
+    const q = buildQuery({ reading_limit: params.reading_limit, alert_limit: params.alert_limit });
+    return request(`/api/devices/dashboard/initial/${q ? `?${q}` : ''}`, { method: 'GET', token });
+  } catch (e) {
+    throw e;
+  }
+}
+
+// Devices
+export async function getDevice(deviceId, token) {
+  const t = await ensureToken(token);
+  return request(`/api/devices/${deviceId}/`, { method: 'GET', token: t });
+}
+
+// Sensors
+export async function getDeviceSensors(deviceId, token) {
+  // Match frontend: /api/sensors/sensors/?device=<id>
+  const t = await ensureToken(token);
+  const q = buildQuery({ device: deviceId });
+  return request(`/api/sensors/sensors/${q ? `?${q}` : ''}`, { method: 'GET', token: t });
+}
+
+export async function getSensorData(sensorId, params = {}, token) {
+  // Match frontend: /api/sensors/sensor-data/?sensor=<id>&limit=<n>&ordering=<>&page=<>
+  const t = await ensureToken(token);
+  const q = buildQuery({ sensor: sensorId, limit: params.limit, ordering: params.ordering, page: params.page });
+  return request(`/api/sensors/sensor-data/${q ? `?${q}` : ''}`, { method: 'GET', token: t });
+}
+
+// Reservoirs (per-device)
+export async function getDeviceReservoirs(deviceId, token) {
+  const t = await ensureToken(token);
+  // frontend uses: /api/reservoirs/reservoirs/?device=<id>
+  const q = buildQuery({ device: deviceId });
+  return request(`/api/reservoirs/reservoirs/${q ? `?${q}` : ''}`, { method: 'GET', token: t });
+}
+
+// Alerts & notifications
+export async function listAlerts(params = {}, token) {
+  const t = await ensureToken(token);
+  // Keep existing notifications-based alerts accessor (user alerts)
+  const q = buildQuery({ type: params.type, device: params.device, status: params.status, limit: params.limit });
+  return request(`/api/notifications/logs/alerts/${q ? `?${q}` : ''}`, { method: 'GET', token: t });
+}
+
+// Sensor-produced alerts endpoint (matches frontend `alerts.js`)
+export async function getSensorAlerts(params = {}, token) {
+  const t = await ensureToken(token);
+  // Supported params: device, is_acknowledged, is_resolved, severity, ordering, page
+  const q = buildQuery({ device: params.device, is_acknowledged: params.is_acknowledged, is_resolved: params.is_resolved, severity: params.severity, ordering: params.ordering, page: params.page });
+  return request(`/api/sensors/alerts/${q ? `?${q}` : ''}`, { method: 'GET', token: t });
+}
+
+export async function listNotifications(params = {}, token) {
+  const t = await ensureToken(token);
+  // Map to notification logs endpoint used by frontend
+  const q = buildQuery({ limit: params.limit, offset: params.offset });
+  return request(`/api/notifications/logs/${q ? `?${q}` : ''}`, { method: 'GET', token: t });
+}
+
+// Admin dashboard endpoints (used by admin pages)
+export async function getAdminDashboardStats(token) {
+  const t = await ensureToken(token);
+  return request('/api/admin/dashboard/stats/', { method: 'GET', token: t });
+}
+
+export async function getAdminDevices(token) {
+  const t = await ensureToken(token);
+  return request('/api/admin/dashboard/devices/', { method: 'GET', token: t });
+}
+
+export async function getAdminUsers(token) {
+  const t = await ensureToken(token);
+  return request('/api/admin/dashboard/users/', { method: 'GET', token: t });
+}
+
+// Helper to post queries generically
+export async function postData(path, body = {}, token) {
+  const t = await ensureToken(token);
+  return request(path, { method: 'POST', body, token: t });
+}
 
 // Auth helpers (mirrors frontend authApi behavior)
 export const auth = {
