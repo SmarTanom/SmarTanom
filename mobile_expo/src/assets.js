@@ -1,7 +1,28 @@
-// Small assets helper for mobile_expo
-// Exports data URI placeholders for the web logos so the Expo app can import them
-// NOTE: These are small placeholders (1x1 PNG) — replace with full-resolution images if you copy the real PNG files
-export const logoMarkGreen = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=';
-export const logoMarkWhite = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=';
+// Asset exports for mobile_expo
+// These require the web images from `frontend/src/assets/images`. Metro should be able to include these
+// files as long as the frontend directory is reachable from the project root. If you prefer copying the
+// image files into `mobile_expo/assets/images`, let me know and I will copy them and update these requires.
 
-export default { logoMarkGreen, logoMarkWhite };
+export const logoMarkGreen = require('../assets/images/logo-mark-green.png');
+export const logoMarkWhite = require('../assets/images/logo-mark-white.png');
+export const splashLogo = require('../assets/images/splash-logo.png');
+export const landingImage = require('../assets/images/landingpage_img.png');
+export const hydroponicCloseup = require('../assets/images/hydroponic-closeup.webp');
+
+// Additional sample images used in web frontend
+export const pechay = require('../assets/images/pechay.jpg');
+export const lettuce = require('../assets/images/lettuce.jpg');
+export const basil = require('../assets/images/basil.jpg');
+export const defaultHydro = require('../assets/images/defaulthydroponic.jpg');
+
+export default {
+	logoMarkGreen,
+	logoMarkWhite,
+	splashLogo,
+	landingImage,
+	hydroponicCloseup,
+	pechay,
+	lettuce,
+	basil,
+	defaultHydro
+};

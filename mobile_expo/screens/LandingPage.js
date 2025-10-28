@@ -1,6 +1,7 @@
 import React from 'react';
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import theme from '../src/theme';
+import { logoMarkWhite } from '../src/assets';
 
 export default function LandingPage({ navigation }) {
   return (
@@ -11,7 +12,7 @@ export default function LandingPage({ navigation }) {
 
       {/* Header with small brand mark and wordmark */}
       <View style={styles.header}>
-        <View style={styles.brandMark} />
+        <Image source={logoMarkWhite} style={styles.brandMark} resizeMode="contain" />
         <Text style={styles.wordmark}>SMARTANOM</Text>
       </View>
 
@@ -72,9 +73,9 @@ const styles = StyleSheet.create({
   brandMark: {
     width: 42,
     height: 42,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    opacity: 0.95
+    borderRadius: 8,
+    // image will fill this area
+    backgroundColor: 'transparent'
   },
   wordmark: {
     marginLeft: 12,

@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
+import theme from '../src/theme';
+import { splashLogo } from '../src/assets';
 
 export default function SplashPage({ navigation }) {
   useEffect(() => {
@@ -9,14 +11,15 @@ export default function SplashPage({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>SmarTanom</Text>
+      <Image source={splashLogo} style={styles.logo} resizeMode="contain" />
       <Text style={styles.subtitle}>Loading…</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 34, fontWeight: '800' },
-  subtitle: { marginTop: 12, color: '#666' }
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.primary },
+  logo: { width: 160, height: 160, marginBottom: 12 },
+  title: { fontSize: 34, fontWeight: '800', color: '#fff' },
+  subtitle: { marginTop: 12, color: 'rgba(255,255,255,0.9)' }
 });

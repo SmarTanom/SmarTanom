@@ -7,7 +7,7 @@ export default function LoginScreen({ navigation }) {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Image source={{ uri: logoMarkGreen }} style={styles.logo} resizeMode="contain" />
+  <Image source={logoMarkGreen} style={styles.logo} resizeMode="contain" />
         <Text style={styles.brand}>SmarTanom</Text>
         <Text style={styles.h1}>Manage your plants, simply</Text>
         <Text style={styles.subtitle}>Monitor water, pH and sensor data — setup in minutes.</Text>
