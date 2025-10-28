@@ -284,8 +284,8 @@ export default function Dashboard() {
         // payload expected to contain: devices (array), deviceData (object keyed by device id)
         const ds = payload && (Array.isArray(payload.devices) ? payload.devices : payload.results || []);
         const dd = payload && (payload.deviceData || payload.device_data || {});
-        setDevices(ds || []);
-        setDeviceData(dd || {});
+  setDevices(ds || []);
+  setDeviceData(dd || {});
 
         // If payload contains phData, merge
         if (payload && payload.phData) {
@@ -294,12 +294,13 @@ export default function Dashboard() {
           try { await AsyncStorage.setItem('dashboard.phData', JSON.stringify(merged)); } catch (_) {}
         }
 
-        // For devices missing phHistory in phData, attempt to fetch sensor data for pH sensors
+        // For devices missing phHistory or aggregated sensor summary, attempt to fetch sensor data
         if (Array.isArray(ds)) {
           for (const d of ds) {
             const key = String(d.id);
-            const existing = (phData && phData[key] && phData[key].phHistory) || (payload && payload.phData && payload.phData[key] && payload.phData[key].phHistory);
-            if (!existing) {
+            const existingPh = (phData && phData[key] && phData[key].phHistory) || (payload && payload.phData && payload.phData[key] && payload.phData[key].phHistory);
+            // try to fetch pH history when missing
+            if (!existingPh) {
               try {
                 const sensorsResp = await getDeviceSensors(d.id);
                 const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
@@ -321,6 +322,32 @@ export default function Dashboard() {
                 // ignore individual device failures
               }
             }
+
+            // Ensure aggregated sensors summary is available in deviceData: transform raw sensor list + sensorData map
+            try {
+              const ddEntry = (dd && dd[String(d.id)]) || (deviceData && deviceData[String(d.id)]) || null;
+              const hasSummary = ddEntry && (ddEntry.sensors && Object.keys(ddEntry.sensors).length > 0);
+              if (!hasSummary) {
+                const sensorsResp = await getDeviceSensors(d.id);
+                const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
+                if (Array.isArray(sensors) && sensors.length > 0) {
+                  // fetch recent readings for each sensor to build a summary
+                  const sensorDataMap = {};
+                  for (const s of sensors) {
+                    try {
+                      const dataResp = await getSensorData(s.id, { limit: 5 });
+                      sensorDataMap[s.id] = dataResp && dataResp.results ? dataResp.results : dataResp;
+                    } catch (_) {
+                      sensorDataMap[s.id] = [];
+                    }
+                  }
+                  // transform into { ph, tds, ec, ... }
+                  const summary = transformSensorData(sensors, sensorDataMap);
+                  // merge into deviceData state
+                  setDeviceData(prev => ({ ...(prev || {}), [String(d.id)]: { ...(prev && prev[String(d.id)] ? prev[String(d.id)] : {}), sensors: summary, last_sensor_at: (prev && prev[String(d.id)] && prev[String(d.id)].last_sensor_at) || null } }));
+                }
+              }
+            } catch (_) {}
           }
         }
       } catch (e) {
@@ -384,26 +411,9 @@ export default function Dashboard() {
                           <Text style={styles.deviceName}>{d.device_name || d.plant_name || `Device ${d.id}`}</Text>
                           <Text style={styles.deviceSubtitle}>{d.is_collaborator && !d.is_owner ? 'Shared Device' : d.device_serial || ''}</Text>
                         </View>
+                        {/* sensor summary removed from overlay; displayed in separate Sensors Overview below the carousel */}
                         <View style={{ width: 140, alignItems: 'flex-end' }}>
-                          <View style={styles.sensorRow}>
-                            <View style={styles.sensorCell}>
-                              <Text style={styles.sensorLabel}>pH</Text>
-                              <Text style={styles.sensorValue}>{(sensors && typeof sensors.ph === 'number') ? sensors.ph.toFixed(1) : '--'}</Text>
-                            </View>
-                            <View style={styles.sensorCell}>
-                              <Text style={styles.sensorLabel}>TDS</Text>
-                              <Text style={styles.sensorValue}>{(sensors && typeof sensors.tds === 'number') ? sensors.tds : '--'}</Text>
-                            </View>
-                            <View style={styles.sensorCell}>
-                              <Text style={styles.sensorLabel}>EC</Text>
-                              <Text style={styles.sensorValue}>{(sensors && typeof sensors.ec === 'number') ? sensors.ec : '--'}</Text>
-                            </View>
-                          </View>
-                          {/* nutrient status + connectivity */}
-                          <View style={{ marginTop: 8, alignItems: 'flex-end' }}>
-                            <Text style={{ fontSize: 12, color: '#6F8876' }}>{getNutrientStatus(sensors && sensors.tds, plant) || 'Nutrient: --'}</Text>
-                            <Text style={{ fontSize: 12, color: '#6F8876' }}>{(deviceData && deviceData[d.id] && getConnectivityStatus(deviceData[d.id].last_sensor_at).connectivity) || 'Status: --'}</Text>
-                          </View>
+                          <Text style={{ fontSize: 12, color: '#6F8876' }}>{(deviceData && deviceData[d.id] && getConnectivityStatus(deviceData[d.id].last_sensor_at).connectivity) || 'Status: --'}</Text>
                         </View>
                       </View>
                       <View style={{ marginTop: 8 }}>
@@ -435,6 +445,23 @@ export default function Dashboard() {
 
   const activeDevice = devices && devices[activeIdx];
 
+  // aggregated sensor summary for active device (numbers coerced)
+  const activeDD = activeDevice ? (deviceData && deviceData[activeDevice.id]) : null;
+  const activeSensorsSummary = (activeDD && activeDD.sensors) || (activeDevice && activeDevice.sensors) || {};
+  const phValActive = Number(activeSensorsSummary.ph);
+  const tdsValActive = Number(activeSensorsSummary.tds);
+  const ecValActive = Number(activeSensorsSummary.ec);
+  const wlValActive = Number(activeSensorsSummary.waterLevel);
+  const showVal = (n) => (Number.isFinite(n) ? String(Math.round((n + Number.EPSILON) * 10) / 10) : '--');
+
+  // pH chart data: filter out nulls so the chart only plots real readings (prevents flat-zero misleading graph)
+  const activePhEntry = (phData && activeDevice && phData[String(activeDevice.id)]) || null;
+  const phHistoryArr = (activePhEntry && Array.isArray(activePhEntry.phHistory)) ? activePhEntry.phHistory : [];
+  const phLabelsArr = (activePhEntry && Array.isArray(activePhEntry.phLabels)) ? activePhEntry.phLabels : [];
+  const phPairs = phHistoryArr.map((v, i) => ({ v, l: phLabelsArr[i] })).filter(p => p && p.v !== null && Number.isFinite(Number(p.v)));
+  const phChartLabels = phPairs.map(p => p.l);
+  const phChartData = phPairs.map(p => Number(p.v));
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Dashboard</Text>
@@ -455,6 +482,33 @@ export default function Dashboard() {
         />
       </View>
 
+      {/* Sensors overview card placed below the carousel */}
+      <View style={styles.sensorsOverview}>
+        <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Sensors</Text>
+        {activeDevice ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View style={styles.sensorCard}>
+              <Text style={styles.sensorLabel}>pH</Text>
+              <Text style={styles.sensorValue}>{showVal(phValActive)}</Text>
+            </View>
+            <View style={styles.sensorCard}>
+              <Text style={styles.sensorLabel}>TDS</Text>
+              <Text style={styles.sensorValue}>{showVal(tdsValActive)}</Text>
+            </View>
+            <View style={styles.sensorCard}>
+              <Text style={styles.sensorLabel}>EC</Text>
+              <Text style={styles.sensorValue}>{showVal(ecValActive)}</Text>
+            </View>
+            <View style={styles.sensorCard}>
+              <Text style={styles.sensorLabel}>Water Lvl</Text>
+              <Text style={styles.sensorValue}>{showVal(wlValActive)}</Text>
+            </View>
+          </View>
+        ) : (
+          <Text style={styles.sectionNote}>No active device</Text>
+        )}
+      </View>
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Active device</Text>
         {activeDevice ? (
@@ -465,28 +519,29 @@ export default function Dashboard() {
             <Text style={styles.sectionNote}>{(deviceData && deviceData[activeDevice.id] && deviceData[activeDevice.id].lastSyncLabel) || 'Last sync: --'}</Text>
             <View style={{ height: 12 }} />
             {(phData && phData[String(activeDevice.id)] && Array.isArray(phData[String(activeDevice.id)].phHistory)) ? (
-                <LineChart
-                data={{
-                  labels: (phData[String(activeDevice.id)].phLabels || []).map(l => l),
-                  datasets: [{ data: (phData[String(activeDevice.id)].phHistory || []).map(v => (v === null ? 0 : Number(v))) }]
-                }}
-                width={Math.min((windowSize.width || SCREEN_WIDTH) - 48, 340)}
-                height={180}
-                yAxisSuffix=""
-                yAxisInterval={1}
-                chartConfig={{
-                  backgroundColor: '#ffffff',
-                  backgroundGradientFrom: '#ffffff',
-                  backgroundGradientTo: '#f7f7f7',
-                  decimalPlaces: 1,
-                  color: (opacity = 1) => `rgba(51,148,50, ${opacity})`,
-                  labelColor: (opacity = 1) => `rgba(100,100,100, ${opacity})`,
-                  style: { borderRadius: 8 },
-                  propsForDots: { r: '2', strokeWidth: '1', stroke: '#2a9d8f' },
-                }}
-                bezier
-                style={{ marginVertical: 8, borderRadius: 8 }}
-              />
+                  <LineChart
+                    data={{
+                      labels: phChartLabels.length ? phChartLabels : (phLabelsArr || []).map(l => l),
+                      datasets: [{ data: phChartData.length ? phChartData : (phHistoryArr || []).map(v => (v === null ? 0 : Number(v))) }]
+                    }}
+                    width={Math.min((windowSize.width || SCREEN_WIDTH) - 48, 340)}
+                    height={200}
+                    yAxisSuffix=""
+                    yAxisInterval={1}
+                    chartConfig={{
+                      backgroundColor: '#ffffff',
+                      backgroundGradientFrom: '#ffffff',
+                      backgroundGradientTo: '#f0f6f0',
+                      decimalPlaces: 1,
+                      color: (opacity = 1) => `rgba(51,148,50, ${opacity})`,
+                      labelColor: (opacity = 1) => `rgba(80,80,80, ${opacity})`,
+                      style: { borderRadius: 8 },
+                      propsForDots: { r: '4', strokeWidth: '2', stroke: '#ffffff' },
+                      propsForBackgroundLines: { strokeDasharray: '' }
+                    }}
+                    bezier
+                    style={{ marginVertical: 8, borderRadius: 8 }}
+                  />
             ) : null}
           </View>
         ) : (
@@ -546,4 +601,8 @@ const styles = StyleSheet.create({
   deviceBackground: { borderRadius: 24, overflow: 'hidden', alignItems: 'flex-end', justifyContent: 'flex-end' },
   deviceCarouselOverlay: { position: 'absolute', bottom: 16, left: 16, right: 16, backgroundColor: 'rgba(255,255,255,0.98)', borderRadius: 18, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 8 },
   deviceCarouselInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }
+  ,
+  sensorsOverview: { padding: theme.spacing.m, borderRadius: 12, backgroundColor: '#FFFFFF', marginBottom: theme.spacing.m, borderWidth: 1, borderColor: '#E8F1EA' },
+  sensorCard: { flex: 1, alignItems: 'center', paddingVertical: 8 }
 });
+
