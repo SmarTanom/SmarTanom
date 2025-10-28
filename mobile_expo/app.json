@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "SmarTanom Mobile",
+    "slug": "smartanom-mobile",
+    "version": "0.1.0",
+    "sdkVersion": "49.0.0",
+    "platforms": ["ios","android"],
+    "orientation": "portrait",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": true },
+    "android": {
+      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
+    }
+  }
+}
