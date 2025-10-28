@@ -1,5 +1,7 @@
+import Constants from 'expo-constants';
+
 const DEFAULT_BASES = [
-  // Common emulator/dev loopback helpers
+  // Common emulator/dev loopback helpers (ordered by likelihood)
   'http://10.0.2.2:8000', // Android emulator
   'http://127.0.0.1:8000',
   'http://localhost:8000'
@@ -7,38 +9,83 @@ const DEFAULT_BASES = [
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-function getBase() {
-  // Allow override via global variable set by app (e.g., global.API_BASE) or env
-  if (typeof global !== 'undefined' && global.API_BASE) return global.API_BASE.replace(/\/+$/, '');
-  if (process && process.env && process.env.EXPO_PUBLIC_API_BASE_URL) return process.env.EXPO_PUBLIC_API_BASE_URL.replace(/\/+$/, '');
-  // Fallback to first reachable base from defaults (we won't probe here; caller can set global.API_BASE to adjust)
-  return DEFAULT_BASES[0];
+function getBaseCandidates() {
+  const list = [];
+  // Prefer expo config `extra.API_BASE_URL` when present (app.json / eas build)
+  try {
+    const appConfig = Constants.expoConfig || Constants.manifest || {};
+    const extra = appConfig.extra || {};
+    if (extra.API_BASE_URL) list.push(String(extra.API_BASE_URL).replace(/\/+$/, ''));
+  } catch (_) {}
+  if (typeof global !== 'undefined' && global.API_BASE) list.push(global.API_BASE.replace(/\/+$/, ''));
+  if (process && process.env && process.env.EXPO_PUBLIC_API_BASE_URL) list.push(process.env.EXPO_PUBLIC_API_BASE_URL.replace(/\/+$/, ''));
+  // Append defaults (do not dedupe aggressively; order matters)
+  for (const b of DEFAULT_BASES) list.push(b.replace(/\/+$/, ''));
+  return list;
 }
 
-async function request(path, { method = 'GET', body, json = true, token } = {}) {
-  const base = getBase();
-  const url = path.startsWith('http') ? path : `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+async function fetchWithTimeout(url, opts = {}, ms = 7000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { ...opts, signal: controller.signal });
+    clearTimeout(id);
+    return res;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
+async function request(path, { method = 'GET', body, json = true, token, timeout = 7000 } = {}) {
+  const candidates = getBaseCandidates();
   const headers = {};
   if (json && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
   if (token) headers['Authorization'] = `Token ${token}`;
   const opts = { method, headers };
   if (body !== undefined) opts.body = body instanceof FormData ? body : (json ? JSON.stringify(body) : body);
 
-  const res = await fetch(url, opts);
-  const text = await res.text().catch(() => '');
-  let data = null;
-  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
-  if (!res.ok) {
-    const err = new Error(data.error || data.message || `HTTP ${res.status}`);
-    err.status = res.status;
-    err.data = data;
-    throw err;
+  let lastError = null;
+  // If path is absolute URL, try it directly first
+  const absolute = path.startsWith('http://') || path.startsWith('https://');
+  const tryBases = absolute ? [''] : candidates;
+
+  for (const base of tryBases) {
+    try {
+      const url = absolute ? path : `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+      const res = await fetchWithTimeout(url, opts, timeout);
+      const text = await res.text().catch(() => '');
+      let data = null;
+      try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+      if (!res.ok) {
+        const err = new Error(data.error || data.message || `HTTP ${res.status}`);
+        err.status = res.status;
+        err.data = data;
+        throw err;
+      }
+      return data;
+    } catch (networkErr) {
+      // Keep last error and try next candidate
+      lastError = networkErr;
+      // If this was an absolute URL we shouldn't retry others
+      if (absolute) break;
+      // try next base
+      // eslint-disable-next-line no-console
+      console.warn('[api] request candidate failed, trying next', { base, path, error: networkErr?.message || networkErr });
+      continue;
+    }
   }
-  return data;
+
+  // If we exhausted candidates, throw the last error with a helpful message
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error('Network error');
 }
 
 export async function checkDevice(serial) {
-  return request(`/api/devices/check/${encodeURIComponent(serial)}/`, { method: 'GET' });
+  // Backend expects POST /api/devices/check/ with { serial_number }
+  return request('/api/devices/check/', { method: 'POST', body: { serial_number: serial } });
 }
 
 export async function requestDeviceOTP(serial, email) {
@@ -91,5 +138,6 @@ export const auth = {
 };
 
 export default {
-  checkDevice, requestDeviceOTP, verifyDeviceOTP, listDevices, createReservoir, getProfile, updateProfile
+  checkDevice, requestDeviceOTP, verifyDeviceOTP, listDevices, createReservoir, getProfile, updateProfile,
+  auth
 };

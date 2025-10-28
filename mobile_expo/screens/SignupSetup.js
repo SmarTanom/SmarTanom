@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, Linking } from 'react-native';
 import theme from '../src/theme';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,7 +12,7 @@ const WEB_ACCENT = '#22c55e'; // bright accent (used for status)
 const WEB_DARK = '#016b22'; // dark green used for button text on web
 
 // Multi-step signup flow for Expo mobile app.
-// Steps mirror web: 1) Identify Device, 2) Device Setup, 3) Bind Email, 4) Verify OTP, 5) WiFi, 6) Profile
+// Steps mirror web: 1) Identify Device, 2) Device Setup, 3) Bind Email, 4) Verify OTP, 5) Choose username, 6) WiFi, 7) Profile
 // NOTE: This implementation is UI-first and simulates network/camera interactions. Wire real APIs and native camera/image-picker as needed.
 
 function OtpInput({ value, setValue, error, editable = true }) {
@@ -58,7 +58,7 @@ function OtpInput({ value, setValue, error, editable = true }) {
 
 export default function SignupSetup({ navigation }) {
   const [step, setStep] = useState(1);
-  const total = 6;
+  const total = 7;
 
   // Step 1: Identify
   const [deviceId, setDeviceId] = useState('');
@@ -92,16 +92,74 @@ export default function SignupSetup({ navigation }) {
     return /^SMRT-[A-Z0-9]{3}-[A-Z0-9]{3}$/.test((s || '').toUpperCase());
   }
 
+  // Username step state
+  const [username, setUsername] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [checkingUsername, setCheckingUsername] = useState(false);
+
+  // Permission helpers with rationale that open app settings when denied
+  async function requestCameraPermissionOrShowSettings() {
+    try {
+      const res = await BarCodeScanner.requestPermissionsAsync();
+      if (res.status === 'granted') return true;
+      if (res.status === 'denied') {
+        Alert.alert(
+          'Camera permission required',
+          'SmarTanom needs access to your camera to scan QR codes. Open settings to enable?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() }
+          ]
+        );
+        return false;
+      }
+      return false;
+    } catch (e) {
+      console.warn('Camera permission error', e);
+      return false;
+    }
+  }
+
+  async function requestMediaLibraryPermissionOrShowSettings() {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync?.();
+      if (!perm) return true;
+      if (perm.status === 'granted') return true;
+      if (perm.status === 'denied') {
+        Alert.alert(
+          'Photos permission required',
+          'SmarTanom needs access to your photos to select QR images. Open settings to enable?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() }
+          ]
+        );
+        return false;
+      }
+      return false;
+    } catch (e) {
+      console.warn('Media permission error', e);
+      return false;
+    }
+  }
+
+  function withTimeout(promise, ms = 8000) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out')), ms))
+    ]);
+  }
+
   async function verifyDevice() {
     if (checking) return;
     setChecking(true);
     try {
       const serial = (deviceId || '').trim().toUpperCase();
-      if (!serial) return Alert.alert('Missing device ID', 'Please enter your device ID or scan the QR.');
-      if (!isValidSerial(serial)) return Alert.alert('Invalid device ID', 'Device ID should look like SMRT-XXX-XXX');
-      // call backend checkDevice API
-      try {
-        const resp = await api.checkDevice(serial);
+      if (!serial) return (setChecking(false), Alert.alert('Missing device ID', 'Please enter your device ID or scan the QR.'));
+      if (!isValidSerial(serial)) return (setChecking(false), Alert.alert('Invalid device ID', 'Device ID should look like SMRT-XXX-XXX'));
+      // call backend checkDevice API with a timeout to avoid long hangs
+  try {
+  const resp = await api.checkDevice(serial);
         if (resp && resp.exists && !resp.is_bound) {
           setVerified(true);
           setStep(2);
@@ -111,7 +169,8 @@ export default function SignupSetup({ navigation }) {
           Alert.alert('Not found', 'Device not found. Please check the serial.');
         }
       } catch (e) {
-        Alert.alert('Check failed', e.message || 'Unable to check device');
+        console.warn('checkDevice error', e);
+        Alert.alert('Check failed', e.message || 'Unable to check device (network or timeout)');
       } finally {
         setChecking(false);
       }
@@ -182,7 +241,7 @@ export default function SignupSetup({ navigation }) {
     })();
   }
 
-  const headings = ['Identify', 'Setup', 'Bind', 'Verify', 'WiFi', 'Profile'];
+  const headings = ['Identify', 'Setup', 'Bind', 'Verify', 'Choose username', 'WiFi', 'Profile'];
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -197,10 +256,11 @@ export default function SignupSetup({ navigation }) {
           <View style={styles.card}>
             <Text style={styles.methodTitle}>Scan QR Code</Text>
             <TouchableOpacity style={styles.btnSecondary} onPress={async () => {
-              const { status } = await BarCodeScanner.requestPermissionsAsync();
-              setHasCameraPermission(status === 'granted');
-              if (status === 'granted') setQrScannerOpen(true);
-              else Alert.alert('Camera permission', 'Camera permission is required to scan QR codes.');
+              const ok = await requestCameraPermissionOrShowSettings();
+              if (ok) {
+                setHasCameraPermission(true);
+                setQrScannerOpen(true);
+              }
             }}>
               <Text style={styles.btnSecondaryText}>Open Camera</Text>
             </TouchableOpacity>
@@ -208,20 +268,33 @@ export default function SignupSetup({ navigation }) {
             <Text style={[styles.methodTitle, { marginTop: 14 }]}>Upload QR Image</Text>
             <TouchableOpacity style={styles.btnSecondary} onPress={async () => {
               try {
-                // Ensure media library permission (newer SDKs require asking explicitly on some platforms)
-                const perm = await ImagePicker.requestMediaLibraryPermissionsAsync?.();
-                if (perm && perm.status && perm.status !== 'granted') {
-                  Alert.alert('Permission required', 'Permission to access photos is required to choose an image.');
-                  return;
-                }
+                const ok = await requestMediaLibraryPermissionOrShowSettings();
+                if (!ok) return;
                 const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.8 });
                 // Modern Expo ImagePicker returns { canceled: boolean, assets: [{ uri, ... }] }
                 const wasCancelled = !!(res && (res.canceled || res.cancelled));
                 const uri = res?.assets?.[0]?.uri;
                 if (!wasCancelled && uri) {
                   setFileName(uri.split('/').pop());
-                  // NOTE: could decode QR from image using native library or upload to server for decoding
-                  Alert.alert('Image selected', 'Image selected. QR decoding from image not implemented in this demo.');
+                  // Try client-side decode using BarCodeScanner.scanFromURLAsync if available
+                  try {
+                    if (BarCodeScanner.scanFromURLAsync) {
+                      const scans = await BarCodeScanner.scanFromURLAsync(uri);
+                      if (Array.isArray(scans) && scans.length > 0) {
+                        const data = scans[0].data || scans[0].value || '';
+                        const m = /SMRT-[A-Z0-9]{2,4}-[A-Z0-9]{2,4}/i.exec(String(data || ''));
+                        if (m) {
+                          const serial = m[0].toUpperCase();
+                          setDeviceId(serial);
+                          Alert.alert('Device ID detected', serial);
+                          return;
+                        }
+                      }
+                    }
+                  } catch (decodeErr) {
+                    console.warn('QR decode from image failed', decodeErr);
+                  }
+                  Alert.alert('Image selected', 'Image selected. QR decoding from image not available — try scanning with the camera or upload via web.');
                 }
               } catch (e) { Alert.alert('Image error', e.message || String(e)); }
             }}>
@@ -317,8 +390,52 @@ export default function SignupSetup({ navigation }) {
           </View>
         )}
 
-        {/* Step 5 */}
+        {/* Step 5: Choose username */}
         {step === 5 && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Choose a username</Text>
+            <Text style={styles.helper}>Pick a unique username for your SmarTanom account.</Text>
+            <Text style={styles.label}>Username</Text>
+            <TextInput value={username} onChangeText={t => { setUsername(t); setUsernameError(''); }} style={styles.input} placeholder="username" autoCapitalize="none" />
+            {usernameError ? <Text style={styles.error}>{usernameError}</Text> : null}
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+              <TouchableOpacity style={[styles.btnOutline]} onPress={() => setStep(4)}>
+                <Text style={styles.btnOutlineText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, !username && styles.buttonDisabled]} disabled={!username || checkingUsername} onPress={async () => {
+                try {
+                  setCheckingUsername(true);
+                  setUsernameError('');
+                  const candidate = (username || '').trim();
+                  if (!/^[A-Za-z0-9_-]{3,30}$/.test(candidate)) {
+                    setUsernameError('Username must be 3-30 chars: letters, numbers, underscore or hyphen');
+                    return;
+                  }
+                  const resp = await api.auth.checkUsername(candidate);
+                  if (resp && resp.available === false) {
+                    setUsernameError(resp.message || 'Username not available');
+                    return;
+                  }
+                  const token = global.authToken || (await AsyncStorage.getItem('authToken'));
+                  if (!token) return Alert.alert('Session expired', 'Please complete the verification step again.');
+                  const finalResp = await api.auth.finalizeAccount(candidate, token, {});
+                  if (finalResp && (finalResp.user || finalResp.message)) {
+                    setStep(6);
+                  } else {
+                    Alert.alert('Could not finalize', 'Unexpected response from server');
+                  }
+                } catch (e) {
+                  setUsernameError(e.message || 'Failed to check username');
+                } finally { setCheckingUsername(false); }
+              }}>
+                <Text style={styles.buttonText}>{checkingUsername ? 'Checking…' : 'Continue'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Step 6: Device WiFi Setup (moved) */}
+        {step === 6 && (
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Device WiFi Setup</Text>
             <Text style={styles.helper}>Follow these steps on your device hotspot: connect to the device AP, open http://192.168.4.1 and enter your network credentials.</Text>
@@ -333,8 +450,8 @@ export default function SignupSetup({ navigation }) {
           </View>
         )}
 
-        {/* Step 6 */}
-        {step === 6 && (
+        {/* Step 7 */}
+        {step === 7 && (
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Your Profile</Text>
             <Text style={styles.label}>First Name</Text>
