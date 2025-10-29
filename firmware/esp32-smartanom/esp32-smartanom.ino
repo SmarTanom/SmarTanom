@@ -122,11 +122,11 @@ bool provisioningMode = true;
 // =============================================
 // SENSOR PINS (KEEP AS PROVIDED)
 // =============================================
-#define WATER_SENSOR_PIN 32  // HW-03 Water Sensor (AO) on GPIO32
+#define WATER_SENSOR_PIN 33  // HW-03 Water Sensor (AO) on GPIO32
 #define ONE_WIRE_BUS 4
-#define TDS_PIN 39
-#define PH_PIN 36
-#define TURBIDITY_PIN 35     // Moved from 32 to 35 (GPIO32 now used for water level)
+#define TDS_PIN 35
+#define PH_PIN 34
+#define TURBIDITY_PIN 32     // Moved from 32 to 35 (GPIO32 now used for water level)
 
 // Sensor objects
 OneWire oneWire(ONE_WIRE_BUS);
