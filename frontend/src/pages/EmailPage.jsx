@@ -331,11 +331,6 @@ export default function EmailPage({ mode = 'signin' }) {
                 </div>
                 <div className="visually-hidden" aria-live="polite">{statusMsg}</div>
                 {otpError && <div className="auth-error" role="alert">{otpError}</div>}
-                {resendCooldown > 0 && !otpError && (
-                  <div className="auth-helper" style={{ fontSize: '12px', opacity: 0.75 }}>
-                    Resend available in {resendCooldown}s
-                  </div>
-                )}
                 <button type="submit" className="auth-submit" disabled={verifying || code.length !== 6}>
                   {verifying && <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />}
                   <span>{verifying ? 'Verifying...' : 'Verify Code'}</span>
