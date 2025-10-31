@@ -694,13 +694,11 @@
 
 /* Remove outdated large screen grid - replaced with two-column layout */
 
-/* Motion & entrance */
-.auth-fade-item { animation: authFade .8s ease forwards; }
-.auth-fade-item:nth-child(1) { animation-delay: .05s; }
-.auth-fade-item:nth-child(2) { animation-delay: .15s; }
-.auth-fade-item:nth-child(3) { animation-delay: .25s; }
-.auth-fade-item:nth-child(4) { animation-delay: .35s; }
-@keyframes authFade { from { opacity:0; transform: translateY(12px);} to { opacity:1; transform: translateY(0);} }
+/* Motion & entrance - DISABLED (no animations for smoother experience) */
+.auth-fade-item { 
+  opacity: 1; 
+  transform: translateY(0);
+}
 
 /* Accessibility utility */
 [role="status"][aria-live] { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
@@ -745,14 +743,13 @@
   .auth-content { gap: clamp(20px, 3vh, 32px); }
 }
 
-/* --- Reduced motion consideration (keep text visible when animations are disabled) --- */
+/* --- Reduced motion consideration (animations disabled by default) --- */
 @media (prefers-reduced-motion: reduce) {
-  .auth-fade-item { animation: none; }
-}
-
-/* --- Reduced motion consideration (keep existing fade minimal) --- */
-@media (prefers-reduced-motion: reduce) {
-  .auth-fade-item { animation-duration: 0.4s; }
+  .auth-fade-item { 
+    animation: none; 
+    opacity: 1; 
+    transform: translateY(0);
+  }
 }
 
 /* --- A11y Focus Ring Enhancements --- */
