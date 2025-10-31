@@ -204,8 +204,8 @@ export default function EmailPage({ mode = 'signin' }) {
             <button
               type="button"
               className="auth-back-btn"
-              onClick={() => navigate(-1)}
-              aria-label="Go back"
+              onClick={() => codeSent ? handleChangeEmail() : navigate(-1)}
+              aria-label={codeSent ? "Go back to email input" : "Go back"}
             >
               <ChevronLeftFilled className="auth-back-icon" size={22} color="#ffffff" aria-hidden="true" />
               <span className="auth-back-text">BACK</span>
@@ -340,25 +340,23 @@ export default function EmailPage({ mode = 'signin' }) {
                   {verifying && <i className="fa-solid fa-spinner fa-spin" aria-hidden="true" />}
                   <span>{verifying ? 'Verifying...' : 'Verify Code'}</span>
                 </button>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginTop: '12px' }}>
                   <button
                     type="button"
-                    className="auth-link"
                     onClick={handleResend}
                     disabled={resendCooldown > 0}
-                    style={{ opacity: resendCooldown > 0 ? 0.5 : 1 }}
+                    style={{ 
+                      background: 'none',
+                      border: 'none',
+                      color: resendCooldown > 0 ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.9)',
+                      fontSize: '13px',
+                      textDecoration: 'underline',
+                      cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
+                      padding: '4px 8px'
+                    }}
                     aria-label={resendCooldown > 0 ? `Resend code disabled, ${resendCooldown} seconds remaining` : 'Resend verification code to your email'}
                   >
                     {resendCooldown > 0 ? `Resend (${resendCooldown}s)` : "Didn't receive a code? Resend"}
-                  </button>
-                  <button
-                    type="button"
-                    className="auth-link"
-                    onClick={handleChangeEmail}
-                    style={{ fontSize: '13px', opacity: 0.85, padding: '8px 16px' }}
-                    aria-label="Go back to change email address"
-                  >
-                    ← Change Email Address
                   </button>
                 </div>
                 <div className="auth-helper auth-fade-item">Check your email inbox and spam folder for the code.</div>
