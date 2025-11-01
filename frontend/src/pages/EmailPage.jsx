@@ -287,13 +287,19 @@ export default function EmailPage({ mode = 'signin' }) {
                           setCode(joined);
                           return;
                         }
+                        // Get the last character entered (handles when input already has a value)
+                        const newDigit = val[val.length - 1];
                         const next = code.padEnd(6, '').split('');
-                        next[i] = val[0];
+                        next[i] = newDigit;
                         const joined = next.join('');
                         setCode(joined);
+                        
+                        // Auto-advance to next input
                         if (i < 5) {
-                          const nextEl = document.getElementById(`otp-${i + 1}`);
-                          nextEl && nextEl.focus();
+                          setTimeout(() => {
+                            const nextEl = document.getElementById(`otp-${i + 1}`);
+                            nextEl && nextEl.focus();
+                          }, 0);
                         } else {
                           // all digits maybe filled
                           if (!next.includes('')) setStatusMsg('Code entered. Ready to verify.');
