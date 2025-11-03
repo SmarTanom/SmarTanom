@@ -504,10 +504,18 @@ if REDIS_URL:
 				'capacity': 1500,
 				'expiry': 10,
 				'group_expiry': 60,
-				# Reduce idle BRPOP churn to save Upstash commands. Default is 5s in channels_redis,
-				# which can burn ~500k commands/month per worker. Use 60s+ on free tiers.
-				'brpop_timeout': int(os.getenv('CHANNELS_REDIS_BRPOP_TIMEOUT', '120')),
 			}
+			# Add brpop_timeout only if supported by installed channels_redis
+			try:
+				import inspect  # noqa: F401
+				from channels_redis.core import RedisChannelLayer  # type: ignore
+				params = set(inspect.signature(RedisChannelLayer.__init__).parameters.keys())
+				if 'brpop_timeout' in params:
+					redis_config['brpop_timeout'] = int(os.getenv('CHANNELS_REDIS_BRPOP_TIMEOUT', '120'))
+				else:
+					print("[Channels] INFO: Installed channels_redis does not support brpop_timeout; skipping.")
+			except Exception as _sig_e:
+				print(f"[Channels] INFO: Could not inspect channels_redis for brpop_timeout support: {_sig_e}")
 			CHANNEL_LAYERS = {
 				'default': {
 					'BACKEND': 'channels_redis.core.RedisChannelLayer',

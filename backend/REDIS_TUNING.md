@@ -10,9 +10,10 @@ If you're on Upstash free tier (500k commands/month), optimize Django Channels +
 ## Settings toggles (in `smartanom/settings.py`)
 
 - `CHANNELS_REDIS_BRPOP_TIMEOUT` (env, seconds; default 120)
-  - In `CHANNEL_LAYERS.CONFIG.brpop_timeout`.
-  - Default Channels is 5s, which costs ~500k commands/month per worker even when idle.
+  - Used when supported by the installed `channels-redis` version (auto-detected at runtime).
+  - Default Channels is often 5s, which costs ~500k commands/month per worker even when idle.
   - Set 60–300s on free tiers to cut idle usage by 12–60x.
+  - If your environment logs "does not support brpop_timeout; skipping", upgrade `channels-redis` to a version that supports it or rely on other savings (see below).
 
 - `WS_GLOBAL_BROADCAST` (env; default true in DEBUG, false in production)
   - When false, the app will not broadcast to the global `devices` group.
