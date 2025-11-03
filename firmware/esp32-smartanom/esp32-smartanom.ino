@@ -41,7 +41,7 @@
 // =============================================
 // DEVICE CONFIGURATION - SET BEFORE FLASHING
 // =============================================
-#define DEVICE_SERIAL "SMRT-DQX-0HO"  // * CHANGE THIS BEFORE FLASHING *
+#define DEVICE_SERIAL "SMRT-YIH-D68"  // * CHANGE THIS BEFORE FLASHING *
 #define FIRMWARE_VERSION "1.2.0"
 
 // =============================================
@@ -291,7 +291,7 @@ String getTurbidityStatus(float voltage);
 WebSocketsClient wsClient;
 bool wsConnected = false;
 unsigned long lastSensorSend = 0;
-const unsigned long SENSOR_SEND_INTERVAL_MS = 2000;  // 2 seconds
+const unsigned long SENSOR_SEND_INTERVAL_MS = UPSTASH_PUBLISH_MIN_INTERVAL_MS;  // align with Upstash publish rate
 // Track WS fallback state
 bool wsTriedInsecureFallback = false;
 
