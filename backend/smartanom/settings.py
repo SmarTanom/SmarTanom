@@ -490,10 +490,9 @@ if REDIS_URL:
 			print(f"[Channels] Using Redis channel layer: {safe_host}")
 
 			if scheme == 'rediss':
-				hosts = [{
-					'address': REDIS_URL,
-					'ssl': True,
-				}]
+				# For TLS, prefer passing a rediss:// URL only. Avoid 'ssl': True,
+				# which is incompatible with newer redis-py asyncio (TypeError on 'ssl').
+				hosts = [REDIS_URL]
 			else:
 				hosts = [REDIS_URL]
 
