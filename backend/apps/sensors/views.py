@@ -49,7 +49,18 @@ def broadcast_sensor_update(sensor_data):
                 "timestamp": sensor_data.created_at.isoformat() if sensor_data.created_at else timezone.now().isoformat(),
             }
 
-            # Optimized: Single broadcast format for Redis efficiency
+            # 1) Legacy format for existing admin dashboards
+            async_to_sync(channel_layer.group_send)(
+                "devices",
+                {
+                    "type": "device_update",
+                    "action": "sensor_data",
+                    "data": payload_data,
+                    "timestamp": payload_data.get("timestamp"),
+                }
+            )
+
+            # 2) New typed event for user dashboards: sensor.update
             async_to_sync(channel_layer.group_send)(
                 "devices",
                 {
