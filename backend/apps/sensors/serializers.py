@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from .models import Sensor, SensorData, Alert
+from .models import Sensor, SensorData, Alert, SensorLatest
 from apps.devices.models import Device
 
 
@@ -102,3 +102,11 @@ class AlertSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class LatestReadingSerializer(serializers.Serializer):
+    """Serializer for latest reading payloads (non-model, fast path)."""
+    sensor_id = serializers.IntegerField()
+    value = serializers.FloatField(allow_null=True)
+    status = serializers.CharField(allow_blank=True)
+    updated_at = serializers.DateTimeField()

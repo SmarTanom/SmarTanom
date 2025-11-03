@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from rest_framework import filters
+from rest_framework import filters, permissions, status
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
@@ -15,10 +17,10 @@ from asgiref.sync import async_to_sync
 import logging
 
 from apps.common.views import BaseAuthViewSet
-from .models import Sensor, SensorData, Alert
+from .models import Sensor, SensorData, Alert, SensorLatest
 from apps.devices.models import DeviceCollaboration
 from django.contrib.auth import get_user_model
-from .serializers import SensorSerializer, SensorDataSerializer, AlertSerializer
+from .serializers import SensorSerializer, SensorDataSerializer, AlertSerializer, LatestReadingSerializer
 from .alert_service import SensorAlertService
 
 logger = logging.getLogger(__name__)
@@ -303,3 +305,191 @@ class AlertViewSet(BaseAuthViewSet):
     def perform_update(self, serializer):
         # Only allow ack/resolve updates; device ownership enforced by queryset scoping
         serializer.save()
+
+
+def _user_can_manage_device(user, device) -> bool:
+    """Return True if user can manage resources on this device (owner/staff/collab MANAGE)."""
+    if user.is_staff:
+        return True
+    if getattr(device, "bound_email", None) == user.email:
+        return True
+    return DeviceCollaboration.objects.filter(
+        device=device,
+        collaborator_email__iexact=user.email,
+        status=DeviceCollaboration.Status.ACTIVE,
+        permissions=DeviceCollaboration.Permission.MANAGE,
+    ).exists()
+
+
+class IngestLatestView(APIView):
+    """HTTP ingest for latest readings from devices.
+
+    Body: { readings: [ {sensor_id, value, status?} ... ] }
+    Authentication: standard DRF auth (JWT/Token/Session). Device must be owned by or shared (MANAGE) with user.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        readings = request.data.get("readings", [])
+        if not isinstance(readings, list) or not readings:
+            return Response({"detail": "readings must be a non-empty list"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Coerce and collect sensor IDs
+        try:
+            sensor_ids = [int(r.get("sensor_id")) for r in readings if isinstance(r, dict) and r.get("sensor_id") is not None]
+        except Exception:
+            return Response({"detail": "sensor_id must be integer"}, status=status.HTTP_400_BAD_REQUEST)
+        if not sensor_ids:
+            return Response({"detail": "no valid sensor_id values"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Load sensors and enforce device-level manage permissions
+        sensors = Sensor.objects.select_related("device").filter(id__in=sensor_ids)
+        sensors_by_id = {s.id: s for s in sensors}
+        # Precompute allowed sensor ids by checking once per device
+        allowed_ids = set()
+        checked_devices = {}
+        for s in sensors:
+            dev = s.device
+            if dev.id not in checked_devices:
+                checked_devices[dev.id] = _user_can_manage_device(request.user, dev)
+            if checked_devices[dev.id]:
+                allowed_ids.add(s.id)
+
+        if not allowed_ids:
+            return Response({"detail": "no permission to ingest for provided sensors"}, status=status.HTTP_403_FORBIDDEN)
+
+        from django.db import transaction
+        from django.utils import timezone
+        from django.core.cache import cache
+        import hashlib, json
+
+        now = timezone.now()
+        updated_rows = []
+        latest_cache = {}
+
+        with transaction.atomic():
+            for r in readings:
+                sid = r.get("sensor_id")
+                if sid not in allowed_ids:
+                    continue
+                try:
+                    val = float(r.get("value")) if r.get("value") is not None else None
+                except Exception:
+                    # skip invalid value
+                    continue
+                status_str = str(r.get("status") or "")[:32]
+
+                sl, _created = SensorLatest.objects.update_or_create(
+                    sensor_id=sid,
+                    defaults={"value": val, "status": status_str, "updated_at": now},
+                )
+
+                updated_rows.append({
+                    "sensor_id": sid,
+                    "value": sl.value,
+                    "status": sl.status,
+                    "updated_at": sl.updated_at,
+                })
+
+                # prepare cache entry
+                latest_cache[f"latest:v1:{sid}"] = json.dumps({
+                    "sensor_id": sid,
+                    "value": sl.value,
+                    "status": sl.status,
+                    "updated_at": sl.updated_at.isoformat(),
+                })
+
+            if latest_cache:
+                cache.set_many(latest_cache, timeout=120)
+
+            if updated_rows:
+                # per-user ETag seed: only sensors user just updated (sufficient to signal client)
+                seed = "|".join(f"{r['sensor_id']}:{int(r['updated_at'].timestamp())}" for r in updated_rows)
+                etag = hashlib.md5(seed.encode()).hexdigest()
+                cache.set(f"latest:etag:user:{request.user.id}", etag, timeout=120)
+
+        return Response({"updated": len(updated_rows)}, status=status.HTTP_200_OK)
+
+
+class LatestReadingsView(APIView):
+    """Return latest readings for sensors visible to the user (owner or collaborator)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from django.core.cache import cache
+        import json, hashlib
+        device_id = request.query_params.get("device")
+
+        # Build sensor queryset with sharing rules similar to SensorViewSet
+        qs = Sensor.objects.select_related("device").only("id")
+        user = request.user
+        if not user.is_staff:
+            shared_device_ids = DeviceCollaboration.objects.filter(
+                collaborator_email__iexact=user.email,
+                status=DeviceCollaboration.Status.ACTIVE,
+            ).values_list("device_id", flat=True)
+            qs = qs.filter(
+                Q(device__bound_email=user.email, device__is_bound=True) | Q(device_id__in=shared_device_ids)
+            )
+        if device_id:
+            qs = qs.filter(device_id=device_id)
+
+        sensor_ids = list(qs.values_list("id", flat=True))
+        if not sensor_ids:
+            return Response([], status=status.HTTP_200_OK)
+
+        # ETag conditional handling (fast path via cached per-user ETag)
+        client_etag = request.headers.get("If-None-Match")
+        server_etag = cache.get(f"latest:etag:user:{user.id}")
+        if client_etag and server_etag and client_etag.strip('"') == server_etag:
+            from django.http import HttpResponseNotModified
+            return HttpResponseNotModified()
+
+        keys = [f"latest:v1:{sid}" for sid in sensor_ids]
+        cached = cache.get_many(keys)
+        found = []
+        missing = []
+        for sid, key in zip(sensor_ids, keys):
+            blob = cached.get(key)
+            if blob:
+                found.append(json.loads(blob))
+            else:
+                missing.append(sid)
+
+        if missing:
+            rows = list(
+                SensorLatest.objects.filter(sensor_id__in=missing).values(
+                    "sensor_id", "value", "status", "updated_at"
+                )
+            )
+            # backfill cache
+            cache.set_many({
+                f"latest:v1:{r['sensor_id']}": json.dumps({
+                    **r, "updated_at": r["updated_at"].isoformat()
+                }) for r in rows
+            }, timeout=120)
+            for r in rows:
+                found.append({
+                    "sensor_id": r["sensor_id"],
+                    "value": r["value"],
+                    "status": r["status"],
+                    "updated_at": r["updated_at"],
+                })
+
+        etag_seed = "|".join(
+            f"{r['sensor_id']}:{int((r['updated_at']).timestamp())}" for r in found if r.get("updated_at")
+        )
+        response_etag = hashlib.md5(etag_seed.encode()).hexdigest() if etag_seed else "0" * 32
+
+        serializer = LatestReadingSerializer(found, many=True)
+        # If client provided ETag and it matches the computed one, respond 304
+        if client_etag and client_etag.strip('"') == response_etag:
+            from django.http import HttpResponseNotModified
+            return HttpResponseNotModified()
+
+        resp = Response(serializer.data, status=status.HTTP_200_OK)
+        resp["ETag"] = f'"{response_etag}"'
+        resp["Cache-Control"] = "private, max-age=2"
+        return resp

@@ -113,7 +113,7 @@ class Alert(TimeStampedModel):
         LETTUCE = "Lettuce", _("Lettuce")
         LETTUCE_GERMINATION = "Lettuce_Germination", _("Lettuce - Germination")
         LETTUCE_SEEDLING = "Lettuce_Seedling", _("Lettuce - Seedling")
-        
+
         BASIL = "Basil", _("Basil")
         BASIL_GERMINATION = "Basil_Germination", _("Basil - Germination")
         BASIL_SEEDLING = "Basil_Seedling", _("Basil - Seedling")
@@ -121,7 +121,7 @@ class Alert(TimeStampedModel):
         PECHAY = "Pechay", _("Pechay")
         PECHAY_GERMINATION = "Pechay_Germination", _("Pechay - Germination")
         PECHAY_SEEDLING = "Pechay_Seedling", _("Pechay - Seedling")
-        
+
         GENERIC = "Generic", _("Generic")
 
     device = models.ForeignKey(
@@ -178,3 +178,29 @@ class Alert(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"[{self.severity}] {self.title} (device={self.device_id})"
+
+
+class SensorLatest(models.Model):
+    """Denormalized latest reading per sensor for fast dashboard reads.
+
+    This avoids scanning SensorData for the newest row and reduces DB load.
+    One row per sensor; updated on ingest via upsert.
+    """
+
+    sensor = models.OneToOneField(
+        Sensor, on_delete=models.CASCADE, related_name="latest"
+    )
+    value = models.FloatField(null=True, blank=True)
+    status = models.CharField(max_length=32, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "sensor_latest"
+        indexes = [
+            models.Index(fields=["updated_at"], name="idx_sensorlatest_updated"),
+        ]
+        verbose_name = "Sensor Latest"
+        verbose_name_plural = "Sensors Latest"
+
+    def __str__(self) -> str:
+        return f"SensorLatest(sensor={self.sensor_id}, value={self.value})"
