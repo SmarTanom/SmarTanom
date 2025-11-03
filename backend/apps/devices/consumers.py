@@ -511,14 +511,22 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                 'turbidity': 'turbidity',
                 'water_temp': 'water_temperature',
                 'water_temperature': 'water_temperature',
+                # Pass-through qualitative statuses from firmware
+                'turbidity_status': 'turbidity_status',
+                'water_level_state': 'water_level_state',
             }
             sensors_out = {}
             for key, val in (sensor_data or {}).items():
                 if key not in outgoing_keys or val is None:
                     continue
                 try:
-                    v = float(val)
+                    # Handle qualitative string statuses without numeric conversion
+                    if key in ('turbidity_status', 'water_level_state'):
+                        v = str(val)
+                    else:
+                        v = float(val)
                 except Exception:
+                    # Skip malformed entries
                     continue
                 # Convert turbidity RAW -> NTU if needed
                 if key == 'turbidity':

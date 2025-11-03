@@ -28,8 +28,10 @@ class SensorAlertService:
     TDS_WARNING_HIGH = 1301  # 1301-1500: warning (fallback)
     WATER_LEVEL_CRITICAL = 0
     WATER_LEVEL_WARNING = 40
-    TURBIDITY_CLEAR = 2100  # > 2100: clear (no alert)
-    TURBIDITY_CLOUDY = 1800  # 1800-2100: cloudy (warning)
+    # Turbidity thresholds now use NTU (0..1000) after ingestion converts RAW to NTU
+    # Firmware mapping: voltage > 1.0V => ~<800 NTU (Clear), ~800-1000 NTU (Cloudy), >=1000 NTU (Turbid)
+    TURBIDITY_CLEAR_NTU = 800
+    TURBIDITY_CLOUDY_NTU = 1000
     # < 1800: turbid (critical)
     # Removed environment sensors (air temp, humidity, light)
 
@@ -350,7 +352,7 @@ class SensorAlertService:
                 "near_max": "Ensure leaves dry before dark to prevent disease.",
             },
         },
-        
+
         "Generic": {
             "general": "Keep conditions stable; adjust in small steps and re‑test.",
             "ph": {
@@ -855,11 +857,12 @@ class SensorAlertService:
 
         # Turbidity alerts
         elif sensor_type == "turbidity":
-            if value > SensorAlertService.TURBIDITY_CLEAR:
+            # value is NTU (0..1000)
+            if value < SensorAlertService.TURBIDITY_CLEAR_NTU:
                 return None
-            if value > SensorAlertService.TURBIDITY_CLOUDY:
-                return {"severity": "warning", "title": "Water Cloudy", "body": (f"Turbidity is {value:.0f} (cloudy range). Clean filters and consider partial water change.")}
-            return {"severity": "critical", "title": "Water Turbid", "body": (f"Turbidity is {value:.0f} (turbid). Drain/refill, clean filters and tubing.")}
+            if value < SensorAlertService.TURBIDITY_CLOUDY_NTU:
+                return {"severity": "warning", "title": "Water Cloudy", "body": (f"Turbidity is {value:.0f} NTU (cloudy range). Clean filters and consider partial water change.")}
+            return {"severity": "critical", "title": "Water Turbid", "body": (f"Turbidity is {value:.0f} NTU (turbid). Drain/refill, clean filters and tubing.")}
 
         # Light alerts removed
 

@@ -48,12 +48,21 @@ const generateAlertText = (s) => {
 
   // Air temperature removed
 
-  // Turbidity alerts (matching backend: TURBIDITY_CLEAR=2100, TURBIDITY_CLOUDY=1800)
-  if (typeof s.turbidity === 'number') {
-    if (s.turbidity <= 1800) {
-      alerts.push(`Water Turbid: ${Math.round(s.turbidity)} (turbid). Drain/refill and clean filters`);
-    } else if (s.turbidity <= 2100) {
-      alerts.push(`Water Cloudy: ${Math.round(s.turbidity)} (cloudy range). Clean filters and consider partial water change`);
+  // Turbidity alerts - follow firmware status if available; otherwise derive from NTU
+  if (typeof s.turbidity_status === 'string') {
+    const status = s.turbidity_status.toLowerCase();
+    if (status.includes('dirty') || status.includes('turbid')) {
+      alerts.push('Water Turbid: Drain/refill and clean filters');
+    } else if (status.includes('cloudy')) {
+      alerts.push('Water Cloudy: Clean filters and consider partial water change');
+    }
+  } else if (typeof s.turbidity === 'number') {
+    // Backend stores NTU (0..1000). Firmware thresholds: Clear if V > 1.0V -> NTU < ~800; Cloudy ~800-1000; Turbid ~>=1000
+    const ntu = s.turbidity;
+    if (ntu >= 1000) {
+      alerts.push('Water Turbid: Drain/refill and clean filters');
+    } else if (ntu >= 800) {
+      alerts.push('Water Cloudy: Clean filters and consider partial water change');
     }
   }
 
@@ -101,15 +110,24 @@ export const useRealtimeStore = create(persist((set, get) => ({
   // Allow pages to update per-device data snapshots (e.g., plant-aware alerts on Dashboard)
   updateDeviceData: (deviceId, dataPayload) => {
     if (!deviceId || !dataPayload) return;
-    set(state => ({
-      deviceData: {
-        ...state.deviceData,
-        [deviceId]: {
-          ...(state.deviceData[deviceId] || {}),
-          ...dataPayload,
+    set(state => {
+      const prev = state.deviceData[deviceId] || {};
+      // Deep-merge sensors map to avoid dropping keys like water_temperature when partial updates arrive
+      const mergedSensors = dataPayload.sensors
+        ? { ...(prev.sensors || {}), ...dataPayload.sensors }
+        : (prev.sensors || undefined);
+
+      return {
+        deviceData: {
+          ...state.deviceData,
+          [deviceId]: {
+            ...prev,
+            ...dataPayload,
+            ...(dataPayload.sensors ? { sensors: mergedSensors } : {}),
+          }
         }
-      }
-    }));
+      };
+    });
   },
 
   // --- Actions ---
@@ -335,15 +353,45 @@ export const useRealtimeStore = create(persist((set, get) => ({
   },
 
   applyRealtime: (payload) => {
-    const { device_id, sensors, timestamp, reading } = payload || {};
-    if (!device_id || !sensors) {
-      console.warn('[RealtimeStore] Invalid realtime payload:', payload);
+    const { device_id } = payload || {};
+    if (!device_id) {
+      console.warn('[RealtimeStore] Invalid realtime payload (missing device_id):', payload);
       return;
     }
 
+    // Accept both aggregated sensors map and single-reading format
+    // Aggregated: { type:'sensor.update', device_id, sensors:{ ph, tds, water_temperature, ... }, timestamp }
+    // Single:     { type:'sensor.update', device_id, sensor_type:'water_temperature', value: 24.3, unit:'°C', timestamp }
+    let updates = {};
+    if (payload && typeof payload.sensors === 'object' && payload.sensors) {
+      updates = payload.sensors;
+    } else if (payload && typeof payload.sensor_type === 'string' && payload.value !== undefined) {
+      const key = String(payload.sensor_type).toLowerCase();
+      const map = {
+        ph: 'ph',
+        tds: 'tds',
+        ec: 'ec',
+        water_level: 'water_level',
+        water_temp: 'water_temperature',
+        water_temperature: 'water_temperature',
+        turbidity: 'turbidity',
+        turbidity_status: 'turbidity_status',
+      };
+      const k = map[key];
+      if (k) updates[k] = payload.value;
+    }
+
+    if (!updates || Object.keys(updates).length === 0) {
+      console.warn('[RealtimeStore] Realtime payload had no sensor updates:', payload);
+      return;
+    }
+
+  // Use provided timestamp or fall back to now to avoid stale detection pauses
+  const timestamp = payload.timestamp || new Date().toISOString();
+
     // Apply updates even if devices list hasn't loaded yet; merge later when devices arrive
 
-    console.log('[RealtimeStore] Applying realtime update for device', device_id, ':', sensors);
+  console.log('[RealtimeStore] Applying realtime update for device', device_id, ':', updates);
 
     set(state => {
       const existing = state.deviceData[device_id] || {};
@@ -351,12 +399,14 @@ export const useRealtimeStore = create(persist((set, get) => ({
       const nextEnv = { ...(existing.environment || {}) };
 
       // Update sensor values
-      if (sensors.ph !== undefined) nextSensors.ph = sensors.ph;
-      if (sensors.ec !== undefined) nextSensors.ec = sensors.ec;
-      if (sensors.tds !== undefined) nextSensors.tds = sensors.tds;
-      if (sensors.water_level !== undefined) nextSensors.waterLevel = sensors.water_level;
-      if (sensors.turbidity !== undefined) nextSensors.turbidity = sensors.turbidity;
-      if (sensors.water_temperature !== undefined) nextSensors.water_temperature = sensors.water_temperature;
+      const s = updates; // normalized map from above
+      if (s.ph !== undefined) nextSensors.ph = s.ph;
+      if (s.ec !== undefined) nextSensors.ec = s.ec;
+      if (s.tds !== undefined) nextSensors.tds = s.tds;
+      if (s.water_level !== undefined) nextSensors.waterLevel = s.water_level;
+      if (s.turbidity !== undefined) nextSensors.turbidity = s.turbidity;
+    if (s.turbidity_status !== undefined) nextSensors.turbidity_status = s.turbidity_status;
+      if (s.water_temperature !== undefined) nextSensors.water_temperature = s.water_temperature;
       // removed environment metrics from realtime updates
 
       // Recalculate derived values

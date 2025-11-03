@@ -443,6 +443,7 @@ export default function Dashboard() {
   const devicesData = useRealtimeStore(s => s.deviceData);
   const fetchInitial = useRealtimeStore(s => s.fetchInitial);
   const connectWS = useRealtimeStore(s => s.connectWS);
+  const wsStatus = useRealtimeStore(s => s.wsStatus);
 
   const totalUnread = useRealtimeStore(s => s.totalUnread);
   const perDeviceUnreadCounts = useRealtimeStore(s => s.unreadCounts);
@@ -886,13 +887,33 @@ export default function Dashboard() {
     }
   };
 
-  // 2s interval to refresh only the needed cards for the current device
+  // Prefer real-time WS updates; only poll when WS is not connected or data becomes stale
   useEffect(() => {
     if (!currentDevice?.id) return;
-    const id = setInterval(() => refreshLiteDeviceData(currentDevice.id), 2000);
-    return () => clearInterval(id);
+
+    // If WS connected, avoid aggressive polling; perform a light stale check instead
+    const STALE_MS = 5000;  // if no update for 5s, perform a one-shot refresh
+    const POLL_MS = 2000;   // legacy fallback poll cadence
+
+    let timerId;
+    if (wsStatus === 'connected') {
+      timerId = setInterval(() => {
+        try {
+          const lastUpdateStr = useRealtimeStore.getState().deviceData[currentDevice.id]?.lastUpdate;
+          const lastTs = lastUpdateStr ? new Date(lastUpdateStr).getTime() : 0;
+          if (!lastTs || (Date.now() - lastTs) > STALE_MS) {
+            refreshLiteDeviceData(currentDevice.id);
+          }
+        } catch (_) { /* noop */ }
+      }, 3000);
+    } else {
+      // WS not connected: keep legacy 2s polling
+      timerId = setInterval(() => refreshLiteDeviceData(currentDevice.id), POLL_MS);
+    }
+
+    return () => clearInterval(timerId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDevice?.id, timeRange]);
+  }, [currentDevice?.id, timeRange, wsStatus]);
 
   // Handle device card click
   const handleDeviceInfoClick = (e, device) => {
@@ -2393,7 +2414,22 @@ export default function Dashboard() {
             </div>
             <div className="sensor-cell-content">
               <span className="sensor-label">Turbidity</span>
-              <span className="sensor-value">{data && typeof data.sensors?.turbidity === 'number' ? `${data.sensors.turbidity.toFixed(1)} NTU` : 'Loading...'}</span>
+              <span className="sensor-value">{
+                (() => {
+                  const status = data?.sensors?.turbidity_status;
+                  if (typeof status === 'string' && status.trim().length > 0) {
+                    const s = status.trim().toLowerCase();
+                    return s.charAt(0).toUpperCase() + s.slice(1); // e.g., Clear | Cloudy | Turbid
+                  }
+                  const v = data?.sensors?.turbidity; // NTU (0..1000)
+                  if (typeof v === 'number') {
+                    if (v < 800) return 'Clear';
+                    if (v < 1000) return 'Cloudy';
+                    return 'Turbid';
+                  }
+                  return 'Loading...';
+                })()
+              }</span>
             </div>
           </div>
           <div className="sensor-cell" onClick={() => setSelectedMonitoringCard('waterTemp')} style={{ cursor: 'pointer' }}>
