@@ -58,6 +58,25 @@
 // Set to your production API key for security
 #define DEVICE_API_KEY "b58e766d66ea4fededf05d3ccfe44475"  // Production API key
 
+// =============================================
+// REALTIME STREAM CONFIGURATION (Upstash Redis via REST)
+// =============================================
+// Enable publishing readings to Upstash Redis Pub/Sub via REST API.
+// When true, readings are POSTed to Upstash and the Django backend
+// persists them via a Redis subscriber.
+#define USE_UPSTASH_PUBLISH true
+
+// Upstash REST endpoint (no trailing slash), e.g., https://us1-xxx.upstash.io
+#define UPSTASH_REDIS_REST_URL "https://lenient-ghost-9335.upstash.io"
+// Upstash REST token (Bearer). Keep this secret.
+#define UPSTASH_REDIS_REST_TOKEN "ASR3AAImcDJiMDQ0MzFiZmQ3MGM0ODA4OGM0OWNlMjhkZjU1NTkzOXAyOTMzNQ"
+// Pub/Sub channel to publish to (must match backend REDIS_PUBSUB_CHANNEL)
+#define REDIS_PUBSUB_CHANNEL "smartanom:sensors"
+
+// Minimum interval between Upstash publishes (ms). 5000ms = ~17.2k msgs/month/device
+// assuming 24/7 operation (keeps below 500k ops for a small fleet).
+#define UPSTASH_PUBLISH_MIN_INTERVAL_MS 5000UL
+
 // Optional: Force non-TLS WebSocket (ws) if your ESP32 TLS is failing in dev
 // WARNING: Use only for development on trusted networks
 // Force non-TLS WebSocket (ws) even if BACKEND_URL is https
@@ -275,6 +294,9 @@ unsigned long lastSensorSend = 0;
 const unsigned long SENSOR_SEND_INTERVAL_MS = 2000;  // 2 seconds
 // Track WS fallback state
 bool wsTriedInsecureFallback = false;
+
+// Upstash publish rate limiting
+static unsigned long lastUpstashPublishMs = 0;
 
 // Derived from BACKEND_URL
 String WS_HOST = "";      // e.g., smartanom.onrender.com
@@ -650,6 +672,8 @@ void initWebSocket();
 void wsEvent(WStype_t type, uint8_t * payload, size_t length);
 void sendHandshake();
 void sendSensorData();
+bool publishToUpstash(const String& jsonMessage);
+String buildUpstashJson();
 bool syncTimeIfNeeded();  // Returns true if time sync successful
 void maintainWiFiConnection();
 
@@ -1817,64 +1841,71 @@ void sendHandshake() {
 }
 
 void sendSensorData() {
-    if (!wsConnected) {
-        Serial.println("[WS] Not connected, skipping sensor send");
-        return;
+    // If Upstash publishing is enabled, publish there (preferred path)
+    if (USE_UPSTASH_PUBLISH) {
+        unsigned long nowMs = millis();
+        if (nowMs - lastUpstashPublishMs >= UPSTASH_PUBLISH_MIN_INTERVAL_MS) {
+            String json = buildUpstashJson();
+            bool ok = publishToUpstash(json);
+            if (ok) {
+                lastUpstashPublishMs = nowMs;
+                // Clear quality tag after first send
+                firstSendQuality = nullptr;
+            }
+        }
     }
 
-    // Build array-based payload per requirement
-    StaticJsonDocument<512> doc;
-    doc["type"] = "sensor_data"; // explicit type for backend
-    doc["device_serial"] = DEVICE_SERIAL;
-    JsonArray arr = doc.createNestedArray("data");
-    if (!firstPayloadSent && firstSendQuality != nullptr) {
-        doc["quality"] = firstSendQuality; // "stable" or "warmup"
+    // Also send over WebSocket when connected (optional dual-stream)
+    if (wsConnected) {
+        // Build array-based payload for WS broadcast path
+        StaticJsonDocument<512> doc;
+        doc["type"] = "sensor_data"; // explicit type for backend WS
+        doc["device_serial"] = DEVICE_SERIAL;
+        JsonArray arr = doc.createNestedArray("data");
+        if (!firstPayloadSent && firstSendQuality != nullptr) {
+            doc["quality"] = firstSendQuality; // "stable" or "warmup"
+        }
+
+        JsonObject o1 = arr.createNestedObject();
+        o1["type"] = "ph";
+        o1["value"] = phValue;
+
+        JsonObject o2 = arr.createNestedObject();
+        o2["type"] = "tds";
+        o2["value"] = tdsValue; // ppm
+
+        JsonObject o3 = arr.createNestedObject();
+        o3["type"] = "ec";
+        o3["value"] = ecValue; // mS/cm (from polynomial)
+
+        JsonObject o4 = arr.createNestedObject();
+        o4["type"] = "turbidity";
+        o4["value"] = rawTurb; // raw ADC units (0-4095)
+        JsonObject o4s = arr.createNestedObject();
+        o4s["type"] = "turbidity_status";
+        o4s["value"] = getTurbidityStatus(voltageTurb);
+
+        JsonObject o5 = arr.createNestedObject();
+        o5["type"] = "water_temperature"; // preferred key
+        o5["value"] = waterTempC; // °C
+        JsonObject o5b = arr.createNestedObject();
+        o5b["type"] = "water_temp"; // legacy alias
+        o5b["value"] = waterTempC;
+
+        JsonObject o6 = arr.createNestedObject();
+        o6["type"] = "water_level";
+        o6["value"] = waterPercent; // %
+
+        JsonObject o7 = arr.createNestedObject();
+        o7["type"] = "water_level_state";
+        o7["value"] = waterLevelStateToText(currentWaterLevelState);
+
+        String out;
+        serializeJson(doc, out);
+        wsClient.sendTXT(out);
+        // Clear quality tag after first send if it wasn't already cleared
+        firstSendQuality = nullptr;
     }
-
-    JsonObject o1 = arr.createNestedObject();
-    o1["type"] = "ph";
-    o1["value"] = phValue;
-
-    JsonObject o2 = arr.createNestedObject();
-    o2["type"] = "tds";
-    o2["value"] = tdsValue; // ppm
-
-    JsonObject o3 = arr.createNestedObject();
-    o3["type"] = "ec";
-    o3["value"] = ecValue; // mS/cm (from polynomial)
-
-    // NOTE: Backend/Frontend thresholds expect the RAW analog value (~1800-2100 clear).
-    // Send raw ADC reading here to match dashboard/alerts expectations.
-    JsonObject o4 = arr.createNestedObject();
-    o4["type"] = "turbidity";
-    o4["value"] = rawTurb; // raw ADC units (0-4095)
-    // Include human-friendly status derived from voltage thresholds
-    JsonObject o4s = arr.createNestedObject();
-    o4s["type"] = "turbidity_status";
-    o4s["value"] = getTurbidityStatus(voltageTurb);
-
-    JsonObject o5 = arr.createNestedObject();
-    o5["type"] = "water_temperature"; // preferred key
-    o5["value"] = waterTempC; // °C
-    // Also include legacy alias to ensure consumer variants pick it up
-    JsonObject o5b = arr.createNestedObject();
-    o5b["type"] = "water_temp"; // legacy alias
-    o5b["value"] = waterTempC;
-
-    JsonObject o6 = arr.createNestedObject();
-    o6["type"] = "water_level";
-    o6["value"] = waterPercent; // %
-
-    // Add water level state (NORMAL/WARNING)
-    JsonObject o7 = arr.createNestedObject();
-    o7["type"] = "water_level_state";
-    o7["value"] = waterLevelStateToText(currentWaterLevelState);
-
-    String out;
-    serializeJson(doc, out);
-    wsClient.sendTXT(out);
-    // Clear quality tag after first send
-    firstSendQuality = nullptr;
 
     // Log to serial for quick debugging
     Serial.println("========== SENSOR READINGS ==========");
@@ -1885,6 +1916,59 @@ void sendSensorData() {
     Serial.printf("pH            : %.2f\n", phValue);
     Serial.printf("Turbidity     : raw=%d (V=%.2f) | est=%.2f NTU | %s\n", rawTurb, voltageTurb, turbidityNTU, getTurbidityStatus(voltageTurb).c_str());
     Serial.println("======================================\n");
+}
+
+// =============================================
+// Upstash Publisher (REST)
+// =============================================
+String buildUpstashJson() {
+    StaticJsonDocument<512> doc;
+    doc["device_serial"] = DEVICE_SERIAL;
+    if (!firstPayloadSent && firstSendQuality != nullptr) {
+        doc["quality"] = firstSendQuality; // optional hint
+    }
+    JsonObject readings = doc.createNestedObject("readings");
+    readings["ph"] = phValue;
+    readings["tds"] = tdsValue;
+    readings["ec"] = ecValue;
+    readings["water_level"] = waterPercent;
+    readings["water_temperature"] = waterTempC;
+    // Send RAW ADC for turbidity (backend converts RAW>1000 to NTU)
+    readings["turbidity"] = rawTurb;
+    readings["turbidity_status"] = getTurbidityStatus(voltageTurb);
+
+    String out; serializeJson(doc, out);
+    return out;
+}
+
+bool publishToUpstash(const String& jsonMessage) {
+    if (!USE_UPSTASH_PUBLISH) return false;
+    if (strlen(UPSTASH_REDIS_REST_URL) == 0 || strlen(UPSTASH_REDIS_REST_TOKEN) == 0) {
+        Serial.println("[Upstash] Missing REST URL or token; skip publish");
+        return false;
+    }
+
+    WiFiClientSecure client;
+    client.setInsecure(); // optionally replace with proper CA
+
+    HTTPClient https;
+    String url = String(UPSTASH_REDIS_REST_URL) + String("/publish/") + String(REDIS_PUBSUB_CHANNEL);
+    if (!https.begin(client, url)) {
+        Serial.println("[Upstash] ✗ HTTPS begin failed");
+        return false;
+    }
+    https.addHeader("Authorization", String("Bearer ") + String(UPSTASH_REDIS_REST_TOKEN));
+    https.addHeader("Content-Type", "application/json");
+    https.setTimeout(15000); // 15s
+
+    int code = https.POST(jsonMessage);
+    if (code > 0) {
+        Serial.printf("[Upstash] HTTP %d\n", code);
+    } else {
+        Serial.printf("[Upstash] ✗ POST failed: %s\n", https.errorToString(code).c_str());
+    }
+    https.end();
+    return (code == 200 || code == 204);
 }
 
 void startNormalOperation() {

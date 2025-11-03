@@ -149,7 +149,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
       const readingsBySensor = payload.readings_by_sensor || {};
       const alertsPayload = payload.alerts || { count: 0, alerts: [] };
 
-      console.log('[RealtimeStore] Combined payload received:', {
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Combined payload received:', {
         devices: devices.length,
         sensorsGroups: Object.keys(sensorsByDevice).length,
         reservoirsGroups: Object.keys(reservoirsByDevice).length,
@@ -262,9 +262,9 @@ export const useRealtimeStore = create(persist((set, get) => ({
       });
 
       set({ devices, deviceData, deviceAlerts, unreadCounts, totalUnread, latestAlerts, loadingInitial: false, _initialFetchedAt: Date.now() });
-      console.log('[RealtimeStore] Initial data fetch completed (combined endpoint)');
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Initial data fetch completed (combined endpoint)');
     } catch (e) {
-      console.error('[RealtimeStore] Failed to fetch initial data:', e);
+      if (import.meta.env.VITE_DEBUG === 'true') console.error('[RealtimeStore] Failed to fetch initial data:', e);
       set({ errorInitial: 'Failed to load devices', loadingInitial: false });
     }
   },
@@ -272,13 +272,13 @@ export const useRealtimeStore = create(persist((set, get) => ({
   fetchAlerts: async () => {
     try {
       set({ loadingAlerts: true, errorAlerts: null });
-      console.log('[RealtimeStore] Fetching alerts from backend...');
+  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Fetching alerts from backend...');
 
       const response = await getUserAlerts({ limit: 200 });
-      console.log('[RealtimeStore] Alerts response:', response);
+  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Alerts response:', response);
 
       const alerts = response.alerts || [];
-      console.log('[RealtimeStore] Processing', alerts.length, 'alerts');
+  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processing', alerts.length, 'alerts');
 
       // Group alerts by device_id
       const deviceAlerts = {};
@@ -333,7 +333,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
         }
       });
 
-      console.log('[RealtimeStore] Processed alerts:', {
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processed alerts:', {
         deviceAlerts: Object.keys(deviceAlerts).length,
         totalUnread,
         latestAlerts: Object.keys(latestAlerts).length
@@ -347,7 +347,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
         loadingAlerts: false
       });
     } catch (err) {
-      console.error('[RealtimeStore] Failed to fetch alerts:', err);
+      if (import.meta.env.VITE_DEBUG === 'true') console.error('[RealtimeStore] Failed to fetch alerts:', err);
       set({ errorAlerts: err.message, loadingAlerts: false });
     }
   },
@@ -355,7 +355,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
   applyRealtime: (payload) => {
     const { device_id } = payload || {};
     if (!device_id) {
-      console.warn('[RealtimeStore] Invalid realtime payload (missing device_id):', payload);
+      if (import.meta.env.VITE_DEBUG === 'true') console.warn('[RealtimeStore] Invalid realtime payload (missing device_id):', payload);
       return;
     }
 
@@ -382,7 +382,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
     }
 
     if (!updates || Object.keys(updates).length === 0) {
-      console.warn('[RealtimeStore] Realtime payload had no sensor updates:', payload);
+      if (import.meta.env.VITE_DEBUG === 'true') console.warn('[RealtimeStore] Realtime payload had no sensor updates:', payload);
       return;
     }
 
@@ -391,7 +391,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
 
     // Apply updates even if devices list hasn't loaded yet; merge later when devices arrive
 
-  console.log('[RealtimeStore] Applying realtime update for device', device_id, ':', updates);
+  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Applying realtime update for device', device_id, ':', updates);
 
     set(state => {
       const existing = state.deviceData[device_id] || {};
@@ -452,7 +452,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
         }
       }
 
-      console.log('[RealtimeStore] Updated device data for', device_id, ':', {
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Updated device data for', device_id, ':', {
         sensors: nextSensors,
         environment: nextEnv,
         alertText,
@@ -484,11 +484,11 @@ export const useRealtimeStore = create(persist((set, get) => ({
   connectWS: () => {
     const currentStatus = get().wsStatus;
     if (currentStatus === 'connected' || currentStatus === 'connecting') {
-      console.log('[RealtimeStore] WebSocket already connected or connecting');
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] WebSocket already connected or connecting');
       return () => { }; // Return empty cleanup function
     }
 
-    console.log('[RealtimeStore] Connecting to WebSocket...');
+    if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Connecting to WebSocket...');
     set({ wsStatus: 'connecting', wsLastError: null });
 
     // Get current user ID for user-specific WebSocket connection
@@ -510,7 +510,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
     };
 
     const userId = getCurrentUserId();
-    console.log('[RealtimeStore] Connecting with user ID:', userId);
+  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Connecting with user ID:', userId);
 
     // Connect to USER-SPECIFIC stream so non-admin users only see their own device updates
     // Admin pages can continue using global connections.
@@ -518,19 +518,19 @@ export const useRealtimeStore = create(persist((set, get) => ({
 
     // Subscribe to WebSocket messages
     const unsub = wsClient.subscribe(msg => {
-      console.log('[RealtimeStore] WebSocket message received:', msg);
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] WebSocket message received:', msg);
 
       if (msg?.type === 'sensor.update') {
-        console.log('[RealtimeStore] Processing sensor update:', msg);
+        if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processing sensor update:', msg);
         get().applyRealtime(msg);
       } else if (msg?.type === 'alert.new') {
-        console.log('[RealtimeStore] Processing new alert:', msg);
+        if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processing new alert:', msg);
         get().handleNewAlert(msg);
       } else if (msg?.type === 'alert_update') {
         // Handle alert updates from WebSocket
         const payload = msg.payload;
         if (payload?.type === 'alert.new') {
-          console.log('[RealtimeStore] Processing alert update payload:', payload);
+          if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processing alert update payload:', payload);
           get().handleNewAlert(payload);
         }
       }
@@ -538,12 +538,12 @@ export const useRealtimeStore = create(persist((set, get) => ({
 
     // Subscribe to WebSocket status changes
     const statusUnsub = wsClient.onStatusChange((status) => {
-      console.log('[RealtimeStore] WebSocket status changed to:', status);
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] WebSocket status changed to:', status);
       set({ wsStatus: status });
 
       if (status === 'connected') {
         // Refresh data when connection is established
-        console.log('[RealtimeStore] WebSocket connected, refreshing data...');
+        if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] WebSocket connected, refreshing data...');
         const s = get();
         // Only trigger initial fetch once; otherwise fetch alerts only
         if (!s._initialFetchedAt) {
@@ -552,14 +552,14 @@ export const useRealtimeStore = create(persist((set, get) => ({
           get().fetchAlerts();
         }
       } else if (status === 'disconnected') {
-        console.log('[RealtimeStore] WebSocket disconnected');
+        if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] WebSocket disconnected');
         set({ wsLastError: 'Connection lost' });
       }
     });
 
     // Return cleanup function
     return () => {
-      console.log('[RealtimeStore] Cleaning up WebSocket subscriptions');
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Cleaning up WebSocket subscriptions');
       unsub();
       statusUnsub();
     };

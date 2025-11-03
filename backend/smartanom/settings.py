@@ -460,6 +460,12 @@ USE_X_FORWARDED_HOST = True
 
 # Channel Layers for WebSocket communication
 REDIS_URL = os.getenv('REDIS_URL', '').strip()
+# Pub/Sub channel for streaming sensor readings (ESP32 -> Upstash -> Backend)
+REDIS_PUBSUB_CHANNEL = os.getenv('REDIS_PUBSUB_CHANNEL', 'smartanom:sensors').strip()
+
+# Optional Upstash REST credentials (used by publishers like ESP32; backend does not need the REST token)
+UPSTASH_REDIS_REST_URL = os.getenv('UPSTASH_REDIS_REST_URL', '').strip()
+UPSTASH_REDIS_REST_TOKEN = os.getenv('UPSTASH_REDIS_REST_TOKEN', '').strip()
 
 use_redis_layer = False
 # Toggle global broadcast usage to save Redis commands on free tiers

@@ -60,3 +60,21 @@ databases:
 # Temporarily commented out - uncomment after creating Redis instance
 # redis:
 #   - name: smartanom-redis
+
+# Optional: Background worker to run the Redis Pub/Sub subscriber on Render
+# Uncomment to enable realtime ingestion from Upstash
+# services:
+#   - type: worker
+#     name: smartanom-redis-subscriber
+#     runtime: python3
+#     plan: free
+#     rootDir: backend
+#     buildCommand: "pip install --no-cache-dir -r requirements.txt"
+#     startCommand: "python manage.py run_redis_subscriber"
+#     envVars:
+#       - key: DJANGO_SETTINGS_MODULE
+#         value: smartanom.settings
+#       - key: REDIS_URL
+#         sync: false
+#       - key: REDIS_PUBSUB_CHANNEL
+#         value: smartanom:sensors
