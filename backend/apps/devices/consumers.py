@@ -40,10 +40,7 @@ class DeviceConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         """Remove from broadcast group on disconnect."""
-        try:
-            await self.channel_layer.group_discard("devices", self.channel_name)
-        except Exception as e:
-            print(f"[WebSocket] Warning: group_discard failed on disconnect: {e}")
+        await self.channel_layer.group_discard("devices", self.channel_name)
         print(f"[WebSocket] Client disconnected: {self.channel_name} (code: {close_code})")
 
     async def receive(self, text_data):
@@ -164,10 +161,7 @@ class UserConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         """Disconnect from user-specific channel."""
-        try:
-            await self.channel_layer.group_discard(self.group_name, self.channel_name)
-        except Exception as e:
-            print(f"[WebSocket] Warning: group_discard failed for user {self.user_id}: {e}")
+        await self.channel_layer.group_discard(self.group_name, self.channel_name)
         print(f"[WebSocket] User {self.user_id} disconnected")
 
     async def user_notification(self, event):
@@ -276,10 +270,7 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         # Leave device-specific group
         if hasattr(self, 'device_group'):
-            try:
-                await self.channel_layer.group_discard(self.device_group, self.channel_name)
-            except Exception as e:
-                print(f"[DeviceWS] Warning: group_discard failed for {getattr(self, 'serial', None)}: {e}")
+            await self.channel_layer.group_discard(self.device_group, self.channel_name)
         # Stop keepalive task if any
         if getattr(self, '_keepalive_task', None):
             try:
