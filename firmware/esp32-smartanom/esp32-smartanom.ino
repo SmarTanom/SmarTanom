@@ -252,14 +252,9 @@ float turbidityNTU = 0.0;
 WebSocketsClient wsClient;
 bool wsConnected = false;
 unsigned long lastSensorSend = 0;
-const unsigned long SENSOR_SEND_INTERVAL_MS = 30000;  // 30 seconds (optimized for Redis limits)
+const unsigned long SENSOR_SEND_INTERVAL_MS = 2000;  // 2 seconds
 // Track WS fallback state
 bool wsTriedInsecureFallback = false;
-
-// Startup delay for sensor stabilization (5 minutes = 300,000 ms)
-bool inStartupDelay = false;
-unsigned long startupDelayStartMs = 0;
-const unsigned long STARTUP_DELAY_MS = 300000;  // 5 minutes
 
 // Derived from BACKEND_URL
 String WS_HOST = "";      // e.g., smartanom.onrender.com
@@ -613,30 +608,7 @@ void loop() {
         wsClient.loop();
 
         unsigned long now = millis();
-
-        // Check if startup delay has completed
-        if (inStartupDelay && (now - startupDelayStartMs >= STARTUP_DELAY_MS)) {
-            inStartupDelay = false;
-            Serial.println("\n✓ Startup delay completed - sensors stabilized");
-            Serial.println("  Beginning regular data transmission");
-        }
-
-        // Log startup delay progress every 30 seconds
-        if (inStartupDelay) {
-            static unsigned long lastDelayLog = 0;
-            if (now - lastDelayLog >= 30000) {  // 30 seconds
-                lastDelayLog = now;
-                unsigned long elapsed = now - startupDelayStartMs;
-                unsigned long remaining = STARTUP_DELAY_MS - elapsed;
-                unsigned long remainingMinutes = remaining / 60000;
-                unsigned long remainingSeconds = (remaining % 60000) / 1000;
-                Serial.printf("[Startup Delay] %lu:%02lu remaining until sensor data transmission begins\n",
-                            remainingMinutes, remainingSeconds);
-            }
-        }
-
-        // Only send sensor data if not in startup delay
-        if (!inStartupDelay && now - lastSensorSend >= SENSOR_SEND_INTERVAL_MS) {
+        if (now - lastSensorSend >= SENSOR_SEND_INTERVAL_MS) {
             lastSensorSend = now;
             readSensorsOnce();
             sendSensorData();
@@ -1735,13 +1707,6 @@ void sendSensorData() {
 
 void startNormalOperation() {
     Serial.println("\n=== Starting Normal Operation ===");
-
-    // Initialize startup delay for sensor stabilization
-    inStartupDelay = true;
-    startupDelayStartMs = millis();
-    Serial.println("✓ Startup delay initiated: 5 minutes for sensor stabilization");
-    Serial.println("  No sensor data will be transmitted during this period");
-
     initSensors();
     initWebSocket();
 }

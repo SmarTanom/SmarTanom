@@ -463,8 +463,8 @@ REDIS_URL = os.getenv('REDIS_URL', '').strip()
 
 use_redis_layer = False
 if REDIS_URL:
-	# Validate REDIS_URL to avoid defaulting to localhost when host is missing (e.g., "rediss://")
-	from urllib.parse import urlparse as _urlparse
+	# Validate and normalize REDIS_URL (auto-upgrade to TLS for providers like Upstash)
+	from urllib.parse import urlparse as _urlparse, urlunparse as _urlunparse
 
 	try:
 		parsed = _urlparse(REDIS_URL)
@@ -473,11 +473,32 @@ if REDIS_URL:
 		port = parsed.port  # may be None (defaults to 6379)
 
 		if scheme in ("redis", "rediss") and host:
+			# Heuristic: If connecting to a TLS-required host (e.g., *.upstash.io) on 6379 without TLS,
+			# transparently upgrade to rediss:// to prevent server-side connection closes.
+			force_tls_env = os.getenv('REDIS_FORCE_TLS', '').lower() == 'true'
+			is_upstash = (host or '').endswith('upstash.io')
+			default_redis_port = (port is None) or (int(port) == 6379)
+			if scheme == 'redis' and (force_tls_env or is_upstash and default_redis_port):
+				parsed = parsed._replace(scheme='rediss')
+				REDIS_URL = _urlunparse(parsed)
+				scheme = 'rediss'
+				print("[Channels] NOTE: Upgraded Redis URL to TLS (rediss) based on host/port heuristics.")
+
+			# Build a channels_redis config. When using TLS, be explicit.
 			netloc = parsed.netloc or ''
 			safe_host = f"{scheme}://{netloc.split('@')[-1]}"
 			print(f"[Channels] Using Redis channel layer: {safe_host}")
+
+			if scheme == 'rediss':
+				hosts = [{
+					'address': REDIS_URL,
+					'ssl': True,
+				}]
+			else:
+				hosts = [REDIS_URL]
+
 			redis_config = {
-				'hosts': [REDIS_URL],
+				'hosts': hosts,
 				'capacity': 1500,
 				'expiry': 10,
 				'group_expiry': 60,
