@@ -32,6 +32,7 @@
 #include <DNSServer.h>
 #include <time.h>
 #include <EEPROM.h>
+#include <math.h>
 // Sensor + WebSocket libraries
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -222,13 +223,29 @@ void eepromSaveWaterCalibration() {
 // LEGACY CALIBRATION (kept for compatibility)
 // =============================================
 #define TDS_FACTOR 0.5
-#define PH_CALIBRATION_OFFSET 0.00
+#define PH_CALIBRATION_OFFSET 0.00  // legacy (no longer used with 2-point calibration)
+
+// === pH Two-Point Calibration (final) ===
+// Calibrated with actual buffer solutions:
+//   pH 7.35 @ 2.45V, pH 4.61 @ 2.74V on GPIO34
+#define PH_HIGH_PH       7.35
+#define PH_HIGH_VOLTAGE  2.45f
+#define PH_LOW_PH        4.61
+#define PH_LOW_VOLTAGE   2.74f
+
+// Computed at init from the two points (y = m x + b, where y=pH and x=voltage)
+float phSlope = 0.0f;     // m
+float phIntercept = 0.0f; // b
 #define DRY_VALUE 250
 #define WET_VALUE 1000
 // Turbidity calibration (adjust per ESP32 + sensor calibration)
 // Higher voltage = clearer water, lower voltage = more turbid
 #define TURBIDITY_CLEAR_VOLTAGE 3.0   // voltage in clear water (approx; calibrate)
 #define TURBIDITY_MAX_VOLTAGE 0.5     // voltage at high turbidity (approx; calibrate)
+// Classification thresholds (3.0V-powered sensor):
+// ≤0.30 V = dirty/algae, 0.30–1.00 V = cloudy, >1.00 V = clear
+#define TURBIDITY_DIRTY_THRESHOLD_V 0.30f
+#define TURBIDITY_CLEAR_THRESHOLD_V 1.00f
 
 // Sensor buffers/values
 int tdsBuffer[SCOUNT];
@@ -239,12 +256,15 @@ float waterTempC = 25.0;
 float averageVoltageTDS = 0.0;
 float averageVoltagePH = 0.0;
 float tdsValue = 0.0;
+float ecValue = 0.0;
 float phValue = 0.0;
 int waterPercent = 0;
 int waterRaw = 0;
 int rawTurb = 0;
 float voltageTurb = 0.0;
 float turbidityNTU = 0.0;
+// Forward declaration
+String getTurbidityStatus(float voltage);
 
 // =============================================
 // WEBSOCKET (Device -> Backend Channels)
@@ -261,6 +281,110 @@ String WS_HOST = "";      // e.g., smartanom.onrender.com
 uint16_t WS_PORT = 443;    // 443 for wss, 80 for ws
 String WS_PATH = "";      // e.g., /ws/device/<serial>/
 bool WS_SECURE = true;     // wss when true
+// =============================================
+// STARTUP STABILIZATION GATE (first payload)
+// =============================================
+// Gate the very first sensor payload on stability instead of fixed sleep.
+// After first payload, normal cadence resumes.
+
+// Overall boot timers
+static unsigned long bootStartMs = 0;
+static bool firstPayloadSent = false;
+
+// Per-sensor EMA and stability counters
+static float emaPH = NAN;        static int phStableN = 0;
+static float emaTDS = NAN;       static int tdsStableN = 0;
+static int   emaTurbRaw = -1;    static int turbStableN = 0;
+static float emaTempC = NAN;     static int tempStableN = 0;
+static int   emaWaterRaw = -1;   static int waterStableN = 0;
+
+// Thresholds & windows (power-on only)
+const unsigned long WARMUP_MIN_PH_MS    = 15000;  // 15s
+const unsigned long WARMUP_MIN_TDS_MS   = 10000;  // 10s
+const unsigned long WARMUP_MIN_TURB_MS  = 3000;   // 3s
+const unsigned long WARMUP_MIN_TEMP_MS  = 5000;   // 5s
+const unsigned long WARMUP_MIN_WATER_MS = 2000;   // 2s
+
+const unsigned long STARTUP_SEND_MAX_WAIT_MS = 180000; // 180s (3 minutes) max before we send anyway
+
+// Stability thresholds
+const int   REQ_STABLE_CONSEC = 5;       // consecutive samples required
+const float THRESH_PH_ABS      = 0.02f;  // pH units
+const float THRESH_TDS_REL     = 0.03f;  // 3% relative
+const int   THRESH_TURB_RAW    = 40;     // raw ADC counts
+const float THRESH_TEMP_ABS    = 0.20f;  // deg C
+const int   THRESH_WATER_RAW   = 50;     // raw ADC counts
+
+// Quality flag for first send (nullptr or "stable"/"warmup")
+static const char* firstSendQuality = nullptr;
+
+// Avoid Arduino preprocessor issues with templates in .ino files; provide int-specific abs
+static inline int iabs_int(int v) { return v < 0 ? -v : v; }
+
+static bool updateStabilityFloat(float current, float &ema, float absThreshold, int &consec) {
+    // Initialize EMA on first sample
+    if (isnan(ema)) {
+        ema = current;
+        consec = 0;
+        return false;
+    }
+    // EMA smoothing (alpha)
+    const float alpha = 0.3f;
+    ema = alpha * current + (1.0f - alpha) * ema;
+    float delta = fabs(current - ema);
+    if (delta <= absThreshold) {
+        consec++;
+    } else {
+        consec = 0;
+    }
+    return consec >= REQ_STABLE_CONSEC;
+}
+
+static bool updateStabilityInt(int current, int &emaLike, int absThreshold, int &consec) {
+    if (emaLike < 0) { // uninitialized
+        emaLike = current;
+        consec = 0;
+        return false;
+    }
+    // Simple integer EMA
+    emaLike = (int)(0.3f * current + 0.7f * emaLike);
+        int delta = iabs_int(current - emaLike);
+    if (delta <= absThreshold) {
+        consec++;
+    } else {
+        consec = 0;
+    }
+    return consec >= REQ_STABLE_CONSEC;
+}
+
+static bool updateStabilityTDS(float current, float &ema, float relThreshold, int &consec) {
+    if (isnan(ema)) {
+        ema = current;
+        consec = 0;
+        return false;
+    }
+    const float alpha = 0.3f;
+    ema = alpha * current + (1.0f - alpha) * ema;
+    float base = (ema == 0.0f) ? 1.0f : fabs(ema);
+    float rel = fabs(current - ema) / base;
+    if (rel <= relThreshold) {
+        consec++;
+    } else {
+        consec = 0;
+    }
+    return consec >= REQ_STABLE_CONSEC;
+}
+
+static bool computeStartupStability(unsigned long nowMs, bool &phOk, bool &tdsOk, bool &turbOk, bool &tempOk, bool &waterOk) {
+    unsigned long sinceBoot = nowMs - bootStartMs;
+    // Only evaluate after each sensor's min warmup
+    phOk    = (sinceBoot >= WARMUP_MIN_PH_MS)    ? updateStabilityFloat(phValue, emaPH, THRESH_PH_ABS, phStableN)         : false;
+    tdsOk   = (sinceBoot >= WARMUP_MIN_TDS_MS)   ? updateStabilityTDS(tdsValue, emaTDS, THRESH_TDS_REL, tdsStableN)       : false;
+    turbOk  = (sinceBoot >= WARMUP_MIN_TURB_MS)  ? updateStabilityInt(rawTurb, emaTurbRaw, THRESH_TURB_RAW, turbStableN)  : false;
+    tempOk  = (sinceBoot >= WARMUP_MIN_TEMP_MS)  ? updateStabilityFloat(waterTempC, emaTempC, THRESH_TEMP_ABS, tempStableN): false;
+    waterOk = (sinceBoot >= WARMUP_MIN_WATER_MS) ? updateStabilityInt(waterRaw, emaWaterRaw, THRESH_WATER_RAW, waterStableN): false;
+    return phOk && tdsOk && turbOk && tempOk && waterOk;
+}
 
 // =============================================
 // HTML TEMPLATES
@@ -611,7 +735,35 @@ void loop() {
         if (now - lastSensorSend >= SENSOR_SEND_INTERVAL_MS) {
             lastSensorSend = now;
             readSensorsOnce();
-            sendSensorData();
+
+            if (!firstPayloadSent) {
+                bool phOk=false, tdsOk=false, turbOk=false, tempOk=false, waterOk=false;
+                bool allStable = computeStartupStability(now, phOk, tdsOk, turbOk, tempOk, waterOk);
+                unsigned long sinceBoot = now - bootStartMs;
+                bool timeoutReached = sinceBoot >= STARTUP_SEND_MAX_WAIT_MS;
+                bool minWarmupMet = sinceBoot >= 2000; // at least 2s overall before any send
+
+                if (allStable && minWarmupMet) {
+                    firstSendQuality = "stable";
+                    sendSensorData();
+                    firstPayloadSent = true;
+                    Serial.println(F("[STAB] ✅ First payload sent after stability gate"));
+                } else if (timeoutReached) {
+                    firstSendQuality = "warmup"; // sent due to timeout
+                    sendSensorData();
+                    firstPayloadSent = true;
+                    Serial.println(F("[STAB] ⏱️ First payload sent after max wait timeout"));
+                } else {
+                    // Still warming up – skip sending this cycle
+                    if ((sinceBoot % 5000) < SENSOR_SEND_INTERVAL_MS) {
+                        Serial.printf("[STAB] Waiting... t=%lus ph:%d tds:%d turb:%d temp:%d water:%d\n",
+                                      sinceBoot/1000, phOk, tdsOk, turbOk, tempOk, waterOk);
+                    }
+                }
+            } else {
+                // Normal sends
+                sendSensorData();
+            }
         }
         delay(5);
     }
@@ -1233,8 +1385,16 @@ void initSensors() {
     analogReadResolution(12);
     analogSetAttenuation(ADC_11db);
 
+    // Ensure pH ADC pin uses full-scale range
+    analogSetPinAttenuation(PH_PIN, ADC_11db);
+
     // Initialize water level sensor ADC settings
     analogSetPinAttenuation(WATER_SENSOR_PIN, ADC_11db);
+    // Ensure full-scale range for TDS and pH ADC pins
+    analogSetPinAttenuation(TDS_PIN, ADC_11db);
+    analogSetPinAttenuation(PH_PIN, ADC_11db);
+    // Ensure full-scale range for Turbidity ADC pin as well
+    analogSetPinAttenuation(TURBIDITY_PIN, ADC_11db);
 
     // Load water level calibration from EEPROM
     eepromLoadWaterCalibration();
@@ -1251,18 +1411,27 @@ void initSensors() {
     }
     bufferIndex = 0;
 
+    // Compute pH calibration line from two points
+    // slope m = (y2 - y1)/(x2 - x1) ; intercept b = y - m x
+    phSlope = (PH_HIGH_PH - PH_LOW_PH) / (PH_HIGH_VOLTAGE - PH_LOW_VOLTAGE);
+    phIntercept = PH_HIGH_PH - (phSlope * PH_HIGH_VOLTAGE);
+
     Serial.println("✓ Sensors initialized (DS18B20, TDS, pH, Turbidity, HW-03 Water Level)");
     Serial.printf("  Water Level Calibration: 0%%=%d ADC, 100%%=%d ADC\n", calibDry, calibWet);
     Serial.printf("  Water Level Threshold: WARNING < %d ADC (hysteresis=%d)\n", ADC_WARNING_THRESH, HYST_ADC);
+    Serial.println("  pH Calibration (2-point):");
+    Serial.printf("    High: pH %.2f @ %.2f V\n", (double)PH_HIGH_PH, (double)PH_HIGH_VOLTAGE);
+    Serial.printf("    Low : pH %.2f @ %.2f V\n", (double)PH_LOW_PH,  (double)PH_LOW_VOLTAGE);
+    Serial.printf("    Slope m=%.4f, Intercept b=%.4f\n", (double)phSlope, (double)phIntercept);
 }
 
-String getTurbidityStatus(int raw) {
-    if (raw > 2100) {
-        return "Clear";
-    } else if (raw > 1800) {
+String getTurbidityStatus(float voltage) {
+    if (voltage <= TURBIDITY_DIRTY_THRESHOLD_V) {
+        return "Dirty/Algae";
+    } else if (voltage <= TURBIDITY_CLEAR_THRESHOLD_V) {
         return "Cloudy";
     } else {
-        return "Turbid";
+        return "Clear";
     }
 }
 
@@ -1339,16 +1508,20 @@ void readSensorsOnce() {
     averageVoltageTDS = (float)avgRawTDS * (VREF / ADC_RES);
     averageVoltagePH  = (float)avgRawPH  * (VREF / ADC_RES);
 
-    // TDS Calculation
+    // EC/TDS Calculation (DFRobot polynomial with temperature compensation)
     float compCoeff = 1.0 + 0.02 * (waterTempC - 25.0);
     float compVoltage = averageVoltageTDS / compCoeff;
-    tdsValue = (133.42 * pow(compVoltage, 3)
-               - 255.86 * pow(compVoltage, 2)
-               + 857.39 * compVoltage) * TDS_FACTOR;
-    if (tdsValue < 0) tdsValue = 0;
+    // EC in mS/cm
+    ecValue = (133.42 * pow(compVoltage, 3)
+              - 255.86 * pow(compVoltage, 2)
+              + 857.39 * compVoltage) / 1000.0;
+    if (ecValue < 0) ecValue = 0;
+    // TDS in ppm with standard factor 500
+    tdsValue = ecValue * 500.0;
 
-    // pH Calculation (linear approximation; calibrate as needed)
-    phValue = 3.5 * averageVoltagePH + PH_CALIBRATION_OFFSET;
+    // pH Calculation using final two-point calibration
+    // y = m x + b, where y=pH and x=voltage
+    phValue = phSlope * averageVoltagePH + phIntercept;
 
     // Turbidity
     rawTurb = analogRead(TURBIDITY_PIN);
@@ -1654,6 +1827,9 @@ void sendSensorData() {
     doc["type"] = "sensor_data"; // explicit type for backend
     doc["device_serial"] = DEVICE_SERIAL;
     JsonArray arr = doc.createNestedArray("data");
+    if (!firstPayloadSent && firstSendQuality != nullptr) {
+        doc["quality"] = firstSendQuality; // "stable" or "warmup"
+    }
 
     JsonObject o1 = arr.createNestedObject();
     o1["type"] = "ph";
@@ -1665,13 +1841,17 @@ void sendSensorData() {
 
     JsonObject o3 = arr.createNestedObject();
     o3["type"] = "ec";
-    o3["value"] = tdsValue / 640.0; // rough estimate mS/cm
+    o3["value"] = ecValue; // mS/cm (from polynomial)
 
     // NOTE: Backend/Frontend thresholds expect the RAW analog value (~1800-2100 clear).
     // Send raw ADC reading here to match dashboard/alerts expectations.
     JsonObject o4 = arr.createNestedObject();
     o4["type"] = "turbidity";
     o4["value"] = rawTurb; // raw ADC units (0-4095)
+    // Include human-friendly status derived from voltage thresholds
+    JsonObject o4s = arr.createNestedObject();
+    o4s["type"] = "turbidity_status";
+    o4s["value"] = getTurbidityStatus(voltageTurb);
 
     JsonObject o5 = arr.createNestedObject();
     o5["type"] = "water_temperature"; // preferred key
@@ -1693,15 +1873,17 @@ void sendSensorData() {
     String out;
     serializeJson(doc, out);
     wsClient.sendTXT(out);
+    // Clear quality tag after first send
+    firstSendQuality = nullptr;
 
     // Log to serial for quick debugging
     Serial.println("========== SENSOR READINGS ==========");
     Serial.printf("Water Level   : %d%% (raw=%d, state=%s)\n", waterPercent, waterRaw, waterLevelStateToText(currentWaterLevelState));
     Serial.printf("Water Temp    : %.2f °C\n", waterTempC);
     Serial.printf("TDS           : %.0f ppm\n", tdsValue);
-    Serial.printf("EC (est)      : %.2f mS/cm\n", (tdsValue / 640.0));
+    Serial.printf("EC            : %.2f mS/cm\n", ecValue);
     Serial.printf("pH            : %.2f\n", phValue);
-    Serial.printf("Turbidity     : raw=%d (V=%.2f) | est=%.2f NTU | %s\n", rawTurb, voltageTurb, turbidityNTU, getTurbidityStatus(rawTurb).c_str());
+    Serial.printf("Turbidity     : raw=%d (V=%.2f) | est=%.2f NTU | %s\n", rawTurb, voltageTurb, turbidityNTU, getTurbidityStatus(voltageTurb).c_str());
     Serial.println("======================================\n");
 }
 
@@ -1709,6 +1891,14 @@ void startNormalOperation() {
     Serial.println("\n=== Starting Normal Operation ===");
     initSensors();
     initWebSocket();
+    // Reset stabilization state
+    bootStartMs = millis();
+    firstPayloadSent = false;
+    emaPH = NAN; phStableN = 0;
+    emaTDS = NAN; tdsStableN = 0;
+    emaTurbRaw = -1; turbStableN = 0;
+    emaTempC = NAN; tempStableN = 0;
+    emaWaterRaw = -1; waterStableN = 0;
 }
 
 // =============================================
