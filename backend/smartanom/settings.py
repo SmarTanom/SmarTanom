@@ -462,6 +462,9 @@ USE_X_FORWARDED_HOST = True
 REDIS_URL = os.getenv('REDIS_URL', '').strip()
 
 use_redis_layer = False
+# Toggle global broadcast usage to save Redis commands on free tiers
+# Default: enabled in DEBUG, disabled in production unless explicitly set true
+WS_GLOBAL_BROADCAST = os.getenv('WS_GLOBAL_BROADCAST', 'true' if DEBUG else 'false').lower() == 'true'
 if REDIS_URL:
 	# Validate and normalize REDIS_URL (auto-upgrade to TLS for providers like Upstash)
 	from urllib.parse import urlparse as _urlparse, urlunparse as _urlunparse
@@ -501,6 +504,9 @@ if REDIS_URL:
 				'capacity': 1500,
 				'expiry': 10,
 				'group_expiry': 60,
+				# Reduce idle BRPOP churn to save Upstash commands. Default is 5s in channels_redis,
+				# which can burn ~500k commands/month per worker. Use 60s+ on free tiers.
+				'brpop_timeout': int(os.getenv('CHANNELS_REDIS_BRPOP_TIMEOUT', '120')),
 			}
 			CHANNEL_LAYERS = {
 				'default': {

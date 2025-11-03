@@ -16,6 +16,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.utils import timezone
 from apps.devices.models import Device
+from django.conf import settings
 
 
 class DeviceConsumer(AsyncWebsocketConsumer):
@@ -33,14 +34,16 @@ class DeviceConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         """Accept WebSocket connection and add to broadcast group."""
-        # Join the "devices" group for broadcasting
-        await self.channel_layer.group_add("devices", self.channel_name)
+        # Join the "devices" group for broadcasting (optional)
+        if getattr(settings, "WS_GLOBAL_BROADCAST", False):
+            await self.channel_layer.group_add("devices", self.channel_name)
         await self.accept()
         print(f"[WebSocket] Client connected: {self.channel_name}")
 
     async def disconnect(self, close_code):
         """Remove from broadcast group on disconnect."""
-        await self.channel_layer.group_discard("devices", self.channel_name)
+        if getattr(settings, "WS_GLOBAL_BROADCAST", False):
+            await self.channel_layer.group_discard("devices", self.channel_name)
         print(f"[WebSocket] Client disconnected: {self.channel_name} (code: {close_code})")
 
     async def receive(self, text_data):
@@ -388,18 +391,19 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         }))
 
         # Broadcast to UI listeners
-        await self.channel_layer.group_send(
-            "devices",
-            {
-                "type": "device_update",
-                "action": "onboarded",
-                "data": {
-                    "device_serial": serial,
-                    "wifi_configured": True,
+        if getattr(settings, "WS_GLOBAL_BROADCAST", False):
+            await self.channel_layer.group_send(
+                "devices",
+                {
+                    "type": "device_update",
+                    "action": "onboarded",
+                    "data": {
+                        "device_serial": serial,
+                        "wifi_configured": True,
+                    },
+                    "timestamp": timezone.now().isoformat(),
                 },
-                "timestamp": timezone.now().isoformat(),
-            },
-        )
+            )
 
     async def _keepalive_loop(self):
         """Send periodic application-level pings to keep the WebSocket alive."""
@@ -546,13 +550,14 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                         "sensors": sensors_out,
                         "pre_save": True,
                     }
-                    async_to_sync(channel_layer.group_send)(
-                        "devices",
-                        {
-                            "type": "sensor_update",
-                            "payload": pre_payload,
-                        },
-                    )
+                    if getattr(settings, "WS_GLOBAL_BROADCAST", False):
+                        async_to_sync(channel_layer.group_send)(
+                            "devices",
+                            {
+                                "type": "sensor_update",
+                                "payload": pre_payload,
+                            },
+                        )
                     print(f"[DeviceWS] Pre-broadcast sensor.update for {device.device_serial}: keys={list(sensors_out.keys())}")
         except Exception as e:
             print(f"[DeviceWS] Warning: pre-broadcast failed for {device.device_serial}: {e}")

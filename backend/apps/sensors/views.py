@@ -10,6 +10,7 @@ from django.utils import timezone
 
 # WebSocket support
 from channels.layers import get_channel_layer
+from django.conf import settings
 from asgiref.sync import async_to_sync
 import logging
 
@@ -50,22 +51,23 @@ def broadcast_sensor_update(sensor_data):
             }
 
             # Optimized: Single broadcast format for Redis efficiency
-            async_to_sync(channel_layer.group_send)(
-                "devices",
-                {
-                    "type": "sensor_update",
-                    "payload": {
-                        "type": "sensor.update",
-                        "device_id": payload_data.get("device_id"),
-                        "device_serial": payload_data.get("device_serial"),
-                        "sensor_id": payload_data.get("sensor_id"),
-                        "sensor_type": payload_data.get("sensor_type"),
-                        "value": payload_data.get("value"),
-                        "unit": payload_data.get("unit"),
-                        "timestamp": payload_data.get("timestamp"),
-                    },
-                }
-            )
+            if getattr(settings, "WS_GLOBAL_BROADCAST", False):
+                async_to_sync(channel_layer.group_send)(
+                    "devices",
+                    {
+                        "type": "sensor_update",
+                        "payload": {
+                            "type": "sensor.update",
+                            "device_id": payload_data.get("device_id"),
+                            "device_serial": payload_data.get("device_serial"),
+                            "sensor_id": payload_data.get("sensor_id"),
+                            "sensor_type": payload_data.get("sensor_type"),
+                            "value": payload_data.get("value"),
+                            "unit": payload_data.get("unit"),
+                            "timestamp": payload_data.get("timestamp"),
+                        },
+                    }
+                )
 
             # 3) Target user-specific channels (owner and active collaborators)
             try:
