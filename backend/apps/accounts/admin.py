@@ -16,6 +16,7 @@ class UserAdmin(BaseUserAdmin):
     list_display = [
         'user_photo_thumbnail',
         'email',
+        'username',
         'full_name',
         'role',
         'is_verified',
@@ -32,12 +33,12 @@ class UserAdmin(BaseUserAdmin):
         'is_superuser',
         'date_joined',
     ]
-    search_fields = ['email', 'first_name', 'last_name']
+    search_fields = ['email', 'username', 'first_name', 'last_name']
     ordering = ['-date_joined']
 
     fieldsets = (
         (None, {
-            'fields': ('email', 'role')
+            'fields': ('email', 'username', 'role')
         }),
         ('Personal info', {
             'fields': (
@@ -65,7 +66,7 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'first_name', 'last_name', 'role'),
+            'fields': ('email', 'username', 'first_name', 'last_name', 'role'),
         }),
     )
 
