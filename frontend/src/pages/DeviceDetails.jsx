@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import '../assets/styles/DeviceDetails.css';
+import { resolveMediaUrl, withImgFallback } from '../utils/media';
 import {
   ChevronLeft,
   MoreVertical,
@@ -525,7 +526,7 @@ export default function DeviceDetails() {
 
   // Use plant photo if available, otherwise fall back to mock image or default
   const headerImage = (device && device.plant_photo_url)
-    ? device.plant_photo_url
+    ? resolveMediaUrl(device.plant_photo_url)
     : (resolvedDevice.image || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop');
   return (
     <div className="device-details-root">
@@ -616,7 +617,7 @@ export default function DeviceDetails() {
                 <img
                   src={
                     (device && device.plant_photo_url)
-                      ? device.plant_photo_url
+                      ? resolveMediaUrl(device.plant_photo_url)
                       : ((resolvedDevice.plant && resolvedDevice.plant.image) || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop')
                   }
                   alt={
@@ -624,6 +625,7 @@ export default function DeviceDetails() {
                       ? device.plant_name
                       : ((resolvedDevice.plant && resolvedDevice.plant.name) || 'Plant')
                   }
+                  onError={(e) => withImgFallback(e, (resolvedDevice.plant && resolvedDevice.plant.image) || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop')}
                 />
               </div>
               <div className="plant-card-content">

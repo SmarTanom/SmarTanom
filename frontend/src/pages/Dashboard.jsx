@@ -33,6 +33,8 @@ import { wsClient } from '../services/websocketClient';
 import { useRealtimeStore } from '../store/realtimeStore';
 import { listAlerts } from '../services/api/alerts.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import defaultHydroponic from '../assets/images/defaulthydroponic.jpg';
+import { resolveMediaUrl, withImgFallback } from '../utils/media';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -1786,9 +1788,10 @@ export default function Dashboard() {
                     {/* Full Background Image */}
                     <div className="device-carousel-card-image">
                       <img
-                        src={device.plant_photo_url || '/src/assets/images/defaulthydroponic.jpg'}
+                        src={resolveMediaUrl(device.plant_photo_url) || defaultHydroponic}
                         alt={device.plant_name ? `${device.plant_name} in ${device.device_name}` : device.device_name}
                         loading="lazy"
+                        onError={(e) => withImgFallback(e, defaultHydroponic)}
                       />
                       {deviceLoading[device.id] && (
                         <div className="device-carousel-loading">
