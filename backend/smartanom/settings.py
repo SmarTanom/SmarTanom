@@ -212,12 +212,36 @@ if DEBUG:
 	CORS_ALLOW_CREDENTIALS = True
 else:
 	# Production: restrict CORS to specific origins
-	CORS_ALLOWED_ORIGINS = [
-		origin.strip()
-		for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
-		if origin.strip()
-	]
-	# Ensure canonical origin is present
+	def _normalize_origin(origin: str) -> str | None:
+		"""Ensure origin has scheme. Returns https://<host> if scheme missing.
+
+		django-cors-headers requires fully-qualified origins, e.g., https://example.com
+		"""
+		if not origin:
+			return None
+		o = origin.strip()
+		if not o:
+			return None
+		if o.startswith("http://") or o.startswith("https://"):
+			return o
+		# Default to https for bare hostnames
+		return f"https://{o}"
+
+	raw_origins = [o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
+	CORS_ALLOWED_ORIGINS: list[str] = []
+	for o in raw_origins:
+		no = _normalize_origin(o)
+		if no and no not in CORS_ALLOWED_ORIGINS:
+			CORS_ALLOWED_ORIGINS.append(no)
+
+	# Include common env-provided frontend URLs if set
+	for extra_env in ("FRONTEND_URL", "NETLIFY_URL"):
+		val = os.getenv(extra_env, "").strip()
+		no = _normalize_origin(val)
+		if no and no not in CORS_ALLOWED_ORIGINS:
+			CORS_ALLOWED_ORIGINS.append(no)
+
+	# Ensure canonical backend origin is present (rarely needed for CORS but harmless)
 	if "https://smartanom.onrender.com" not in CORS_ALLOWED_ORIGINS:
 		CORS_ALLOWED_ORIGINS.append("https://smartanom.onrender.com")
 	CORS_ALLOW_CREDENTIALS = True
@@ -305,8 +329,19 @@ if not DEBUG:
 
 	# CSRF trusted origins for production
 	_csrf_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+	def _norm_csrf(o: str) -> str | None:
+		o = (o or "").strip()
+		if not o:
+			return None
+		if o.startswith("http://") or o.startswith("https://"):
+			return o
+		return f"https://{o}"
 	if _csrf_origins:
-		CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(",") if o.strip()]
+		CSRF_TRUSTED_ORIGINS = []
+		for o in _csrf_origins.split(","):
+			no = _norm_csrf(o)
+			if no and no not in CSRF_TRUSTED_ORIGINS:
+				CSRF_TRUSTED_ORIGINS.append(no)
 	else:
 		CSRF_TRUSTED_ORIGINS = []
 	# Ensure canonical origin is present
@@ -614,7 +649,24 @@ else:
 	CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'false').lower() == 'true'
 	CORS_ALLOW_CREDENTIALS = True
 	_csrf = os.getenv('CSRF_TRUSTED_ORIGINS', '')
-	CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf.split(',') if o.strip()]
+	def _norm_csrf2(o: str) -> str | None:
+		o = (o or '').strip()
+		if not o:
+			return None
+		if o.startswith('http://') or o.startswith('https://'):
+			return o
+		return f'https://{o}'
+	CSRF_TRUSTED_ORIGINS = []
+	for o in [p for p in _csrf.split(',') if p.strip()]:
+		no = _norm_csrf2(o)
+		if no and no not in CSRF_TRUSTED_ORIGINS:
+			CSRF_TRUSTED_ORIGINS.append(no)
+	# Include common frontend envs
+	for extra_env in ('FRONTEND_URL', 'NETLIFY_URL'):
+		val = os.getenv(extra_env, '').strip()
+		no = _norm_csrf2(val)
+		if no and no not in CSRF_TRUSTED_ORIGINS:
+			CSRF_TRUSTED_ORIGINS.append(no)
 	# Always include Render external URL if available
 	render_external = os.getenv('RENDER_EXTERNAL_URL')
 	if render_external:

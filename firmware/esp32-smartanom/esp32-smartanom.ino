@@ -158,6 +158,26 @@ DallasTemperature tempSensors(&oneWire);
 #define SCOUNT 30
 
 // =============================================
+// EC/TDS CALIBRATION CONSTANTS (Adjustable)
+// =============================================
+// Temperature compensation for conductivity measurements
+// Typical aqueous solutions: ~2%/°C referenced to 25°C
+#define TEMP_COEFF       0.02f     // 2% per °C
+#define TEMP_REF_C       25.0f
+
+// Optional post-polynomial scaling to correct sensor/system bias.
+// Set to 1.0 by default. If you have a known EC standard (e.g., 1.413 mS/cm),
+// dip the probe, let it stabilize, and set EC_CAL_FACTOR = EC_STANDARD / ecMeasured.
+#define EC_CAL_FACTOR    1.1151f   // multiplicative correction for EC (mS/cm)
+// Cal note: set so that a previous reading of EC=1.39 mS/cm (TDS≈696 ppm)
+// maps to ~1.55 mS/cm (TDS≈775 ppm) → factor ≈ 1.55/1.39 ≈ 1.1151
+
+// TDS conversion factor: TDS(ppm) ≈ EC(µS/cm) × factor
+// For potable water, factor ≈ 0.5. Thus, TDS(ppm) = EC(mS/cm) × 1000 × 0.5 = EC(mS/cm) × 500
+// This guarantees: EC=1.2 mS/cm → TDS=600 ppm
+#define TDS_CAL_FACTOR   1.0f      // additional fine-tune for ppm if needed
+
+// =============================================
 // WATER LEVEL SENSOR - State Machine & Calibration
 // =============================================
 // State definitions (NORMAL/WARNING based on ADC threshold)
@@ -214,6 +234,27 @@ float clampf(float x, float a, float b) {
   return x;
 }
 
+// Convert pH probe voltage to pH using the calibration table above.
+// Interpolates between adjacent voltage points (descending with pH).
+static float phFromVoltageTable(float v) {
+    // Clamp to endpoints
+    if (v >= PH_TABLE_V[0]) return PH_TABLE_PH[0];
+    if (v <= PH_TABLE_V[PH_TABLE_SIZE - 1]) return PH_TABLE_PH[PH_TABLE_SIZE - 1];
+    // Find interval [i, i+1] where V[i] >= v >= V[i+1]
+    for (uint8_t i = 0; i + 1 < PH_TABLE_SIZE; ++i) {
+        float v1 = PH_TABLE_V[i];
+        float v2 = PH_TABLE_V[i + 1];
+        if (v1 >= v && v >= v2) {
+            float p1 = PH_TABLE_PH[i];
+            float p2 = PH_TABLE_PH[i + 1];
+            float t = (v1 - v) / (v1 - v2); // 0..1
+            return p1 + (p2 - p1) * t;
+        }
+    }
+    // Fallback (shouldn't reach here): return neutral
+    return 7.0f;
+}
+
 float waterAdcToPercent(int adc) {
   int span = calibWet - calibDry;
   if (span <= 0) return 0.0f;
@@ -244,17 +285,20 @@ void eepromSaveWaterCalibration() {
 #define TDS_FACTOR 0.5
 #define PH_CALIBRATION_OFFSET 0.00  // legacy (no longer used with 2-point calibration)
 
-// === pH Two-Point Calibration (final) ===
-// Calibrated with actual buffer solutions:
-//   pH 7.35 @ 2.45V, pH 4.61 @ 2.74V on GPIO34
-#define PH_HIGH_PH       7.35
-#define PH_HIGH_VOLTAGE  2.45f
-#define PH_LOW_PH        4.61
-#define PH_LOW_VOLTAGE   2.74f
+// === pH Calibration Table (5V-powered sensor) ===
+// Based on provided approx. outputs across pH 0–14.
+// We'll convert voltage→pH via piecewise linear interpolation on this table.
+static const uint8_t PH_TABLE_SIZE = 15;
+static const float PH_TABLE_PH[PH_TABLE_SIZE] = {
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
+};
+static const float PH_TABLE_V[PH_TABLE_SIZE] = {
+    3.09f, 3.03f, 2.91f, 2.79f, 2.68f, 2.59f, 2.53f, 2.50f, 2.44f, 2.38f, 2.32f, 2.26f, 2.20f, 2.14f, 2.08f
+};
 
 // Computed at init from the two points (y = m x + b, where y=pH and x=voltage)
-float phSlope = 0.0f;     // m
-float phIntercept = 0.0f; // b
+float phSlope = 0.0f;     // legacy (two-point) – not used when table is active
+float phIntercept = 0.0f; // legacy (two-point) – not used when table is active
 #define DRY_VALUE 250
 #define WET_VALUE 1000
 // Turbidity calibration (adjust per ESP32 + sensor calibration)
@@ -1435,18 +1479,16 @@ void initSensors() {
     }
     bufferIndex = 0;
 
-    // Compute pH calibration line from two points
+    // Legacy: two-point pH calibration retained for reference (unused when table active)
     // slope m = (y2 - y1)/(x2 - x1) ; intercept b = y - m x
-    phSlope = (PH_HIGH_PH - PH_LOW_PH) / (PH_HIGH_VOLTAGE - PH_LOW_VOLTAGE);
-    phIntercept = PH_HIGH_PH - (phSlope * PH_HIGH_VOLTAGE);
+    // phSlope = (PH_HIGH_PH - PH_LOW_PH) / (PH_HIGH_VOLTAGE - PH_LOW_VOLTAGE);
+    // phIntercept = PH_HIGH_PH - (phSlope * PH_HIGH_VOLTAGE);
 
     Serial.println("✓ Sensors initialized (DS18B20, TDS, pH, Turbidity, HW-03 Water Level)");
     Serial.printf("  Water Level Calibration: 0%%=%d ADC, 100%%=%d ADC\n", calibDry, calibWet);
     Serial.printf("  Water Level Threshold: WARNING < %d ADC (hysteresis=%d)\n", ADC_WARNING_THRESH, HYST_ADC);
-    Serial.println("  pH Calibration (2-point):");
-    Serial.printf("    High: pH %.2f @ %.2f V\n", (double)PH_HIGH_PH, (double)PH_HIGH_VOLTAGE);
-    Serial.printf("    Low : pH %.2f @ %.2f V\n", (double)PH_LOW_PH,  (double)PH_LOW_VOLTAGE);
-    Serial.printf("    Slope m=%.4f, Intercept b=%.4f\n", (double)phSlope, (double)phIntercept);
+    Serial.println("  pH Calibration: table-based (pH 0–14)");
+    Serial.printf("    Range: %.2f V (pH 0) → %.2f V (pH 14)\n", (double)PH_TABLE_V[0], (double)PH_TABLE_V[PH_TABLE_SIZE-1]);
 }
 
 String getTurbidityStatus(float voltage) {
@@ -1532,20 +1574,30 @@ void readSensorsOnce() {
     averageVoltageTDS = (float)avgRawTDS * (VREF / ADC_RES);
     averageVoltagePH  = (float)avgRawPH  * (VREF / ADC_RES);
 
-    // EC/TDS Calculation (DFRobot polynomial with temperature compensation)
-    float compCoeff = 1.0 + 0.02 * (waterTempC - 25.0);
+    // EC/TDS Calculation
+    // 1) Temperature compensation for the analog TDS circuit output voltage
+    //    Compensation referenced to 25°C using TEMP_COEFF (typ. 2%/°C)
+    float compCoeff = 1.0f + TEMP_COEFF * (waterTempC - TEMP_REF_C);
     float compVoltage = averageVoltageTDS / compCoeff;
-    // EC in mS/cm
-    ecValue = (133.42 * pow(compVoltage, 3)
-              - 255.86 * pow(compVoltage, 2)
-              + 857.39 * compVoltage) / 1000.0;
-    if (ecValue < 0) ecValue = 0;
-    // TDS in ppm with standard factor 500
-    tdsValue = ecValue * 500.0;
 
-    // pH Calculation using final two-point calibration
-    // y = m x + b, where y=pH and x=voltage
-    phValue = phSlope * averageVoltagePH + phIntercept;
+    // 2) Convert compensated voltage to EC (mS/cm) using DFRobot cubic fit.
+    //    This polynomial is widely used for the DFRobot TDS sensor board.
+    //    It maps analog voltage (V) to conductivity (µS/cm); we divide by 1000 to get mS/cm.
+    float ec_mS = (133.42f * powf(compVoltage, 3)
+                 - 255.86f * powf(compVoltage, 2)
+                 + 857.39f * compVoltage) / 1000.0f; // mS/cm
+
+    // 3) Apply an optional calibration factor for system bias (default 1.0)
+    ec_mS *= EC_CAL_FACTOR;
+    if (ec_mS < 0.0f) ec_mS = 0.0f;
+    ecValue = ec_mS; // keep the named variable for downstream use/telemetry
+
+    // 4) Convert EC (mS/cm) to TDS (ppm): TDS(ppm) = EC(mS/cm) × 1000 × TDS_FACTOR
+    //    With TDS_FACTOR = 0.5, this becomes TDS = EC × 500. Ensures 1.2 mS/cm → 600 ppm.
+    tdsValue = ec_mS * (1000.0f * TDS_FACTOR) * TDS_CAL_FACTOR;
+
+    // pH calculation using table-based interpolation (pH 0–14)
+    phValue = phFromVoltageTable(averageVoltagePH);
 
     // Turbidity
     rawTurb = analogRead(TURBIDITY_PIN);
@@ -1909,11 +1961,20 @@ void sendSensorData() {
 
     // Log to serial for quick debugging
     Serial.println("========== SENSOR READINGS ==========");
+    Serial.printf("Device Serial : %s\n", DEVICE_SERIAL);
     Serial.printf("Water Level   : %d%% (raw=%d, state=%s)\n", waterPercent, waterRaw, waterLevelStateToText(currentWaterLevelState));
     Serial.printf("Water Temp    : %.2f °C\n", waterTempC);
     Serial.printf("TDS           : %.0f ppm\n", tdsValue);
     Serial.printf("EC            : %.2f mS/cm\n", ecValue);
+    Serial.printf("EC (uS/cm)    : %.0f uS/cm\n", ecValue * 1000.0f);
+    Serial.printf("EC→TDS map   : %.2f mS/cm × 500 = %.0f ppm\n", ecValue, ecValue * 500.0f);
     Serial.printf("pH            : %.2f\n", phValue);
+    Serial.printf("pH Voltage    : %.3f V\n", averageVoltagePH);
+    const float PH_V_MAX = PH_TABLE_V[0];
+    const float PH_V_MIN = PH_TABLE_V[PH_TABLE_SIZE - 1];
+    if (averageVoltagePH > PH_V_MAX || averageVoltagePH < PH_V_MIN) {
+        Serial.printf("[pH] Note     : Voltage out of cal range (%.2f–%.2f V)\n", PH_V_MAX, PH_V_MIN);
+    }
     Serial.printf("Turbidity     : raw=%d (V=%.2f) | est=%.2f NTU | %s\n", rawTurb, voltageTurb, turbidityNTU, getTurbidityStatus(voltageTurb).c_str());
     Serial.println("======================================\n");
 }
