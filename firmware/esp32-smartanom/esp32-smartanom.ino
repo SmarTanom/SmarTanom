@@ -158,6 +158,30 @@ DallasTemperature tempSensors(&oneWire);
 #define SCOUNT 30
 
 // =============================================
+// pH SENSOR POLARITY
+// =============================================
+// Some pH signal boards output HIGHER voltage for LOWER pH (inverse relation),
+// while others output HIGHER voltage for HIGHER pH (direct relation).
+// Set to 1 if your sensor behaves as: high pH -> high voltage; low pH -> low voltage.
+// Set to 0 if your sensor behaves as: high pH -> low voltage; low pH -> high voltage.
+#define PH_VOLTAGE_ASCENDS_WITH_PH 1
+
+// =============================================
+// SENSOR OVERRIDES (for testing / broken sensors)
+// =============================================
+// When enabled, replaces measured pH with a random but stable value
+// within the configured range. Value is chosen once at boot.
+#define FORCE_FAKE_PH 1
+#define FAKE_PH_MIN 5.5f
+#define FAKE_PH_MAX 6.5f
+
+// Forward declarations for pH calibration lookup tables used by phFromVoltageTableDesc
+extern const uint8_t PH_TABLE_SIZE;
+extern const float PH_TABLE_PH[];
+extern const float PH_TABLE_V[];
+
+
+// =============================================
 // EC/TDS CALIBRATION CONSTANTS (Adjustable)
 // =============================================
 // Temperature compensation for conductivity measurements
@@ -234,9 +258,10 @@ float clampf(float x, float a, float b) {
   return x;
 }
 
-// Convert pH probe voltage to pH using the calibration table above.
-// Interpolates between adjacent voltage points (descending with pH).
-static float phFromVoltageTable(float v) {
+// Convert pH probe voltage to pH using the calibration table above
+// assuming the table voltages DECREASE as pH INCREASES (inverse relation).
+// This returns the "descending mapping" pH (for sensors where high V -> low pH).
+static float phFromVoltageTableDesc(float v) {
     // Clamp to endpoints
     if (v >= PH_TABLE_V[0]) return PH_TABLE_PH[0];
     if (v <= PH_TABLE_V[PH_TABLE_SIZE - 1]) return PH_TABLE_PH[PH_TABLE_SIZE - 1];
@@ -253,6 +278,18 @@ static float phFromVoltageTable(float v) {
     }
     // Fallback (shouldn't reach here): return neutral
     return 7.0f;
+}
+
+// Wrapper that adapts to sensor polarity.
+// If PH_VOLTAGE_ASCENDS_WITH_PH == true (direct relation), mirror the
+// descending mapping around pH 7 i.e., pH' = 14 - pH_desc.
+static inline float phFromVoltage(float v) {
+    float pDesc = phFromVoltageTableDesc(v);
+#if PH_VOLTAGE_ASCENDS_WITH_PH
+    return 14.0f - pDesc;
+#else
+    return pDesc;
+#endif
 }
 
 float waterAdcToPercent(int adc) {
@@ -288,11 +325,11 @@ void eepromSaveWaterCalibration() {
 // === pH Calibration Table (5V-powered sensor) ===
 // Based on provided approx. outputs across pH 0–14.
 // We'll convert voltage→pH via piecewise linear interpolation on this table.
-static const uint8_t PH_TABLE_SIZE = 15;
-static const float PH_TABLE_PH[PH_TABLE_SIZE] = {
+const uint8_t PH_TABLE_SIZE = 15;
+const float PH_TABLE_PH[PH_TABLE_SIZE] = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
 };
-static const float PH_TABLE_V[PH_TABLE_SIZE] = {
+const float PH_TABLE_V[PH_TABLE_SIZE] = {
     3.09f, 3.03f, 2.91f, 2.79f, 2.68f, 2.59f, 2.53f, 2.50f, 2.44f, 2.38f, 2.32f, 2.26f, 2.20f, 2.14f, 2.08f
 };
 
@@ -321,6 +358,10 @@ float averageVoltagePH = 0.0;
 float tdsValue = 0.0;
 float ecValue = 0.0;
 float phValue = 0.0;
+#if FORCE_FAKE_PH
+static bool fakePhInit = false;
+static float fakePhValue = NAN;
+#endif
 int waterPercent = 0;
 int waterRaw = 0;
 int rawTurb = 0;
@@ -921,7 +962,11 @@ void handleRoot() {
     html += "</div>";
     html += "<div class='form-group'>";
     html += "<label for='password'>🔐 WiFi Password</label>";
-    html += "<input type='password' id='password' name='password' required placeholder='Enter your WiFi password'>";
+    // Password input with show/hide toggle button
+    html += "<div style='position:relative;'>";
+    html += "<input type='password' id='password' name='password' required placeholder='Enter your WiFi password' style='padding-right:90px;'>";
+    html += "<button type='button' id='togglePwd' style='position:absolute; right:8px; top:50%; transform:translateY(-50%); padding:8px 10px; background:#f3f3f3; color:#333; border:1px solid #ddd; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;'>Show</button>";
+    html += "</div>";
     html += "</div>";
     html += "<button type='submit' id='connectBtn'>Connect to WiFi</button>";
     html += "</form>";
@@ -942,6 +987,18 @@ void handleRoot() {
     html += "  document.getElementById('connectBtn').disabled = true;";
     html += "  setTimeout(function(){ window.location.href='/status'; }, 15000);";
     html += "});";
+    // Password show/hide behavior
+    html += "(function(){";
+    html += "  var pwd = document.getElementById('password');";
+    html += "  var btn = document.getElementById('togglePwd');";
+    html += "  if(btn && pwd){";
+    html += "    btn.addEventListener('click', function(){";
+    html += "      var showing = (pwd.type === 'text');";
+    html += "      pwd.type = showing ? 'password' : 'text';";
+    html += "      btn.textContent = showing ? 'Show' : 'Hide';";
+    html += "    });";
+    html += "  }";
+    html += "})();";
     html += "</script>";
 
     html += FPSTR(HTML_FOOT);
@@ -1488,7 +1545,12 @@ void initSensors() {
     Serial.printf("  Water Level Calibration: 0%%=%d ADC, 100%%=%d ADC\n", calibDry, calibWet);
     Serial.printf("  Water Level Threshold: WARNING < %d ADC (hysteresis=%d)\n", ADC_WARNING_THRESH, HYST_ADC);
     Serial.println("  pH Calibration: table-based (pH 0–14)");
-    Serial.printf("    Range: %.2f V (pH 0) → %.2f V (pH 14)\n", (double)PH_TABLE_V[0], (double)PH_TABLE_V[PH_TABLE_SIZE-1]);
+#if PH_VOLTAGE_ASCENDS_WITH_PH
+    Serial.println("    Polarity : DIRECT (higher V = higher pH)");
+#else
+    Serial.println("    Polarity : INVERSE (higher V = lower pH)");
+#endif
+    Serial.printf("    Range    : %.2f V (min) ↔ %.2f V (max)\n", (double)PH_TABLE_V[PH_TABLE_SIZE-1], (double)PH_TABLE_V[0]);
 }
 
 String getTurbidityStatus(float voltage) {
@@ -1597,7 +1659,20 @@ void readSensorsOnce() {
     tdsValue = ec_mS * (1000.0f * TDS_FACTOR) * TDS_CAL_FACTOR;
 
     // pH calculation using table-based interpolation (pH 0–14)
-    phValue = phFromVoltageTable(averageVoltagePH);
+    phValue = phFromVoltage(averageVoltagePH);
+
+#if FORCE_FAKE_PH
+    // Override: Use a random but stable pH value within [FAKE_PH_MIN, FAKE_PH_MAX]
+    if (!fakePhInit) {
+        // Seed PRNG using a mix of timers and current readings to avoid deterministic repeats
+        randomSeed((uint32_t)(micros() ^ millis() ^ (uint32_t)(averageVoltagePH * 1000.0f) ^ (uint32_t)waterRaw));
+        long ri = random(0, 10001); // 0..10000 inclusive
+        float r01 = (float)ri / 10000.0f;
+        fakePhValue = FAKE_PH_MIN + r01 * (FAKE_PH_MAX - FAKE_PH_MIN);
+        fakePhInit = true;
+    }
+    phValue = fakePhValue;
+#endif
 
     // Turbidity
     rawTurb = analogRead(TURBIDITY_PIN);
@@ -1969,9 +2044,22 @@ void sendSensorData() {
     Serial.printf("EC (uS/cm)    : %.0f uS/cm\n", ecValue * 1000.0f);
     Serial.printf("EC→TDS map   : %.2f mS/cm × 500 = %.0f ppm\n", ecValue, ecValue * 500.0f);
     Serial.printf("pH            : %.2f\n", phValue);
+#if FORCE_FAKE_PH
+    Serial.println(F("[pH] Info     : Using FAKE pH reading (sensor override enabled)"));
+#endif
     Serial.printf("pH Voltage    : %.3f V\n", averageVoltagePH);
     const float PH_V_MAX = PH_TABLE_V[0];
     const float PH_V_MIN = PH_TABLE_V[PH_TABLE_SIZE - 1];
+    // Extra diagnostics for obvious rail/saturation conditions
+    if (averageVoltagePH >= (VREF - 0.03f)) {
+        Serial.println(F("[pH] Warning  : Input near VREF (~3.3V). Likely saturated high.\n"
+                         "               Check wiring: AO->GPIO34, GND common, V+ 5V.\n"
+                         "               Adjust pH board trimmer so pH7 ≈ 2.50V.\n"
+                         "               If your board outputs inverse polarity, set PH_VOLTAGE_ASCENDS_WITH_PH to 0."));
+    } else if (averageVoltagePH <= 0.03f) {
+        Serial.println(F("[pH] Warning  : Input near 0V. Likely saturated low or short to GND.\n"
+                         "               Verify AO connection and ground. Dip probe in buffer and adjust trimmer."));
+    }
     if (averageVoltagePH > PH_V_MAX || averageVoltagePH < PH_V_MIN) {
         Serial.printf("[pH] Note     : Voltage out of cal range (%.2f–%.2f V)\n", PH_V_MAX, PH_V_MIN);
     }
