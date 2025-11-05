@@ -32,6 +32,7 @@ import { authApi } from '../services/apiClient.js';
 import { wsClient } from '../services/websocketClient';
 import { useRealtimeStore } from '../store/realtimeStore';
 import { listAlerts } from '../services/api/alerts.js';
+import { useAuth } from '../contexts/AuthContext.jsx';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -370,6 +371,17 @@ function PHBar({ v, i, min, max, plant }) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  // Prefer user's first name; fall back to full_name first token, then username, then generic 'User'
+  const displayName = React.useMemo(() => {
+    const fn = user?.first_name || user?.firstName;
+    if (fn && typeof fn === 'string' && fn.trim()) return fn.trim();
+    const full = user?.full_name || user?.name;
+    if (full && typeof full === 'string' && full.trim()) return full.trim().split(/\s+/)[0];
+    const uname = user?.username;
+    if (uname && typeof uname === 'string' && uname.trim()) return uname.trim();
+    return 'User';
+  }, [user]);
   const carouselRef = useRef(null);
   // Cache plant catalog for mapping reservoirs -> plant ranges (shared with AlertsPage logic)
   const plantCatalogRef = useRef(null);
@@ -509,7 +521,6 @@ export default function Dashboard() {
 
   // Latest reading for the first device's first sensor (useful for small widgets)
   const [firstSensorReading, setFirstSensorReading] = useState(null);
-  const [displayName, setDisplayName] = useState('User');
   // Unread count comes from the realtime store (total across devices)
 
   // Track last fetched device to prevent duplicate fetches
