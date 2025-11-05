@@ -5,6 +5,12 @@ import { NetworkFirst, CacheFirst } from 'workbox-strategies';
 // Precache all assets from build
 precacheAndRoute(self.__WB_MANIFEST);
 
+// Take control of clients immediately on new SW activation
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 // Cache API responses with NetworkFirst strategy
 registerRoute(
   ({ url }) => url.pathname.startsWith('/api/'),

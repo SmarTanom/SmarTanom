@@ -9,6 +9,7 @@ import {
   Plus
 } from 'lucide-react';
 import logoMarkWhite from '../../assets/images/logo-mark-white.png';
+import '../../assets/styles/AdminLayout.css';
 
 // Unified Admin navigation: renders the left sidebar on desktop and a bottom
 // nav on mobile. Styles are defined in AdminLayout.css.
