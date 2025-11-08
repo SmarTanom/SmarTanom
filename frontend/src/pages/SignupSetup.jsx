@@ -491,13 +491,12 @@ export default function SignupSetup() {
   // Scroll anchor ref map
   const networkRefs = React.useRef({});
 
-  // Step 6 state
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  // Step 6 state (Username-centric; first/last removed per new requirement)
+  const [username, setUsername] = useState('');
   const [finalizing, setFinalizing] = useState(false);
   const [finalError, setFinalError] = useState('');
   const [accountCreated, setAccountCreated] = useState(false);
-  const usernameCheckTimeoutRef = React.useRef(null);
+  const usernameCheckTimeoutRef = React.useRef(null); // reserved for future availability debounce
   // (Snackbar removed per request)
 
   function isValidEmail(v) {
@@ -506,19 +505,25 @@ export default function SignupSetup() {
 
   // Username field removed per request; availability checks removed.
 
-  // When entering step 6, fetch current profile to prefill first/last names
+  // When entering step 6, fetch current profile to prefill username
   useEffect(() => {
     if (step !== 6) return;
     try {
       const token = localStorage.getItem('authToken');
       if (!token) return;
       authApi.getProfile(token).then(prof => {
-        const fn = prof?.first_name || prof?.user?.first_name || '';
-        const ln = prof?.last_name || prof?.user?.last_name || '';
-        setFirstName(fn);
-        setLastName(ln);
-      }).catch(() => { });
-    } catch { }
+        // Prefer explicit username field returned by API
+        let u = prof?.username || prof?.user?.username || '';
+        if (!u) {
+          // Fallback: derive from email local-part if available
+          const email = prof?.email || prof?.user?.email || '';
+          if (email.includes('@')) {
+            u = email.split('@')[0];
+          }
+        }
+        setUsername(u);
+      }).catch(() => { /* ignore */ });
+    } catch { /* ignore */ }
   }, [step]);
 
   async function sendCode() {
@@ -1117,8 +1122,14 @@ export default function SignupSetup() {
   }, [step]);
 
   async function finalizeAccount() {
-    if (!firstName.trim() || !lastName.trim()) {
-      setFinalError('First and last name are required');
+    if (!username.trim()) {
+      setFinalError('Username is required');
+      return;
+    }
+    // Basic username validation (can be extended later)
+    const uname = username.trim();
+    if (uname.length < 3) {
+      setFinalError('Username must be at least 3 characters');
       return;
     }
     setFinalError('');
@@ -1127,47 +1138,31 @@ export default function SignupSetup() {
       const token = localStorage.getItem('authToken');
       if (!token) throw new Error('Missing auth session (token). Please re-authenticate.');
 
-      // Update the profile with first and last name only (username removed per request)
-      await authApi.updateProfile(token, {
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-      });
+      await authApi.updateProfile(token, { username: uname });
 
       // If there's plant information to save (photo or default selection), save it to the device
       if ((uploadedPhotoFile || plantPhotoChoice === 'default') && boundDeviceSerial) {
         try {
           console.log('Updating device plant information for device:', boundDeviceSerial);
-
-          // Get the list of user devices to find the device ID
           const devicesResponse = await deviceApi.list(token);
-          console.log('Devices response:', devicesResponse);
-
-          // Handle paginated response (DRF returns {results: [...]} format)
           const devicesList = Array.isArray(devicesResponse) ? devicesResponse : devicesResponse.results || [];
-          const userDevice = devicesList.find(device =>
-            device.device_serial === boundDeviceSerial
-          );
-
+          const userDevice = devicesList.find(device => device.device_serial === boundDeviceSerial);
           if (userDevice) {
-            // Determine plant name from selection
             const plantName = selectedDefaultImage || nickname || userDevice.device_name || '';
-
             if (uploadedPhotoFile) {
-              // Upload the photo with plant information
               await deviceApi.uploadPlantPhoto(
                 userDevice.id,
                 uploadedPhotoFile,
                 plantName,
-                '', // plant variety
+                '',
                 token
               );
               console.log('Plant photo uploaded successfully');
             } else if (plantPhotoChoice === 'default' && selectedDefaultImage) {
-              // For default images, update the plant name without a file
               await deviceApi.updatePlantInfo(
                 userDevice.id,
                 plantName,
-                '', // plant variety
+                '',
                 token
               );
               console.log('Plant information updated with default selection:', selectedDefaultImage);
@@ -1177,19 +1172,16 @@ export default function SignupSetup() {
           }
         } catch (updateError) {
           console.error('Plant information update failed:', updateError);
-          // Don't fail the entire process if plant info update fails
         }
-      }      // Retrieve profile to determine role for redirect
+      }
       let role = 'user';
       try {
         const prof = await authApi.getProfile(token);
         role = prof?.role || (prof?.user?.role) || 'user';
       } catch (e) {
-        // non-fatal; default user
         console.warn('[finalizeAccount] profile fetch failed, defaulting to user role');
       }
       setAccountCreated(true);
-      // Small delay to show success state then navigate
       setTimeout(() => {
         const target = role === 'admin' ? '/admin' : '/dashboard';
         navigate(target, { replace: true });
@@ -1744,29 +1736,17 @@ export default function SignupSetup() {
                       <div className="setup-card">
                         <h3 className="setup-section-title">Your Profile</h3>
                         {!accountCreated && (<>
-                          <div className="setup-field-grid-two">
-                            <div className="setup-field">
-                              <label htmlFor="firstName" className="setup-field-label">First Name</label>
-                              <input
-                                id="firstName"
-                                type="text"
-                                placeholder="Your first name"
-                                value={firstName}
-                                onChange={e => setFirstName(e.target.value)}
-                                autoComplete="given-name"
-                              />
-                            </div>
-                            <div className="setup-field">
-                              <label htmlFor="lastName" className="setup-field-label">Last Name</label>
-                              <input
-                                id="lastName"
-                                type="text"
-                                placeholder="Your last name"
-                                value={lastName}
-                                onChange={e => setLastName(e.target.value)}
-                                autoComplete="family-name"
-                              />
-                            </div>
+                          <div className="setup-field">
+                            <label htmlFor="username" className="setup-field-label">Username</label>
+                            <input
+                              id="username"
+                              type="text"
+                              placeholder="Choose a username"
+                              value={username}
+                              onChange={e => setUsername(e.target.value.replace(/\s+/g, ''))}
+                              autoComplete="username"
+                              maxLength={32}
+                            />
                           </div>
                           {finalError && <p className="setup-error" role="alert">{finalError}</p>}
                         </>)}
@@ -1886,7 +1866,7 @@ export default function SignupSetup() {
                       <button
                         type="button"
                         className="setup-btn"
-                        disabled={!firstName.trim() || !lastName.trim() || finalizing}
+                        disabled={!username.trim() || finalizing || username.trim().length < 3}
                         onClick={finalizeAccount}
                       >
                         {finalizing ? 'Finishing…' : 'Finish Setup'}
