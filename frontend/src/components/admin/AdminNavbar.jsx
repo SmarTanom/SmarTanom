@@ -6,7 +6,8 @@ import {
   Users,
   Bell,
   Settings,
-  Plus
+  Plus,
+  Leaf
 } from 'lucide-react';
 import logoMarkWhite from '../../assets/images/logo-mark-white.png';
 import '../../assets/styles/AdminLayout.css';
@@ -50,15 +51,26 @@ const AdminNavbar = () => {
         <nav className="side-nav">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const isAlerts = item.path === '/admin/alerts';
             return (
-              <button
-                key={item.path}
-                className={`side-link ${isActive(item.path) ? 'active' : ''}`}
-                onClick={() => navigate(item.path)}
-              >
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </button>
+              <React.Fragment key={item.path}>
+                <button
+                  className={`side-link ${isActive(item.path) ? 'active' : ''}`}
+                  onClick={() => navigate(item.path)}
+                >
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </button>
+                {isAlerts && (
+                  <button
+                    className={`side-link ${isActive('/dashboard') ? 'active' : ''}`}
+                    onClick={() => navigate('/dashboard')}
+                  >
+                    <Leaf size={18} />
+                    <span>User Dashboard</span>
+                  </button>
+                )}
+              </React.Fragment>
             );
           })}
         </nav>

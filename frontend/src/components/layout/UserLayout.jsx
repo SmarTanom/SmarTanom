@@ -93,6 +93,17 @@ export default function UserLayout({ children }) {
             <User size={18} strokeWidth={2.5} />
             <span>Profile</span>
           </button>
+          {/* Admin shortcut (visible only if user has admin/staff role) */}
+          {(user?.role === 'admin' || user?.is_admin || user?.is_staff) && (
+            <button
+              className={`user-side-link ${isActive('/admin') ? 'active' : ''}`}
+              onClick={() => navigate('/admin')}
+              aria-current={isActive('/admin') ? 'page' : undefined}
+            >
+              <Leaf size={18} strokeWidth={2.5} />
+              <span>Admin Dashboard</span>
+            </button>
+          )}
         </nav>
 
         {/* User Section (Bottom) */}
@@ -153,6 +164,16 @@ export default function UserLayout({ children }) {
           <User size={20} />
           <span>Profile</span>
         </button>
+        {(user?.role === 'admin' || user?.is_admin || user?.is_staff) && (
+          <button
+            className={`user-nav-item ${isActive('/admin') ? 'active' : ''}`}
+            onClick={() => navigate('/admin')}
+            aria-current={isActive('/admin') ? 'page' : undefined}
+          >
+            <Leaf size={20} />
+            <span>Admin</span>
+          </button>
+        )}
       </nav>
     </div>
   );
