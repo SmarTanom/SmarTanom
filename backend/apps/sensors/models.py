@@ -72,6 +72,9 @@ class SensorData(TimeStampedModel):
         Sensor, on_delete=models.CASCADE, related_name="readings", db_index=True
     )
     value = models.FloatField()
+    # Idempotency key for ingestion deduplication. Provided by firmware/frontend or
+    # auto-generated when absent (hash of device_serial + sensor_type + truncated timestamp window).
+    ingest_id = models.CharField(max_length=64, blank=True, default="", db_index=True)
 
     class Meta(TimeStampedModel.Meta):  # Inherit ordering (newest first)
         verbose_name = "Sensor Data"
@@ -80,6 +83,10 @@ class SensorData(TimeStampedModel):
             models.Index(fields=["sensor", "created_at"], name="idx_sens_data_created"),
             models.Index(fields=["created_at"], name="idx_sens_data_created_at"),
             models.Index(fields=["sensor", "value"], name="idx_sens_data_value"),
+            models.Index(fields=["ingest_id"], name="idx_sens_data_ingest"),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=["sensor", "ingest_id"], name="uniq_sensor_ingest_id")
         ]
 
     def __str__(self) -> str:

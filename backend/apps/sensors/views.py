@@ -217,7 +217,15 @@ class SensorDataViewSet(BaseAuthViewSet):
             device_serial = device_serial.strip().upper()
 
         if user.is_staff:
-            # Staff may still filter by exact device_serial when provided
+            # Apply multi-sensor filter support for staff as well
+            sensor_in = request.query_params.get("sensor__in")
+            if sensor_in:
+                try:
+                    ids = [int(s) for s in sensor_in.split(",") if s.strip()]
+                    if ids:
+                        qs = qs.filter(sensor_id__in=ids)
+                except ValueError:
+                    pass
             if device_serial:
                 qs = qs.filter(sensor__device__device_serial=device_serial)
             return qs
@@ -231,6 +239,17 @@ class SensorDataViewSet(BaseAuthViewSet):
             Q(sensor__device__bound_email=user.email, sensor__device__is_bound=True)
             | Q(sensor__device_id__in=shared_device_ids)
         )
+
+        # Custom multi-sensor filter: sensor__in=<id,id,...>
+        sensor_in = request.query_params.get("sensor__in")
+        if sensor_in:
+            try:
+                ids = [int(s) for s in sensor_in.split(",") if s.strip()]
+                if ids:
+                    scoped = scoped.filter(sensor_id__in=ids)
+            except ValueError:
+                # Ignore malformed list silently
+                pass
 
         if device_serial:
             # Apply extra serial constraint AFTER ownership scoping

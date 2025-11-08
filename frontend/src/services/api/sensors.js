@@ -46,20 +46,26 @@ export async function getSensorData(sensorId, limit = 50) {
   });
 }
 
-/**
- * Get recent sensor data for multiple sensors
- */
+// Multi-sensor convenience: until backend sensor__in is fully supported,
+// perform parallel single-sensor requests and merge. Avoid silent backend ignore.
 export async function getRecentSensorData(sensorIds, limit = 10) {
-  const token = localStorage.getItem('authToken');
-  if (!token) {
-    throw new Error('No authentication token found');
-  }
-  const deviceSerial = localStorage.getItem('activeDeviceSerial') || '';
-  const serialParam = deviceSerial ? `&device_serial=${encodeURIComponent(deviceSerial)}` : '';
-  const sensorIdsParam = sensorIds.join(',');
-  return apiClient.get(`/api/sensors/sensor-data/?sensor__in=${sensorIdsParam}&limit=${limit}${serialParam}`, {
-    authToken: token
+  if (!Array.isArray(sensorIds) || sensorIds.length === 0) return {};
+  const results = await Promise.all(sensorIds.map(id => getSensorData(id, limit).catch(() => ({ results: [] }))));
+  const merged = {};
+  sensorIds.forEach((id, idx) => {
+    const payload = results[idx];
+    const items = Array.isArray(payload?.results) ? payload.results : (Array.isArray(payload) ? payload : []);
+    merged[id] = items;
   });
+  return merged;
+}
+
+// Latest readings polling fallback (ETag aware not implemented here for simplicity)
+export async function getLatestReadings(deviceId) {
+  const token = localStorage.getItem('authToken');
+  if (!token) throw new Error('No authentication token found');
+  const data = await apiClient.get(`/api/sensors/latest/?device=${deviceId}`, { authToken: token });
+  return data; // array of {sensor_id, value, status, updated_at}
 }
 
 // Export as default object
@@ -67,5 +73,6 @@ export default {
   getUserSensors,
   getDeviceSensors,
   getSensorData,
-  getRecentSensorData
+  getRecentSensorData,
+  getLatestReadings
 };

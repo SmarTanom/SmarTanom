@@ -99,6 +99,10 @@ export const useRealtimeStore = create(persist((set, get) => ({
   latestAlerts: {}, // { [deviceId]: { title, body, severity, at } }
   wsStatus: 'disconnected', // 'connecting' | 'connected' | 'disconnected'
   wsLastError: null,
+  _seenAlertIds: new Set(), // track unique alerts
+  _lastIngestByDevice: {}, // { [deviceId]: { sensorType: ingest_id } }
+  _lastValueTsByDevice: {}, // { [deviceId]: { sensorType: { v, t } } }
+  _latestPollTimer: null, // fallback polling timer id
   loadingInitial: false,
   errorInitial: null,
   _initialFetchedAt: null,
@@ -364,6 +368,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
     // Aggregated: { type:'sensor.update', device_id, sensors:{ ph, tds, water_temperature, ... }, timestamp }
     // Single:     { type:'sensor.update', device_id, sensor_type:'water_temperature', value: 24.3, unit:'°C', timestamp }
     let updates = {};
+    let ingestIds = payload && payload.ingest_ids && typeof payload.ingest_ids === 'object' ? payload.ingest_ids : null;
     if (payload && typeof payload.sensors === 'object' && payload.sensors) {
       updates = payload.sensors;
     } else if (payload && typeof payload.sensor_type === 'string' && payload.value !== undefined) {
@@ -401,13 +406,35 @@ export const useRealtimeStore = create(persist((set, get) => ({
 
       // Update sensor values
       const s = updates; // normalized map from above
-      if (s.ph !== undefined) nextSensors.ph = s.ph;
-      if (s.ec !== undefined) nextSensors.ec = s.ec;
-      if (s.tds !== undefined) nextSensors.tds = s.tds;
-      if (s.water_level !== undefined) nextSensors.waterLevel = s.water_level;
-      if (s.turbidity !== undefined) nextSensors.turbidity = s.turbidity;
-    if (s.turbidity_status !== undefined) nextSensors.turbidity_status = s.turbidity_status;
-      if (s.water_temperature !== undefined) nextSensors.water_temperature = s.water_temperature;
+      const lastIngest = { ...(state._lastIngestByDevice[device_id] || {}) };
+      const lastVT = { ...(state._lastValueTsByDevice[device_id] || {}) };
+
+      const tryAssign = (sensorType, value) => {
+        if (value === undefined) return;
+        const newIngest = ingestIds && ingestIds[sensorType];
+        if (newIngest) {
+          if (lastIngest[sensorType] === newIngest) return; // duplicate ingest
+          lastIngest[sensorType] = newIngest;
+          nextSensors[sensorType === 'water_level' ? 'waterLevel' : sensorType] = value;
+          return;
+        }
+        // Fallback dedupe: same value within 1s
+        const prev = lastVT[sensorType];
+        if (prev && prev.v === value) {
+          const dt = Math.abs(new Date(timestamp).getTime() - new Date(prev.t).getTime());
+          if (dt <= 1000) return; // ignore
+        }
+        lastVT[sensorType] = { v: value, t: timestamp };
+        nextSensors[sensorType === 'water_level' ? 'waterLevel' : sensorType] = value;
+      };
+
+      tryAssign('ph', s.ph);
+      tryAssign('ec', s.ec);
+      tryAssign('tds', s.tds);
+      tryAssign('water_level', s.water_level);
+      tryAssign('turbidity', s.turbidity);
+      if (s.turbidity_status !== undefined) nextSensors.turbidity_status = s.turbidity_status;
+      tryAssign('water_temperature', s.water_temperature);
       // removed environment metrics from realtime updates
 
       // Recalculate derived values
@@ -475,6 +502,8 @@ export const useRealtimeStore = create(persist((set, get) => ({
             lastUpdate: timestamp,
           }
         },
+        _lastIngestByDevice: { ...state._lastIngestByDevice, [device_id]: lastIngest },
+        _lastValueTsByDevice: { ...state._lastValueTsByDevice, [device_id]: lastVT },
         latestAlerts,
         unreadCounts,
         totalUnread
@@ -585,6 +614,41 @@ export const useRealtimeStore = create(persist((set, get) => ({
       } else if (status === 'disconnected') {
         if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] WebSocket disconnected');
         set({ wsLastError: 'Connection lost' });
+        // Start fallback polling for latest readings every 5s (if not already started)
+        const state = get();
+        if (!state._latestPollTimer) {
+          const doPoll = async () => {
+            try {
+              const { getLatestReadings, getDeviceSensors } = await import('../services/api/sensors');
+              const devices = get().devices || [];
+              for (const d of devices) {
+                // Map sensor_id -> type for this device
+                let typeById = {};
+                try {
+                  const sResp = await getDeviceSensors(d.id);
+                  const sList = Array.isArray(sResp?.results) ? sResp.results : (Array.isArray(sResp) ? sResp : []);
+                  for (const s of sList) typeById[s.id] = s.sensor_type;
+                } catch (_) { }
+
+                const rows = await getLatestReadings(d.id).catch(() => []);
+                const sensors = {};
+                let newestTs = null;
+                (rows || []).forEach(r => {
+                  const typ = typeById[r.sensor_id];
+                  if (!typ) return;
+                  sensors[typ] = r.value;
+                  const t = r.updated_at ? new Date(r.updated_at) : null;
+                  if (t && (!newestTs || t > newestTs)) newestTs = t;
+                });
+                if (Object.keys(sensors).length) {
+                  get().updateDeviceData(d.id, { sensors, lastUpdate: (newestTs || new Date()).toISOString() });
+                }
+              }
+            } catch (_) { /* ignore polling errors */ }
+          };
+          const id = setInterval(doPoll, 5000);
+          set({ _latestPollTimer: id });
+        }
       }
     });
 
@@ -593,6 +657,11 @@ export const useRealtimeStore = create(persist((set, get) => ({
       if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Cleaning up WebSocket subscriptions');
       unsub();
       statusUnsub();
+      const t = get()._latestPollTimer;
+      if (t) {
+        clearInterval(t);
+        set({ _latestPollTimer: null });
+      }
     };
   },
 
@@ -604,9 +673,9 @@ export const useRealtimeStore = create(persist((set, get) => ({
       const deviceAlerts = { ...state.deviceAlerts };
       const currentAlerts = deviceAlerts[device_id] || [];
 
-      // Add new alert to the beginning (most recent first)
-      // Prevent duplicates by checking reading_id
-      const isDuplicate = alert.reading_id && currentAlerts.some(a => a.reading_id === alert.reading_id);
+      const seen = new Set(state._seenAlertIds || []);
+      const alertKey = String(alert.id || alert.reading_id || '') || `${device_id}-${timestamp}`;
+      const isDuplicate = seen.has(alertKey);
       if (!isDuplicate) {
         const newAlert = {
           ...alert,
@@ -630,13 +699,14 @@ export const useRealtimeStore = create(persist((set, get) => ({
 
         // Update unread count
         const unreadCounts = { ...state.unreadCounts };
-        unreadCounts[device_id] = (unreadCounts[device_id] || 0) + 1;
+  unreadCounts[device_id] = (unreadCounts[device_id] || 0) + 1;
 
         return {
           deviceAlerts,
           latestAlerts,
           unreadCounts,
           totalUnread: state.totalUnread + 1,
+          _seenAlertIds: new Set([...seen, alertKey]),
         };
       }
 

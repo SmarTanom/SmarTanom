@@ -17,6 +17,9 @@ from asgiref.sync import async_to_sync
 from django.utils import timezone
 from apps.devices.models import Device
 from django.conf import settings
+from django.core.cache import cache
+from django.contrib.auth import get_user_model
+from apps.devices.models import DeviceCollaboration
 
 
 class DeviceConsumer(AsyncWebsocketConsumer):
@@ -484,6 +487,18 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         from apps.sensors.models import Sensor, SensorData
         from apps.sensors.views import broadcast_sensor_update
 
+        # Rate limiting per device (max 20 messages per minute)
+        try:
+            minute_bucket = timezone.now().strftime('%Y%m%d%H%M')
+            rl_key = f"rl:dev:{device.device_serial}:{minute_bucket}"
+            cnt = cache.get(rl_key, 0)
+            if cnt >= 20:
+                print(f"[DeviceWS] Rate limit exceeded for {device.device_serial} — skipping this batch")
+                return
+            cache.set(rl_key, cnt + 1, timeout=75)
+        except Exception:
+            pass
+
         # Update device heartbeat info
         try:
             device.last_seen = timezone.now()
@@ -506,76 +521,9 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
             'turbidity': ('turbidity', 'NTU'),
         }
 
-        # 1) Pre-broadcast to dashboard BEFORE saving, so UI updates instantly
-        try:
-            # Build an immediate sensors map from incoming payload
-            outgoing_keys = {
-                'ph': 'ph',
-                'tds': 'tds',
-                'ec': 'ec',
-                'water_level': 'water_level',
-                'turbidity': 'turbidity',
-                'water_temp': 'water_temperature',
-                'water_temperature': 'water_temperature',
-                # Pass-through qualitative statuses from firmware
-                'turbidity_status': 'turbidity_status',
-                'water_level_state': 'water_level_state',
-            }
-            sensors_out = {}
-            for key, val in (sensor_data or {}).items():
-                if key not in outgoing_keys or val is None:
-                    continue
-                try:
-                    # Handle qualitative string statuses without numeric conversion
-                    if key in ('turbidity_status', 'water_level_state'):
-                        v = str(val)
-                    else:
-                        v = float(val)
-                except Exception:
-                    # Skip malformed entries
-                    continue
-                # Convert turbidity RAW -> NTU if needed
-                if key == 'turbidity':
-                    try:
-                        if v > 1000.0:
-                            VREF = 3.3
-                            ADC_RES = 4095.0
-                            TURBIDITY_CLEAR_VOLTAGE = 3.0   # 0 NTU
-                            TURBIDITY_MAX_VOLTAGE = 0.5     # 1000 NTU
-                            voltage = max(0.0, min(VREF, (v * VREF) / ADC_RES))
-                            span_in = TURBIDITY_CLEAR_VOLTAGE - TURBIDITY_MAX_VOLTAGE
-                            ntu = 0.0 if span_in == 0 else (TURBIDITY_CLEAR_VOLTAGE - voltage) * (1000.0 / span_in)
-                            v = max(0.0, min(1000.0, ntu))
-                        else:
-                            v = max(0.0, min(1000.0, v))
-                    except Exception:
-                        pass
-                sensors_out[outgoing_keys[key]] = v
+        # Removed pre-save aggregated broadcast to prevent double updates and ensure consistent ingestion
 
-            if sensors_out:
-                channel_layer = get_channel_layer()
-                if channel_layer:
-                    pre_payload = {
-                        "type": "sensor.update",
-                        "device_id": device.id,
-                        "device_serial": device.device_serial,
-                        "device_name": device.device_name,
-                        "timestamp": timezone.now().isoformat(),
-                        "sensors": sensors_out,
-                        "pre_save": True,
-                    }
-                    if getattr(settings, "WS_GLOBAL_BROADCAST", False):
-                        async_to_sync(channel_layer.group_send)(
-                            "devices",
-                            {
-                                "type": "sensor_update",
-                                "payload": pre_payload,
-                            },
-                        )
-                    print(f"[DeviceWS] Pre-broadcast sensor.update for {device.device_serial}: keys={list(sensors_out.keys())}")
-        except Exception as e:
-            print(f"[DeviceWS] Warning: pre-broadcast failed for {device.device_serial}: {e}")
-
+        saved_updates = {}
         for key, (sensor_type, unit) in sensor_types.items():
             value = sensor_data.get(key)
             if value is not None:
@@ -608,16 +556,92 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                         except Exception:
                             pass
 
-                    # Create sensor data reading
-                    reading = SensorData.objects.create(
+                    # Idempotent create using ingest_id when provided
+                    ingest_id = str(sensor_data.get('ingest_id') or '')
+                    if not ingest_id:
+                        # Fallback: derive a simple windowed id from server time to reduce duplicates
+                        # Note: real dedupe relies on firmware-provided ingest_id
+                        ingest_id = f"srv-{int(timezone.now().timestamp())}-{sensor_type}"
+
+                    reading, created_rd = SensorData.objects.get_or_create(
                         sensor=sensor,
-                        value=save_value
+                        ingest_id=ingest_id,
+                        defaults={"value": save_value}
                     )
 
-                    # Broadcast to WebSocket clients
-                    broadcast_sensor_update(reading)
+                    # Update SensorLatest only if newer
+                    try:
+                        from apps.sensors.models import SensorLatest
+                        latest, _ = SensorLatest.objects.get_or_create(sensor=sensor)
+                        # Compare timestamps; created_at may be auto-set if newly created
+                        ts_new = getattr(reading, 'created_at', timezone.now())
+                        ts_old = getattr(latest, 'updated_at', None)
+                        if not ts_old or ts_new >= ts_old:
+                            latest.value = reading.value
+                            latest.status = ""
+                            latest.save(update_fields=["value", "status", "updated_at"]) if hasattr(latest, "updated_at") else latest.save(update_fields=["value", "status"])
+                    except Exception as e:
+                        print(f"[DeviceWS] Warning: failed to update SensorLatest for {device.device_serial}: {e}")
+
+                    # Accumulate for batched broadcast
+                    saved_updates[sensor_type] = reading.value
 
                     print(f"[DeviceWS] Stored {sensor_type}={value}{unit} for device {device.device_serial}")
 
                 except Exception as e:
                     print(f"[DeviceWS] Error storing {sensor_type} data: {str(e)}")
+
+        # Single batched broadcast after processing all sensors (to global, owner, and collaborators)
+        try:
+            if saved_updates:
+                channel_layer = get_channel_layer()
+                if channel_layer:
+                    payload = {
+                        "type": "sensor.update",
+                        "device_id": device.id,
+                        "device_serial": device.device_serial,
+                        "device_name": device.device_name,
+                        "timestamp": timezone.now().isoformat(),
+                        "sensors": saved_updates,
+                    }
+                    if getattr(settings, "WS_GLOBAL_BROADCAST", False):
+                        async_to_sync(channel_layer.group_send)(
+                            "devices",
+                            {
+                                "type": "sensor_update",
+                                "payload": payload,
+                            },
+                        )
+                    # Owner + collaborators targeted broadcast
+                    try:
+                        User = get_user_model()
+                        owner_group = None
+                        if getattr(device, "bound_email", None):
+                            user = User.objects.filter(email__iexact=device.bound_email).first()
+                            if user:
+                                owner_group = f"user_{user.id}"
+                                async_to_sync(channel_layer.group_send)(
+                                    owner_group,
+                                    {"type": "sensor_update", "payload": payload},
+                                )
+                        # Collaborators
+                        collaborator_emails = list(
+                            DeviceCollaboration.objects.filter(
+                                device=device,
+                                status=DeviceCollaboration.Status.ACTIVE,
+                            ).values_list("collaborator_email", flat=True)
+                        )
+                        if collaborator_emails:
+                            users = User.objects.filter(email__in=collaborator_emails)
+                            for u in users:
+                                grp = f"user_{u.id}"
+                                if grp == owner_group:
+                                    continue
+                                async_to_sync(channel_layer.group_send)(
+                                    grp,
+                                    {"type": "sensor_update", "payload": payload},
+                                )
+                    except Exception as ex:
+                        print(f"[DeviceWS] Warning: failed targeted broadcast for {device.device_serial}: {ex}")
+        except Exception as e:
+            print(f"[DeviceWS] Warning: batched broadcast failed for {device.device_serial}: {e}")

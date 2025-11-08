@@ -48,6 +48,7 @@ class SensorDataSerializer(serializers.ModelSerializer):
             "sensor_id",
             "sensor_type",
             "value",
+            "ingest_id",
             "unit",
             "created_at",
         ]
