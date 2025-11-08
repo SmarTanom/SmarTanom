@@ -12,7 +12,8 @@ export default function UserLayout({ children }) {
   const totalUnread = useRealtimeStore(s => s.totalUnread);
   const { user, logout } = useAuth();
 
-  const displayName = user?.full_name || user?.firstName || user?.username || 'User';
+  // Show username in sidebar (fallback to email); stop using full_name/firstName
+  const displayName = user?.username || user?.email || 'User';
   const userEmail = user?.email || '';
 
   const isActive = (path) => {
