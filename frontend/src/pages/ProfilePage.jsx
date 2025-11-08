@@ -40,7 +40,8 @@ function formatMemberSince(dateString) {
 export default function ProfilePage() {
   const navigate = useNavigate();
   const totalUnread = useRealtimeStore(s => s.totalUnread);
-  const { logout } = useAuth();
+  // Pull logout and updateUser from auth context (single destructure)
+  const { logout, updateUser } = useAuth();
   const [user, setUser] = useState(null);
   const [devices, setDevices] = useState([]);
   const [devicesLoading, setDevicesLoading] = useState(false);
@@ -212,6 +213,10 @@ export default function ProfilePage() {
         sharedWith: user?.sharedWith || 0,
       };
       setUser(uiUser);
+      // Propagate to global auth context so other pages (e.g., Dashboard) reflect instantly
+      try {
+        updateUser(updated);
+      } catch (_) { /* no-op */ }
       setIsEditing(false);
       if (newPhotoPreview) {
         URL.revokeObjectURL(newPhotoPreview);

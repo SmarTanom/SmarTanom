@@ -374,14 +374,12 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  // Prefer user's first name; fall back to full_name first token, then username, then generic 'User'
+  // Prefer username; fall back to email; remove first/last/full name usage
   const displayName = React.useMemo(() => {
-    const fn = user?.first_name || user?.firstName;
-    if (fn && typeof fn === 'string' && fn.trim()) return fn.trim();
-    const full = user?.full_name || user?.name;
-    if (full && typeof full === 'string' && full.trim()) return full.trim().split(/\s+/)[0];
-    const uname = user?.username;
-    if (uname && typeof uname === 'string' && uname.trim()) return uname.trim();
+    const uname = typeof user?.username === 'string' ? user.username.trim() : '';
+    if (uname) return uname;
+    const email = typeof user?.email === 'string' ? user.email.trim() : '';
+    if (email) return email;
     return 'User';
   }, [user]);
   const carouselRef = useRef(null);
