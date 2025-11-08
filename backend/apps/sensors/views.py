@@ -208,8 +208,18 @@ class SensorDataViewSet(BaseAuthViewSet):
     def get_queryset(self):
         """Filter queryset based on user permissions, including shared devices."""
         qs = super().get_queryset()
-        user = self.request.user
+        request = self.request
+        user = request.user
+
+        # Optional strict device_serial filtering (prevents cross-device mixing)
+        device_serial = request.query_params.get("device_serial")
+        if device_serial:
+            device_serial = device_serial.strip().upper()
+
         if user.is_staff:
+            # Staff may still filter by exact device_serial when provided
+            if device_serial:
+                qs = qs.filter(sensor__device__device_serial=device_serial)
             return qs
 
         shared_device_ids = DeviceCollaboration.objects.filter(
@@ -217,10 +227,16 @@ class SensorDataViewSet(BaseAuthViewSet):
             status=DeviceCollaboration.Status.ACTIVE,
         ).values_list("device_id", flat=True)
 
-        return qs.filter(
+        scoped = qs.filter(
             Q(sensor__device__bound_email=user.email, sensor__device__is_bound=True)
             | Q(sensor__device_id__in=shared_device_ids)
         )
+
+        if device_serial:
+            # Apply extra serial constraint AFTER ownership scoping
+            scoped = scoped.filter(sensor__device__device_serial=device_serial)
+
+        return scoped
 
     def _has_manage_permissions(self, device) -> bool:
         """Return True if requester can manage data for this device."""
@@ -421,6 +437,7 @@ class LatestReadingsView(APIView):
         from django.core.cache import cache
         import json, hashlib
         device_id = request.query_params.get("device")
+        device_serial = request.query_params.get("device_serial")
 
         # Build sensor queryset with sharing rules similar to SensorViewSet
         qs = Sensor.objects.select_related("device").only("id")
@@ -435,6 +452,8 @@ class LatestReadingsView(APIView):
             )
         if device_id:
             qs = qs.filter(device_id=device_id)
+        if device_serial:
+            qs = qs.filter(device__device_serial=str(device_serial).strip().upper())
 
         sensor_ids = list(qs.values_list("id", flat=True))
         if not sensor_ids:

@@ -34,15 +34,21 @@ class DeviceConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         """Accept WebSocket connection and add to broadcast group."""
-        # Join the "devices" group for broadcasting (optional)
-        if getattr(settings, "WS_GLOBAL_BROADCAST", False):
+        # SECURITY: Only staff users may join the global broadcast group.
+        # Non-staff clients should use the user-specific endpoint to receive
+        # filtered updates for their own devices only. This prevents leakage
+        # of other users' sensor data when a DRF token (non-JWT) fails the
+        # frontend's user id extraction logic.
+        user = getattr(self.scope, 'user', None)
+        if getattr(settings, "WS_GLOBAL_BROADCAST", False) and user and getattr(user, 'is_staff', False):
             await self.channel_layer.group_add("devices", self.channel_name)
         await self.accept()
         print(f"[WebSocket] Client connected: {self.channel_name}")
 
     async def disconnect(self, close_code):
         """Remove from broadcast group on disconnect."""
-        if getattr(settings, "WS_GLOBAL_BROADCAST", False):
+        user = getattr(self.scope, 'user', None)
+        if getattr(settings, "WS_GLOBAL_BROADCAST", False) and user and getattr(user, 'is_staff', False):
             await self.channel_layer.group_discard("devices", self.channel_name)
         print(f"[WebSocket] Client disconnected: {self.channel_name} (code: {close_code})")
 

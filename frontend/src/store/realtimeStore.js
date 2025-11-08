@@ -5,6 +5,7 @@ import { getUserDevices } from '../services/api/devices';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors';
 import { getDeviceReservoirs } from '../services/api/reservoirs';
 import { getInitialDashboard } from '../services/api/dashboard';
+import { authApi } from '../services/apiClient';
 import { getUserAlerts, markAlertsAsRead, markAllAlertsAsRead } from '../services/api/userAlerts';
 
 // Helper utilities replicated minimally (consider DRY refactor later)
@@ -509,12 +510,42 @@ export const useRealtimeStore = create(persist((set, get) => ({
       return null;
     };
 
-    const userId = getCurrentUserId();
-  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Connecting with user ID:', userId);
-
-    // Connect to USER-SPECIFIC stream so non-admin users only see their own device updates
-    // Admin pages can continue using global connections.
-    wsClient.connect(userId);
+    let userId = getCurrentUserId();
+    if (!userId) {
+      // Fallback: fetch profile to obtain user id when token is not a JWT (e.g., DRF Token)
+      try {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+          authApi.getProfile(token).then(profile => {
+            try {
+              userId = profile?.id || profile?.user_id || profile?.pk || null;
+              if (userId) {
+                localStorage.setItem('userId', String(userId));
+                if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Retrieved user id from profile:', userId);
+                // Establish user-specific connection now that we have id
+                wsClient.connect(userId);
+              } else {
+                if (import.meta.env.VITE_DEBUG === 'true') console.warn('[RealtimeStore] Profile response missing id; using global WS endpoint');
+                wsClient.connect(null);
+              }
+            } catch (e) {
+              if (import.meta.env.VITE_DEBUG === 'true') console.warn('[RealtimeStore] Failed persisting user id:', e);
+              wsClient.connect(null);
+            }
+          }).catch(e => {
+            if (import.meta.env.VITE_DEBUG === 'true') console.warn('[RealtimeStore] Failed to fetch profile for websocket user id:', e);
+            wsClient.connect(null);
+          });
+        } else {
+          wsClient.connect(null);
+        }
+      } catch (e) {
+        wsClient.connect(null);
+      }
+    } else {
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Connecting with user ID (JWT decoded):', userId);
+      wsClient.connect(userId);
+    }
 
     // Subscribe to WebSocket messages
     const unsub = wsClient.subscribe(msg => {

@@ -38,8 +38,10 @@ export async function getSensorData(sensorId, limit = 50) {
   if (!token) {
     throw new Error('No authentication token found');
   }
-
-  return apiClient.get(`/api/sensors/sensor-data/?sensor=${sensorId}&limit=${limit}`, {
+  // Include device_serial for strict backend scoping
+  const deviceSerial = localStorage.getItem('activeDeviceSerial') || '';
+  const serialParam = deviceSerial ? `&device_serial=${encodeURIComponent(deviceSerial)}` : '';
+  return apiClient.get(`/api/sensors/sensor-data/?sensor=${sensorId}&limit=${limit}${serialParam}`, {
     authToken: token
   });
 }
@@ -52,9 +54,10 @@ export async function getRecentSensorData(sensorIds, limit = 10) {
   if (!token) {
     throw new Error('No authentication token found');
   }
-
+  const deviceSerial = localStorage.getItem('activeDeviceSerial') || '';
+  const serialParam = deviceSerial ? `&device_serial=${encodeURIComponent(deviceSerial)}` : '';
   const sensorIdsParam = sensorIds.join(',');
-  return apiClient.get(`/api/sensors/sensor-data/?sensor__in=${sensorIdsParam}&limit=${limit}`, {
+  return apiClient.get(`/api/sensors/sensor-data/?sensor__in=${sensorIdsParam}&limit=${limit}${serialParam}`, {
     authToken: token
   });
 }

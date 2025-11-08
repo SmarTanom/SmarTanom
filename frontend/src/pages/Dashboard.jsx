@@ -486,6 +486,18 @@ export default function Dashboard() {
   const currentDevice = ownedDevices[activeIdx];
   const data = currentDevice ? devicesData[currentDevice.id] : null;
 
+  // Persist current device serial for strict backend filtering of sensor data
+  useEffect(() => {
+    try {
+      const serial = currentDevice?.device_serial || currentDevice?.deviceSerial;
+      if (serial) {
+        localStorage.setItem('activeDeviceSerial', String(serial).toUpperCase());
+      }
+    } catch (e) {
+      // non-fatal
+    }
+  }, [currentDevice?.device_serial, currentDevice?.deviceSerial]);
+
   // Schedule a refresh at local midnight to update date-based labels/history automatically
   const midnightTimerRef = useRef(null);
   useEffect(() => {
