@@ -67,8 +67,8 @@ export default function ProfilePage() {
   const [toast, setToast] = useState(null);
   // Inline edit states
   const [isEditing, setIsEditing] = useState(false);
-  const [editFirst, setEditFirst] = useState('');
-  const [editLast, setEditLast] = useState('');
+  // Username now used instead of separate first/last names
+  const [editUsername, setEditUsername] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [newPhotoFile, setNewPhotoFile] = useState(null);
@@ -105,8 +105,7 @@ export default function ProfilePage() {
         };
         setUser(uiUser);
         // Prime edit fields
-        setEditFirst(uiUser.firstName || '');
-        setEditLast(uiUser.lastName || '');
+        setEditUsername(uiUser.username || '');
 
 
         // Fetch user's bound devices count
@@ -154,12 +153,11 @@ export default function ProfilePage() {
     }
   };
 
-  // Username removed from editing per request; only first and last name are editable.
+  // Switched: Username is now the editable field (first/last name removed per new requirement).
 
   function beginEdit() {
     if (!user) return;
-    setEditFirst(user.firstName || '');
-    setEditLast(user.lastName || '');
+    setEditUsername(user.username || '');
     setSaveError('');
     setNewPhotoFile(null);
     setNewPhotoPreview('');
@@ -183,9 +181,9 @@ export default function ProfilePage() {
       setSaveError('Not authenticated');
       return;
     }
-    // Validate names
-    if (!editFirst.trim() || !editLast.trim()) {
-      setSaveError('First and last name are required');
+    // Validate username
+    if (!editUsername.trim()) {
+      setSaveError('Username is required');
       return;
     }
     setSaving(true);
@@ -193,15 +191,14 @@ export default function ProfilePage() {
       let updated;
       if (newPhotoFile) {
         const form = new FormData();
-        form.append('first_name', editFirst.trim());
-        form.append('last_name', editLast.trim());
+        form.append('username', editUsername.trim());
         form.append('user_photo', newPhotoFile);
         updated = await authApi.updateProfile(token, form);
       } else {
-        const body = { first_name: editFirst.trim(), last_name: editLast.trim() };
+        const body = { username: editUsername.trim() };
         updated = await authApi.updateProfile(token, body);
       }
-      // Update UI state
+      // Update UI state (first/last retained if backend still returns them, but UI will rely on username)
       const uiUser = {
         username: updated.username || (updated.email ? updated.email.split('@')[0] : 'User'),
         email: updated.email,
@@ -668,7 +665,7 @@ export default function ProfilePage() {
             <User size={48} strokeWidth={2} />
           )}
         </div>
-        <h1 className="profile-username">{user.full_name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email}</h1>
+        <h1 className="profile-username">{user.username || user.email}</h1>
         <p className="profile-email">{user.email}</p>
       </header>
 
@@ -687,8 +684,8 @@ export default function ProfilePage() {
             {!isEditing ? (
               <>
                 <div className="info-row">
-                  <span className="info-label">Full Name</span>
-                  <span className="info-value">{user.full_name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || '—'}</span>
+                  <span className="info-label">Username</span>
+                  <span className="info-value">{user.username || '—'}</span>
                 </div>
                 <div className="info-row">
                   <span className="info-label">Email</span>
@@ -715,15 +712,9 @@ export default function ProfilePage() {
                     {newPhotoFile && <span style={{ fontSize: 14, color: '#6B7D75' }}>{newPhotoFile.name}</span>}
                   </div>
                 </div>
-                <div className="form-row-grid">
-                  <div className="form-group">
-                    <label className="form-label">First Name</label>
-                    <input className="form-input" value={editFirst} onChange={(e) => setEditFirst(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Last Name</label>
-                    <input className="form-input" value={editLast} onChange={(e) => setEditLast(e.target.value)} />
-                  </div>
+                <div className="form-group">
+                  <label className="form-label">Username</label>
+                  <input className="form-input" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} />
                 </div>
                 {saveError && <p className="form-error" role="alert">{saveError}</p>}
                 <div className="edit-actions">
