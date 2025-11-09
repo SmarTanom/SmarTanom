@@ -5,73 +5,117 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: var(--space-2);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  animation: overlayFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
 }
 
 .modal-content {
   background: var(--color-white);
-  border-radius: var(--radius-lg);
-  max-width: 500px;
+  border-radius: 20px;
+  max-width: 480px;
   width: 100%;
-  max-height: 95vh;
-  overflow-y: auto;
-  box-shadow: var(--shadow-md);
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.15);
   margin: auto;
+  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-6) var(--space-6) var(--space-4);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(180deg, rgba(51, 148, 50, 0.02) 0%, transparent 100%);
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
   color: var(--color-text);
   font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 .modal-close {
-  background: none;
+  background: rgba(0, 0, 0, 0.04);
   border: none;
   cursor: pointer;
   color: var(--color-muted);
-  padding: var(--space-2);
+  padding: 10px;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  transition: all 0.2s ease;
 }
 
 .modal-close:hover {
+  background: rgba(0, 0, 0, 0.08);
   color: var(--color-text);
+  transform: scale(1.05);
+}
+
+.modal-close:active {
+  transform: scale(0.95);
 }
 
 .modal-body {
-  padding: var(--space-6);
+  padding: 28px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .modal-footer {
-  padding: var(--space-4) var(--space-6);
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 20px 28px 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-3);
+  gap: 12px;
   flex-wrap: wrap;
+  background: linear-gradient(180deg, transparent 0%, rgba(51, 148, 50, 0.01) 100%);
+  flex-shrink: 0;
 }
 
 .btn-cancel {
-  background: none;
+  background: white;
   color: var(--color-muted);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3) var(--space-5);
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  padding: 12px 24px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -81,22 +125,35 @@
 .btn-cancel:hover {
   background: #f8faf9;
   border-color: var(--color-muted);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-cancel:active {
+  transform: translateY(0);
 }
 
 .btn-confirm {
-  background: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary) 0%, #2d8040 100%);
   color: var(--color-white);
   border: none;
-  border-radius: var(--radius-sm);
-  padding: var(--space-3) var(--space-5);
+  border-radius: 12px;
+  padding: 12px 24px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(51, 148, 50, 0.25);
 }
 
 .btn-confirm:hover {
-  filter: brightness(0.95);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(51, 148, 50, 0.35);
+}
+
+.btn-confirm:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(51, 148, 50, 0.25);
 }
 
 .btn-confirm.danger {

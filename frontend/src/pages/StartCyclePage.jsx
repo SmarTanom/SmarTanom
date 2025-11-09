@@ -21,7 +21,7 @@ const categoryFor = (name) => {
 const StartCyclePage = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPlants, setSelectedPlants] = useState([]);
+  const [selectedPlant, setSelectedPlant] = useState(null); // Changed to single plant selection
   const [plants, setPlants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,12 +81,12 @@ const StartCyclePage = () => {
   );
 
   const togglePlantSelection = (plantId) => {
-    setSelectedPlants(prev => {
-      if (prev.includes(plantId)) {
-        return prev.filter(id => id !== plantId);
-      }
-      return [...prev, plantId];
-    });
+    // Only allow single plant selection per device/cycle
+    if (selectedPlant === plantId) {
+      setSelectedPlant(null); // Deselect if clicking the same plant
+    } else {
+      setSelectedPlant(plantId); // Select the new plant (replaces any previous selection)
+    }
   };
 
   const handleStartCycle = async () => {
@@ -95,12 +95,12 @@ const StartCyclePage = () => {
       setError('No device found. Please start from a device page.');
       return;
     }
-    if (selectedPlants.length === 0) {
-      setError('Please select at least one plant.');
+    if (!selectedPlant) {
+      setError('Please select a plant for this cycle. Each device can grow one plant at a time with specific thresholds.');
       return;
     }
     if (!startDate || !endDate) {
-      setError('Please select start and end dates.');
+      setError('Please select start and end dates for the growing cycle.');
       return;
     }
     if (endDate < startDate) {
@@ -118,8 +118,8 @@ const StartCyclePage = () => {
         return;
       }
 
-      // Use first selected plant; if multiple are selected, take the first
-      const plantId = Number(selectedPlants[0]);
+      // Use the single selected plant
+      const plantId = Number(selectedPlant);
       const payload = {
         plant_id: plantId,
         start_date: startDate,
@@ -160,7 +160,7 @@ const StartCyclePage = () => {
       <div className="start-cycle-content">
         <h1 className="cycle-title">Starting a New Cycle!</h1>
         <p className="cycle-subtitle">
-          Choose the type of plant you're growing to get tailored monitoring and nutrient recommendations.
+          Select one plant for this device. Each plant has specific water, pH, and nutrient thresholds tailored for optimal growth.
         </p>
 
         {/* Device is determined by the page you came from; no manual selection here */}
@@ -189,7 +189,7 @@ const StartCyclePage = () => {
         )}
         <div className="plant-list">
           {filteredPlants.map(plant => {
-            const isSelected = selectedPlants.includes(plant.id);
+            const isSelected = selectedPlant === plant.id;
             return (
               <div
                 key={plant.id}
@@ -205,7 +205,7 @@ const StartCyclePage = () => {
                 </div>
                 <button
                   className={`add-button ${isSelected ? 'added' : ''}`}
-                  aria-label={isSelected ? 'Remove plant' : 'Add plant'}
+                  aria-label={isSelected ? 'Selected plant' : 'Select plant'}
                 >
                   <Plus size={20} />
                 </button>
@@ -249,12 +249,12 @@ const StartCyclePage = () => {
         <button
           className="start-button"
           onClick={handleStartCycle}
-          disabled={selectedPlants.length === 0 || !selectedDeviceId || submitting}
+          disabled={!selectedPlant || !selectedDeviceId || submitting}
         >
-          {submitting ? 'Starting…' : 'Start Cycle'}
+          {submitting ? 'Starting Cycle…' : selectedPlant ? 'Start Cycle with Selected Plant' : 'Select a Plant to Continue'}
         </button>
         <p className="help-text">
-          Don't see your plant? <a href="#" className="message-link">Message us</a>
+          One plant per device • Custom thresholds for each variety
         </p>
       </div>
     </div>

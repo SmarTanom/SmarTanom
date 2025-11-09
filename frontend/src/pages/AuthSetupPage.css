@@ -623,78 +623,104 @@
 .wifi-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: 'Montserrat', sans-serif;
 }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(10px);
+  }
+}
+
 /* WiFi Setup Modal Content */
 .wifi-modal-content {
   background: linear-gradient(145deg, #ffffff 0%, #f0f9f0 100%);
   border: 3px solid #4A9B4D;
-  border-radius: 20px;
-  max-width: 500px;
+  border-radius: 24px;
+  max-width: 540px;
   width: 100%;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 70px rgba(74, 155, 77, 0.3), 0 10px 30px rgba(0, 0, 0, 0.15);
-  animation: slideUp 0.3s ease-out;
+  box-shadow: 0 28px 80px rgba(74, 155, 77, 0.35), 0 12px 32px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  overflow: hidden;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .wifi-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28px 32px 20px;
+  padding: 32px 32px 24px;
   border-bottom: 2px solid rgba(74, 155, 77, 0.15);
-  background: linear-gradient(135deg, rgba(74, 155, 77, 0.05) 0%, transparent 100%);
-  border-radius: 20px 20px 0 0;
+  background: linear-gradient(135deg, rgba(74, 155, 77, 0.08) 0%, rgba(74, 155, 77, 0.02) 100%);
+  border-radius: 24px 24px 0 0;
+  flex-shrink: 0;
 }
 
 .wifi-modal-title {
   margin: 0;
   font-family: 'Abril Fatface', cursive;
-  font-size: clamp(24px, 3vw, 32px);
+  font-size: clamp(26px, 3vw, 34px);
   font-weight: 400;
   color: #4A9B4D;
-  letter-spacing: 0.02em;
-  text-shadow: 0 1px 2px rgba(74, 155, 77, 0.15);
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 4px rgba(74, 155, 77, 0.15);
 }
 .modal-close-btn {
-  background: rgba(74, 155, 77, 0.1);
-  border: 2px solid rgba(74, 155, 77, 0.3);
+  background: rgba(74, 155, 77, 0.12);
+  border: 2px solid rgba(74, 155, 77, 0.25);
   color: #4A9B4D;
   font-size: 28px;
   line-height: 1;
   cursor: pointer;
   padding: 0;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  transition: all 0.3s ease;
+  border-radius: 12px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
   font-weight: 600;
 }
 .modal-close-btn:hover {
-  background: #4A9B4D;
+  background: linear-gradient(135deg, #4A9B4D 0%, #3d8240 100%);
   border-color: #4A9B4D;
   color: white;
-  transform: rotate(90deg) scale(1.08);
-  box-shadow: 0 4px 12px rgba(74, 155, 77, 0.35);
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(74, 155, 77, 0.4);
 }
 .modal-close-btn:active {
-  transform: rotate(90deg) scale(0.98);
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(74, 155, 77, 0.3);
 }
 
 .wifi-modal-body {

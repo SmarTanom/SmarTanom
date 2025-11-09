@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, LogOut, Bell, Share2, Shield,
   ChevronRight, Leaf, AlertCircle, Settings,
-  Users, Plus, X, Check, RefreshCw
+  Users, Plus, X, Check, RefreshCw, Smartphone, ChevronDown
 } from 'lucide-react';
 import '../assets/styles/ProfilePage.css';
 import '../assets/styles/sharedAccess.css';
@@ -78,6 +78,8 @@ export default function ProfilePage() {
   const [newPhotoPreview, setNewPhotoPreview] = useState('');
   // Logout confirmation modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  // Section collapse states
+  const [accountInfoExpanded, setAccountInfoExpanded] = useState(true);
 
 
   // Load current user profile from backend
@@ -701,21 +703,37 @@ export default function ProfilePage() {
           )}
         </div>
         <h1 className="profile-username">{user.username || user.email}</h1>
-        <p className="profile-email">{user.email}</p>
       </header>
 
       <main className="profile-main">
         {/* Account Information */}
         <section className="profile-section">
-          <div className="section-header">
+          <div className="section-header section-header-expandable" onClick={() => setAccountInfoExpanded(!accountInfoExpanded)}>
             <h2 className="section-title">Account Information</h2>
-            {!isEditing && (
-              <button className="btn-share-new" onClick={beginEdit} title="Edit profile">
-                Edit
+            <div className="section-header-actions">
+              {!isEditing && accountInfoExpanded && (
+                <button
+                  className="btn-share-new"
+                  onClick={(e) => { e.stopPropagation(); beginEdit(); }}
+                  title="Edit profile"
+                >
+                  Edit
+                </button>
+              )}
+              <button
+                className="btn-expand-toggle"
+                onClick={(e) => { e.stopPropagation(); setAccountInfoExpanded(!accountInfoExpanded); }}
+                aria-label={accountInfoExpanded ? "Collapse section" : "Expand section"}
+              >
+                <ChevronDown
+                  size={20}
+                  className={`expand-icon ${accountInfoExpanded ? 'expanded' : ''}`}
+                />
               </button>
-            )}
+            </div>
           </div>
-          <div className="info-card">
+          {accountInfoExpanded && (
+            <div className="info-card">
             {!isEditing ? (
               <>
                 <div className="info-row">
@@ -736,35 +754,61 @@ export default function ProfilePage() {
                 </div>
               </>
             ) : (
-              <>
+              <div className="edit-form">
                 <div className="form-group">
                   <label className="form-label">Profile Photo</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div className="photo-upload-section">
                     <input id="photo-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={onSelectPhoto} />
-                    <button className="btn-share-new" type="button" onClick={() => document.getElementById('photo-input').click()}>
+                    <button className="btn-upload-photo" type="button" onClick={() => document.getElementById('photo-input').click()}>
+                      <User size={18} />
                       Change Photo
                     </button>
-                    {newPhotoFile && <span style={{ fontSize: 14, color: '#6B7D75' }}>{newPhotoFile.name}</span>}
+                    {newPhotoFile && (
+                      <div className="photo-selected-indicator">
+                        <Check size={16} />
+                        <span>{newPhotoFile.name}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Username</label>
-                  <input className="form-input" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} />
+                  <input
+                    className="form-input"
+                    value={editUsername}
+                    onChange={(e) => setEditUsername(e.target.value)}
+                    placeholder="Enter your username"
+                  />
                 </div>
-                {saveError && <p className="form-error" role="alert">{saveError}</p>}
+                {saveError && (
+                  <div className="form-error-banner" role="alert">
+                    <AlertCircle size={16} />
+                    <span>{saveError}</span>
+                  </div>
+                )}
                 <div className="edit-actions">
-                  <button className="btn-cancel" onClick={cancelEdit} disabled={saving}>Cancel</button>
-                  <button className="btn-confirm" onClick={saveProfile} disabled={saving}>
-                    {saving ? (<>
-                      <Check size={16} style={{ visibility: 'hidden' }} /> Saving…
-                    </>) : (<>
-                      <Check size={16} /> Save Changes
-                    </>)}
+                  <button className="btn-cancel" onClick={cancelEdit} disabled={saving}>
+                    <X size={16} />
+                    Cancel
+                  </button>
+                  <button className="btn-save" onClick={saveProfile} disabled={saving}>
+                    {saving ? (
+                      <>
+                        <div className="btn-spinner" />
+                        Saving…
+                      </>
+                    ) : (
+                      <>
+                        <Check size={16} />
+                        Save Changes
+                      </>
+                    )}
                   </button>
                 </div>
-              </>
+              </div>
             )}
           </div>
+          )}
         </section>
 
         {/* Mobile App */}
@@ -772,10 +816,17 @@ export default function ProfilePage() {
           <div className="section-header">
             <h2 className="section-title">Mobile App</h2>
           </div>
-          <div className="info-card">
-            <div style={{ marginBottom: '20px' }}>
-              <PWAInstallButton />
+          <div className="mobile-app-card">
+            <div className="mobile-app-content">
+              <Smartphone size={40} className="mobile-app-icon" />
+              <div className="mobile-app-text">
+                <h3 className="mobile-app-title">Get the SmarTanom App</h3>
+                <p className="mobile-app-description">
+                  Install our app for faster access and a native mobile experience.
+                </p>
+              </div>
             </div>
+            <PWAInstallButton />
           </div>
         </section>
 
