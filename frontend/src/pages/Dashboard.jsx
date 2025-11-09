@@ -35,6 +35,7 @@ import { listAlerts } from '../services/api/alerts.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import defaultHydroponic from '../assets/images/defaulthydroponic.jpg';
 import { resolveMediaUrl, withImgFallback } from '../utils/media';
+import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -1579,10 +1580,7 @@ export default function Dashboard() {
             Hello, {displayName} <span className="dash-header-emoji">🌿</span>
           </h1>
         </header>
-        <div className="devices-loading-wrapper">
-          <Loader size={48} color={PRIMARY_GREEN} className="animate-spin" />
-          <p className="devices-loading-text">Loading your devices...</p>
-        </div>
+        <GlobalLoadingSpinner message="Loading your devices..." />
       </div>
     );
   }

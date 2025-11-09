@@ -8,6 +8,7 @@ import { wsClient } from '../services/websocketClient';
 import { getUserDevices, deleteUser } from '../services/api/admin';
 import UserDevicesModal from '../components/ui/UserDevicesModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 import {
 	Search,
 	Smartphone,
@@ -209,10 +210,7 @@ function AdminUsers() {
 			<div className="admin-root">
 				<AdminNavbar activePage="users" />
 				<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-					<div style={{ textAlign: 'center' }}>
-						<Loader2 size={48} className="spinner" style={{ color: '#339432' }} />
-						<p style={{ marginTop: '16px', color: '#6f8876' }}>Loading users...</p>
-					</div>
+					<GlobalLoadingSpinner message="Loading users..." />
 				</main>
 			</div>
 		);

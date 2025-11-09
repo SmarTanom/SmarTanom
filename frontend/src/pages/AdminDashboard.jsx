@@ -5,6 +5,7 @@ import '../assets/styles/AdminDashboard.css';
 import AdminNavbar from '../components/admin/AdminNavbar';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
 import { wsClient } from '../services/websocketClient';
+import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 import {
 	CheckCircle2,
 	Zap,
@@ -127,10 +128,7 @@ export default function AdminDashboard() {
 			<div className="admin-root">
 				<AdminNavbar activePage="dashboard" />
 				<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-					<div style={{ textAlign: 'center' }}>
-						<Loader2 size={48} className="spinner" style={{ color: '#339432', animation: 'spin 1s linear infinite' }} />
-						<p style={{ marginTop: '16px', color: '#6f8876' }}>Loading dashboard data...</p>
-					</div>
+					<GlobalLoadingSpinner message="Loading dashboard data..." />
 				</main>
 			</div>
 		);

@@ -17,6 +17,7 @@ import { useRealtimeStore } from '../store/realtimeStore';
 
 import { Toast } from '../components/ui/Toast.jsx';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
+import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -675,7 +676,7 @@ export default function ProfilePage() {
     );
   };
 
-  if (!user) return <div className="loading">Loading...</div>;
+  if (!user) return <GlobalLoadingSpinner message="Loading profile..." />;
 
   return (
     <div className="profile-root">

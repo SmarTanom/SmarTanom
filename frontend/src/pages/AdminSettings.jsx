@@ -10,6 +10,7 @@ import {
 	unsubscribeFromPush,
 } from '../services/api/notifications';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
+import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 import {
 	User,
 	Shield,
@@ -180,10 +181,7 @@ function AdminSettings() {
 
 		{loading ? (
 			<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-				<div style={{ textAlign: 'center' }}>
-					<Loader2 size={48} className="spinner" style={{ color: '#339432' }} />
-					<p style={{ marginTop: '16px', color: '#6f8876' }}>Loading settings...</p>
-				</div>
+				<GlobalLoadingSpinner message="Loading settings..." />
 			</main>
 		) : (
 			<main className="admin-main">

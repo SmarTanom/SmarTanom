@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { useRealtimeStore } from '../store/realtimeStore';
+import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 
 // Helper: format a ISO date string to a relative time (minutes/hours/days ago)
 function relativeTimeFromISO(iso) {
@@ -296,17 +297,7 @@ export default function AlertsPage() {
 
       {/* Loading / Error states */}
       {(loadingInitial || loadingAlerts) && (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '50vh',
-          gap: '12px'
-        }}>
-          <Loader size={40} className="animate-spin" color={PRIMARY_GREEN} />
-          <p style={{ color: '#666' }}>Loading alerts...</p>
-        </div>
+        <GlobalLoadingSpinner message="Loading alerts..." size={40} />
       )}
       {!loadingInitial && !loadingAlerts && errorAlerts && (
         <div style={{

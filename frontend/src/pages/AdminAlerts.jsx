@@ -27,6 +27,7 @@ import { wsClient } from '../services/websocketClient';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminAlerts.css';
+import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 
 export default function AdminAlerts() {
   const navigate = useNavigate();
@@ -278,12 +279,7 @@ export default function AdminAlerts() {
       {/* Main content */}
       <main className="admin-main">
       {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-          <div style={{ textAlign: 'center' }}>
-            <Loader2 size={48} className="spinner" style={{ color: '#339432', animation: 'spin 1s linear infinite' }} />
-            <p style={{ marginTop: '16px', color: '#6f8876' }}>Loading alerts...</p>
-          </div>
-        </div>
+        <GlobalLoadingSpinner message="Loading alerts..." />
       ) : error ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
           <div style={{ textAlign: 'center', maxWidth: '400px' }}>

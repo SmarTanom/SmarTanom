@@ -5,6 +5,7 @@ import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminCreate.css';
 import AdminNavbar from '../components/admin/AdminNavbar';
 import { createDevice, getAdminDevices } from '../services/api/admin';
+import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 import {
 	Smartphone,
 	Sparkles,

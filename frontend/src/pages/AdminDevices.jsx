@@ -10,6 +10,7 @@ import '../assets/styles/AdminDevices.css';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
 import { apiClient } from '../services/apiClient';
 import { wsClient } from '../services/websocketClient';
+import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 import {
 	Search,
 	Leaf,
@@ -913,10 +914,7 @@ export default function AdminDevices() {
 			<div className="admin-root">
 				<AdminNavbar activePage="devices" />
 				<main className="admin-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-					<div style={{ textAlign: 'center' }}>
-						<Loader2 size={48} className="spinner" style={{ color: '#339432' }} />
-						<p style={{ marginTop: '16px', color: '#6f8876' }}>Loading devices...</p>
-					</div>
+					<GlobalLoadingSpinner message="Loading devices..." />
 				</main>
 			</div>
 		);
