@@ -14,6 +14,7 @@ from .views import (
     get_sent_invitations,
     subscribe_notifications,
     cancel_sent_invitation,
+    resend_invitation,
     get_user_devices,
     initial_dashboard_data,
     provision_device,
@@ -40,6 +41,7 @@ urlpatterns = [
     path("invitations/respond/", respond_to_invitation, name="respond_to_invitation"),
     path("invitations/sent/", get_sent_invitations, name="get_sent_invitations"),
     path("invitations/sent/<int:invitation_id>/cancel/", cancel_sent_invitation, name="cancel_sent_invitation"),
+    path("invitations/sent/<int:invitation_id>/resend/", resend_invitation, name="resend_invitation"),
     path("shared/", get_shared_devices, name="get_shared_devices"),
     # PWA notifications
     path("notifications/subscribe/", subscribe_notifications, name="subscribe_notifications"),

@@ -1802,6 +1802,96 @@ def cancel_sent_invitation(request, invitation_id: int):
     }, status=status.HTTP_200_OK)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def resend_invitation(request, invitation_id: int):
+    """Allow the device owner (inviter) to resend a pending invitation.
+
+    Generates a new token and resends the invitation email.
+    """
+    try:
+        invitation = DeviceInvitation.objects.get(id=invitation_id)
+    except DeviceInvitation.DoesNotExist:
+        return Response(
+            {'error': 'Invitation not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Only the inviter can resend their own pending invitations (or staff)
+    if not request.user.is_staff and invitation.invited_by_email != request.user.email:
+        return Response(
+            {'error': 'Permission denied. You can only resend invitations you sent.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    if invitation.status != DeviceInvitation.Status.PENDING:
+        return Response(
+            {'error': f'Cannot resend invitation with status: {invitation.status}.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Generate a new token to ensure fresh expiration
+    invitation.generate_token()
+    invitation.save(update_fields=['token', 'created_at'])
+
+    # Resend the invitation email
+    from django.core.mail import send_mail
+    from django.conf import settings
+
+    try:
+        device_name = invitation.device.device_name or invitation.device.plant_name or f"Device {invitation.device.device_serial}"
+
+        subject = f"Reminder: You've been invited to monitor {device_name}"
+        message = f"""
+Hello,
+
+This is a reminder that you have been invited to monitor {device_name} on SmarTanom.
+
+Click the link below to accept the invitation:
+{settings.FRONTEND_URL}/accept-invitation/{invitation.token}
+
+This invitation will expire in 7 days.
+
+If you did not expect this invitation, you can safely ignore this email.
+
+Best regards,
+The SmarTanom Team
+        """
+
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [invitation.invite_email],
+            fail_silently=False,
+        )
+
+        logger.info(
+            "Invitation %s resent by %s to %s for device %s",
+            invitation.id,
+            request.user.email,
+            invitation.invite_email,
+            invitation.device.device_serial,
+        )
+
+        return Response({
+            'success': True,
+            'message': 'Invitation resent successfully.',
+            'invitation_id': invitation.id,
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.error(
+            "Failed to resend invitation %s: %s",
+            invitation.id,
+            str(e)
+        )
+        return Response(
+            {'error': 'Failed to send invitation email.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_devices(request, user_id: int):

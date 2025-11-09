@@ -193,3 +193,23 @@ export const cancelSentInvitation = async (invitationId) => {
     throw error;
   }
 };
+
+// Resend a pending invitation
+export const resendInvitation = async (invitationId) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await apiClient.post(
+      `/api/devices/invitations/sent/${encodeURIComponent(invitationId)}/resend/`,
+      {},
+      { authToken: token }
+    );
+    return response;
+  } catch (error) {
+    console.error('Failed to resend invitation:', error);
+    throw error;
+  }
+};

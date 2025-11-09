@@ -169,6 +169,13 @@
 .invite-device { color: var(--color-muted); font-weight: 500; }
 .invite-status { font-size: 11px; font-weight: 600; color: var(--color-warning); background: rgba(245,158,11,0.12); padding: 4px 8px; border-radius: 6px; }
 
+/* Invitation action buttons */
+.invite-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Cancel button - smaller, compact style */
 .btn-cancel {
   background: none;
@@ -194,6 +201,48 @@
   transform: translateY(0);
 }
 
+/* Resend button - primary action style */
+.btn-resend {
+  background: rgba(51, 148, 50, 0.1);
+  color: var(--color-primary);
+  border: 1px solid rgba(51, 148, 50, 0.2);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-resend:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.btn-resend:active {
+  transform: translateY(0);
+}
+
+.btn-resend:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-resend:disabled:hover {
+  background: rgba(51, 148, 50, 0.1);
+  color: var(--color-primary);
+  border-color: rgba(51, 148, 50, 0.2);
+  transform: none;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .access-card { padding: 16px 16px 12px; }
@@ -202,7 +251,8 @@
   .access-actions { justify-content: flex-start; }
   .btn-revoke { width: 100%; justify-content: center; }
   .invite-row { flex-direction: column; align-items: flex-start; }
-  .btn-cancel { width: 100%; }
+  .invite-actions { width: 100%; }
+  .btn-cancel, .btn-resend { flex: 1; min-width: 0; justify-content: center; }
 }
 
 @media (max-width: 480px) {

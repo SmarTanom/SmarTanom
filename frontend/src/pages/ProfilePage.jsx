@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   User, Mail, LogOut, Bell, Share2, Shield,
   ChevronRight, Leaf, AlertCircle, Settings,
-  Users, Plus, X, Check
+  Users, Plus, X, Check, RefreshCw
 } from 'lucide-react';
 import '../assets/styles/ProfilePage.css';
 import '../assets/styles/sharedAccess.css';
 import { authApi, apiClient } from '../services/apiClient';
 import { getUserDevices } from '../services/api/devices.js';
-import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation, getSentInvitations, cancelSentInvitation } from '../services/api/sharing.js';
+import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation, getSentInvitations, cancelSentInvitation, resendInvitation } from '../services/api/sharing.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import PWAInstallButton from '../components/pwa/PWAInstallButton.jsx';
 import OtpInput from '../components/auth/OtpInput.jsx';
@@ -382,6 +382,20 @@ export default function ProfilePage() {
     }
   };
 
+  // Resend invitation
+  const handleResendInvitation = async (invitation) => {
+    try {
+      await resendInvitation(invitation.id);
+      setToast({ type: 'success', message: 'Invitation resent successfully' });
+      // Refresh the invitations list
+      loadSentInvitations();
+    } catch (error) {
+      console.error('Failed to resend invitation:', error);
+      const msg = error?.response?.data?.error || error?.message || 'Failed to resend invitation';
+      setToast({ type: 'error', message: msg });
+    }
+  };
+
   // Accept device invitation
   const handleAcceptInvitation = async (invitation) => {
     try {
@@ -636,13 +650,24 @@ export default function ProfilePage() {
                   <span className="invite-device">{deviceName}</span>
                 </div>
               </div>
-              <button
-                className="btn-cancel"
-                onClick={() => handleCancelInvitation(inv)}
-                aria-label={`Cancel invitation for ${inv.invite_email}`}
-              >
-                Cancel
-              </button>
+              <div className="invite-actions">
+                <button
+                  className="btn-resend"
+                  onClick={() => handleResendInvitation(inv)}
+                  aria-label={`Resend invitation to ${inv.invite_email}`}
+                  title="Resend invitation"
+                >
+                  <RefreshCw size={14} />
+                  Resend
+                </button>
+                <button
+                  className="btn-cancel"
+                  onClick={() => handleCancelInvitation(inv)}
+                  aria-label={`Cancel invitation for ${inv.invite_email}`}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           );
         })}
