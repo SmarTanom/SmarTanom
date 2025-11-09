@@ -4001,3 +4001,101 @@
 
 
 
+/* ----------------------------
+   Reservoir setup form styles
+   ---------------------------- */
+/* Grid for form fields; stacks on mobile, two columns on larger screens */
+.setup-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(10px, 2.2vw, 14px);
+}
+@media (min-width: 768px) {
+  .setup-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Allow items to span both columns when needed */
+.setup-field.span-2 { grid-column: 1 / -1; }
+
+/* Field wrapper and labels */
+.setup-field { display: flex; flex-direction: column; gap: 6px; }
+.setup-field-label-row { display: flex; align-items: center; justify-content: space-between; }
+.setup-field-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.92); }
+.setup-field-label--xs { font-size: 11px; }
+.setup-helper { color: rgba(255,255,255,0.82); font-size: 12px; margin: 2px 0 0; }
+.setup-helper--sm { font-size: 11.5px; opacity: 0.92; }
+
+/* Unified input appearance: match Device ID and Reservoir Name */
+.setup-field input[type="text"],
+.setup-field input[type="email"],
+.setup-field input[type="date"],
+.setup-field select,
+.setup-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.18);
+  background: #ffffff;
+  color: #1a1a1a;
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.setup-field input[type="text"]:focus,
+.setup-field input[type="email"]:focus,
+.setup-field input[type="date"]:focus,
+.setup-field select:focus,
+.setup-input:focus {
+  border-color: #1a1a1a;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+}
+
+/* Inline row for Start/End date that wraps on small screens */
+.reservoir-inline-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(10px, 2vw, 14px);
+}
+@media (min-width: 640px) {
+  .reservoir-inline-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Keep the bottom "Continue setup" container visible with consistent spacing */
+.setup-bottom .setup-verify-panel {
+  position: sticky; /* keep visible when scrolling body */
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  /* unify padding with main panel vars or fallback */
+  padding: clamp(14px, 2.6vh, 18px) clamp(14px, 3vw, 22px);
+  border: none;
+  background: linear-gradient(180deg,#2f7c35 0%, #2f7c35 72%, #2a6f30 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 28px -16px rgba(22,68,34,0.45), 0 2px 4px rgba(0,0,0,0.25);
+  border-radius: 12px;
+  margin: 0; /* remove accidental outer spacing */
+}
+.setup-bottom .setup-verify-panel[data-section="continue-step2"] h4 { font-size: 14px; font-weight: 700; letter-spacing: .3px; margin:0 0 4px; }
+.setup-bottom .setup-verify-panel[data-section="continue-step2"] p { margin:0; font-size: 11px; line-height:1.4; opacity:.92; }
+.setup-bottom .setup-verify-panel .setup-verify-actions { display:flex; gap:12px; }
+.setup-bottom .setup-verify-panel .setup-verify-actions .setup-btn { background:#ffffff; color:#17632b; font-weight:700; border-radius:8px; min-width:110px; box-shadow:0 4px 12px rgba(0,0,0,0.18); }
+.setup-bottom .setup-verify-panel .setup-verify-actions .setup-btn:hover { box-shadow:0 6px 16px rgba(0,0,0,0.22); transform:translateY(-1px); }
+.setup-bottom .setup-verify-panel .setup-verify-actions .setup-btn:active { transform:translateY(0); box-shadow:0 3px 9px rgba(0,0,0,0.2); }
+.setup-bottom .setup-verify-panel .setup-verify-actions .setup-btn:focus-visible { outline:3px solid rgba(255,255,255,0.55); outline-offset:3px; }
+@media (max-width: 640px) {
+  .setup-bottom .setup-verify-panel { flex-direction: column; align-items: stretch; gap:14px; }
+  .setup-bottom .setup-verify-panel .setup-verify-actions { justify-content:flex-end; }
+  .setup-bottom .setup-verify-panel .setup-verify-actions .setup-btn { width:100%; }
+}
+
+/* Allow the middle section to scroll on small screens without hiding the actions */
+@media (max-width: 768px) {
+  .setup-middle { overflow-y: auto; }
+}
+
+
+
