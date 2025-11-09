@@ -1834,62 +1834,23 @@ def resend_invitation(request, invitation_id: int):
     invitation.generate_token()
     invitation.save(update_fields=['token', 'created_at'])
 
-    # Resend the invitation email
-    from django.core.mail import send_mail
-    from django.conf import settings
+    # Resend the invitation email using the same function as original invite
+    email_sent = send_device_invitation_email(invitation)
 
-    try:
-        device_name = invitation.device.device_name or invitation.device.plant_name or f"Device {invitation.device.device_serial}"
+    logger.info(
+        "Invitation %s resent by %s to %s for device %s",
+        invitation.id,
+        request.user.email,
+        invitation.invite_email,
+        invitation.device.device_serial,
+    )
 
-        subject = f"Reminder: You've been invited to monitor {device_name}"
-        message = f"""
-Hello,
-
-This is a reminder that you have been invited to monitor {device_name} on SmarTanom.
-
-Click the link below to accept the invitation:
-{settings.FRONTEND_URL}/accept-invitation/{invitation.token}
-
-This invitation will expire in 7 days.
-
-If you did not expect this invitation, you can safely ignore this email.
-
-Best regards,
-The SmarTanom Team
-        """
-
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [invitation.invite_email],
-            fail_silently=False,
-        )
-
-        logger.info(
-            "Invitation %s resent by %s to %s for device %s",
-            invitation.id,
-            request.user.email,
-            invitation.invite_email,
-            invitation.device.device_serial,
-        )
-
-        return Response({
-            'success': True,
-            'message': 'Invitation resent successfully.',
-            'invitation_id': invitation.id,
-        }, status=status.HTTP_200_OK)
-
-    except Exception as e:
-        logger.error(
-            "Failed to resend invitation %s: %s",
-            invitation.id,
-            str(e)
-        )
-        return Response(
-            {'error': 'Failed to send invitation email.'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+    return Response({
+        'success': True,
+        'message': 'Invitation resent successfully.',
+        'invitation_id': invitation.id,
+        'email_sent': email_sent
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
