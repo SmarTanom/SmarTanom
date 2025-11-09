@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from django.conf import settings
 import os
+import secrets
+from datetime import timedelta
+
+from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.db.models import Q
@@ -1831,8 +1834,9 @@ def resend_invitation(request, invitation_id: int):
         )
 
     # Generate a new token to ensure fresh expiration
-    invitation.generate_token()
-    invitation.save(update_fields=['token', 'created_at'])
+    invitation.token = secrets.token_urlsafe(32)
+    invitation.expires_at = timezone.now() + timedelta(hours=24)
+    invitation.save(update_fields=['token', 'expires_at', 'updated_at'])
 
     # Resend the invitation email using the same function as original invite
     email_sent = send_device_invitation_email(invitation)
