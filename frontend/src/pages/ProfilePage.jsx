@@ -6,6 +6,7 @@ import {
   Users, Plus, X, Check
 } from 'lucide-react';
 import '../assets/styles/ProfilePage.css';
+import '../assets/styles/sharedAccess.css';
 import { authApi, apiClient } from '../services/apiClient';
 import { getUserDevices } from '../services/api/devices.js';
 import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation, getSentInvitations, cancelSentInvitation } from '../services/api/sharing.js';
@@ -612,36 +613,39 @@ export default function ProfilePage() {
     setShareEmail('');
   };
 
-  // Reusable renderer for the "Pending invitations you sent" list
+  // Modern renderer for pending invitations (sent by the current user)
   const renderPendingSentInvites = () => {
     if (loadingSentInvites) return null;
     const pending = (sentInvitations || []).filter(inv => inv.status === 'pending');
     if (pending.length === 0) return null;
     return (
-      <div style={{ marginTop: 16, width: '100%', maxWidth: 640 }}>
-        <div style={{ fontWeight: 600, color: '#2F3E46', marginBottom: 8 }}>Pending invitations you sent</div>
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
-          {pending.map(inv => (
-            <li key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F5F9F6', border: '1px solid #E0EBE5', borderRadius: 8, padding: '10px 12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Mail size={16} />
-                <span style={{ color: '#2F3E46' }}>{inv.invite_email}</span>
-                <span style={{ color: '#6B7D75' }}>→</span>
-                <span style={{ color: '#2F3E46', fontWeight: 500 }}>{inv.device_name || 'Shared Device'}</span>
+      <div className="pending-invitations-section">
+        <div className="section-header" style={{ paddingLeft: 4, paddingRight: 4 }}>
+          <h2 className="section-title">Pending Invitations</h2>
+        </div>
+        {pending.map(inv => {
+          const deviceName = inv.device_name || inv.device?.name || 'Shared Device';
+          return (
+            <div key={inv.id} className="invite-row" aria-label={`Pending invitation for ${deviceName}`}>
+              <div className="invite-main">
+                <div className="invite-line">
+                  <span className="invite-email">{inv.invite_email}</span>
+                  <span className="invite-status">Pending</span>
+                </div>
+                <div className="invite-line" style={{ fontSize: 12 }}>
+                  <span className="invite-device">{deviceName}</span>
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 12, color: '#8a8d90' }}>Pending</span>
-                <button
-                  className="btn-cancel"
-                  onClick={() => handleCancelInvitation(inv)}
-                  style={{ padding: '6px 10px' }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+              <button
+                className="btn-cancel"
+                onClick={() => handleCancelInvitation(inv)}
+                aria-label={`Cancel invitation for ${inv.invite_email}`}
+              >
+                Cancel
+              </button>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -879,41 +883,44 @@ export default function ProfilePage() {
               }
 
               return (
-                <div className="shared-list">
-                  {ownerShares.map(share => (
-                    <div key={share.id} className="shared-item">
-                      <div className="shared-item-header">
-                        <div className="shared-device-info">
-                          <h4 className="shared-device-name">{share.deviceName}</h4>
-                          <span className="shared-device-id" style={{ display: 'none' }}>{share.deviceId}</span>
+                <div className="shared-access-section">
+                  <div className="access-cards-wrapper">
+                    {ownerShares.map(share => (
+                      <div key={share.id} className="access-card access-card-owner" aria-label={`Shared device ${share.deviceName} for ${share.sharedWith}`}>
+                        <div className="access-card-header">
+                          <h4 className="access-title">{share.deviceName}</h4>
+                          {share.status && share.status !== 'active' && (
+                            <span
+                              className={`status-badge status-${share.status}`}
+                              title={share.status === 'pending' ? 'Pending' : 'Inactive'}
+                              aria-label={`Status ${share.status}`}
+                            ></span>
+                          )}
                         </div>
-                        <span className={`shared-status ${share.status || 'active'}`}>
-                          {share.status === 'pending' ? '⏳ Pending' : share.status === 'active' ? '✅ Active' : '❌ Inactive'}
-                        </span>
-                      </div>
-                      <div className="shared-item-body">
-                        <div className="shared-user-info">
+                        <div className="access-email-row">
                           <Mail size={16} />
-                          <span className="shared-email">{share.sharedWith}</span>
+                          <span className="access-email">{share.sharedWith}</span>
                         </div>
-                        <div className="shared-meta">
-                          <span className="shared-date">
-                            Shared on {new Date(share.sharedDate).toLocaleDateString()}
-                          </span>
-                          <span className="shared-permissions">📖 View-only access</span>
+                        <div className="access-meta">
+                          <span className="access-date">Shared {new Date(share.sharedDate).toLocaleDateString()}</span>
+                          <span className="permission-badge view">View-only</span>
+                        </div>
+                        <div className="access-divider" />
+                        <div className="access-actions">
+                          <button
+                            className="btn-revoke"
+                            onClick={() => handleRevokeAccess(share.id)}
+                            title={`Revoke ${share.sharedWith}'s access to ${share.deviceName}`}
+                            aria-label={`Revoke access from ${share.sharedWith}`}
+                          >
+                            <X size={14} />
+                            Revoke Access
+                          </button>
                         </div>
                       </div>
-                      <button
-                        className="btn-revoke"
-                        onClick={() => handleRevokeAccess(share.id)}
-                        title={`Revoke ${share.sharedWith}'s access to ${share.deviceName}`}
-                      >
-                        <X size={16} />
-                        Revoke Access
-                      </button>
-                    </div>
-                  ))}
-                  {loadingSentInvites ? null : renderPendingSentInvites()}
+                    ))}
+                    {loadingSentInvites ? null : renderPendingSentInvites()}
+                  </div>
                 </div>
               );
             })()}
@@ -952,32 +959,34 @@ export default function ProfilePage() {
             }
 
             return (
-              <div className="shared-list">
-                {sharedWithMeDevices.map(device => {
-                  const deviceName = device.device_name || device.plant_name || `Device ${device.id}`;
-                  const sharedSince = device.shared_since || device.created_at || null;
-                  return (
-                    <div key={device.id} className="shared-item">
-                      <div className="shared-item-header">
-                        <div className="shared-device-info">
-                          <h4 className="shared-device-name">{deviceName}</h4>
-                          {device.device_serial && (
-                            <span className="shared-device-id">{device.device_serial}</span>
-                          )}
+              <div className="shared-access-section">
+                <div className="access-cards-wrapper">
+                  {sharedWithMeDevices.map(device => {
+                    const deviceName = device.device_name || device.plant_name || `Device ${device.id}`;
+                    const sharedSince = device.shared_since || device.created_at || null;
+                    return (
+                      <div key={device.id} className="access-card access-card-shared" aria-label={`Device shared with you: ${deviceName}`}>
+                        <div className="access-card-header">
+                          <h4 className="access-title">{deviceName}</h4>
+                          {/* No active status badge per spec */}
                         </div>
-                        <span className="shared-status active">✅ Shared with you</span>
-                      </div>
-                      <div className="shared-item-body">
-                        <div className="shared-meta">
+                        {device.device_serial && (
+                          <div className="access-meta" style={{ marginTop: 0 }}>
+                            <span className="access-device-serial">Serial {device.device_serial}</span>
+                          </div>
+                        )}
+                        <div className="access-meta">
                           {sharedSince && (
-                            <span className="shared-date">Since {new Date(sharedSince).toLocaleDateString()}</span>
+                            <span className="access-date">Since {new Date(sharedSince).toLocaleDateString()}</span>
                           )}
-                          <span className="shared-permissions">📖 View-only access</span>
+                          <span className="permission-badge view">View-only</span>
                         </div>
+                        <div className="access-divider" />
+                        {/* No actions for shared-with-me */}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             );
           })()}

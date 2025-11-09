@@ -216,7 +216,8 @@
 
 /* Share Info Banner */
 .share-info-banner {
-  background: rgba(51, 148, 50, 0.1);
+  background: #F5FDF6;
+  border: 1px solid #E5EDE8;
   border-left: 3px solid var(--color-primary);
   padding: 16px;
   border-radius: 12px;
@@ -224,13 +225,24 @@
   align-items: flex-start;
   gap: var(--space-3);
   font-family: 'Montserrat', sans-serif;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.share-info-banner svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .share-info-banner p {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   color: var(--color-text);
   line-height: 1.5;
+  font-weight: 500;
 }
 
 /* Empty State */

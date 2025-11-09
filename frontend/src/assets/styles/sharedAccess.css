@@ -1,0 +1,227 @@
+/* Shared Access & Invitations (aligned with existing design tokens from ProfilePage.css) */
+/* No new color palette introduced; reuses --color-* variables already defined globally. */
+
+/* Section wrappers */
+.shared-access-section {
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 20px;
+}
+
+.access-cards-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Access card */
+.access-card {
+  background: var(--color-surface);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  padding: 16px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
+  position: relative;
+  isolation: isolate;
+  transition: var(--transition-fast);
+  font-family: 'Montserrat', sans-serif;
+}
+
+.access-card:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+.access-card:active {
+  transform: translateY(-1px);
+}
+
+.access-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.access-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  margin: 0;
+  color: var(--color-secondary);
+}
+
+.status-badge {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 2px;
+  box-shadow: 0 0 0 3px var(--color-surface);
+  border: 2px solid var(--color-surface);
+}
+.status-active { background: var(--color-primary-solid); display: none; }
+.status-pending { background: var(--color-warning); }
+.status-inactive { background: var(--color-alert); }
+
+.access-email-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text);
+  font-weight: 500;
+}
+.access-email-row svg { color: var(--color-primary); }
+.access-email { font-weight: 600; }
+
+.access-meta {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.access-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.access-permission { font-style: italic; color: var(--color-muted); }
+
+.access-divider {
+  height: 1px;
+  width: 100%;
+  background: var(--color-border);
+  opacity: 0.6;
+  margin: 2px 0 2px;
+}
+
+.access-actions { display: flex; justify-content: flex-end; }
+
+/* Revoke button - smaller, compact style */
+.btn-revoke {
+  background: rgba(225, 85, 74, 0.1);
+  color: var(--color-alert);
+  border: 1px solid rgba(225, 85, 74, 0.2);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-revoke:hover {
+  background: var(--color-alert);
+  color: white;
+  border-color: var(--color-alert);
+  transform: translateY(-1px);
+}
+
+.btn-revoke:active {
+  transform: translateY(0);
+}
+
+/* Pending Invitations */
+.pending-invitations-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  max-width: 800px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.invite-row {
+  background: var(--color-surface);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 12px 16px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: var(--transition-fast);
+}
+
+.invite-row:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+.invite-main { display: flex; flex: 1; flex-direction: column; gap: 6px; }
+.invite-line { display: flex; align-items: center; gap: 6px; }
+.invite-email { font-weight: 600; color: var(--color-text); }
+.invite-device { color: var(--color-muted); font-weight: 500; }
+.invite-status { font-size: 11px; font-weight: 600; color: var(--color-warning); background: rgba(245,158,11,0.12); padding: 4px 8px; border-radius: 6px; }
+
+/* Cancel button - smaller, compact style */
+.btn-cancel {
+  background: none;
+  color: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-cancel:hover {
+  background: var(--color-background);
+  border-color: var(--color-muted);
+  transform: translateY(-1px);
+}
+
+.btn-cancel:active {
+  transform: translateY(0);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .access-card { padding: 16px 16px 12px; }
+  .access-title { font-size: 15px; }
+  .access-meta { flex-direction: column; align-items: flex-start; }
+  .access-actions { justify-content: flex-start; }
+  .btn-revoke { width: 100%; justify-content: center; }
+  .invite-row { flex-direction: column; align-items: flex-start; }
+  .btn-cancel { width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .access-cards-wrapper, .pending-invitations-section { max-width: 100%; }
+  .access-card { border-radius: 16px; }
+}
+
+/* Motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .access-card, .invite-row { transition: none; }
+  .access-card:hover, .invite-row:hover { transform: none; }
+}
+
+/* Accent variants */
+.access-card-owner {
+  border-left: 4px solid var(--color-primary);
+  padding-left: 16px;
+}
+.access-card-shared {
+  border-left: 4px solid var(--color-secondary);
+  padding-left: 16px;
+}
