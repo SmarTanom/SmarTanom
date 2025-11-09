@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import '../assets/styles/AlertsPage.css';
 import {
@@ -187,16 +188,16 @@ export default function AlertsPage() {
 
   const unreadCount = mappedAlerts.filter(a => !a.read && (!deviceId || String(a.deviceId) === String(deviceId))).length;
 
-  // Track which alerts are expanded (show recommendation text)
-  const [expandedAlerts, setExpandedAlerts] = useState(() => new Set());
+  // Modal: which alert is currently opened for details (recommendation)
+  const [activeAlert, setActiveAlert] = useState(null);
 
-  const toggleExpand = (id) => {
-    setExpandedAlerts(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
+  // Close on Escape
+  useEffect(() => {
+    if (!activeAlert) return;
+    const onKey = (e) => { if (e.key === 'Escape') setActiveAlert(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeAlert]);
 
   const markAsRead = (alertObj) => {
     if (!alertObj?.deviceId || !alertObj?.readingId) return;
@@ -379,9 +380,15 @@ export default function AlertsPage() {
                   key={alert.id}
                   className={`alert-item ${alert.type} ${alert.read ? 'read' : 'unread'}`}
                   onClick={(e) => {
-                    // Ignore clicks originating from buttons inside the card
-                    if (e.target.closest('button')) return;
-                    toggleExpand(alert.id);
+                    if (e.target.closest('button')) return; // safety
+                    // Auto mark as read when opening recommendation modal
+                    if (!alert.read) {
+                      try { markAsRead(alert); toast.success('Marked as read'); } catch (_) {}
+                      // Optimistically set read state for modal
+                      setActiveAlert({ ...alert, read: true });
+                    } else {
+                      setActiveAlert(alert);
+                    }
                   }}
                 >
                   <div className="alert-item-indicator" />
@@ -394,49 +401,89 @@ export default function AlertsPage() {
                       {!alert.read && <span className="unread-dot" />}
                     </div>
                     <p className="alert-item-device">{alert.device}</p>
-                    {expandedAlerts.has(alert.id) ? (
-                      <p className="alert-item-message">{alert.message}</p>
-                    ) : (
-                      <p className="alert-item-message" style={{ opacity: 0.6, fontStyle: 'italic' }}>Tap to view recommendation</p>
-                    )}
+                    <p className="alert-item-message hint" style={{ opacity: 0.65, fontStyle: 'italic' }}>Tap to view recommendation</p>
                     <span className="alert-item-timestamp">{alert.timestamp}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                    <button
-                      onClick={() => handleAlertClick(alert)}
-                      style={{
-                        background: 'none',
-                        border: '1px solid rgba(139,167,151,0.4)',
-                        borderRadius: 6,
-                        padding: '4px 8px',
-                        fontSize: 11,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Open
-                    </button>
-                    {!alert.read && (
-                      <button
-                        onClick={() => markAsRead(alert)}
-                        style={{
-                          background: 'rgba(51,148,50,0.08)',
-                          border: '1px solid rgba(51,148,50,0.4)',
-                          color: 'rgba(51,148,50,0.9)',
-                          borderRadius: 6,
-                          padding: '4px 8px',
-                          fontSize: 11,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Mark read
-                      </button>
-                    )}
                   </div>
                 </article>
               ))}
             </div>
           )}
         </main>
+      )}
+
+      {/* Details Modal */}
+      {activeAlert && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="alert-modal-title"
+          onClick={() => setActiveAlert(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 16
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(560px, 92vw)',
+              background: 'white',
+              borderRadius: 12,
+              boxShadow: '0 12px 30px rgba(0,0,0,0.2)',
+              border: '1px solid rgba(0,0,0,0.06)'
+            }}
+          >
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className={`alert-item-icon ${activeAlert.type}`} style={{ width: 32, height: 32, display: 'grid', placeItems: 'center' }}>
+                {getAlertIcon(activeAlert.icon)}
+              </div>
+              <div>
+                <h3 id="alert-modal-title" style={{ margin: 0 }}>{activeAlert.title}</h3>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{activeAlert.device} • {activeAlert.timestamp}</div>
+              </div>
+            </div>
+            <div style={{ padding: '16px 20px' }}>
+              <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{activeAlert.message || 'No additional details.'}</div>
+            </div>
+            <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <button
+                onClick={() => { handleAlertClick(activeAlert); }}
+                style={{
+                  background: PRIMARY_GREEN,
+                  border: '1px solid rgba(51,148,50,0.4)',
+                  color: 'white',
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  fontSize: 13,
+                  cursor: 'pointer'
+                }}
+              >
+                Open device
+              </button>
+              <button
+                onClick={() => setActiveAlert(null)}
+                style={{
+                  background: 'none',
+                  border: '1px solid rgba(139,167,151,0.4)',
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  fontSize: 13,
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Bottom navigation */}

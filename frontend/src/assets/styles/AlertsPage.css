@@ -379,6 +379,11 @@
   line-height: 1.5;
 }
 
+/* Smaller hint variant */
+.alert-item-message.hint {
+  font-size: 11px;
+}
+
 .alert-item-timestamp {
   font-size: 11px;
   color: var(--color-muted);
@@ -481,6 +486,18 @@
 
   .alert-item {
     padding: 20px;
+  }
+}
+
+/* Extra-small screens (phones <= 440px) */
+@media (max-width: 440px) {
+  .alert-item-message.hint {
+    font-size: 10px;
+  }
+  .alert-mark-read-btn {
+    padding: 2px 6px;
+    font-size: 10px;
+    border-radius: 6px;
   }
 }
 
@@ -601,4 +618,36 @@
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Dashboard loading animation (shared quick addition) */
+.devices-loading-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60vh;
+  flex-direction: column;
+  gap: 1rem;
+  animation: fadePulse 2.4s ease-in-out infinite;
+}
+
+.devices-loading-text {
+  color: #666;
+  font-size: 1rem;
+  animation: shimmerText 3s linear infinite;
+  background: linear-gradient(90deg, #666 0%, #999 50%, #666 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  background-size: 300% 100%;
+}
+
+@keyframes fadePulse {
+  0%, 100% { opacity: 0.85; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-4px); }
+}
+
+@keyframes shimmerText {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
 }

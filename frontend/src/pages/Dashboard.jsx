@@ -1579,16 +1579,9 @@ export default function Dashboard() {
             Hello, {displayName} <span className="dash-header-emoji">🌿</span>
           </h1>
         </header>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '60vh',
-          flexDirection: 'column',
-          gap: '1rem'
-        }}>
+        <div className="devices-loading-wrapper">
           <Loader size={48} color={PRIMARY_GREEN} className="animate-spin" />
-          <p style={{ color: '#666', fontSize: '1rem' }}>Loading your devices...</p>
+          <p className="devices-loading-text">Loading your devices...</p>
         </div>
       </div>
     );
