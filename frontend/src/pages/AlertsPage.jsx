@@ -187,6 +187,17 @@ export default function AlertsPage() {
 
   const unreadCount = mappedAlerts.filter(a => !a.read && (!deviceId || String(a.deviceId) === String(deviceId))).length;
 
+  // Track which alerts are expanded (show recommendation text)
+  const [expandedAlerts, setExpandedAlerts] = useState(() => new Set());
+
+  const toggleExpand = (id) => {
+    setExpandedAlerts(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   const markAsRead = (alertObj) => {
     if (!alertObj?.deviceId || !alertObj?.readingId) return;
     try {
@@ -367,6 +378,11 @@ export default function AlertsPage() {
                 <article
                   key={alert.id}
                   className={`alert-item ${alert.type} ${alert.read ? 'read' : 'unread'}`}
+                  onClick={(e) => {
+                    // Ignore clicks originating from buttons inside the card
+                    if (e.target.closest('button')) return;
+                    toggleExpand(alert.id);
+                  }}
                 >
                   <div className="alert-item-indicator" />
                   <div className={`alert-item-icon ${alert.type}`}>
@@ -378,7 +394,11 @@ export default function AlertsPage() {
                       {!alert.read && <span className="unread-dot" />}
                     </div>
                     <p className="alert-item-device">{alert.device}</p>
-                    <p className="alert-item-message">{alert.message}</p>
+                    {expandedAlerts.has(alert.id) ? (
+                      <p className="alert-item-message">{alert.message}</p>
+                    ) : (
+                      <p className="alert-item-message" style={{ opacity: 0.6, fontStyle: 'italic' }}>Tap to view recommendation</p>
+                    )}
                     <span className="alert-item-timestamp">{alert.timestamp}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
