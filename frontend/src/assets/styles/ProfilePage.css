@@ -226,7 +226,7 @@
   gap: var(--space-3);
   font-family: 'Montserrat', sans-serif;
   box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
   width: 100%;
 }
@@ -954,7 +954,7 @@
 /* Tablet & Desktop */
 @media (min-width: 600px) {
   .profile-main {
-    max-width: 800px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: var(--space-6);
   }
