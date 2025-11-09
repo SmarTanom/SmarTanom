@@ -156,16 +156,16 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
             user_devices = Device.objects.filter(
                 bound_email=request.user.email
             ).values_list('id', flat=True)
-            
+
             # Also get devices where user is a collaborator
             collaborator_devices = DeviceCollaboration.objects.filter(
                 collaborator_email=request.user.email,
                 status=DeviceCollaboration.Status.ACTIVE
             ).values_list('device_id', flat=True)
-            
+
             # Combine owned and collaborator devices
             accessible_device_ids = list(user_devices) + list(collaborator_devices)
-            
+
             if not accessible_device_ids:
                 # User has no devices, return empty alerts
                 return Response({
@@ -266,13 +266,14 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
                 # Map notification type to severity for frontend compatibility
                 severity_mapping = {
                     'critical': 'critical',
-                    'alert': 'critical', 
+                    'alert': 'critical',
                     'warning': 'warning',
                     'info': 'info',
                     'success': 'info'
                 }
                 severity = severity_mapping.get(alert.notification_type, 'info')
 
+                # Decouple read state from delivery status: a log is read only if read_at set
                 alert_data.append({
                     'id': alert.id,
                     'reading_id': alert.id,  # Use alert ID as reading_id for compatibility
@@ -281,7 +282,7 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
                     'body': alert.message,
                     'severity': severity,
                     'type': alert.notification_type,
-                    'is_read': alert.status == 'sent',  # Consider sent as read
+                    'is_read': bool(getattr(alert, 'read_at', None)),
                     'timestamp': alert.sent_at.isoformat(),
                     'created_at': alert.sent_at.isoformat(),
                     'device': device_info,
@@ -289,7 +290,7 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
                 })
 
             logger.info(f"User {request.user.email} requested alerts: {len(alert_data)} alerts for {len(accessible_device_ids)} accessible devices")
-            
+
             return Response({
                 'count': len(alert_data),
                 'alerts': alert_data
@@ -304,65 +305,49 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['post'])
     def mark_read(self, request):
+        """Mark specific alerts as read without altering delivery status.
+        Expects payload: { "alert_ids": [1,2,3] }
         """
-        Mark specific alerts as read
-        Expects: { "alert_ids": [1, 2, 3] }
-        """
+        from django.utils import timezone
         try:
             alert_ids = request.data.get('alert_ids', [])
             if not alert_ids:
-                return Response(
-                    {'error': 'alert_ids is required'},
-                    status=400
-                )
+                return Response({'error': 'alert_ids is required'}, status=400)
 
-            # Update alerts for this user
-            updated_count = NotificationLog.objects.filter(
+            # Only set read_at where not already set (idempotent)
+            qs = NotificationLog.objects.filter(
                 user=request.user,
-                id__in=alert_ids
-            ).update(status='sent')  # Mark as sent (read)
+                id__in=alert_ids,
+                read_at__isnull=True
+            )
+            updated_count = qs.update(read_at=timezone.now())
 
-            logger.info(f"Marked {updated_count} alerts as read for user {request.user.email}")
-
+            logger.info(f"User {request.user.email} marked {updated_count} alerts as read (ids={alert_ids})")
             return Response({
                 'success': True,
                 'message': f'Marked {updated_count} alerts as read',
                 'updated_count': updated_count
             })
-
         except Exception as e:
             logger.error(f"Error marking alerts as read: {e}", exc_info=True)
-            return Response(
-                {'error': 'Failed to mark alerts as read'},
-                status=500
-            )
+            return Response({'error': 'Failed to mark alerts as read'}, status=500)
 
     @action(detail=False, methods=['post'])
     def mark_all_read(self, request):
-        """
-        Mark all alerts as read for the user
-        """
+        """Mark all alerts as read for the user by setting read_at if null."""
+        from django.utils import timezone
         try:
-            # Update all alerts for this user
-            updated_count = NotificationLog.objects.filter(
-                user=request.user,
-                status='failed'  # Only update failed ones to sent
-            ).update(status='sent')
-
-            logger.info(f"Marked all {updated_count} alerts as read for user {request.user.email}")
-
+            qs = NotificationLog.objects.filter(user=request.user, read_at__isnull=True)
+            updated_count = qs.update(read_at=timezone.now())
+            logger.info(f"User {request.user.email} marked ALL alerts as read ({updated_count} updated)")
             return Response({
                 'success': True,
-                'message': f'Marked all {updated_count} alerts as read',
+                'message': f'Marked {updated_count} alerts as read',
                 'updated_count': updated_count
             })
-
         except Exception as e:
             logger.error(f"Error marking all alerts as read: {e}", exc_info=True)
-            return Response(
-                {'error': 'Failed to mark all alerts as read'},
-                status=500
-            )
+            return Response({'error': 'Failed to mark all alerts as read'}, status=500)
 
 
 class NotificationPreferencesViewSet(viewsets.ModelViewSet):

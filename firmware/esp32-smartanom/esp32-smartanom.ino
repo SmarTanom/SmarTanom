@@ -38,10 +38,17 @@
 #include <DallasTemperature.h>
 #include <WebSocketsClient.h>
 
+// Allow local overrides for secrets and environment without editing this file
+#if __has_include("device_config.h")
+#include "device_config.h"
+#endif
+
 // =============================================
 // DEVICE CONFIGURATION - SET BEFORE FLASHING
 // =============================================
+#ifndef DEVICE_SERIAL
 #define DEVICE_SERIAL "SMRT-YIH-D68"  // * CHANGE THIS BEFORE FLASHING *
+#endif
 #define FIRMWARE_VERSION "1.2.0"
 
 // =============================================
@@ -50,13 +57,17 @@
 // Updated to match Render service domain (ALLOWED_HOSTS)
 // Note: Do NOT include a trailing slash to avoid double-slash when joining paths
 // Example: health = BACKEND_URL + "/healthz" -> https://smartanom.onrender.com/healthz
+#ifndef BACKEND_URL
 #define BACKEND_URL "https://smartanom.onrender.com"
+#endif
 #define PROVISION_ENDPOINT "/api/devices/provision/"
 #define CONFIG_ENDPOINT "/api/devices/" DEVICE_SERIAL "/config/"
 
 // Optional: Set if your backend requires device auth
 // Set to your production API key for security
+#ifndef DEVICE_API_KEY
 #define DEVICE_API_KEY "b58e766d66ea4fededf05d3ccfe44475"  // Production API key
+#endif
 
 // =============================================
 // REALTIME STREAM CONFIGURATION (Upstash Redis via REST)
@@ -64,14 +75,24 @@
 // Enable publishing readings to Upstash Redis Pub/Sub via REST API.
 // When true, readings are POSTed to Upstash and the Django backend
 // persists them via a Redis subscriber.
-#define USE_UPSTASH_PUBLISH true
+// Disable legacy dual-path publishing by default; firmware now sends a single
+// aggregated batch over WebSocket with an ingest_id for backend idempotency.
+#ifndef USE_UPSTASH_PUBLISH
+#define USE_UPSTASH_PUBLISH false
+#endif
 
 // Upstash REST endpoint (no trailing slash), e.g., https://us1-xxx.upstash.io
+#ifndef UPSTASH_REDIS_REST_URL
 #define UPSTASH_REDIS_REST_URL "https://lenient-ghost-9335.upstash.io"
+#endif
 // Upstash REST token (Bearer). Keep this secret.
+#ifndef UPSTASH_REDIS_REST_TOKEN
 #define UPSTASH_REDIS_REST_TOKEN "ASR3AAImcDJiMDQ0MzFiZmQ3MGM0ODA4OGM0OWNlMjhkZjU1NTkzOXAyOTMzNQ"
+#endif
 // Pub/Sub channel to publish to (must match backend REDIS_PUBSUB_CHANNEL)
+#ifndef REDIS_PUBSUB_CHANNEL
 #define REDIS_PUBSUB_CHANNEL "smartanom:sensors"
+#endif
 
 // Minimum interval between Upstash publishes (ms). 5000ms = ~17.2k msgs/month/device
 // assuming 24/7 operation (keeps below 500k ops for a small fleet).
@@ -369,6 +390,37 @@ float voltageTurb = 0.0;
 float turbidityNTU = 0.0;
 // Forward declaration
 String getTurbidityStatus(float voltage);
+
+// Ingest id counter for idempotent batch identifiers
+static uint32_t ingestCounter = 0;
+
+// Generate a reasonably unique, short ingest_id per batch.
+// Format: <serial>-<epochSec>-<counterHex>
+// Counter resets on reboot but epoch seconds make collisions across restarts unlikely.
+String generateIngestId() {
+    uint32_t epochSec = (uint32_t)(millis() / 1000UL); // device-relative seconds since boot
+    // Note: backend also prepends server-side fallback if missing, so this is best-effort.
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s-%lu-%04X", DEVICE_SERIAL, (unsigned long)epochSec, (unsigned int)(ingestCounter & 0xFFFF));
+    ingestCounter++;
+    return String(buf);
+}
+
+// Produce a best-effort ISO8601-like timestamp (UTC+8 shown as local if time synced), else epoch millis
+String buildTimestamp() {
+    time_t now = time(nullptr);
+    struct tm tm_info;
+    localtime_r(&now, &tm_info);
+    if (tm_info.tm_year + 1900 >= 2020) {
+        char buf[32];
+        strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", &tm_info);
+        return String(buf);
+    }
+    // Fallback to millis if time not yet synced
+    char buf2[32];
+    snprintf(buf2, sizeof(buf2), "millis-%lu", (unsigned long)millis());
+    return String(buf2);
+}
 
 // =============================================
 // WEBSOCKET (Device -> Backend Channels)
@@ -1968,69 +2020,31 @@ void sendHandshake() {
 }
 
 void sendSensorData() {
-    // If Upstash publishing is enabled, publish there (preferred path)
-    if (USE_UPSTASH_PUBLISH) {
-        unsigned long nowMs = millis();
-        if (nowMs - lastUpstashPublishMs >= UPSTASH_PUBLISH_MIN_INTERVAL_MS) {
-            String json = buildUpstashJson();
-            bool ok = publishToUpstash(json);
-            if (ok) {
-                lastUpstashPublishMs = nowMs;
-                // Clear quality tag after first send
-                firstSendQuality = nullptr;
-            }
-        }
-    }
-
-    // Also send over WebSocket when connected (optional dual-stream)
+    // Single-path: send aggregated batch over WebSocket with ingest_id.
     if (wsConnected) {
-        // Build array-based payload for WS broadcast path
         StaticJsonDocument<512> doc;
-        doc["type"] = "sensor_data"; // explicit type for backend WS
+        doc["type"] = "sensor_data";
         doc["device_serial"] = DEVICE_SERIAL;
-        JsonArray arr = doc.createNestedArray("data");
+    String ingId = generateIngestId();
+    doc["ingest_id"] = ingId;
         if (!firstPayloadSent && firstSendQuality != nullptr) {
             doc["quality"] = firstSendQuality; // "stable" or "warmup"
         }
-
-        JsonObject o1 = arr.createNestedObject();
-        o1["type"] = "ph";
-        o1["value"] = phValue;
-
-        JsonObject o2 = arr.createNestedObject();
-        o2["type"] = "tds";
-        o2["value"] = tdsValue; // ppm
-
-        JsonObject o3 = arr.createNestedObject();
-        o3["type"] = "ec";
-        o3["value"] = ecValue; // mS/cm (from polynomial)
-
-        JsonObject o4 = arr.createNestedObject();
-        o4["type"] = "turbidity";
-        o4["value"] = rawTurb; // raw ADC units (0-4095)
-        JsonObject o4s = arr.createNestedObject();
-        o4s["type"] = "turbidity_status";
-        o4s["value"] = getTurbidityStatus(voltageTurb);
-
-        JsonObject o5 = arr.createNestedObject();
-        o5["type"] = "water_temperature"; // preferred key
-        o5["value"] = waterTempC; // °C
-        JsonObject o5b = arr.createNestedObject();
-        o5b["type"] = "water_temp"; // legacy alias
-        o5b["value"] = waterTempC;
-
-        JsonObject o6 = arr.createNestedObject();
-        o6["type"] = "water_level";
-        o6["value"] = waterPercent; // %
-
-        JsonObject o7 = arr.createNestedObject();
-        o7["type"] = "water_level_state";
-        o7["value"] = waterLevelStateToText(currentWaterLevelState);
-
-        String out;
-        serializeJson(doc, out);
+        // Aggregated sensor map expected by backend consumer
+    JsonObject sensors = doc.createNestedObject("data");
+    sensors["ingest_id"] = ingId; // let backend dedupe entire batch
+    sensors["timestamp"] = buildTimestamp();
+        sensors["ph"] = phValue;
+        sensors["tds"] = tdsValue;      // ppm
+        sensors["ec"] = ecValue;        // mS/cm
+        sensors["turbidity"] = rawTurb; // RAW (backend converts if > 1000)
+        sensors["turbidity_status"] = getTurbidityStatus(voltageTurb);
+        sensors["water_temperature"] = waterTempC; // °C
+        sensors["water_level"] = waterPercent;     // %
+        // Optional state for UI (not ingested as a reading)
+        sensors["water_level_state"] = waterLevelStateToText(currentWaterLevelState);
+        String out; serializeJson(doc, out);
         wsClient.sendTXT(out);
-        // Clear quality tag after first send if it wasn't already cleared
         firstSendQuality = nullptr;
     }
 

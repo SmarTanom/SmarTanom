@@ -13,7 +13,6 @@ import {
   Waves,
   Sun,
   Sprout,
-  ChevronRight,
   Filter,
   Bell
 } from 'lucide-react';
@@ -272,6 +271,17 @@ export default function AlertsPage() {
         </div>
       </header>
 
+      {/* Guidance text */}
+      {!loadingInitial && !loadingAlerts && !errorAlerts && (
+        <div style={{
+          margin: '8px 16px 0',
+          color: '#64748b',
+          fontSize: '12px'
+        }}>
+          Tip: Tap an alert to open the device and mark it as read. Use “Mark all as read” to clear unread counters.
+        </div>
+      )}
+
       {/* Loading / Error states */}
       {(loadingInitial || loadingAlerts) && (
         <div style={{
@@ -357,7 +367,6 @@ export default function AlertsPage() {
                 <article
                   key={alert.id}
                   className={`alert-item ${alert.type} ${alert.read ? 'read' : 'unread'}`}
-                  onClick={() => handleAlertClick(alert)}
                 >
                   <div className="alert-item-indicator" />
                   <div className={`alert-item-icon ${alert.type}`}>
@@ -372,7 +381,37 @@ export default function AlertsPage() {
                     <p className="alert-item-message">{alert.message}</p>
                     <span className="alert-item-timestamp">{alert.timestamp}</span>
                   </div>
-                  <ChevronRight size={20} color="#8BA797" className="alert-item-chevron" />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    <button
+                      onClick={() => handleAlertClick(alert)}
+                      style={{
+                        background: 'none',
+                        border: '1px solid rgba(139,167,151,0.4)',
+                        borderRadius: 6,
+                        padding: '4px 8px',
+                        fontSize: 11,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Open
+                    </button>
+                    {!alert.read && (
+                      <button
+                        onClick={() => markAsRead(alert)}
+                        style={{
+                          background: 'rgba(51,148,50,0.08)',
+                          border: '1px solid rgba(51,148,50,0.4)',
+                          color: 'rgba(51,148,50,0.9)',
+                          borderRadius: 6,
+                          padding: '4px 8px',
+                          fontSize: 11,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Mark read
+                      </button>
+                    )}
+                  </div>
                 </article>
               ))}
             </div>
