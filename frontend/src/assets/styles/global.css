@@ -70,6 +70,20 @@ body {
 .input.with-icon { padding-left: 42px; }
 .input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--color-muted); }
 
+/* Loading spinner animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
 /* Mobile tweaks */
 @media (max-width: 480px) {
   .card { border-radius: 18px; padding: 18px; box-shadow: 0 12px 36px rgba(0,0,0,0.08); }

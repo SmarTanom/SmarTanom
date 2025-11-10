@@ -238,7 +238,7 @@
   font-family: 'Montserrat', sans-serif;
   animation: fadeInRow 0.3s ease-out forwards;
   animation-delay: 0.05s;
-  opacity: 0;
+  opacity: 1; /* Changed from 0 to 1 to ensure visibility even if animation doesn't run */
   transition: background-color var(--transition-fast);
 }
 
