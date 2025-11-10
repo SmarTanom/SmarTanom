@@ -80,6 +80,8 @@ export default function ProfilePage() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   // Section collapse states
   const [accountInfoExpanded, setAccountInfoExpanded] = useState(true);
+  // PWA modal states
+  const [pwaModalType, setPwaModalType] = useState(null); // 'confirm' or 'instructions'
 
 
   // Load current user profile from backend
@@ -826,7 +828,10 @@ export default function ProfilePage() {
                 </p>
               </div>
             </div>
-            <PWAInstallButton />
+            <PWAInstallButton 
+              onOpenModal={(type) => setPwaModalType(type)}
+              onCloseModal={() => setPwaModalType(null)}
+            />
           </div>
         </section>
 
@@ -1425,6 +1430,16 @@ export default function ProfilePage() {
         onConfirm={confirmCancelInvitation}
         onCancel={() => setCancelInviteId(null)}
         confirmVariant="danger"
+      />
+
+      {/* PWA Install Modals (rendered at root level) */}
+      <PWAInstallButton
+        renderModalsOnly={true}
+        modalState={{
+          showConfirm: pwaModalType === 'confirm',
+          showInstructions: pwaModalType === 'instructions'
+        }}
+        onCloseModal={() => setPwaModalType(null)}
       />
     </div>
   );

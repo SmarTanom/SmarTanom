@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
 import { usePWAInstall } from '../../hooks/usePWAInstall.js';
 import { Download, Smartphone, Check, Info, X } from 'lucide-react';
+import './PWAInstallButton.css';
 
 /**
  * PWA Install Component
  * Provides "Install App" functionality for the Profile page
+ * Props:
+ * - onOpenModal: Callback to open modal at parent level
+ * - renderModalsOnly: If true, only renders modals (for parent-level rendering)
+ * - modalState: State for modals when rendered at parent level
+ * - onCloseModal: Callback to close modals
  */
-export default function PWAInstallButton() {
+export default function PWAInstallButton({ 
+  onOpenModal, 
+  renderModalsOnly = false,
+  modalState = {},
+  onCloseModal 
+}) {
   const {
     installApp,
     isInstalled,
@@ -19,58 +30,181 @@ export default function PWAInstallButton() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Use parent state if provided, otherwise use local state
+  const isConfirmOpen = modalState.showConfirm !== undefined ? modalState.showConfirm : showConfirm;
+  const isInstructionsOpen = modalState.showInstructions !== undefined ? modalState.showInstructions : showInstructions;
 
   const handleInstallClick = async () => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
     console.log('Install clicked. iOS:', isIOS, 'Install prompt available:', installPrompt);
 
     if (isIOS) {
-      // Show manual instructions for iOS
       console.log('Showing manual install instructions for iOS');
-      setShowInstructions(true);
+      if (onOpenModal) {
+        onOpenModal('instructions');
+      } else {
+        setShowInstructions(true);
+      }
+      setTimeout(() => setIsProcessing(false), 300);
       return;
     }
 
     if (!installPrompt) {
-      // Show manual instructions when prompt not available
       console.log('No install prompt available, showing manual instructions');
-      setShowInstructions(true);
+      if (onOpenModal) {
+        onOpenModal('instructions');
+      } else {
+        setShowInstructions(true);
+      }
+      setTimeout(() => setIsProcessing(false), 300);
       return;
     }
 
-    // Show confirmation dialog first for automatic install
-    setShowConfirm(true);
+    // Show confirmation dialog
+    if (onOpenModal) {
+      onOpenModal('confirm');
+    } else {
+      setShowConfirm(true);
+    }
+    setTimeout(() => setIsProcessing(false), 300);
   };
 
   const handleConfirmInstall = async () => {
-    setShowConfirm(false);
+    if (onCloseModal) {
+      onCloseModal('confirm');
+    } else {
+      setShowConfirm(false);
+    }
     setInstalling(true);
+    setIsProcessing(true);
     try {
       console.log('Attempting automated install...');
       const result = await installApp();
       if (!result.success) {
         console.warn('Install failed:', result.error);
         // Show instructions as fallback
-        setShowInstructions(true);
+        if (onOpenModal) {
+          onOpenModal('instructions');
+        } else {
+          setShowInstructions(true);
+        }
       } else {
         console.log('Install successful!');
       }
     } catch (error) {
       console.error('Install error:', error);
-      setShowInstructions(true);
+      if (onOpenModal) {
+        onOpenModal('instructions');
+      } else {
+        setShowInstructions(true);
+      }
     } finally {
       setInstalling(false);
+      setTimeout(() => setIsProcessing(false), 300);
     }
   };
 
   const handleCancelInstall = () => {
-    setShowConfirm(false);
+    if (onCloseModal) {
+      onCloseModal('confirm');
+    } else {
+      setShowConfirm(false);
+    }
+    setTimeout(() => setIsProcessing(false), 300);
+  };
+
+  const handleCloseInstructions = () => {
+    if (onCloseModal) {
+      onCloseModal('instructions');
+    } else {
+      setShowInstructions(false);
+    }
+    setTimeout(() => setIsProcessing(false), 300);
   };
 
   const instructions = getInstallInstructions();
 
   // Don't show button if not supported or already installed
-  if (!isInstallSupported && !isIOS) {
+  if (!isInstallSupported && !isIOS && !renderModalsOnly) {
     return null;
+  }
+
+  // If renderModalsOnly, only return modals
+  if (renderModalsOnly) {
+    return (
+      <>
+        {/* Installation Confirmation Modal */}
+        {isConfirmOpen && (
+          <div className="pwa-modal-overlay" onClick={handleCancelInstall}>
+            <div className="pwa-modal-container" onClick={(e) => e.stopPropagation()}>
+              <div className="pwa-modal-header">
+                <h3 className="pwa-modal-title">
+                  <Download size={24} color="#339432" />
+                  Install SmarTanom App
+                </h3>
+                <button onClick={handleCancelInstall} className="pwa-modal-close">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="pwa-modal-content">
+                <p>
+                  Install SmarTanom as an app on your device for a native app experience with offline access and faster loading.
+                </p>
+              </div>
+
+              <div className="pwa-modal-actions">
+                <button onClick={handleCancelInstall} className="pwa-btn-cancel">
+                  Cancel
+                </button>
+                <button onClick={handleConfirmInstall} className="pwa-btn-install">
+                  Install App
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Installation Instructions Modal */}
+        {isInstructionsOpen && (
+          <div className="pwa-modal-overlay" onClick={handleCloseInstructions}>
+            <div className="pwa-modal-container" onClick={(e) => e.stopPropagation()}>
+              <div className="pwa-modal-header">
+                <h3 className="pwa-modal-title">
+                  <Info size={24} color="#339432" />
+                  {instructions.title}
+                </h3>
+                <button onClick={handleCloseInstructions} className="pwa-modal-close">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="pwa-modal-content">
+                <p>
+                  To install SmarTanom as an app on your device, follow these steps:
+                </p>
+
+                <ol className="pwa-instructions-list" style={{ listStylePosition: 'outside', paddingLeft: '20px', color: '#2F3E46', lineHeight: 1.6 }}>
+                  {instructions.steps.map((step, index) => (
+                    <li key={index} style={{ marginBottom: '8px' }}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="pwa-modal-actions">
+                <button onClick={handleCloseInstructions} className="pwa-btn-install" style={{ width: '100%' }}>
+                  Got it!
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
   }
 
   return (
@@ -100,180 +234,6 @@ export default function PWAInstallButton() {
           App Installed
         </div>
       )}
-
-      {/* Installation Confirmation Modal */}
-      {showConfirm && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: '20px'
-          }}
-          onClick={handleCancelInstall}
-        >
-          <div
-            style={{
-              background: 'white',
-              borderRadius: '16px',
-              padding: '24px',
-              maxWidth: '400px',
-              width: '100%',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, color: '#2F3E46', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Download size={24} color="#339432" />
-                Install SmarTanom App
-              </h3>
-              <button
-                onClick={handleCancelInstall}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '4px',
-                  cursor: 'pointer',
-                  color: '#666'
-                }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ color: '#666', marginBottom: '16px', lineHeight: 1.5 }}>
-                Install SmarTanom as an app on your device for a native app experience with offline access and faster loading.
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={handleCancelInstall}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  background: '#f3f4f6',
-                  color: '#374151',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmInstall}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  background: '#339432',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Install App
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Installation Instructions Modal */}
-      {showInstructions && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: '20px'
-          }}
-          onClick={() => setShowInstructions(false)}
-        >
-          <div
-            style={{
-              background: 'white',
-              borderRadius: '16px',
-              padding: '24px',
-              maxWidth: '400px',
-              width: '100%',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, color: '#2F3E46', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Info size={24} color="#339432" />
-                {instructions.title}
-              </h3>
-              <button
-                onClick={() => setShowInstructions(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: '4px',
-                  cursor: 'pointer',
-                  color: '#666'
-                }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ color: '#666', marginBottom: '16px', lineHeight: 1.5 }}>
-                To install SmarTanom as an app on your device, follow these steps:
-              </p>
-
-              <ol style={{ color: '#2F3E46', lineHeight: 1.6, paddingLeft: '20px' }}>
-                {instructions.steps.map((step, index) => (
-                  <li key={index} style={{ marginBottom: '8px' }}>{step}</li>
-                ))}
-              </ol>
-            </div>
-
-            <button
-              onClick={() => setShowInstructions(false)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                background: '#339432',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              Got it!
-            </button>
-          </div>
-        </div>
-      )}
-
-
     </div>
   );
 }
