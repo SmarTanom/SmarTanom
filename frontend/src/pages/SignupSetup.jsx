@@ -228,18 +228,17 @@ export default function SignupSetup() {
   const [showPlantPhotoModal, setShowPlantPhotoModal] = useState(false); // plant photo modal
   const [durationDays, setDurationDays] = useState(''); // numeric string, optional
 
-  // Reservoir (Step 2)
+  // Cycle configuration (Step 2)
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const plus30Str = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
     return d.toISOString().slice(0, 10);
   }, []);
-  const [reservoirName, setReservoirName] = useState('');
   const [plantId, setPlantId] = useState('');
   const [resStartDate, setResStartDate] = useState(todayStr);
   const [resEndDate, setResEndDate] = useState(plus30Str);
-  const [reservoirError, setReservoirError] = useState('');
+  // Removed reservoirError and reservoirName (reservoir concept no longer used)
 
   useEffect(() => {
     async function loadPlants() {
@@ -949,7 +948,7 @@ export default function SignupSetup() {
               await deviceApi.update(matchedDevice.id, payload, token);
               console.log('[SignupSetup] Device cycle configured for device', matchedDevice.id);
             } else {
-              console.warn('[SignupSetup] Device not found when creating reservoir');
+              console.warn('[SignupSetup] Device not found when updating device cycle');
             }
           }
         } catch (reservoirErr) {
@@ -1415,42 +1414,14 @@ export default function SignupSetup() {
                         </div>
                       </div>
 
-                      {/* Reservoir Info Card */}
+                      {/* Plant & Cycle Info Card (device-level) */}
                       <div className="setup-card">
-                        <h3 className="setup-section-title">Reservoir</h3>
+                        <h3 className="setup-section-title">Plant & Cycle</h3>
                         <div className="setup-form-grid">
                           <div className="setup-field">
                             <div className="setup-field-label-row">
-                              <label className="setup-field-label setup-field-label--xs" htmlFor="resDeviceId">Device ID</label>
-                            </div>
-                            <input
-                              id="resDeviceId"
-                              type="text"
-                              value={deviceId}
-                              readOnly
-                              disabled
-                              aria-readonly="true"
-                            />
-                            <p className="setup-helper setup-helper--sm">Reservoir will be created for this device.</p>
-                          </div>
-
-                          <div className="setup-field">
-                            <div className="setup-field-label-row">
-                              <label className="setup-field-label setup-field-label--xs" htmlFor="reservoirName">Reservoir Name</label>
-                            </div>
-                            <input
-                              id="reservoirName"
-                              type="text"
-                              placeholder="e.g., Main Tank"
-                              value={reservoirName}
-                              onChange={(e) => setReservoirName(e.target.value)}
-                              autoComplete="off"
-                            />
-                          </div>
-
-                          <div className="setup-field">
-                            <div className="setup-field-label-row">
                               <label className="setup-field-label setup-field-label--xs" htmlFor="plantId">Plant</label>
+                              <span className="setup-optional" aria-hidden="true">optional</span>
                             </div>
                             <select
                               id="plantId"
@@ -1458,7 +1429,7 @@ export default function SignupSetup() {
                               onChange={(e) => setPlantId(e.target.value)}
                               aria-describedby="help-plant"
                             >
-                              <option value="" disabled>Select a plant</option>
+                              <option value="">Select a plant (optional)</option>
                               {plantOptions.map(p => (
                                 <option key={p.id} value={p.id}>{p.plant_name}</option>
                               ))}
@@ -1469,6 +1440,7 @@ export default function SignupSetup() {
                           <div className="setup-field">
                             <div className="setup-field-label-row">
                               <label className="setup-field-label setup-field-label--xs" htmlFor="resStart">Start Date</label>
+                              <span className="setup-optional" aria-hidden="true">optional</span>
                             </div>
                             <input
                               id="resStart"
@@ -1481,6 +1453,7 @@ export default function SignupSetup() {
                           <div className="setup-field">
                             <div className="setup-field-label-row">
                               <label className="setup-field-label setup-field-label--xs" htmlFor="resEnd">End Date</label>
+                              <span className="setup-optional" aria-hidden="true">optional</span>
                             </div>
                             <input
                               id="resEnd"
@@ -1490,9 +1463,6 @@ export default function SignupSetup() {
                             />
                           </div>
                         </div>
-                        {reservoirError && (
-                          <p className="setup-error" role="alert" style={{ marginTop: 8 }}>{reservoirError}</p>
-                        )}
                       </div>
 
                       {/* Hydroponic Info Card */}
@@ -1788,24 +1758,14 @@ export default function SignupSetup() {
                         type="button"
                         className="setup-btn"
                         onClick={() => {
-                          // Validate reservoir inputs lightly before proceeding
-                          setReservoirError('');
-                          const sd = resStartDate || todayStr;
-                          const ed = resEndDate || sd;
-                          if (!reservoirName.trim()) {
-                            setReservoirError('Reservoir name is required.');
-                            return;
+                          // Optional validation: if both dates provided, ensure end >= start
+                          const sd = resStartDate;
+                          const ed = resEndDate;
+                          if (sd && ed && sd > ed) {
+                            // Swap if user accidentally inverted
+                            setResStartDate(ed);
+                            setResEndDate(sd);
                           }
-                          if (!plantId) {
-                            setReservoirError('Plant is required.');
-                            return;
-                          }
-                          if (sd > ed) {
-                            setReservoirError('End date cannot be before start date.');
-                            return;
-                          }
-                          setResStartDate(sd);
-                          setResEndDate(ed);
                           setStep(3);
                         }}
                       >
