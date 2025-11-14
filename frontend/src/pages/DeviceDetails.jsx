@@ -24,57 +24,14 @@ import {
 } from 'lucide-react';
 
 import { getDeviceById, uploadPlantPhoto, resetDeviceWiFi } from '../services/api/devices.js';
-import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
 import { getDeviceReservoirs } from '../services/api/reservoirs.js';
-import { listPlants } from '../services/api/plants.js';
 import { useRealtimeStore } from '../store/realtimeStore';
 import { getUserAlerts } from '../services/api/userAlerts';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
 
-// Mock data - will be replaced with real device data from props/API
-const mockDevices = {
-  'D000000001': {
-    name: 'Porch SmarTanom',
-    id: 'D000000001',
-    image: 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop',
-    plant: {
-      name: 'Romaine Lettuce',
-      variety: 'Romaine',
-      image: 'https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?w=400&auto=format&fit=crop',
-      status: 'Growing now',
-      daysToHarvest: 35,
-      estimatedHarvestMessage: 'Romaine Lettuce is estimated to be ready for harvest in 35 days.'
-    }
-  },
-  'D000000002': {
-    name: 'Greenhouse A',
-    id: 'D000000002',
-    image: 'https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=800&auto=format&fit=crop',
-    plant: {
-      name: 'Basil',
-      variety: 'Sweet Basil',
-      image: 'https://images.unsplash.com/photo-1618375569909-3c8616cf7733?w=400&auto=format&fit=crop',
-      status: 'Growing now',
-      daysToHarvest: 21,
-      estimatedHarvestMessage: 'Basil is estimated to be ready for harvest in 21 days.'
-    }
-  },
-  'D000000003': {
-    name: 'Indoor Rack',
-    id: 'D000000003',
-    image: 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=800&auto=format&fit=crop',
-    plant: {
-      name: 'Spinach',
-      variety: 'Baby Spinach',
-      image: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=400&auto=format&fit=crop',
-      status: 'Growing now',
-      daysToHarvest: 28,
-      estimatedHarvestMessage: 'Spinach is estimated to be ready for harvest in 28 days.'
-    }
-  }
-};
+// Removed hardcoded mockDevices; component now relies solely on API/device prop data.
 
 // Helper: relative time from ISO (short)
 function relativeTimeFromISO(iso) {
@@ -180,16 +137,15 @@ export default function DeviceDetails() {
       try {
         setLoading(true);
         setError(null);
-        const id = deviceId || (location.state && location.state.deviceId);
+        const id = deviceId || location.state?.deviceId;
         if (!id) {
-          // fallback to mock if no id
-          if (mounted) setDevice(mockDevices['D000000001']);
+          // No id available; show empty state instead of mock data
+          if (mounted) setDevice(null);
           return;
         }
         const resp = await getDeviceById(id);
         const dev = resp && resp.id ? resp : (resp && resp.results ? resp.results : resp);
         if (mounted) setDevice(dev);
-
         // Fetch reservoirs for this device and pick the most recent entry
         try {
           const targetId = (dev && (dev.id || dev.device_id)) || id;
@@ -211,7 +167,7 @@ export default function DeviceDetails() {
         console.warn('DeviceDetails: failed to load device', e);
         if (mounted) {
           setError('Failed to load device');
-          setDevice(mockDevices[deviceId] || mockDevices['D000000001']);
+          setDevice(null);
         }
       } finally {
         if (mounted) setLoading(false);
@@ -506,13 +462,12 @@ export default function DeviceDetails() {
     }
   };
 
-  const resolvedDevice = device || (mockDevices[deviceId] || mockDevices['D000000001']);
+  const resolvedDevice = device || null;
 
-  // Derive display values and only render when truthy to avoid placeholder dashes
-  const plantName = (device && device.plant_name) || (resolvedDevice.plant ? resolvedDevice.plant.name : '');
-  const plantVariety = (device && device.plant_variety) || (resolvedDevice.plant ? resolvedDevice.plant.variety : '');
-  const harvestText = (device && device.plant_status)
-    || (resolvedDevice.plant ? `Harvest in ${resolvedDevice.plant.daysToHarvest} days` : '');
+  // Derive display values from API device only
+  const plantName = device?.plant_name || '';
+  const plantVariety = device?.plant_variety || '';
+  const harvestText = device?.plant_status || '';
 
   // Device status badge configuration
   const deviceStatusRaw = (device && device.status) || '';
@@ -525,9 +480,53 @@ export default function DeviceDetails() {
     : 'active';
 
   // Use plant photo if available, otherwise fall back to mock image or default
-  const headerImage = (device && device.plant_photo_url)
+  const headerImage = device?.plant_photo_url
     ? resolveMediaUrl(device.plant_photo_url)
-    : (resolvedDevice.image || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop');
+    : 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop';
+
+  // Loading / error / empty states
+  if (loading) {
+    return (
+      <div className="device-details-root" style={{ padding: '32px', textAlign: 'center' }}>
+        <p>Loading device…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="device-details-root" style={{ padding: '32px', textAlign: 'center' }}>
+        <p style={{ color: '#E1554A' }}>{error}</p>
+        <button
+          onClick={() => {
+            setError(null); setLoading(true); /* retry */
+            // trigger fetch again
+            (async () => {
+              try {
+                const id = deviceId || location.state?.deviceId;
+                if (!id) { setDevice(null); setLoading(false); return; }
+                const resp = await getDeviceById(id);
+                const dev = resp && resp.id ? resp : (resp && resp.results ? resp.results : resp);
+                setDevice(dev);
+              } catch (e) {
+                setError('Failed to load device');
+              } finally { setLoading(false); }
+            })();
+          }}
+          style={{ marginTop: '16px', background: PRIMARY_GREEN, color: 'white', border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer' }}
+        >Retry</button>
+      </div>
+    );
+  }
+
+  if (!resolvedDevice) {
+    return (
+      <div className="device-details-root" style={{ padding: '32px', textAlign: 'center' }}>
+        <p>No device selected.</p>
+        <button onClick={handleGoBack} style={{ marginTop: '16px', background: PRIMARY_GREEN, color: 'white', border: 'none', padding: '10px 16px', borderRadius: '6px', cursor: 'pointer' }}>Go to dashboard</button>
+      </div>
+    );
+  }
   return (
     <div className="device-details-root">
       {/* Header with background image */}
@@ -555,8 +554,8 @@ export default function DeviceDetails() {
 
       {/* Device info */}
       <div className="device-info-section">
-        <h1 className="device-info-title">{resolvedDevice.device_name || resolvedDevice.name || (location.state && location.state.deviceName) || 'Device'}</h1>
-        <p className="device-info-id">Serial: {resolvedDevice.device_serial || (location.state && location.state.deviceSerial) || resolvedDevice.id || deviceId}</p>
+        <h1 className="device-info-title">{resolvedDevice.device_name || location.state?.deviceName || 'Device'}</h1>
+        <p className="device-info-id">Serial: {resolvedDevice.device_serial || location.state?.deviceSerial || deviceId}</p>
         {resolvedDevice.location ? (
           <p className="device-location">Location: {resolvedDevice.location}</p>
         ) : null}
@@ -600,7 +599,7 @@ export default function DeviceDetails() {
               <p className="harvest-estimate-text">
                 {(device && device.plant_name)
                   ? `Growing ${device.plant_name}${device.plant_variety ? ` (${device.plant_variety})` : ''} - ${device.plant_status || 'Active'}`
-                  : (resolvedDevice.plant ? resolvedDevice.plant.estimatedHarvestMessage : 'Device is running normally.')
+                  : 'Device is running normally.'
                 }
               </p>
             </div>
@@ -615,17 +614,9 @@ export default function DeviceDetails() {
             <div className="plant-card">
               <div className="plant-card-image">
                 <img
-                  src={
-                    (device && device.plant_photo_url)
-                      ? resolveMediaUrl(device.plant_photo_url)
-                      : ((resolvedDevice.plant && resolvedDevice.plant.image) || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop')
-                  }
-                  alt={
-                    (device && device.plant_name)
-                      ? device.plant_name
-                      : ((resolvedDevice.plant && resolvedDevice.plant.name) || 'Plant')
-                  }
-                  onError={(e) => withImgFallback(e, (resolvedDevice.plant && resolvedDevice.plant.image) || 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop')}
+                  src={device?.plant_photo_url ? resolveMediaUrl(device.plant_photo_url) : 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop'}
+                  alt={device?.plant_name || 'Plant'}
+                  onError={(e) => withImgFallback(e, 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop')}
                 />
               </div>
               <div className="plant-card-content">
