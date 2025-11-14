@@ -19,6 +19,9 @@ class DeviceAdmin(admin.ModelAdmin):
         'status',
         'wifi_configured',
         'is_online_display',
+        'plant_display',
+        'start_date',
+        'end_date',
         'last_seen',
         'is_bound',
         'bound_email',
@@ -26,11 +29,12 @@ class DeviceAdmin(admin.ModelAdmin):
         'created_at',
         'updated_at'
     )
-    list_filter = ('status', 'wifi_configured', 'is_bound', 'created_at', 'updated_at')
+    list_filter = ('status', 'wifi_configured', 'is_bound', 'plant', 'start_date', 'end_date', 'created_at', 'updated_at')
     search_fields = ('device_name', 'device_serial', 'bound_email', 'location')
     ordering = ('-created_at',)
     list_per_page = 25  # Show up to 25 devices per page
     list_editable = ('device_name', 'status', 'location')
+    date_hierarchy = 'start_date'
 
     fieldsets = (
         ('Device Information', {
@@ -45,7 +49,7 @@ class DeviceAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
         ('Plant Information', {
-            'fields': ('plant_photo',)
+            'fields': ('plant', 'start_date', 'end_date', 'plant_photo',)
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -66,6 +70,14 @@ class DeviceAdmin(admin.ModelAdmin):
                 return "❌ Error loading photo"
         return "📷 No photo"
     plant_photo_thumbnail.short_description = 'Plant Photo'
+
+    def plant_display(self, obj):
+        """Show plant name if assigned."""
+        try:
+            return getattr(obj.plant, 'plant_name', None) or '—'
+        except Exception:
+            return '—'
+    plant_display.short_description = 'Plant'
 
     def is_online_display(self, obj):
         """Display online/offline status with icon."""
