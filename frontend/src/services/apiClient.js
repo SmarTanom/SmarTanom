@@ -147,7 +147,8 @@ export const deviceApi = {
   list: (token) => apiClient.get('/api/devices/', { authToken: token }),
   get: (deviceId, token) => apiClient.get(`/api/devices/${deviceId}/`, { authToken: token }),
   create: (deviceData, token) => apiClient.post('/api/devices/', deviceData, { authToken: token }),
-  update: (deviceId, deviceData, token) => apiClient.post(`/api/devices/${deviceId}/`, deviceData, { authToken: token }),
+  // Use PATCH for partial updates on a device detail endpoint
+  update: (deviceId, deviceData, token) => apiClient.patch(`/api/devices/${deviceId}/`, deviceData, { authToken: token }),
   uploadPlantPhoto: (deviceId, photoFile, plantName = '', plantVariety = '', token) => {
     const formData = new FormData();
     formData.append('plant_photo', photoFile);
@@ -160,7 +161,7 @@ export const deviceApi = {
     });
   },
   updatePlantInfo: (deviceId, plantName = '', plantVariety = '', token) => {
-    return apiClient.post(`/api/devices/${deviceId}/`, {
+    return apiClient.patch(`/api/devices/${deviceId}/`, {
       plant_name: plantName,
       plant_variety: plantVariety
     }, {

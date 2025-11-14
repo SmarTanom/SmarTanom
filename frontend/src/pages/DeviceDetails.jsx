@@ -100,6 +100,22 @@ function enrichAlertMessage(_plantInfo, _sensorType, _classificationReason, base
   return baseMessage;
 }
 
+// Helper: compute whole days from today (local) until end date (local)
+function computeDaysTillHarvest(endDateStr) {
+  if (!endDateStr) return null;
+  const end = new Date(endDateStr);
+  if (Number.isNaN(end.getTime())) return null;
+  // Normalize both to local start-of-day to avoid time-of-day noise
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffMs = endDay.getTime() - today.getTime();
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  // Using Math.floor since both are start-of-day; negative -> past date
+  const days = Math.floor(diffMs / MS_PER_DAY);
+  return days;
+}
+
 export default function DeviceDetails() {
   const { deviceId } = useParams();
   const navigate = useNavigate();
@@ -130,6 +146,8 @@ export default function DeviceDetails() {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState(null);
+  // Days till harvest (recomputes periodically)
+  const [daysTillHarvest, setDaysTillHarvest] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -160,6 +178,17 @@ export default function DeviceDetails() {
     fetchDevice();
     return () => { mounted = false; };
   }, [deviceId, location.state]);
+
+  // Recompute days till harvest initially and periodically (every minute)
+  useEffect(() => {
+    // Initial compute
+    setDaysTillHarvest(computeDaysTillHarvest(device?.end_date));
+    // Update every 60s to ensure it flips at midnight without reload
+    const interval = setInterval(() => {
+      setDaysTillHarvest(computeDaysTillHarvest(device?.end_date));
+    }, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [device?.end_date]);
 
   // Initialize real-time data and WebSocket connection
   useEffect(() => {
@@ -630,6 +659,20 @@ export default function DeviceDetails() {
                   <div className="plant-cycle-row">
                     <span className="plant-cycle-label">End date</span>
                     <span className="plant-cycle-value">{device?.end_date ? new Date(device.end_date).toLocaleDateString() : '—'}</span>
+                  </div>
+                  <div className="plant-cycle-row">
+                    <span className="plant-cycle-label">Days till harvest</span>
+                    <span className="plant-cycle-value">
+                      {device?.end_date ? (
+                        daysTillHarvest == null ? '—' : (
+                          daysTillHarvest < 0
+                            ? `Overdue by ${Math.abs(daysTillHarvest)} day${Math.abs(daysTillHarvest) === 1 ? '' : 's'}`
+                            : daysTillHarvest === 0
+                              ? 'Today'
+                              : `${daysTillHarvest} day${daysTillHarvest === 1 ? '' : 's'}`
+                        )
+                      ) : '—'}
+                    </span>
                   </div>
                 </div>
               </div>
