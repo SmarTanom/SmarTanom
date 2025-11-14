@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 import { getDeviceById, uploadPlantPhoto, resetDeviceWiFi } from '../services/api/devices.js';
-import { getDeviceReservoirs } from '../services/api/reservoirs.js';
+// Reservoirs endpoint removed; device now carries plant/start/end fields
 import { useRealtimeStore } from '../store/realtimeStore';
 import { getUserAlerts } from '../services/api/userAlerts';
 
@@ -110,7 +110,7 @@ export default function DeviceDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [logEntries, setLogEntries] = useState([]);
-  const [reservoir, setReservoir] = useState(null);
+  // Reservoir model removed; derive cycle fields from device
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [errorLogs, setErrorLogs] = useState(null);
   const [alertsReloadKey, setAlertsReloadKey] = useState(0);
@@ -146,23 +146,7 @@ export default function DeviceDetails() {
         const resp = await getDeviceById(id);
         const dev = resp && resp.id ? resp : (resp && resp.results ? resp.results : resp);
         if (mounted) setDevice(dev);
-        // Fetch reservoirs for this device and pick the most recent entry
-        try {
-          const targetId = (dev && (dev.id || dev.device_id)) || id;
-          if (targetId) {
-            const resResp = await getDeviceReservoirs(targetId);
-            const list = (resResp && resResp.results) ? resResp.results : resResp;
-            if (mounted) {
-              if (Array.isArray(list) && list.length > 0) {
-                setReservoir(list[0]); // API orders by -created_at; take latest
-              } else {
-                setReservoir(null);
-              }
-            }
-          }
-        } catch (_e) {
-          if (mounted) setReservoir(null);
-        }
+        // No reservoirs to fetch; cycle info present on device
       } catch (e) {
         console.warn('DeviceDetails: failed to load device', e);
         if (mounted) {
@@ -465,7 +449,7 @@ export default function DeviceDetails() {
   const resolvedDevice = device || null;
 
   // Derive display values from API device only
-  const plantName = device?.plant_name || '';
+  const plantName = device?.plant?.plant_name || device?.plant_name || '';
   const plantVariety = device?.plant_variety || '';
   const harvestText = device?.plant_status || '';
 
@@ -637,15 +621,15 @@ export default function DeviceDetails() {
                 <div className="plant-card-cycle">
                   <div className="plant-cycle-row">
                     <span className="plant-cycle-label">Plant type</span>
-                    <span className="plant-cycle-value">{(reservoir && reservoir.plant_type) || '—'}</span>
+                    <span className="plant-cycle-value">{device?.plant?.plant_name || device?.plant_name || '—'}</span>
                   </div>
                   <div className="plant-cycle-row">
                     <span className="plant-cycle-label">Start date</span>
-                    <span className="plant-cycle-value">{(reservoir && reservoir.start_date) ? new Date(reservoir.start_date).toLocaleDateString() : '—'}</span>
+                    <span className="plant-cycle-value">{device?.start_date ? new Date(device.start_date).toLocaleDateString() : '—'}</span>
                   </div>
                   <div className="plant-cycle-row">
                     <span className="plant-cycle-label">End date</span>
-                    <span className="plant-cycle-value">{(reservoir && reservoir.end_date) ? new Date(reservoir.end_date).toLocaleDateString() : '—'}</span>
+                    <span className="plant-cycle-value">{device?.end_date ? new Date(device.end_date).toLocaleDateString() : '—'}</span>
                   </div>
                 </div>
               </div>
@@ -656,8 +640,7 @@ export default function DeviceDetails() {
               className="start-cycle-button"
               onClick={() => {
                 const deviceIdToUse = device?.id || deviceId;
-                const reservoirIdToUse = reservoir?.id;
-                navigate('/start-cycle', { state: { deviceId: deviceIdToUse, reservoirId: reservoirIdToUse } });
+                navigate('/start-cycle', { state: { deviceId: deviceIdToUse } });
               }}
             >
               Start New Cycle

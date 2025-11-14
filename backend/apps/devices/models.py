@@ -65,6 +65,17 @@ class Device(TimeStampedModel):
         null=True, blank=True,
         help_text="Photo of the plant growing in this device"
     )
+    # New: move reservoir cycle columns onto device
+    plant = models.ForeignKey(
+        'reservoirs.Plant',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='devices',
+        help_text="Selected plant/crop grown on this device"
+    )
+    start_date = models.DateField(null=True, blank=True, help_text="Cycle start date")
+    end_date = models.DateField(null=True, blank=True, help_text="Cycle end date")
     # Optional human-readable device location provided during initial setup
     location = models.CharField(
         max_length=200,
@@ -81,6 +92,8 @@ class Device(TimeStampedModel):
             models.Index(fields=["bound_email"], name="idx_device_bound_email"),
             models.Index(fields=["location"], name="idx_device_location"),
             models.Index(fields=["wifi_configured"], name="idx_device_wifi_configured"),
+            models.Index(fields=["plant"], name="idx_device_plant"),
+            models.Index(fields=["start_date"], name="idx_device_start_date"),
         ]
         verbose_name = "Device"
         verbose_name_plural = "Devices"

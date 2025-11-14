@@ -142,10 +142,7 @@ class Alert(TimeStampedModel):
     sensor = models.ForeignKey(
         Sensor, on_delete=models.SET_NULL, related_name="alerts", null=True, blank=True, db_index=True
     )
-    # Optional reservoir context for plant-specific ranges
-    reservoir = models.ForeignKey(
-        "reservoirs.Reservoir", on_delete=models.SET_NULL, related_name="alerts", null=True, blank=True
-    )
+    # Reservoir relation removed; plant context now derived from device.plant
 
     # What metric triggered this alert (normalized for UI)
     metric = models.CharField(max_length=32, choices=Metric.choices, db_index=True)

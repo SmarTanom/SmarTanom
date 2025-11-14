@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search, Plus } from 'lucide-react';
 import '../assets/styles/StartCyclePage.css';
 import { listPlants } from '../services/api/plants.js';
-import { createReservoir, updateReservoir } from '../services/api/reservoirs.js';
+import { deviceApi } from '../services/apiClient.js';
 // Device is inferred from DeviceDetails navigation; no need to fetch all devices
 
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -27,7 +27,7 @@ const StartCyclePage = () => {
   const [error, setError] = useState('');
   const location = useLocation();
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
-  const [reservoirId, setReservoirId] = useState(null);
+  // Reservoir model removed; device fields will be updated directly
   const [submitting, setSubmitting] = useState(false);
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [endDate, setEndDate] = useState(() => {
@@ -54,16 +54,13 @@ const StartCyclePage = () => {
         // Resolve deviceId from navigation state
         const fromState = location?.state || {};
         const deviceFromState = fromState.deviceId || fromState.device_id;
-        const reservoirFromState = fromState.reservoirId || fromState.reservoir_id || fromState.reservoir?.id;
         if (deviceFromState) {
           setSelectedDeviceId(Number(deviceFromState));
         } else {
           // Keep an error to prompt correct navigation
           setError('No device context provided. Please start a cycle from a device page.');
         }
-        if (reservoirFromState) {
-          setReservoirId(Number(reservoirFromState));
-        }
+        // No reservoir context needed anymore
       } catch (e) {
         setError(e.message || 'Failed to load plants or devices');
       } finally {
@@ -110,22 +107,16 @@ const StartCyclePage = () => {
 
     try {
       setSubmitting(true);
-      // Update the existing reservoir (preferred behavior)
-      // Determine target reservoirId: from navigation state or fail
-      const targetReservoirId = reservoirId;
-      if (!targetReservoirId) {
-        setError('No reservoir context to update. Please open Start Cycle from a device with an active cycle.');
-        return;
-      }
-
-      // Use the single selected plant
-      const plantId = Number(selectedPlant);
+      // Update the device with the new cycle info (plant_id, start_date, end_date)
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('Missing authentication. Please log in again.');
+      const plantIdNum = Number(selectedPlant);
       const payload = {
-        plant_id: plantId,
+        plant_id: plantIdNum,
         start_date: startDate,
         end_date: endDate,
       };
-      await updateReservoir(targetReservoirId, payload);
+      await deviceApi.update(selectedDeviceId, payload, token);
       // Success: go back to dashboard
       navigate('/dashboard');
     } catch (e) {

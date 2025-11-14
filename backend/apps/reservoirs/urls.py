@@ -3,12 +3,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import ReservoirViewSet, PlantViewSet
+from .views import PlantViewSet
 
 app_name = 'reservoirs'
 
 router = DefaultRouter()
-router.register(r"reservoirs", ReservoirViewSet, basename="reservoir")
 router.register(r"plants", PlantViewSet, basename="plant")
 
 urlpatterns = [

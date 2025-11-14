@@ -524,15 +524,20 @@ class SensorAlertService:
         reservoir = None
         try:
             if sensor_type in {"tds", "ec", "ph", "water_temperature"}:
-                # Resolve the most recent reservoir for this device to get plant ranges
-                from apps.reservoirs.models import Reservoir
-                reservoir = (
-                    Reservoir.objects.select_related("plant")
-                    .filter(device=device)
-                    .order_by("-start_date", "-created_at")
-                    .first()
-                )
-                plant = getattr(reservoir, "plant", None) if reservoir else None
+                # Prefer device-level plant assignment (post-reservoir migration)
+                device_plant = getattr(device, "plant", None)
+                plant = device_plant
+                if not plant:
+                    # Fallback to latest reservoir (legacy path)
+                    from apps.reservoirs.models import Reservoir
+                    reservoir = (
+                        Reservoir.objects.select_related("plant")
+                        .filter(device=device)
+                        .order_by("-start_date", "-created_at")
+                        .first()
+                    )
+                    plant = getattr(reservoir, "plant", None) if reservoir else None
+
                 if plant:
                     plant_ranges = {
                         "ppm_min": float(plant.ppm_min),

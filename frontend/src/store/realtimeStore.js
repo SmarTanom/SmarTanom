@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { wsClient } from '../services/websocketClient';
 import { getUserDevices } from '../services/api/devices';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors';
-import { getDeviceReservoirs } from '../services/api/reservoirs';
+// Reservoirs API removed; device now includes plant/start/end fields
 import { getInitialDashboard } from '../services/api/dashboard';
 import { authApi } from '../services/apiClient';
 import { getUserAlerts, markAlertsAsRead, markAllAlertsAsRead } from '../services/api/userAlerts';
@@ -150,14 +150,14 @@ export const useRealtimeStore = create(persist((set, get) => ({
       const payload = await getInitialDashboard({ reading_limit: 60, alert_limit: 200 });
       const devices = payload.devices || [];
       const sensorsByDevice = payload.sensors_by_device || {};
-      const reservoirsByDevice = payload.reservoirs_by_device || {};
+      // reservoirs_by_device removed after model change
       const readingsBySensor = payload.readings_by_sensor || {};
       const alertsPayload = payload.alerts || { count: 0, alerts: [] };
 
       if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Combined payload received:', {
         devices: devices.length,
         sensorsGroups: Object.keys(sensorsByDevice).length,
-        reservoirsGroups: Object.keys(reservoirsByDevice).length,
+        reservoirsGroups: 0,
         readingsSensors: Object.keys(readingsBySensor).length,
         alerts: alertsPayload.count
       });
@@ -223,8 +223,8 @@ export const useRealtimeStore = create(persist((set, get) => ({
           // Keep any existing phHistory/phLabels if the page already fetched them
           phHistory: Array.isArray(prev.phHistory) && prev.phHistory.length ? prev.phHistory : [],
           phLabels: Array.isArray(prev.phLabels) && prev.phLabels.length ? prev.phLabels : [],
-          plant: prev.plant || undefined,
-          reservoirs: reservoirsByDevice[d.id] || prev.reservoirs,
+          // Seed plant from device meta if available; keep prev if already set
+          plant: prev.plant || d.plant || undefined,
         };
       }
 
@@ -277,13 +277,13 @@ export const useRealtimeStore = create(persist((set, get) => ({
   fetchAlerts: async () => {
     try {
       set({ loadingAlerts: true, errorAlerts: null });
-  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Fetching alerts from backend...');
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Fetching alerts from backend...');
 
       const response = await getUserAlerts({ limit: 200 });
-  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Alerts response:', response);
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Alerts response:', response);
 
       const alerts = response.alerts || [];
-  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processing', alerts.length, 'alerts');
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processing', alerts.length, 'alerts');
 
       // Group alerts by device_id
       const deviceAlerts = {};
@@ -392,12 +392,12 @@ export const useRealtimeStore = create(persist((set, get) => ({
       return;
     }
 
-  // Use provided timestamp or fall back to now to avoid stale detection pauses
-  const timestamp = payload.timestamp || new Date().toISOString();
+    // Use provided timestamp or fall back to now to avoid stale detection pauses
+    const timestamp = payload.timestamp || new Date().toISOString();
 
     // Apply updates even if devices list hasn't loaded yet; merge later when devices arrive
 
-  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Applying realtime update for device', device_id, ':', updates);
+    if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Applying realtime update for device', device_id, ':', updates);
 
     set(state => {
       const existing = state.deviceData[device_id] || {};
@@ -699,7 +699,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
 
         // Update unread count
         const unreadCounts = { ...state.unreadCounts };
-  unreadCounts[device_id] = (unreadCounts[device_id] || 0) + 1;
+        unreadCounts[device_id] = (unreadCounts[device_id] || 0) + 1;
 
         return {
           deviceAlerts,

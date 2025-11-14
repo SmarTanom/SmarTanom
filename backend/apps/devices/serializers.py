@@ -7,6 +7,7 @@ from rest_framework import serializers
 import re
 
 from .models import Device, DeviceOTPCode, DeviceCollaboration, DeviceInvitation
+from apps.reservoirs.models import Plant
 
 User = get_user_model()
 
@@ -120,6 +121,11 @@ class DeviceSerializer(serializers.ModelSerializer):
     is_collaborator = serializers.SerializerMethodField()
     collaborations_count = serializers.SerializerMethodField()
     is_online = serializers.ReadOnlyField()
+    # New: expose plant info and cycle dates on device
+    plant_id = serializers.PrimaryKeyRelatedField(
+        source="plant", queryset=Plant.objects.all(), write_only=True, required=False, allow_null=True
+    )
+    plant = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Device
@@ -137,13 +143,20 @@ class DeviceSerializer(serializers.ModelSerializer):
             "bound_email",
             "plant_photo",
             "plant_photo_url",
+            "plant",
+            "plant_id",
+            "start_date",
+            "end_date",
             "is_owner",
             "is_collaborator",
             "collaborations_count",
             "created_at",
             "updated_at",
         ]
-    read_only_fields = ["id", "device_serial", "is_bound", "bound_email", "plant_photo_url", "created_at", "updated_at", "wifi_configured", "last_seen", "ip_address", "is_online"]
+    read_only_fields = [
+        "id", "device_serial", "is_bound", "bound_email", "plant_photo_url",
+        "created_at", "updated_at", "wifi_configured", "last_seen", "ip_address", "is_online", "plant"
+    ]
 
     def get_plant_photo_url(self, obj):
         """Get the full URL for the plant photo."""
@@ -178,6 +191,29 @@ class DeviceSerializer(serializers.ModelSerializer):
             device=obj,
             status=DeviceCollaboration.Status.ACTIVE,
         ).count()
+
+    def get_plant(self, obj):
+        p = getattr(obj, "plant", None)
+        if not p:
+            return None
+        return {
+            "id": p.id,
+            "plant_name": p.plant_name,
+            "ppm_min": p.ppm_min,
+            "ppm_max": p.ppm_max,
+            "ec_min": p.ec_min,
+            "ec_max": p.ec_max,
+            "ph_min": p.ph_min,
+            "ph_max": p.ph_max,
+            "water_temp_min": p.water_temp_min,
+            "water_temp_max": p.water_temp_max,
+            "light_min": p.light_min,
+            "light_max": p.light_max,
+            "environment_temp_min": p.environment_temp_min,
+            "environment_temp_max": p.environment_temp_max,
+            "humidity_min": p.humidity_min,
+            "humidity_max": p.humidity_max,
+        }
 
 
 class DeviceOTPCodeSerializer(serializers.ModelSerializer):

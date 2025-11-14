@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.utils import timezone
 from apps.devices.models import Device
 from apps.sensors.models import Sensor, SensorData, Alert
-from apps.reservoirs.models import Plant, Reservoir
+from apps.reservoirs.models import Plant
 
 
 class AlertCreationTests(TestCase):
@@ -18,13 +18,11 @@ class AlertCreationTests(TestCase):
             environment_temp_min=18, environment_temp_max=26,
             humidity_min=50, humidity_max=70,
         )
-        self.reservoir = Reservoir.objects.create(
-            device=self.device,
-            reservoir_name="R1",
-            plant=self.plant,
-            start_date=timezone.now().date(),
-            end_date=timezone.now().date(),
-        )
+        # Assign plant directly to device (reservoir removed)
+        self.device.plant = self.plant
+        self.device.start_date = timezone.now().date()
+        self.device.end_date = timezone.now().date()
+        self.device.save(update_fields=["plant", "start_date", "end_date"])
         self.sensor = Sensor.objects.create(device=self.device, sensor_type=Sensor.SensorType.PH, unit="pH")
 
     def test_ph_below_min_creates_critical_alert(self):

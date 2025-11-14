@@ -26,7 +26,7 @@ import { ChevronLeft } from 'lucide-react';
 import { MdScience } from 'react-icons/md';
 import { getUserDevices } from '../services/api/devices.js';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
-import { getDeviceReservoirs } from '../services/api/reservoirs.js';
+// Reservoirs endpoint removed; device now carries plant/start/end fields
 import { listPlants } from '../services/api/plants.js';
 import { authApi } from '../services/apiClient.js';
 import { wsClient } from '../services/websocketClient';
@@ -651,12 +651,8 @@ export default function Dashboard() {
       // Mark this device as fetched
       lastFetchedDeviceRef.current = deviceId;
 
-      const [sensorsResp, reservoirsResp] = await Promise.all([
-        getDeviceSensors(deviceId),
-        getDeviceReservoirs(deviceId)
-      ]);
+      const sensorsResp = await getDeviceSensors(deviceId);
       const sensors = sensorsResp && sensorsResp.results ? sensorsResp.results : sensorsResp;
-      const reservoirs = reservoirsResp && reservoirsResp.results ? reservoirsResp.results : reservoirsResp;
       // Resolve plant ranges for this device by matching its active reservoir's plant_type to plant catalog
       let plantCatalog = plantCatalogRef.current;
       if (!plantCatalog) {
@@ -670,47 +666,18 @@ export default function Dashboard() {
           plantCatalogRef.current = [];
         }
       }
-      const findPlant = (reservoir) => {
-        if (!reservoir) return null;
-        // First check if reservoir already has full plant object with ranges
-        if (reservoir.plant && typeof reservoir.plant === 'object' && reservoir.plant.ph_min !== undefined) {
-          console.log('[Dashboard] Using plant data from reservoir object:', reservoir.plant.plant_name);
-          return reservoir.plant;
-        }
-        // Fallback: look up by name in catalog
-        const name = reservoir.plant_type || reservoir.plant;
-        if (!name) return null;
-        return plantCatalog.find(p => p.plant_name === name) || null;
-      };
-      // Choose the active reservoir (latest by start_date/created_at)
+      // Resolve device plant from device meta (device now has plant fields)
       let devicePlant = null;
       try {
-        if (Array.isArray(reservoirs) && reservoirs.length > 0) {
-          const active = [...reservoirs].sort((a, b) => {
-            const da = new Date(a.start_date || a.created_at || 0).getTime();
-            const db = new Date(b.start_date || b.created_at || 0).getTime();
-            return db - da;
-          })[0];
-          devicePlant = findPlant(active);
-          console.log('[Dashboard] Active reservoir for device', deviceId, ':', active);
-          console.log('[Dashboard] Resolved plant:', devicePlant);
+        const deviceMeta = devices.find(d => d.id === deviceId);
+        if (deviceMeta?.plant && typeof deviceMeta.plant === 'object') {
+          devicePlant = deviceMeta.plant;
+        } else if (deviceMeta?.plant_name && Array.isArray(plantCatalog)) {
+          const mapped = plantCatalog.find(p => p.plant_name === deviceMeta.plant_name);
+          if (mapped) devicePlant = mapped;
         }
-      } catch (e) {
-        console.warn('[Dashboard] Failed to resolve active reservoir/plant for device', deviceId, e);
-      }
-
-      // Fallback: if we couldn't resolve via reservoirs, try mapping the device's plant_name
-      if (!devicePlant) {
-        try {
-          const deviceMeta = devices.find(d => d.id === deviceId);
-          const devicePlantName = deviceMeta?.plant_name || deviceMeta?.plant?.plant_name;
-          if (devicePlantName && Array.isArray(plantCatalog)) {
-            const mapped = plantCatalog.find(p => p.plant_name === devicePlantName);
-            if (mapped) devicePlant = mapped;
-          }
-        } catch (_e) {
-          // ignore fallback errors
-        }
+      } catch (_e) {
+        // ignore fallback errors
       }
       const sensorDataMap = {};
       if (Array.isArray(sensors) && sensors.length > 0) {
@@ -763,7 +730,7 @@ export default function Dashboard() {
       });
       const { connectivity, lastSync } = getConnectivityStatus(lastSensorUpdate);
       const deviceMeta = devices.find(d => d.id === deviceId);
-      // Prefer resolved devicePlant (from reservoirs + catalog), fall back to any plant bundled on device meta
+      // Prefer resolved devicePlant (from device meta), fall back to any plant bundled on device meta
       const plant = devicePlant || deviceMeta?.plant || null;
       const nutrientText = typeof transformedSensors.tds === 'number' ? getNutrientStatus(transformedSensors.tds, plant) : undefined;
 
@@ -806,7 +773,7 @@ export default function Dashboard() {
           // environment metrics removed
         },
         sensors_raw: sensors || [],
-        reservoirs: reservoirs || [],
+        // reservoirs removed; device carries cycle fields now
         plant: plant || null,
       };
 

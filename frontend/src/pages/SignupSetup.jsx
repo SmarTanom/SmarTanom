@@ -9,7 +9,6 @@ import { Mail } from '../components/ui/Icon.jsx';
 import { Wifi, Refresh, Lock, SignalBars } from '../components/ui/Icon.jsx';
 import { authApi, deviceApi } from '../services/apiClient.js';
 import { listPlants } from '../services/api/plants.js';
-import { createReservoir } from '../services/api/reservoirs.js';
 import { checkDevice, requestDeviceOTP, verifyDeviceOTP } from '../services/api/devices.js';
 // Removed shared OtpInput component per request; using local inline inputs
 // (Removed duplicate React hook import; useRef/useEffect already available or use React.useRef if needed)
@@ -930,10 +929,10 @@ export default function SignupSetup() {
 
         setStatusMsg('Device bound successfully!');
 
-        // Create initial Reservoir if inputs were provided and valid
+        // Initialize device cycle info (plant and dates) if inputs were provided and valid
         try {
           const token = localStorage.getItem('authToken');
-          if (token && reservoirName.trim() && plantId) {
+          if (token && plantId) {
             // Fetch user devices and find the one matching the serial
             const devicesResponse = await deviceApi.list(token);
             const devicesList = Array.isArray(devicesResponse) ? devicesResponse : devicesResponse.results || [];
@@ -943,21 +942,19 @@ export default function SignupSetup() {
               const sd = resStartDate || todayStr;
               const ed = resEndDate || sd;
               const payload = {
-                device_id: matchedDevice.id,
-                reservoir_name: reservoirName.trim(),
                 plant_id: Number(plantId),
                 start_date: sd,
                 end_date: ed,
               };
-              await createReservoir(payload);
-              console.log('[SignupSetup] Reservoir created for device', matchedDevice.id);
+              await deviceApi.update(matchedDevice.id, payload, token);
+              console.log('[SignupSetup] Device cycle configured for device', matchedDevice.id);
             } else {
               console.warn('[SignupSetup] Device not found when creating reservoir');
             }
           }
         } catch (reservoirErr) {
           // Non-blocking: log and continue flow
-          console.warn('[SignupSetup] Reservoir creation skipped/failed:', reservoirErr?.message || reservoirErr);
+          console.warn('[SignupSetup] Device cycle setup skipped/failed:', reservoirErr?.message || reservoirErr);
         }
 
         // Show success message briefly then proceed to next step

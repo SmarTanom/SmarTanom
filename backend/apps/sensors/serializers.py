@@ -75,7 +75,6 @@ class AlertSerializer(serializers.ModelSerializer):
             "device_id",
             "sensor",
             "sensor_id",
-            "reservoir",
             "metric",
             "trigger",
             "severity",

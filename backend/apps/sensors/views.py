@@ -312,7 +312,7 @@ class SensorDataViewSet(BaseAuthViewSet):
 class AlertViewSet(BaseAuthViewSet):
     """ViewSet for Alert model with email-based filtering and management."""
 
-    queryset = Alert.objects.select_related("device", "sensor", "reservoir").all()
+    queryset = Alert.objects.select_related("device", "sensor").all()
     serializer_class = AlertSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = [
