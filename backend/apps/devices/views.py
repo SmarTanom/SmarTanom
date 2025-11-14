@@ -29,8 +29,6 @@ from asgiref.sync import async_to_sync
 from apps.common.views import BaseAuthViewSet
 from apps.sensors.models import Sensor, SensorData
 from apps.sensors.serializers import SensorSerializer, SensorDataSerializer
-from apps.reservoirs.models import Reservoir
-from apps.reservoirs.serializers import ReservoirSerializer
 from .models import Device, DeviceOTPCode, DeviceCollaboration, DeviceInvitation
 from .serializers import (
     DeviceSerializer,
@@ -1919,7 +1917,6 @@ def initial_dashboard_data(request):
     {
       devices: [DeviceSerializer...],
       sensors_by_device: { [device_id]: [SensorSerializer...] },
-      reservoirs_by_device: { [device_id]: [ReservoirSerializer...] },
       readings_by_sensor: { [sensor_id]: [SensorDataSerializer...] },
       alerts: { count, alerts: [...] }  # same shape as notifications/logs/alerts
     }
@@ -1963,13 +1960,7 @@ def initial_dashboard_data(request):
             for s in sensor_qs:
                 sensors_by_device.setdefault(s.device_id, []).append(SensorSerializer(s).data)
 
-        # Collect reservoirs for all devices
-        reservoirs_by_device = {}
-        if device_ids:
-            reservoirs_qs = Reservoir.objects.select_related('device', 'plant').filter(device_id__in=device_ids)
-            reservoirs_by_device = {did: [] for did in device_ids}
-            for r in reservoirs_qs:
-                reservoirs_by_device.setdefault(r.device_id, []).append(ReservoirSerializer(r).data)
+        # Reservoir model removed; device now holds plant and cycle fields. No reservoirs_by_device payload.
 
         # Recent readings per sensor (limit N per sensor)
         try:
@@ -2052,7 +2043,6 @@ def initial_dashboard_data(request):
         return Response({
             'devices': device_data,
             'sensors_by_device': sensors_by_device,
-            'reservoirs_by_device': reservoirs_by_device,
             'readings_by_sensor': readings_by_sensor,
             'alerts': alerts_payload,
         })

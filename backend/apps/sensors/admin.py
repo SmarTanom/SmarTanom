@@ -77,8 +77,8 @@ class AlertAdmin(admin.ModelAdmin):
     list_filter = ('metric', 'trigger', 'severity', 'is_acknowledged', 'is_resolved', 'plant_category')
     search_fields = ('title', 'recommendation', 'device__device_name', 'plant_name')
     ordering = ('-created_at',)
-    raw_id_fields = ('device', 'sensor', 'reservoir')
-    list_select_related = ('device', 'sensor', 'reservoir')
+    raw_id_fields = ('device', 'sensor')
+    list_select_related = ('device', 'sensor')
 
     def short_recommendation(self, obj):
         """Truncated recommendation for list view readability."""

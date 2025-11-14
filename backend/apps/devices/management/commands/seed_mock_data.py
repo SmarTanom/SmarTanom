@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from apps.devices.models import Device
-from apps.reservoirs.models import Reservoir, Plant
+from apps.reservoirs.models import Plant
 from apps.sensors.models import Sensor, SensorData
 
 User = get_user_model()
@@ -17,7 +17,7 @@ User = get_user_model()
 class Command(BaseCommand):
     """Generate mock data for development and testing."""
 
-    help = 'Generate mock data for devices, reservoirs, sensors, and sensor readings'
+    help = 'Generate mock data for devices, plants (on device), sensors, and sensor readings'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -32,12 +32,7 @@ class Command(BaseCommand):
             default=2,
             help='Number of devices per user (default: 2)'
         )
-        parser.add_argument(
-            '--reservoirs-per-device',
-            type=int,
-            default=1,
-            help='Number of reservoirs per device (default: 1)'
-        )
+        # Reservoir model removed; plant/cycle now live on Device. Keeping placeholder for backward compat.
         parser.add_argument(
             '--readings-per-sensor',
             type=int,
@@ -71,7 +66,8 @@ class Command(BaseCommand):
         owned_devices = self.create_devices(users, options['devices_per_user'])
         unowned_devices = self.create_unowned_devices(options['unowned_devices'])
         all_devices = owned_devices + unowned_devices
-        reservoirs = self.create_reservoirs(all_devices, options['reservoirs_per_device'])
+        # Assign plants and cycles directly on devices (replaces reservoirs)
+        self.assign_plants_and_cycles(all_devices)
         sensors = self.create_sensors(all_devices)
         self.create_sensor_data(sensors, options['readings_per_sensor'], options['days'])
 
@@ -80,7 +76,6 @@ class Command(BaseCommand):
                 f'Successfully generated mock data:\n'
                 f'  - {len(users)} users\n'
                 f'  - {len(all_devices)} devices ({len(owned_devices)} owned, {len(unowned_devices)} unowned)\n'
-                f'  - {len(reservoirs)} reservoirs\n'
                 f'  - {len(sensors)} sensors\n'
                 f'  - ~{len(sensors) * options["readings_per_sensor"]} sensor readings'
             )
@@ -93,7 +88,6 @@ class Command(BaseCommand):
         # Clear in dependency order
         SensorData.objects.all().delete()
         Sensor.objects.all().delete()
-        Reservoir.objects.all().delete()
         Device.objects.all().delete()
 
         # Only delete test users (not superusers)
@@ -124,7 +118,7 @@ class Command(BaseCommand):
         return users
 
     def create_devices(self, users, devices_per_user):
-        """Create devices for users."""
+        """Create devices for users and bind to their emails."""
         devices = []
         device_names = [
             'Greenhouse Alpha', 'Greenhouse Beta', 'Indoor Garden', 'Hydro Tower',
@@ -135,21 +129,19 @@ class Command(BaseCommand):
         for user in users:
             for i in range(devices_per_user):
                 device_name = f"{device_names[i % len(device_names)]} {i+1}"
-                device, created = Device.objects.get_or_create(
-                    user=user,
+                device = Device.objects.create(
                     device_name=device_name,
-                    defaults={
-                        'status': random.choice([Device.Status.ACTIVE, Device.Status.ACTIVE, Device.Status.MAINTENANCE])
-                    }
+                    status=random.choice([Device.Status.ACTIVE, Device.Status.ACTIVE, Device.Status.MAINTENANCE]),
+                    is_bound=True,
+                    bound_email=user.email,
                 )
-                if created:
-                    self.stdout.write(f'Created device: {device_name} for {user.email}')
+                self.stdout.write(f'Created device: {device_name} for {user.email}')
                 devices.append(device)
 
         return devices
 
     def create_unowned_devices(self, count):
-        """Create unowned devices (without users)."""
+        """Create unowned devices (not bound to any email)."""
         devices = []
         unowned_names = [
             'Factory Floor Unit', 'Warehouse Setup', 'Demo Station', 'Test Rig',
@@ -159,26 +151,23 @@ class Command(BaseCommand):
 
         for i in range(count):
             device_name = f"{unowned_names[i % len(unowned_names)]} {chr(65 + i)}"  # A, B, C, etc.
-            device, created = Device.objects.get_or_create(
-                user=None,  # No owner
+            device = Device.objects.create(
                 device_name=device_name,
-                defaults={
-                    'status': random.choice([
-                        Device.Status.ACTIVE,
-                        Device.Status.MAINTENANCE,
-                        Device.Status.INACTIVE
-                    ])
-                }
+                status=random.choice([
+                    Device.Status.ACTIVE,
+                    Device.Status.MAINTENANCE,
+                    Device.Status.INACTIVE
+                ]),
+                is_bound=False,
+                bound_email=None,
             )
-            if created:
-                self.stdout.write(f'Created unowned device: {device_name}')
+            self.stdout.write(f'Created unowned device: {device_name}')
             devices.append(device)
 
         return devices
 
-    def create_reservoirs(self, devices, reservoirs_per_device):
-        """Create reservoirs for devices."""
-        reservoirs = []
+    def assign_plants_and_cycles(self, devices):
+        """Assign a plant and cycle dates directly to each device (replaces reservoirs)."""
         plant_types = [
             'Lettuce', 'Tomatoes', 'Herbs', 'Peppers', 'Spinach',
             'Kale', 'Basil', 'Cilantro', 'Strawberries', 'Cucumbers'
@@ -196,35 +185,16 @@ class Command(BaseCommand):
                 )
             )
             plant_records[name] = plant
-        reservoir_names = [
-            'Main Tank', 'Nutrient Reservoir', 'Seedling Tank', 'Flowering Chamber',
-            'Vegetative Tank', 'Clone Chamber', 'Recovery Tank'
-        ]
 
         for device in devices:
-            for i in range(reservoirs_per_device):
-                reservoir_name = reservoir_names[i % len(reservoir_names)]
-                plant_type = random.choice(plant_types)
-                plant = plant_records[plant_type]
-
-                # Generate realistic date ranges
-                start_date = date.today() - timedelta(days=random.randint(30, 180))
-                end_date = start_date + timedelta(days=random.randint(60, 120))
-
-                reservoir, created = Reservoir.objects.get_or_create(
-                    device=device,
-                    reservoir_name=reservoir_name,
-                    defaults={
-                        'plant': plant,
-                        'start_date': start_date,
-                        'end_date': end_date
-                    }
-                )
-                if created:
-                    self.stdout.write(f'Created reservoir: {reservoir_name} ({plant.plant_name}) for {device.device_name}')
-                reservoirs.append(reservoir)
-
-        return reservoirs
+            plant = plant_records[random.choice(plant_types)]
+            start_date = date.today() - timedelta(days=random.randint(30, 180))
+            end_date = start_date + timedelta(days=random.randint(60, 120))
+            device.plant = plant
+            device.start_date = start_date
+            device.end_date = end_date
+            device.save(update_fields=["plant", "start_date", "end_date", "updated_at"])
+            self.stdout.write(f'Set plant {plant.plant_name} and cycle for device: {device.device_name}')
 
     def create_sensors(self, devices):
         """Create sensors for devices."""

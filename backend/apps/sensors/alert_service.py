@@ -521,22 +521,10 @@ class SensorAlertService:
 
         # Derive plant-aware thresholds when possible
         plant_ranges = None
-        reservoir = None
         try:
             if sensor_type in {"tds", "ec", "ph", "water_temperature"}:
                 # Prefer device-level plant assignment (post-reservoir migration)
-                device_plant = getattr(device, "plant", None)
-                plant = device_plant
-                if not plant:
-                    # Fallback to latest reservoir (legacy path)
-                    from apps.reservoirs.models import Reservoir
-                    reservoir = (
-                        Reservoir.objects.select_related("plant")
-                        .filter(device=device)
-                        .order_by("-start_date", "-created_at")
-                        .first()
-                    )
-                    plant = getattr(reservoir, "plant", None) if reservoir else None
+                plant = getattr(device, "plant", None)
 
                 if plant:
                     plant_ranges = {
@@ -589,7 +577,6 @@ class SensorAlertService:
                 alert_info=alert_info,
                 device=device,
                 sensor=sensor,
-                reservoir=reservoir,
                 sensor_data=sensor_data,
                 plant_ranges=plant_ranges,
             )
@@ -752,7 +739,7 @@ class SensorAlertService:
         return "Generic"
 
     @staticmethod
-    def _create_alert(alert_info: dict, device, sensor, reservoir, sensor_data, plant_ranges):
+    def _create_alert(alert_info: dict, device, sensor, sensor_data, plant_ranges):
         """Create an Alert row from detected info and context."""
         from .models import Alert
 
@@ -790,7 +777,6 @@ class SensorAlertService:
         alert = Alert.objects.create(
             device=device,
             sensor=sensor,
-            reservoir=reservoir,
             metric=metric or (sensor.sensor_type if sensor else ""),
             trigger=trigger or "",
             severity=severity,
