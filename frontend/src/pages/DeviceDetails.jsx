@@ -27,6 +27,8 @@ import { getDeviceById, uploadPlantPhoto, resetDeviceWiFi } from '../services/ap
 // Reservoirs endpoint removed; device now carries plant/start/end fields
 import { useRealtimeStore } from '../store/realtimeStore';
 import { getUserAlerts } from '../services/api/userAlerts';
+import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
+import { deviceApi } from '../services/apiClient.js';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -138,7 +140,7 @@ export default function DeviceDetails() {
   const totalUnread = useRealtimeStore(state => state.totalUnread);
   const deviceAlertsStore = useRealtimeStore(state => state.deviceAlerts);
   const loadingInitial = useRealtimeStore(state => state.loadingInitial);
-  const markAllDeviceAlertsRead = useRealtimeStore(state => state.markAllDeviceAlertsRead);
+  const updateDeviceMeta = useRealtimeStore(state => state.updateDeviceMeta);
 
   // Plant photo change states
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -148,6 +150,12 @@ export default function DeviceDetails() {
   const [photoError, setPhotoError] = useState(null);
   // Days till harvest (recomputes periodically)
   const [daysTillHarvest, setDaysTillHarvest] = useState(null);
+  // Edit device info modal state
+  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
+  const [editDeviceName, setEditDeviceName] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [saveInfoError, setSaveInfoError] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -386,6 +394,14 @@ export default function DeviceDetails() {
         plant_photo_url: response.plant_photo_url || response.data?.plant_photo_url
       }));
 
+      // Update global store so Dashboard reflects the new photo immediately
+      try {
+        const newUrl = response.plant_photo_url || response.data?.plant_photo_url;
+        if (newUrl && typeof updateDeviceMeta === 'function') {
+          updateDeviceMeta(Number(deviceIdToUse), { plant_photo_url: newUrl });
+        }
+      } catch (_) { /* noop */ }
+
       // Clean up and close modal
       if (photoPreview) URL.revokeObjectURL(photoPreview);
       handleClosePhotoModal();
@@ -475,6 +491,53 @@ export default function DeviceDetails() {
     }
   };
 
+  // Open edit modal and prefill
+  const openEditInfo = () => {
+    setEditDeviceName(device?.device_name || '');
+    setEditLocation(device?.location || '');
+    setSaveInfoError('');
+    setShowEditInfoModal(true);
+  };
+
+  const closeEditInfo = () => {
+    setShowEditInfoModal(false);
+    setSavingInfo(false);
+    setSaveInfoError('');
+  };
+
+  const saveDeviceInfo = async () => {
+    if (!device || !device.id) return;
+    const name = (editDeviceName || '').trim();
+    const loc = (editLocation || '').trim();
+    if (!name) {
+      setSaveInfoError('Device name is required.');
+      return;
+    }
+    try {
+      setSavingInfo(true);
+      setSaveInfoError('');
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+      const payload = { device_name: name, location: loc || null };
+      await deviceApi.update(device.id, payload, token);
+      // Update local device state
+      setDevice(prev => ({ ...prev, device_name: name, location: loc || null }));
+      // Update global devices list so Dashboard reflects changes without reload
+      try {
+        if (typeof updateDeviceMeta === 'function') {
+          updateDeviceMeta(device.id, payload);
+        }
+      } catch (_) { /* noop */ }
+      closeEditInfo();
+    } catch (e) {
+      setSaveInfoError(e?.message || 'Failed to update device info');
+    } finally {
+      setSavingInfo(false);
+    }
+  };
+
   const resolvedDevice = device || null;
 
   // Derive display values from API device only
@@ -499,11 +562,7 @@ export default function DeviceDetails() {
 
   // Loading / error / empty states
   if (loading) {
-    return (
-      <div className="device-details-root" style={{ padding: '32px', textAlign: 'center' }}>
-        <p>Loading device…</p>
-      </div>
-    );
+    return <GlobalLoadingSpinner message="Loading device details..." />;
   }
 
   if (error) {
@@ -700,18 +759,6 @@ export default function DeviceDetails() {
                 <span>Date: {sortOrder === 'desc' ? 'Descending' : 'Ascending'}</span>
                 <ChevronDown size={16} />
               </button>
-              {/* Optional: mark all as read for this device */}
-              <div style={{ marginLeft: 'auto' }}>
-                <button
-                  className="log-sort-button"
-                  onClick={() => {
-                    const didRaw = (device && (device.id || device.device_id)) || deviceId || (location.state && location.state.deviceId);
-                    if (didRaw) markAllDeviceAlertsRead(Number(didRaw));
-                  }}
-                >
-                  Mark device alerts read
-                </button>
-              </div>
             </div>
 
             {/* Log entries */}
@@ -767,6 +814,13 @@ export default function DeviceDetails() {
 
         {activeTab === 'settings' && (
           <div className="settings-list">
+            <button className="settings-item" onClick={openEditInfo}>
+              <div className="settings-item-left">
+                <RefreshCw size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
+                <span className="settings-item-label">Edit Name & Location</span>
+              </div>
+              <ChevronRight size={20} color="#8BA797" />
+            </button>
             <button className="settings-item" onClick={() => console.log('Connectivity')}>
               <div className="settings-item-left">
                 <Wifi size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
@@ -993,6 +1047,53 @@ export default function DeviceDetails() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Device Info Modal */}
+      {showEditInfoModal && (
+        <div className="modal-overlay" onClick={closeEditInfo}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Device Info</h3>
+              <button className="modal-close" onClick={closeEditInfo}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="setup-field" style={{ marginBottom: 12 }}>
+                <label className="setup-field-label" htmlFor="editDeviceName">Device Name</label>
+                <input
+                  id="editDeviceName"
+                  type="text"
+                  value={editDeviceName}
+                  onChange={(e) => setEditDeviceName(e.target.value)}
+                  placeholder="Enter device name"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="setup-field" style={{ marginBottom: 4 }}>
+                <label className="setup-field-label" htmlFor="editLocation">Location (optional)</label>
+                <input
+                  id="editLocation"
+                  type="text"
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  placeholder="e.g., Balcony, Backyard"
+                  autoComplete="off"
+                />
+              </div>
+              {saveInfoError && (
+                <p className="setup-error" role="alert" style={{ marginTop: 8 }}>{saveInfoError}</p>
+              )}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: 12 }}>
+              <button className="setup-btn outline" onClick={closeEditInfo} disabled={savingInfo}>Cancel</button>
+              <button className="setup-btn" onClick={saveDeviceInfo} disabled={savingInfo || !editDeviceName.trim()}>
+                {savingInfo ? 'Saving…' : 'Save Changes'}
+              </button>
             </div>
           </div>
         </div>

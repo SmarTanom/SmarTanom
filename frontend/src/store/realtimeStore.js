@@ -112,6 +112,19 @@ export const useRealtimeStore = create(persist((set, get) => ({
   // Clear all alert-related state (useful to avoid stale entries after deletions)
   clearAlerts: () => set({ deviceAlerts: {}, unreadCounts: {}, totalUnread: 0, latestAlerts: {} }),
 
+  // Update a device's metadata in the devices list (e.g., name, location, photos)
+  // Accepts a partial patch; merges only provided keys.
+  updateDeviceMeta: (deviceId, patch) => {
+    if (!deviceId || !patch) return;
+    set(state => {
+      const devices = Array.isArray(state.devices) ? state.devices.map(d => {
+        if (!d || d.id !== deviceId) return d;
+        return { ...d, ...patch };
+      }) : state.devices;
+      return { devices };
+    });
+  },
+
   // Allow pages to update per-device data snapshots (e.g., plant-aware alerts on Dashboard)
   updateDeviceData: (deviceId, dataPayload) => {
     if (!deviceId || !dataPayload) return;
