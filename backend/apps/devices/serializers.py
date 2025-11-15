@@ -207,12 +207,6 @@ class DeviceSerializer(serializers.ModelSerializer):
             "ph_max": p.ph_max,
             "water_temp_min": p.water_temp_min,
             "water_temp_max": p.water_temp_max,
-            "light_min": p.light_min,
-            "light_max": p.light_max,
-            "environment_temp_min": p.environment_temp_min,
-            "environment_temp_max": p.environment_temp_max,
-            "humidity_min": p.humidity_min,
-            "humidity_max": p.humidity_max,
         }
 
 

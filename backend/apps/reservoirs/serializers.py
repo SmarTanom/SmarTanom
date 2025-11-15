@@ -23,12 +23,6 @@ class PlantSerializer(serializers.ModelSerializer):
             "ph_max",
             "water_temp_min",
             "water_temp_max",
-            "light_min",
-            "light_max",
-            "environment_temp_min",
-            "environment_temp_max",
-            "humidity_min",
-            "humidity_max",
             "created_at",
             "updated_at",
         ]
