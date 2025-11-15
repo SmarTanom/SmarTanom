@@ -838,6 +838,7 @@ body { background: var(--color-bg); }
   min-height: 150px;
   position: relative;
   margin-bottom: 24px; /* Space for x-axis labels */
+  z-index: 2; /* ensure bars render above grid lines */
 }
 
 .ph-bar-wrapper {
@@ -858,7 +859,7 @@ body { background: var(--color-bg); }
   border-radius: 3px 3px 0 0;
   transform-origin: bottom;
   animation: growBar .8s ease forwards;
-  min-height: 2px;
+  min-height: 6px; /* ensure very low values remain visible */
   box-shadow: 0 -2px 4px rgba(51, 148, 50, 0.2);
 }
 

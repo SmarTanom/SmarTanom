@@ -142,7 +142,7 @@ const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
       break;
 
     default: // 'days'
-      periods = 30; // Last 30 days
+      periods = 60; // Last 60 days (include earlier readings like Oct 15)
       getDateKey = (date) => date.toDateString();
       formatPeriod = (i) => {
         const date = new Date(endDate);
@@ -182,9 +182,10 @@ const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
 };
 
 // Helper function to get pH labels based on time range
+// Note: Labels are derived purely from the selected time range and current date.
+// They should be generated regardless of whether sensor data has arrived yet,
+// so the chart can render axes/structure immediately.
 const getPHLabels = (sensorDataMap, phSensorId, timeRange = 'days') => {
-  if (!phSensorId || !sensorDataMap[phSensorId]) return null;
-
   const endDate = new Date();
   const labels = [];
 
@@ -212,7 +213,7 @@ const getPHLabels = (sensorDataMap, phSensorId, timeRange = 'days') => {
       break;
 
     default: // 'days'
-      periods = 30;
+      periods = 60;
       formatLabel = (i) => {
         const date = new Date(endDate);
         date.setDate(date.getDate() - i);
@@ -304,8 +305,8 @@ function PHBar({ v, i, min, max, plant }) {
         {/* Show a minimal placeholder bar for missing data */}
         <div style={{
           width: '100%',
-          height: '2px',
-          background: 'rgba(139, 167, 151, 0.2)',
+          height: '4px',
+          background: 'rgba(139, 167, 151, 0.25)',
           borderRadius: '2px 2px 0 0'
         }} />
       </div>
@@ -364,7 +365,9 @@ function PHBar({ v, i, min, max, plant }) {
           animation: `growBar 0.8s ease forwards`,
           animationDelay: `${Math.min(i * 50, 500)}ms`,
           opacity: 0,
-          boxShadow: isValid ? `0 2px 4px rgba(0,0,0,0.1)` : 'none'
+          boxShadow: isValid ? `0 2px 4px rgba(0,0,0,0.1)` : 'none',
+          minHeight: '6px',
+          zIndex: 2
         }}
       />
     </div>
@@ -690,10 +693,21 @@ export default function Dashboard() {
               switch (timeRange) {
                 case 'weeks': limit = 200; break; // 20 weeks * ~10 readings per week
                 case 'months': limit = 300; break; // 12 months * ~25 readings per month
-                default: limit = 150; break; // 30 days * ~5 readings per day
+                default: limit = 300; break; // 60 days * ~5 readings per day
               }
             }
-            const resp = await getSensorData(sensor.id, limit);
+            // Date range params (helps backend filter accurately and align with chart labels)
+            let opts = {};
+            if (sensor.sensor_type === 'ph') {
+              const now = new Date();
+              if (timeRange === 'days') {
+                const start = new Date(now);
+                start.setDate(now.getDate() - 59); // 60-day window inclusive
+                start.setHours(0, 0, 0, 0);
+                opts = { start: start.toISOString(), end: now.toISOString() };
+              }
+            }
+            const resp = await getSensorData(sensor.id, limit, opts);
             const data = resp && resp.results ? resp.results : resp;
             console.log(`[Dashboard] Fetched ${sensor.sensor_type} sensor data:`, data?.length || 0, `records (limit: ${limit})`);
             return { sensorId: sensor.id, data: Array.isArray(data) ? data : (data ? [data] : []) };
@@ -1231,14 +1245,14 @@ export default function Dashboard() {
     const result = mergedData.phHistory.slice(start, end);
     console.log('[Dashboard] pH history display:', result);
     return result;
-  }, [mergedData, currentStart]);
+  }, [mergedData, currentStart, PH_WINDOW_SIZE, mergedData?.phHistory?.length]);
   const phLabelsDisplay = useMemo(() => {
     if (!mergedData || !Array.isArray(mergedData.phLabels)) return [];
     // Show corresponding labels for the windowed data
     const start = Math.max(0, currentStart);
     const end = Math.min(mergedData.phLabels.length, start + PH_WINDOW_SIZE);
     return mergedData.phLabels.slice(start, end);
-  }, [mergedData, currentStart]);
+  }, [mergedData, currentStart, PH_WINDOW_SIZE, mergedData?.phLabels?.length]);
 
   // Dynamic scale for pH bars based on displayed data (excluding null values)
   const phNumbers = useMemo(() =>

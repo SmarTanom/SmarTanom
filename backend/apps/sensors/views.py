@@ -7,6 +7,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 
@@ -228,6 +230,21 @@ class SensorDataViewSet(BaseAuthViewSet):
                     pass
             if device_serial:
                 qs = qs.filter(sensor__device__device_serial=device_serial)
+            # Optional date range filters
+            start_str = request.query_params.get("start")
+            end_str = request.query_params.get("end")
+            if start_str:
+                dt = parse_datetime(start_str)
+                if dt is not None and timezone.is_naive(dt):
+                    dt = timezone.make_aware(dt, timezone.utc)
+                if dt is not None:
+                    qs = qs.filter(created_at__gte=dt)
+            if end_str:
+                dt = parse_datetime(end_str)
+                if dt is not None and timezone.is_naive(dt):
+                    dt = timezone.make_aware(dt, timezone.utc)
+                if dt is not None:
+                    qs = qs.filter(created_at__lte=dt)
             return qs
 
         shared_device_ids = DeviceCollaboration.objects.filter(
@@ -254,6 +271,22 @@ class SensorDataViewSet(BaseAuthViewSet):
         if device_serial:
             # Apply extra serial constraint AFTER ownership scoping
             scoped = scoped.filter(sensor__device__device_serial=device_serial)
+
+        # Optional date range filters
+        start_str = request.query_params.get("start")
+        end_str = request.query_params.get("end")
+        if start_str:
+            dt = parse_datetime(start_str)
+            if dt is not None and timezone.is_naive(dt):
+                dt = timezone.make_aware(dt, timezone.utc)
+            if dt is not None:
+                scoped = scoped.filter(created_at__gte=dt)
+        if end_str:
+            dt = parse_datetime(end_str)
+            if dt is not None and timezone.is_naive(dt):
+                dt = timezone.make_aware(dt, timezone.utc)
+            if dt is not None:
+                scoped = scoped.filter(created_at__lte=dt)
 
         return scoped
 

@@ -33,7 +33,7 @@ export async function getDeviceSensors(deviceId) {
 /**
  * Get sensor data for a specific sensor
  */
-export async function getSensorData(sensorId, limit = 50) {
+export async function getSensorData(sensorId, limit = 50, opts = {}) {
   const token = localStorage.getItem('authToken');
   if (!token) {
     throw new Error('No authentication token found');
@@ -41,7 +41,9 @@ export async function getSensorData(sensorId, limit = 50) {
   // Include device_serial for strict backend scoping
   const deviceSerial = localStorage.getItem('activeDeviceSerial') || '';
   const serialParam = deviceSerial ? `&device_serial=${encodeURIComponent(deviceSerial)}` : '';
-  return apiClient.get(`/api/sensors/sensor-data/?sensor=${sensorId}&limit=${limit}${serialParam}`, {
+  const startParam = opts.start ? `&start=${encodeURIComponent(opts.start)}` : '';
+  const endParam = opts.end ? `&end=${encodeURIComponent(opts.end)}` : '';
+  return apiClient.get(`/api/sensors/sensor-data/?sensor=${sensorId}&limit=${limit}${serialParam}${startParam}${endParam}`, {
     authToken: token
   });
 }
