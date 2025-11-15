@@ -37,8 +37,11 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
   // Process and sort pH data - aggregate by day, taking the last reading of each day
   const processedData = useMemo(() => {
     if (!Array.isArray(phData) || phData.length === 0) {
+      console.log('[PHLineChart] No pH data provided');
       return { labels: [], values: [], hasData: false, timestamps: [], allData: [] };
     }
+
+    console.log(`[PHLineChart] Processing ${phData.length} pH readings`);
 
     // Filter valid data
     const validData = phData
@@ -50,9 +53,16 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
       .filter(d => !isNaN(d.timestamp.getTime()) && Number.isFinite(d.value))
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Newest first
 
+    console.log(`[PHLineChart] Valid readings: ${validData.length}`);
+    
     if (validData.length === 0) {
       return { labels: [], values: [], hasData: false, timestamps: [], allData: [] };
     }
+
+    // Log date range of data
+    const oldestDate = validData[validData.length - 1].timestamp;
+    const newestDate = validData[0].timestamp;
+    console.log(`[PHLineChart] Data range: ${oldestDate.toLocaleDateString()} to ${newestDate.toLocaleDateString()}`);
 
     // Group by day and take the last (latest) reading of each day
     const dailyData = new Map();
@@ -65,6 +75,12 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
         dailyData.set(dateKey, reading);
       }
     });
+
+    console.log(`[PHLineChart] Aggregated to ${dailyData.size} unique days`);
+    
+    // Log first 10 dates for debugging October 15 issue
+    const dateKeys = Array.from(dailyData.keys()).slice(0, 10);
+    console.log('[PHLineChart] First 10 aggregated dates:', dateKeys);
 
     // Convert map to array and sort by date (newest first)
     const aggregatedData = Array.from(dailyData.values())
@@ -237,12 +253,6 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
               }
               
               return `${statusEmoji} pH: ${phValue}${status}`;
-            },
-            afterLabel: function(context) {
-              if (plant?.ph_min !== undefined && plant?.ph_max !== undefined) {
-                return `Optimal Range: ${plant.ph_min.toFixed(1)} - ${plant.ph_max.toFixed(1)} pH`;
-              }
-              return '';
             }
           }
         }
