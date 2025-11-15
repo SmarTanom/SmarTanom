@@ -47,6 +47,18 @@ case "$SEED_OCT22_28_FLAG" in
         ;;
 esac
 
+# Optional seed/repair for SMRT-R47-4TJ (Oct 29 - Nov 27)
+SEED_OCT29_NOV27_FLAG=$(printf "%s" "${SEED_OCT29_NOV27:-false}" | tr 'A-Z' 'a-z')
+case "$SEED_OCT29_NOV27_FLAG" in
+    true|1|yes|on|repair)
+        echo "[entrypoint] Running seed_oct29_nov27 (mode=$SEED_OCT29_NOV27_FLAG)..."
+        python manage.py seed_oct29_nov27 || true
+        ;;
+    *)
+        echo "[entrypoint] Skipping seed Oct 29 - Nov 27 (SEED_OCT29_NOV27=$SEED_OCT29_NOV27_FLAG)"
+        ;;
+esac
+
 PORT_VAR="${PORT:-8000}"
 echo "[entrypoint] Starting Daphne on port $PORT_VAR..."
 exec daphne -b 0.0.0.0 -p "$PORT_VAR" smartanom.asgi:application

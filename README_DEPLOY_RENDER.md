@@ -6,10 +6,12 @@
 - `DATABASE_URL` (from your Render Postgres resource)
 - `REDIS_URL` (Upstash or Render Redis) if you want multi-process Channels fan-out
 - `COLLECTSTATIC="true"` (to run `collectstatic` during deploy)
-- `SEED_SMRT_R47_4TJ` values recognized by the entrypoint (Oct 15-21 data):
+- `SEED_SMRT_R47_4TJ` values recognized by the entrypoint (Oct 15-21 data, 7 days):
   - `true`, `1`, `yes`, `on`, `repair` → will run `python manage.py seed_specific_device_oct2025` (no-op safe)
-- `SEED_OCT22_28` values recognized by the entrypoint (Oct 22-28 data):
-  - `true`, `1`, `yes`, `on`, `repair` → will run `python manage.py seed_oct22_28` (no-op safe)nnels)
+- `SEED_OCT22_28` values recognized by the entrypoint (Oct 22-28 data, 7 days):
+  - `true`, `1`, `yes`, `on`, `repair` → will run `python manage.py seed_oct22_28` (no-op safe)
+- `SEED_OCT29_NOV27` values recognized by the entrypoint (Oct 29 - Nov 27 data, 30 days):
+  - `true`, `1`, `yes`, `on`, `repair` → will run `python manage.py seed_oct29_nov27` (no-op safe)nnels)
 
 If your service builds but exits early with a shell syntax error in the Start Command, the Render dashboard is likely still using an old inline command that overrides the Procfile/blueprint.
 
