@@ -55,19 +55,27 @@ class Plant(TimeStampedModel):
 
     def clean(self):
         errors = {}
-        if self.ppm_min > self.ppm_max:
+        if self.ppm_min is not None and self.ppm_max is not None and self.ppm_min > self.ppm_max:
             errors["ppm_min"] = "ppm_min cannot be greater than ppm_max"
-        if self.ec_min > self.ec_max:
+        if self.ec_min is not None and self.ec_max is not None and self.ec_min > self.ec_max:
             errors["ec_min"] = "ec_min cannot be greater than ec_max"
-        if self.ph_min > self.ph_max:
+        if self.ph_min is not None and self.ph_max is not None and self.ph_min > self.ph_max:
             errors["ph_min"] = "ph_min cannot be greater than ph_max"
-        if self.water_temp_min > self.water_temp_max:
+        if (
+            self.water_temp_min is not None
+            and self.water_temp_max is not None
+            and self.water_temp_min > self.water_temp_max
+        ):
             errors["water_temp_min"] = "water_temp_min cannot be greater than water_temp_max"
-        if self.light_min > self.light_max:
+        if self.light_min is not None and self.light_max is not None and self.light_min > self.light_max:
             errors["light_min"] = "light_min cannot be greater than light_max"
-        if self.environment_temp_min > self.environment_temp_max:
+        if (
+            self.environment_temp_min is not None
+            and self.environment_temp_max is not None
+            and self.environment_temp_min > self.environment_temp_max
+        ):
             errors["environment_temp_min"] = "environment_temp_min cannot be greater than environment_temp_max"
-        if self.humidity_min > self.humidity_max:
+        if self.humidity_min is not None and self.humidity_max is not None and self.humidity_min > self.humidity_max:
             errors["humidity_min"] = "humidity_min cannot be greater than humidity_max"
         if errors:
             raise ValidationError(errors)
