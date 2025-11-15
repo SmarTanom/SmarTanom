@@ -4,7 +4,7 @@ Idempotent: skips insertion if any pH reading exists for the target device in th
 date range. Controlled by env var SEED_SMRT_R47_4TJ=true.
 
 Generates:
-* 70 SensorData readings (pH, ec, tds, water_temperature) — 10 timestamps per day.
+* 70 SensorData timestamps with 6 metrics each: pH, EC, TDS, Water Temperature, Water Level, Turbidity — 10 timestamps per day.
 * 3 Alert rows for slight threshold breaches (pH, EC, TDS) at specified timestamps.
 
 Thresholds (Lettuce Growing stage):
@@ -157,19 +157,21 @@ class Command(BaseCommand):
         ec_sensor = self._get_or_create_sensor(device, Sensor.SensorType.EC)
         tds_sensor = self._get_or_create_sensor(device, Sensor.SensorType.TDS)
         wt_sensor = self._get_or_create_sensor(device, Sensor.SensorType.WATER_TEMPERATURE)
+        wl_sensor = self._get_or_create_sensor(device, Sensor.SensorType.WATER_LEVEL)
+        turb_sensor = self._get_or_create_sensor(device, Sensor.SensorType.TURBIDITY)
 
         # Idempotency check v2:
         # Prefer strong check by ingest_id prefix, since previous versions may have wrong created_at
         seed_prefix = f"seed-{DEVICE_SERIAL}-"
         existing_seed = SensorData.objects.filter(
-            sensor__in=[ph_sensor, ec_sensor, tds_sensor, wt_sensor],
+            sensor__in=[ph_sensor, ec_sensor, tds_sensor, wt_sensor, wl_sensor, turb_sensor],
             ingest_id__startswith=seed_prefix,
         ).exists()
 
         if existing_seed or flag == "repair":
             # If seed already exists, repair timestamps if needed (created_at should match embedded timestamp)
             repaired_sd = self._repair_sensor_data_seed_timestamps(
-                [ph_sensor, ec_sensor, tds_sensor, wt_sensor], seed_prefix
+                [ph_sensor, ec_sensor, tds_sensor, wt_sensor, wl_sensor, turb_sensor], seed_prefix
             )
             repaired_alerts = self._repair_alert_seed_timestamps(device)
             self.stdout.write(
@@ -182,10 +184,16 @@ class Command(BaseCommand):
         created_rows = 0
         alerts_created = 0
         alerts_buffer: List[Alert] = []
+        idx = 0
         with transaction.atomic():
             for ts_str, ph, ec, tds, wt in READINGS:
                 dt_naive = timezone.datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
                 dt = timezone.make_aware(dt_naive, timezone.get_current_timezone())
+                # Deterministic synthetic values for Water Level (%) and Turbidity (NTU)
+                # Water Level oscillates gently between ~70–95%
+                wl = max(70.0, min(95.0, 95.0 - (idx % 12) * 2.1))
+                # Turbidity small values ~0.8–5.0 NTU
+                turb = round(0.8 + (idx % 8) * 0.55, 2)
                 # Insert 4 sensor readings (ph, ec, tds, water_temperature)
                 SensorData.objects.bulk_create(
                     [
@@ -217,10 +225,24 @@ class Command(BaseCommand):
                             updated_at=dt,
                             ingest_id=f"seed-{DEVICE_SERIAL}-wt-{dt.strftime('%Y%m%d%H%M')}-v1",
                         ),
+                        SensorData(
+                            sensor=wl_sensor,
+                            value=wl,
+                            created_at=dt,
+                            updated_at=dt,
+                            ingest_id=f"seed-{DEVICE_SERIAL}-wl-{dt.strftime('%Y%m%d%H%M')}-v1",
+                        ),
+                        SensorData(
+                            sensor=turb_sensor,
+                            value=turb,
+                            created_at=dt,
+                            updated_at=dt,
+                            ingest_id=f"seed-{DEVICE_SERIAL}-turb-{dt.strftime('%Y%m%d%H%M')}-v1",
+                        ),
                     ],
                     ignore_conflicts=True,
                 )
-                created_rows += 4
+                created_rows += 6
 
                 # Create alert if timestamp matches map
                 if ts_str in ALERT_MAP:
@@ -256,6 +278,7 @@ class Command(BaseCommand):
                         )
                     )
                     alerts_created += 1
+                idx += 1
 
             # Bulk create alerts in one go so created_at is preserved (auto_now_add not triggered)
             if alerts_buffer:
