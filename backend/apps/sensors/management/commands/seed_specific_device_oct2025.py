@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import os
 from typing import List, Tuple
+from datetime import datetime
 from django.core.management import BaseCommand, CommandError
 from django.utils import timezone
 from django.db import transaction
@@ -155,27 +156,68 @@ class Command(BaseCommand):
         tds_sensor = self._get_or_create_sensor(device, Sensor.SensorType.TDS)
         wt_sensor = self._get_or_create_sensor(device, Sensor.SensorType.WATER_TEMPERATURE)
 
-        # Idempotency: If any pH reading in date range exists, abort seeding
-        existing = SensorData.objects.filter(
-            sensor=ph_sensor, created_at__gte=aware_start, created_at__lte=aware_end
+        # Idempotency check v2:
+        # Prefer strong check by ingest_id prefix, since previous versions may have wrong created_at
+        seed_prefix = f"seed-{DEVICE_SERIAL}-"
+        existing_seed = SensorData.objects.filter(
+            sensor__in=[ph_sensor, ec_sensor, tds_sensor, wt_sensor],
+            ingest_id__startswith=seed_prefix,
         ).exists()
-        if existing:
-            self.stdout.write(self.style.WARNING("SensorData already present for range; skipping."))
+
+        if existing_seed:
+            # If seed already exists, repair timestamps if needed (created_at should match embedded timestamp)
+            repaired_sd = self._repair_sensor_data_seed_timestamps(
+                [ph_sensor, ec_sensor, tds_sensor, wt_sensor], seed_prefix
+            )
+            repaired_alerts = self._repair_alert_seed_timestamps(device)
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Seed already present. Repaired timestamps for {repaired_sd} SensorData rows and {repaired_alerts} Alerts."
+                )
+            )
             return
 
         created_rows = 0
         alerts_created = 0
+        alerts_buffer: List[Alert] = []
         with transaction.atomic():
             for ts_str, ph, ec, tds, wt in READINGS:
                 dt_naive = timezone.datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
                 dt = timezone.make_aware(dt_naive, timezone.get_current_timezone())
                 # Insert 4 sensor readings (ph, ec, tds, water_temperature)
-                SensorData.objects.bulk_create([
-                    SensorData(sensor=ph_sensor, value=ph, created_at=dt, ingest_id=f"seed-{DEVICE_SERIAL}-ph-{dt.strftime('%Y%m%d%H%M')}-v1"),
-                    SensorData(sensor=ec_sensor, value=ec, created_at=dt, ingest_id=f"seed-{DEVICE_SERIAL}-ec-{dt.strftime('%Y%m%d%H%M')}-v1"),
-                    SensorData(sensor=tds_sensor, value=tds, created_at=dt, ingest_id=f"seed-{DEVICE_SERIAL}-tds-{dt.strftime('%Y%m%d%H%M')}-v1"),
-                    SensorData(sensor=wt_sensor, value=wt, created_at=dt, ingest_id=f"seed-{DEVICE_SERIAL}-wt-{dt.strftime('%Y%m%d%H%M')}-v1"),
-                ])
+                SensorData.objects.bulk_create(
+                    [
+                        SensorData(
+                            sensor=ph_sensor,
+                            value=ph,
+                            created_at=dt,
+                            updated_at=dt,
+                            ingest_id=f"seed-{DEVICE_SERIAL}-ph-{dt.strftime('%Y%m%d%H%M')}-v1",
+                        ),
+                        SensorData(
+                            sensor=ec_sensor,
+                            value=ec,
+                            created_at=dt,
+                            updated_at=dt,
+                            ingest_id=f"seed-{DEVICE_SERIAL}-ec-{dt.strftime('%Y%m%d%H%M')}-v1",
+                        ),
+                        SensorData(
+                            sensor=tds_sensor,
+                            value=tds,
+                            created_at=dt,
+                            updated_at=dt,
+                            ingest_id=f"seed-{DEVICE_SERIAL}-tds-{dt.strftime('%Y%m%d%H%M')}-v1",
+                        ),
+                        SensorData(
+                            sensor=wt_sensor,
+                            value=wt,
+                            created_at=dt,
+                            updated_at=dt,
+                            ingest_id=f"seed-{DEVICE_SERIAL}-wt-{dt.strftime('%Y%m%d%H%M')}-v1",
+                        ),
+                    ],
+                    ignore_conflicts=True,
+                )
                 created_rows += 4
 
                 # Create alert if timestamp matches map
@@ -191,24 +233,31 @@ class Command(BaseCommand):
                         Alert.Metric.TDS: tds_sensor,
                         Alert.Metric.WATER_TEMPERATURE: wt_sensor,
                     }.get(metric)
-                    Alert.objects.create(
-                        device=device,
-                        sensor=sensor_ref,
-                        metric=metric,
-                        trigger=trigger,
-                        severity=severity,
-                        value=value,
-                        unit=unit,
-                        min_threshold=min_thr,
-                        max_threshold=max_thr,
-                        plant_name=(device.plant.plant_name if device.plant else "Lettuce Growing"),
-                        plant_category=Alert.PlantCategory.LETTUCE,
-                        title=title,
-                        recommendation=recommendation,
-                        metadata={"seed": True, "timestamp": ts_str},
-                        created_at=dt,
+                    alerts_buffer.append(
+                        Alert(
+                            device=device,
+                            sensor=sensor_ref,
+                            metric=metric,
+                            trigger=trigger,
+                            severity=severity,
+                            value=value,
+                            unit=unit,
+                            min_threshold=min_thr,
+                            max_threshold=max_thr,
+                            plant_name=(device.plant.plant_name if device.plant else "Lettuce Growing"),
+                            plant_category=Alert.PlantCategory.LETTUCE,
+                            title=title,
+                            recommendation=recommendation,
+                            metadata={"seed": True, "timestamp": ts_str},
+                            created_at=dt,
+                            updated_at=dt,
+                        )
                     )
                     alerts_created += 1
+
+            # Bulk create alerts in one go so created_at is preserved (auto_now_add not triggered)
+            if alerts_buffer:
+                Alert.objects.bulk_create(alerts_buffer, ignore_conflicts=True)
 
         self.stdout.write(self.style.SUCCESS(f"Seed complete: {created_rows} SensorData rows; {alerts_created} Alerts."))
 
@@ -229,3 +278,57 @@ class Command(BaseCommand):
         if metric == Alert.Metric.TDS:
             return "Add fresh water or change reservoir to lower TDS below 1500 ppm."
         return "Review system conditions and adjust as needed."
+
+    def _repair_sensor_data_seed_timestamps(self, sensors: List[Sensor], seed_prefix: str) -> int:
+        """Repair created_at/updated_at for previously-seeded SensorData rows that may have "now()" timestamps.
+
+        We derive the intended timestamp from the ingest_id token: seed-<DEVICE>-<metric>-YYYYMMDDHHMM-v1
+        """
+        repaired = 0
+        for sensor in sensors:
+            qs = SensorData.objects.filter(sensor=sensor, ingest_id__startswith=seed_prefix)
+            for row in qs.iterator():
+                ingest_id = row.ingest_id or ""
+                try:
+                    # Strip the device-specific prefix to get e.g. "ph-202510150600-v1"
+                    if ingest_id.startswith(seed_prefix):
+                        suffix = ingest_id[len(seed_prefix):]
+                    else:
+                        # Not expected, but skip
+                        continue
+                    parts = suffix.split("-")
+                    # Expect [metric, YYYYMMDDHHMM, v1]
+                    if len(parts) < 3:
+                        continue
+                    ts_token = parts[1]
+                    dt_naive = datetime.strptime(ts_token, "%Y%m%d%H%M")
+                    dt = timezone.make_aware(dt_naive, timezone.get_current_timezone())
+                except Exception:
+                    continue
+
+                # Only update if different to avoid needless writes
+                if row.created_at != dt or getattr(row, "updated_at", dt) != dt:
+                    SensorData.objects.filter(pk=row.pk).update(created_at=dt, updated_at=dt)
+                    repaired += 1
+
+        return repaired
+
+    def _repair_alert_seed_timestamps(self, device: Device) -> int:
+        """Repair created_at/updated_at for seed Alerts using their metadata.timestamp."""
+        repaired = 0
+        qs = Alert.objects.filter(device=device, metadata__seed=True)
+        for a in qs.iterator():
+            ts_str = (a.metadata or {}).get("timestamp")
+            if not ts_str:
+                continue
+            try:
+                dt_naive = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                dt = timezone.make_aware(dt_naive, timezone.get_current_timezone())
+            except Exception:
+                continue
+
+            if a.created_at != dt or getattr(a, "updated_at", dt) != dt:
+                Alert.objects.filter(pk=a.pk).update(created_at=dt, updated_at=dt)
+                repaired += 1
+
+        return repaired
