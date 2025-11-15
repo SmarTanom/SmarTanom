@@ -43,6 +43,19 @@ function relativeTimeFromISO(iso) {
   }
 }
 
+// Helper: absolute time string with timezone and seconds
+function absoluteTimeFromISO(iso) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: true, timeZoneName: 'short'
+    }).format(d);
+  } catch (_) { return ''; }
+}
+
 // No local classification or templates anymore. We rely on backend alerts.
 
 // Brand color constant
@@ -164,6 +177,7 @@ export default function AlertsPage() {
           deviceSerial: null,
           message: a.body || a.message || '',
           timestamp: relativeTimeFromISO(createdIso),
+          timestampAbs: absoluteTimeFromISO(createdIso),
           date: createdIso,
           read: !!a.is_read,
         });
@@ -393,7 +407,7 @@ export default function AlertsPage() {
                     </div>
                     <p className="alert-item-device">{alert.device}</p>
                     <p className="alert-item-message hint" style={{ opacity: 0.65, fontStyle: 'italic' }}>Tap to view recommendation</p>
-                    <span className="alert-item-timestamp">{alert.timestamp}</span>
+                    <span className="alert-item-timestamp" title={alert.timestampAbs}>{alert.timestamp}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                   </div>
@@ -438,7 +452,7 @@ export default function AlertsPage() {
               </div>
               <div>
                 <h3 id="alert-modal-title" style={{ margin: 0 }}>{activeAlert.title}</h3>
-                <div style={{ color: '#64748b', fontSize: 12 }}>{activeAlert.device} • {activeAlert.timestamp}</div>
+                <div style={{ color: '#64748b', fontSize: 12 }}>{activeAlert.device} • {activeAlert.timestamp} ({absoluteTimeFromISO(activeAlert.date)})</div>
               </div>
             </div>
             <div style={{ padding: '16px 20px' }}>

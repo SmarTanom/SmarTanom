@@ -7,6 +7,7 @@ import { getDeviceSensors, getSensorData } from '../services/api/sensors';
 import { getInitialDashboard } from '../services/api/dashboard';
 import { authApi } from '../services/apiClient';
 import { getUserAlerts, markAlertsAsRead, markAllAlertsAsRead } from '../services/api/userAlerts';
+import { listAlerts as listSensorAlerts } from '../services/api/alerts.js';
 
 // Helper utilities replicated minimally (consider DRY refactor later)
 const generateAlertText = (s) => {
@@ -291,11 +292,37 @@ export const useRealtimeStore = create(persist((set, get) => ({
     try {
       set({ loadingAlerts: true, errorAlerts: null });
       if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Fetching alerts from backend...');
-
-      const response = await getUserAlerts({ limit: 200 });
-      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Alerts response:', response);
-
-      const alerts = response.alerts || [];
+      // Prefer canonical sensors alerts table; fallback to notifications logs if sensors API fails
+      let alerts = [];
+      try {
+        const sensorResp = await listSensorAlerts({ ordering: '-created_at' });
+        const rows = Array.isArray(sensorResp?.results) ? sensorResp.results : (Array.isArray(sensorResp) ? sensorResp : []);
+        const devs = get().devices || [];
+        const deviceIdByLabel = new Map(devs.map(d => [
+          `${d.device_name} (${d.device_serial})`, d.id
+        ]));
+        alerts = rows.map(a => {
+          const label = a.device || '';
+          const resolvedDeviceId = a.device_id || deviceIdByLabel.get(label);
+          return {
+            id: a.id,
+            reading_id: a.id,
+            device_id: resolvedDeviceId,
+            title: a.title,
+            body: a.recommendation,
+            severity: a.severity,
+            timestamp: a.created_at,
+            is_read: false, // sensors alerts don't track read status; UI will still work
+            sensor_type: a.metric,
+            value: a.value,
+          };
+        });
+        if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Sensors alerts response:', alerts.length);
+      } catch (e) {
+        if (import.meta.env.VITE_DEBUG === 'true') console.warn('[RealtimeStore] Sensors alerts fetch failed, falling back to notifications logs:', e);
+        const response = await getUserAlerts({ limit: 200 });
+        alerts = response.alerts || [];
+      }
       if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processing', alerts.length, 'alerts');
 
       // Group alerts by device_id

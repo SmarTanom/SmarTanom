@@ -2102,7 +2102,24 @@ export default function Dashboard() {
         {/* Current pH level (real-time latest reading, independent of history) */}
         <section className="card current-ph-card" aria-label="Current pH" onClick={() => setSelectedMonitoringCard('ph')} style={{ cursor: 'pointer' }}>
           {(() => {
-            const latestPh = data?.sensors?.ph; // real-time field updated by WebSocket
+            // Resolve the freshest current pH value from multiple sources
+            // 1) Realtime snapshot (WS or lite refresh)
+            let latestPh = (typeof data?.sensors?.ph === 'number' && Number.isFinite(data.sensors.ph))
+              ? Number(data.sensors.ph)
+              : null;
+            // 2) Fallback to newest value in raw fetched history (by created_at)
+            if (latestPh === null && Array.isArray(data?.phRawData) && data.phRawData.length) {
+              try {
+                const newest = data.phRawData.reduce((acc, r) => {
+                  if (!r || r.value == null || !r.created_at) return acc;
+                  const t = new Date(r.created_at).getTime();
+                  if (!Number.isFinite(t)) return acc;
+                  if (!acc || t > acc.t) return { t, v: Number(r.value) };
+                  return acc;
+                }, null);
+                if (newest && Number.isFinite(newest.v)) latestPh = newest.v;
+              } catch (_) { /* ignore */ }
+            }
             const hasPh = typeof latestPh === 'number' && Number.isFinite(latestPh);
             const phVal = hasPh ? latestPh : null;
             let plantObj = data?.plant || currentDevice?.plant;
