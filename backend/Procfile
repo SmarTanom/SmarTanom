@@ -1,20 +1,13 @@
-web: bash -lc '
-	if [ "$DB_RESET_ON_DEPLOY" = "true" ]; then \
-		echo "DB_RESET_ON_DEPLOY=true -> resetting database and creating superuser"; \
-		python manage.py reset_db_and_create_superuser "${SUPERUSER_EMAIL:-$ADMIN_EMAIL}" \
-			--password "${SUPERUSER_PASSWORD:-$ADMIN_PASSWORD}" \
-			--first-name "${SUPERUSER_FIRST_NAME:-}" \
-			--last-name "${SUPERUSER_LAST_NAME:-}" \
-			--username "${SUPERUSER_USERNAME:-}"; \
-	fi; \
-	python manage.py migrate --noinput && \
-	python manage.py create_default_superuser && \
-	daphne -b 0.0.0.0 -p $PORT \
-		--websocket_timeout 180 \
-		--websocket_connect_timeout 30 \
-		--websocket_handshake_timeout 30 \
-		--websocket_max_message_size 16777216 \
-		smartanom.asgi:application'
+web: bash -c '
+	echo "=== SmarTanom Backend Starting ==="
+	if [ "$DB_RESET_ON_DEPLOY" = "true" ]; then
+		echo "DB_RESET_ON_DEPLOY=true -> resetting database and creating superuser"
+		python manage.py reset_db_and_create_superuser "${SUPERUSER_EMAIL:-$ADMIN_EMAIL}" --password "${SUPERUSER_PASSWORD:-$ADMIN_PASSWORD}" --first-name "${SUPERUSER_FIRST_NAME:-}" --last-name "${SUPERUSER_LAST_NAME:-}" --username "${SUPERUSER_USERNAME:-}"
+	fi
+	python manage.py migrate --noinput
+	python manage.py create_default_superuser
+	exec daphne -b 0.0.0.0 -p $PORT --websocket_timeout 180 --websocket_connect_timeout 30 --websocket_handshake_timeout 30 --websocket_max_message_size 16777216 smartanom.asgi:application
+'
 
 # Background worker that subscribes to Upstash Redis Pub/Sub and persists readings
 worker: python manage.py run_redis_subscriber
