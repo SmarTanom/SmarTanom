@@ -139,8 +139,10 @@ class Command(BaseCommand):
     help = "Seed fixed 7-day sensor dataset + 3 alerts for SMRT-R47-4TJ (Oct 2025)."
 
     def handle(self, *args, **options):
-        if (os.getenv("SEED_SMRT_R47_4TJ") or "").lower() != "true":
-            self.stdout.write("SEED_SMRT_R47_4TJ not true; skipping seed_specific_device_oct2025.")
+        flag = (os.getenv("SEED_SMRT_R47_4TJ") or "").strip().lower()
+        truthy = {"true", "1", "yes", "y", "on", "repair"}
+        if flag not in truthy:
+            self.stdout.write("SEED_SMRT_R47_4TJ not enabled; set to true/1/yes/on/repair to run.")
             return
 
         device = Device.objects.filter(device_serial=DEVICE_SERIAL).first()
@@ -164,7 +166,7 @@ class Command(BaseCommand):
             ingest_id__startswith=seed_prefix,
         ).exists()
 
-        if existing_seed:
+        if existing_seed or flag == "repair":
             # If seed already exists, repair timestamps if needed (created_at should match embedded timestamp)
             repaired_sd = self._repair_sensor_data_seed_timestamps(
                 [ph_sensor, ec_sensor, tds_sensor, wt_sensor], seed_prefix
