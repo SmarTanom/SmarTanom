@@ -36,6 +36,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import defaultHydroponic from '../assets/images/defaulthydroponic.jpg';
 import { resolveMediaUrl, withImgFallback } from '../utils/media';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
+import PHLineChart from '../components/charts/PHLineChart.jsx';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -691,9 +692,9 @@ export default function Dashboard() {
             if (sensor.sensor_type === 'ph') {
               // Fetch more data for pH sensors based on time range
               switch (timeRange) {
-                case 'weeks': limit = 200; break; // 20 weeks * ~10 readings per week
-                case 'months': limit = 300; break; // 12 months * ~25 readings per month
-                default: limit = 300; break; // 60 days * ~5 readings per day
+                case 'weeks': limit = 300; break; // 20 weeks worth of daily data
+                case 'months': limit = 500; break; // 12 months worth of daily data
+                default: limit = 500; break; // 90 days worth of data (increased from 300)
               }
             }
             // Date range params (helps backend filter accurately and align with chart labels)
@@ -702,7 +703,17 @@ export default function Dashboard() {
               const now = new Date();
               if (timeRange === 'days') {
                 const start = new Date(now);
-                start.setDate(now.getDate() - 59); // 60-day window inclusive
+                start.setDate(now.getDate() - 90); // 90-day window to capture more history
+                start.setHours(0, 0, 0, 0);
+                opts = { start: start.toISOString(), end: now.toISOString() };
+              } else if (timeRange === 'weeks') {
+                const start = new Date(now);
+                start.setDate(now.getDate() - 140); // 20 weeks
+                start.setHours(0, 0, 0, 0);
+                opts = { start: start.toISOString(), end: now.toISOString() };
+              } else if (timeRange === 'months') {
+                const start = new Date(now);
+                start.setMonth(now.getMonth() - 12); // 12 months
                 start.setHours(0, 0, 0, 0);
                 opts = { start: start.toISOString(), end: now.toISOString() };
               }
@@ -774,6 +785,7 @@ export default function Dashboard() {
         latestDbAlert,
         phHistory,
         phLabels,
+        phRawData: phSensor ? (sensorDataMap[phSensor.id] || []) : [], // Add raw pH sensor data for line chart
         sensors: {
           // Include pH on targeted refresh as well
           ...(typeof transformedSensors.ph === 'number' ? { ph: transformedSensors.ph } : {}),
@@ -1995,12 +2007,25 @@ export default function Dashboard() {
         </section>
 
         {/* pH levels over time */}
-        <section className="card ph-card" aria-label="pH levels over time">
+        <section className="card ph-card" aria-label="pH levels over time" style={{
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.98) 100%)',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          border: '1px solid rgba(139, 167, 151, 0.15)'
+        }}>
           <div className="ph-card-header">
-            <div className="icon-circle">
+            <div className="icon-circle" style={{
+              background: 'linear-gradient(135deg, rgba(51, 148, 50, 0.15) 0%, rgba(51, 148, 50, 0.08) 100%)',
+              border: '2px solid rgba(51, 148, 50, 0.2)'
+            }}>
               <Activity size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
-            <span className="ph-card-title">pH Levels over time</span>
+            <span className="ph-card-title" style={{ 
+              fontSize: '16px', 
+              fontWeight: '700',
+              color: '#2d3748'
+            }}>
+              pH Levels Over Time
+            </span>
             <select
               className="range-switch"
               aria-label="Select time range"
@@ -2008,219 +2033,66 @@ export default function Dashboard() {
               onChange={(e) => handleTimeRangeChange(e.target.value)}
               style={{
                 fontSize: '12px',
-                background: 'rgba(139,167,151,0.1)',
-                border: 'none',
-                padding: '6px 14px',
+                background: 'white',
+                border: '1.5px solid rgba(139,167,151,0.3)',
+                padding: '7px 16px',
                 borderRadius: '8px',
                 color: 'var(--color-secondary)',
                 cursor: 'pointer',
-                fontWeight: '500'
+                fontWeight: '600',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.borderColor = PRIMARY_GREEN.replace('0.9', '0.5');
+                e.target.style.boxShadow = '0 2px 4px rgba(51, 148, 50, 0.15)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.borderColor = 'rgba(139,167,151,0.3)';
+                e.target.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
               }}
             >
-              <option value="days">Days</option>
-              <option value="weeks">Weeks</option>
-              <option value="months">Months</option>
+              <option value="days">📅 Days</option>
+              <option value="weeks">📊 Weeks</option>
+              <option value="months">📈 Months</option>
             </select>
           </div>
-          <div className="ph-legend" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="ph-legend-dot"></span>
-            <span className="ph-legend-label">{legendLabel}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-              {/* Debug info - remove in production */}
-              <span style={{ fontSize: '10px', color: '#999', marginRight: '8px' }}>
-                {phTotal > 0 && `${currentStart + 1}-${Math.min(currentStart + PH_WINDOW_SIZE, phTotal)} of ${phTotal}`}
-              </span>
-              <button
-                className="ph-nav-btn"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Previous button clicked, canPrev:', canPrev, 'currentStart:', currentStart, 'phTotal:', phTotal);
-                  onPrev();
-                }}
-                disabled={!canPrev}
-                style={{
-                  background: canPrev ? 'rgba(51, 148, 50, 0.1)' : 'rgba(200, 200, 200, 0.1)',
-                  border: canPrev ? '1px solid rgba(51, 148, 50, 0.3)' : '1px solid #ddd',
-                  borderRadius: '6px',
-                  padding: '6px 8px',
-                  cursor: canPrev ? 'pointer' : 'not-allowed',
-                  opacity: canPrev ? 1 : 0.4,
-                  display: 'flex',
-                  alignItems: 'center',
-                  transition: 'all 0.2s ease',
-                  minWidth: '32px',
-                  height: '32px',
-                  justifyContent: 'center'
-                }}
-                aria-label="Previous period"
-              >
-                <ChevronLeft size={16} color={canPrev ? 'rgba(51, 148, 50, 0.8)' : '#999'} />
-              </button>
-              <span style={{ fontSize: 12, color: '#666', fontWeight: '500', minWidth: '100px', textAlign: 'center' }}>
-                {phLabelsDisplay && phLabelsDisplay.length >= 2
-                  ? `${phLabelsDisplay[0]} - ${phLabelsDisplay[phLabelsDisplay.length - 1]}`
-                  : phTotal === 0
-                    ? 'No data available'
-                    : timeRange === 'days' ? `Last ${PH_WINDOW_SIZE} Days`
-                      : timeRange === 'weeks' ? `Last ${PH_WINDOW_SIZE} Weeks`
-                        : `Last ${PH_WINDOW_SIZE} Months`
-                }
-              </span>
-              <button
-                className="ph-nav-btn"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Next button clicked, canNext:', canNext, 'currentStart:', currentStart, 'maxStart:', maxStart, 'phTotal:', phTotal);
-                  onNext();
-                }}
-                disabled={!canNext}
-                style={{
-                  background: canNext ? 'rgba(51, 148, 50, 0.1)' : 'rgba(200, 200, 200, 0.1)',
-                  border: canNext ? '1px solid rgba(51, 148, 50, 0.3)' : '1px solid #ddd',
-                  borderRadius: '6px',
-                  padding: '6px 8px',
-                  cursor: canNext ? 'pointer' : 'not-allowed',
-                  opacity: canNext ? 1 : 0.4,
-                  display: 'flex',
-                  alignItems: 'center',
-                  transition: 'all 0.2s ease',
-                  minWidth: '32px',
-                  height: '32px',
-                  justifyContent: 'center'
-                }}
-                aria-label="Next period"
-              >
-                <ChevronRight size={16} color={canNext ? 'rgba(51, 148, 50, 0.8)' : '#999'} />
-              </button>
-              {currentStart < maxStart && phTotal > PH_WINDOW_SIZE && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Today button clicked, jumping to maxStart:', maxStart);
-                    currentDevice && setPhWindows(prev => ({ ...prev, [currentDevice.id]: maxStart }));
-                  }}
-                  style={{
-                    background: 'var(--color-primary)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '6px 10px',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    marginLeft: '6px',
-                    transition: 'all 0.2s ease',
-                    height: '32px',
-                    minWidth: '50px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = 'rgba(51, 148, 50, 1)';
-                    e.target.style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = 'var(--color-primary)';
-                    e.target.style.transform = 'translateY(0)';
-                  }}
-                  aria-label="Jump to latest data"
-                >
-                  Latest
-                </button>
-              )}
-            </div>
+          <div className="ph-legend" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 10,
+            padding: '10px 20px',
+            borderBottom: '1px solid rgba(139, 167, 151, 0.12)',
+            background: 'rgba(248, 250, 252, 0.5)'
+          }}>
+            <span className="ph-legend-dot" style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              background: PRIMARY_GREEN,
+              boxShadow: '0 0 0 3px rgba(51, 148, 50, 0.15)'
+            }}></span>
+            <span className="ph-legend-label" style={{
+              fontWeight: '600',
+              color: '#4a5568',
+              fontSize: '13px'
+            }}>{legendLabel}</span>
           </div>
-          <div className="ph-chart-container">
-            <div className="ph-y-axis">
-              {phYTicks.map((label, i) => (
-                <span key={i} className="ph-y-label">{label}</span>
-              ))}
-            </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div className="ph-chart-area" style={{ marginBottom: '8px' }}>
-                {/* Horizontal Grid Lines */}
-                <div className="ph-grid-horizontal" style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  pointerEvents: 'none',
-                  zIndex: 1
-                }}>
-                  {phYTicks.map((_, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        borderTop: i === 0 ? 'none' : '1px solid rgba(139, 167, 151, 0.15)',
-                        height: i === 0 ? '1px' : 'auto',
-                        flex: 1
-                      }}
-                    />
-                  ))}
-                </div>
-
-                {/* Vertical Grid Lines */}
-                <div className="ph-grid-vertical" style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  pointerEvents: 'none',
-                  zIndex: 1
-                }}>
-                  {phHistoryDisplay && phHistoryDisplay.length > 0
-                    ? phHistoryDisplay.map((_, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          borderLeft: i === 0 ? 'none' : '1px solid rgba(139, 167, 151, 0.1)',
-                          width: i === 0 ? '1px' : 'auto',
-                          flex: 1,
-                          height: '100%'
-                        }}
-                      />
-                    ))
-                    : Array.from({ length: 10 }, (_, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          borderLeft: i === 0 ? 'none' : '1px solid rgba(139, 167, 151, 0.1)',
-                          width: i === 0 ? '1px' : 'auto',
-                          flex: 1,
-                          height: '100%'
-                        }}
-                      />
-                    ))
-                  }
-                </div>
-
-                {/* pH Bars */}
-                <div className="ph-bars" role="img" aria-label="pH chart">
-                  {phHistoryDisplay && phHistoryDisplay.length > 0
-                    ? phHistoryDisplay.map((v, i) => <PHBar key={i} v={v} i={i} min={phScale.min} max={phScale.max} plant={data?.plant || currentDevice?.plant} />)
-                    : <div style={{ color: '#999', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', zIndex: 3 }}>
-                      {mergedData && mergedData.phHistory && mergedData.phHistory.length === 0 ? 'No pH data available' : 'Loading pH data...'}
-                    </div>}
-                </div>
-              </div>
-              <div className="ph-x-axis">
-                {phLabelsDisplay && phLabelsDisplay.length > 0
-                  ? phLabelsDisplay.map((label, i) => (
-                    <span key={i} className="ph-x-label">{label}</span>
-                  ))
-                  : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((_, i) => (
-                    <span key={i} className="ph-x-label">--</span>
-                  ))}
-              </div>
-            </div>
+          
+          {/* pH Line Chart */}
+          <div style={{ 
+            padding: '20px', 
+            height: '340px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <PHLineChart 
+              phData={data?.phRawData || []}
+              plant={data?.plant || currentDevice?.plant}
+              barsPerPage={10}
+              timeRange={timeRange}
+            />
           </div>
         </section>
 
