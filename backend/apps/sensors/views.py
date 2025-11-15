@@ -549,9 +549,31 @@ class LatestReadingsView(APIView):
                     "updated_at": r["updated_at"],
                 })
 
-        etag_seed = "|".join(
-            f"{r['sensor_id']}:{int((r['updated_at']).timestamp())}" for r in found if r.get("updated_at")
-        )
+        # Build a stable ETag even if updated_at is a string (from cache) or a datetime
+        def _epoch_seconds(val):
+            if not val:
+                return None
+            # If cached, updated_at is an ISO string; otherwise it's a datetime
+            if isinstance(val, str):
+                dt = parse_datetime(val)
+                if dt is None:
+                    return None
+            else:
+                dt = val
+            # Ensure timezone-aware for consistent epoch conversion
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt, timezone.utc)
+            try:
+                return int(dt.timestamp())
+            except Exception:
+                return None
+
+        etag_parts = []
+        for r in found:
+            ts = _epoch_seconds(r.get("updated_at"))
+            if ts is not None:
+                etag_parts.append(f"{r['sensor_id']}:{ts}")
+        etag_seed = "|".join(etag_parts)
         response_etag = hashlib.md5(etag_seed.encode()).hexdigest() if etag_seed else "0" * 32
 
         serializer = LatestReadingSerializer(found, many=True)
