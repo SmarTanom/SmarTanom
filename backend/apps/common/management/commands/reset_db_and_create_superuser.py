@@ -39,6 +39,12 @@ class Command(BaseCommand):
             help="Superuser password (falls back to ADMIN_PASSWORD env or default in manager)",
         )
         parser.add_argument(
+            "--username",
+            dest="username",
+            type=str,
+            help="Optional username/handle to assign to the superuser",
+        )
+        parser.add_argument(
             "--first-name",
             dest="first_name",
             type=str,
@@ -68,6 +74,7 @@ class Command(BaseCommand):
         # Determine superuser credentials
         email = (options.get("email") or os.getenv("ADMIN_EMAIL") or "").strip()
         password = options.get("password") or os.getenv("ADMIN_PASSWORD")
+        username = options.get("username") or os.getenv("ADMIN_USERNAME")
         first_name = options.get("first_name")
         last_name = options.get("last_name")
 
@@ -118,6 +125,11 @@ class Command(BaseCommand):
             if hasattr(user, "is_verified"):
                 user.is_verified = True
                 user.save(update_fields=["is_verified"])
+
+            # Optionally set username
+            if username:
+                user.username = username
+                user.save(update_fields=["username"])
         except Exception as exc:
             raise CommandError(f"Failed to create superuser: {exc}")
 
