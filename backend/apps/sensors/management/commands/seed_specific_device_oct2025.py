@@ -284,6 +284,42 @@ class Command(BaseCommand):
             if alerts_buffer:
                 Alert.objects.bulk_create(alerts_buffer, ignore_conflicts=True)
 
+            # Ensure SensorLatest is populated so dashboard cards don't show "Loading..."
+            # Use the last timestamp (end of loop) for updated_at and the last values for current readings.
+            last_ts_naive = timezone.datetime.strptime(READINGS[-1][0], "%Y-%m-%d %H:%M:%S")
+            last_dt = timezone.make_aware(last_ts_naive, timezone.get_current_timezone())
+            last_ph, last_ec, last_tds, last_wt = READINGS[-1][1:]
+            # recompute deterministic WL/Turbidity indexes for the last row
+            last_idx = len(READINGS) - 1
+            last_wl = max(70.0, min(95.0, 95.0 - (last_idx % 12) * 2.1))
+            last_turb = round(0.8 + (last_idx % 8) * 0.55, 2)
+
+            from apps.sensors.models import SensorLatest
+            SensorLatest.objects.update_or_create(
+                sensor=ph_sensor,
+                defaults={"value": last_ph, "status": "", "updated_at": last_dt},
+            )
+            SensorLatest.objects.update_or_create(
+                sensor=ec_sensor,
+                defaults={"value": last_ec, "status": "", "updated_at": last_dt},
+            )
+            SensorLatest.objects.update_or_create(
+                sensor=tds_sensor,
+                defaults={"value": last_tds, "status": "", "updated_at": last_dt},
+            )
+            SensorLatest.objects.update_or_create(
+                sensor=wt_sensor,
+                defaults={"value": last_wt, "status": "", "updated_at": last_dt},
+            )
+            SensorLatest.objects.update_or_create(
+                sensor=wl_sensor,
+                defaults={"value": last_wl, "status": "", "updated_at": last_dt},
+            )
+            SensorLatest.objects.update_or_create(
+                sensor=turb_sensor,
+                defaults={"value": last_turb, "status": "", "updated_at": last_dt},
+            )
+
         self.stdout.write(self.style.SUCCESS(f"Seed complete: {created_rows} SensorData rows; {alerts_created} Alerts."))
 
     def _get_or_create_sensor(self, device: Device, sensor_type: str) -> Sensor:
