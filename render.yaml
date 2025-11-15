@@ -1,19 +1,18 @@
 services:
   - type: web
     name: smartanom-backend
-    runtime: python3
+    runtime: python
     plan: free
-    # rootDir tells Render to run build/start commands from this folder
+    # Run build/start from the backend folder
     rootDir: backend
-  # Commands are run relative to rootDir, so don't `cd backend` here.
-  buildCommand: "pip install --no-cache-dir -r requirements.txt"
-    # Render will automatically use the Procfile in the rootDir (backend/)
-    # to determine the start command.
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    # Use our entrypoint script to handle migrations, optional collectstatic/seed, and run Daphne
+    startCommand: bash render-entrypoint.sh
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: smartanom.settings
       - key: DEBUG
-        value: false
+        value: "false"
       - key: SECRET_KEY
         generateValue: true
       - key: ALLOWED_HOSTS
@@ -25,13 +24,12 @@ services:
         fromDatabase:
           name: smartanom-db
           property: connectionString
-  # Recommended: attach a Redis instance for WebSockets (Django Channels)
-  # If omitted, app will fall back to in-memory channel layer (single worker only).
-  # - key: REDIS_URL
-  #   fromService:
-  #     type: redis
-  #     name: smartanom-redis
-  #     property: connectionString
+      # Optional: attach a Redis instance and set REDIS_URL for Channels fan-out
+      # - key: REDIS_URL
+      #   fromService:
+      #     type: redis
+      #     name: smartanom-redis
+      #     property: connectionString
       - key: CORS_ALLOWED_ORIGINS
         value: https://your-frontend-domain.com
       # Email transport: prefer Brevo HTTP API on Render free tier
@@ -48,36 +46,33 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: DEFAULT_FROM_EMAIL
-        value: SmarTanom <noreply@yourdomain.com>
+        value: "SmarTanom <noreply@yourdomain.com>"
       - key: VAPID_ADMIN_EMAIL
         value: admin@yourdomain.com
 
   - type: worker
     name: smartanom-redis-subscriber
-    runtime: python3
+    runtime: python
     plan: free
     rootDir: backend
-    buildCommand: "pip install --no-cache-dir -r requirements.txt"
-    startCommand: "python manage.py run_redis_subscriber"
+    buildCommand: pip install --no-cache-dir -r requirements.txt
+    startCommand: python manage.py run_redis_subscriber
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: smartanom.settings
-      # IMPORTANT: Set REDIS_URL to your Redis (Upstash) redis[s]:// URL so Channels can fan-out across processes
+      # IMPORTANT: Set REDIS_URL to your Redis (Upstash) redis[s]:// URL so Channels can fan out across processes
       - key: REDIS_URL
         sync: false
       - key: REDIS_PUBSUB_CHANNEL
         value: smartanom:sensors
-      # Enable global broadcast if your dashboards listen on the global devices stream
       - key: WS_GLOBAL_BROADCAST
-        value: true
+        value: "true"
 
 databases:
   - name: smartanom-db
     databaseName: smartanom_prod
     user: smartanom
 
-# Temporarily commented out - uncomment after creating Redis instance
+# Optional: Attach a Render Redis service and set REDIS_URL from it
 # redis:
 #   - name: smartanom-redis
-
-# Optional: Attach a Render Redis service instead of Upstash and set REDIS_URL from it.
