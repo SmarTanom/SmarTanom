@@ -48,6 +48,33 @@ export async function getSensorData(sensorId, limit = 50, opts = {}) {
   });
 }
 
+/**
+ * Fetch all sensor data pages for a specific sensor within optional date range.
+ * Returns a flat array of items. Caps total items to maxTotal for safety.
+ */
+export async function getSensorDataAll(sensorId, limit = 100, opts = {}, maxTotal = 5000) {
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+  const deviceSerial = localStorage.getItem('activeDeviceSerial') || '';
+  const serialParam = deviceSerial ? `&device_serial=${encodeURIComponent(deviceSerial)}` : '';
+  const startParam = opts.start ? `&start=${encodeURIComponent(opts.start)}` : '';
+  const endParam = opts.end ? `&end=${encodeURIComponent(opts.end)}` : '';
+
+  let url = `/api/sensors/sensor-data/?sensor=${sensorId}&limit=${limit}${serialParam}${startParam}${endParam}`;
+  const items = [];
+  let guard = 0;
+  while (url && items.length < maxTotal && guard < 200) {
+    const page = await apiClient.get(url, { authToken: token });
+    const pageItems = Array.isArray(page?.results) ? page.results : (Array.isArray(page) ? page : []);
+    items.push(...pageItems);
+    url = page?.next || null; // DRF next is absolute; apiClient accepts absolute URLs
+    guard += 1;
+  }
+  return items;
+}
+
 // Multi-sensor convenience: until backend sensor__in is fully supported,
 // perform parallel single-sensor requests and merge. Avoid silent backend ignore.
 export async function getRecentSensorData(sensorIds, limit = 10) {
@@ -75,6 +102,7 @@ export default {
   getUserSensors,
   getDeviceSensors,
   getSensorData,
+  getSensorDataAll,
   getRecentSensorData,
   getLatestReadings
 };

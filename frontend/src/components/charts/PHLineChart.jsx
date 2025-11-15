@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -34,14 +34,35 @@ const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
  */
 const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 'days' }) => {
   const [currentPage, setCurrentPage] = useState(0);
-  // Process and sort pH data - aggregate by day, taking the last reading of each day
+  // Reset to latest page when input changes (e.g., switching Days/Weeks/Months)
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [timeRange, barsPerPage, phData]);
+  // Helper function to get week key (ISO week)
+  const getWeekKey = (date) => {
+    const d = new Date(date);
+    const dayOfWeek = d.getDay();
+    const diff = d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Monday start
+    const monday = new Date(d.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday.toISOString().split('T')[0]; // YYYY-MM-DD format for Monday of the week
+  };
+
+  // Helper function to get month key
+  const getMonthKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`; // YYYY-MM format
+  };
+
+  // Process and sort pH data - aggregate by day/week/month based on timeRange
   const processedData = useMemo(() => {
     if (!Array.isArray(phData) || phData.length === 0) {
       console.log('[PHLineChart] No pH data provided');
       return { labels: [], values: [], hasData: false, timestamps: [], allData: [] };
     }
 
-    console.log(`[PHLineChart] Processing ${phData.length} pH readings`);
+    console.log(`[PHLineChart] Processing ${phData.length} pH readings for ${timeRange} view`);
 
     // Filter valid data
     const validData = phData
@@ -64,33 +85,47 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
     const newestDate = validData[0].timestamp;
     console.log(`[PHLineChart] Data range: ${oldestDate.toLocaleDateString()} to ${newestDate.toLocaleDateString()}`);
 
-    // Group by day and take the last (latest) reading of each day
-    const dailyData = new Map();
+    // Group data based on timeRange
+    const aggregatedData = new Map();
     
     validData.forEach(reading => {
-      const dateKey = reading.timestamp.toDateString(); // e.g., "Fri Nov 15 2025"
+      let key;
       
-      // Since data is sorted newest first, the first occurrence for each day is the latest reading
-      if (!dailyData.has(dateKey)) {
-        dailyData.set(dateKey, reading);
+      switch (timeRange) {
+        case 'weeks':
+          key = getWeekKey(reading.timestamp);
+          break;
+        case 'months':
+          key = getMonthKey(reading.timestamp);
+          break;
+        case 'days':
+        default:
+          key = reading.timestamp.toDateString(); // e.g., "Fri Nov 15 2025"
+          break;
+      }
+      
+      // Since data is sorted newest first, the first occurrence for each period is the latest reading
+      if (!aggregatedData.has(key)) {
+        aggregatedData.set(key, reading);
       }
     });
 
-    console.log(`[PHLineChart] Aggregated to ${dailyData.size} unique days`);
+    const aggregationLabel = timeRange === 'weeks' ? 'weeks' : timeRange === 'months' ? 'months' : 'days';
+    console.log(`[PHLineChart] Aggregated to ${aggregatedData.size} unique ${aggregationLabel}`);
     
-    // Log first 10 dates for debugging October 15 issue
-    const dateKeys = Array.from(dailyData.keys()).slice(0, 10);
-    console.log('[PHLineChart] First 10 aggregated dates:', dateKeys);
+    // Log first 10 keys for debugging
+    const dataKeys = Array.from(aggregatedData.keys()).slice(0, 10);
+    console.log(`[PHLineChart] First 10 aggregated ${aggregationLabel}:`, dataKeys);
 
     // Convert map to array and sort by date (newest first)
-    const aggregatedData = Array.from(dailyData.values())
+    const aggregatedArray = Array.from(aggregatedData.values())
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
     return { 
       hasData: true, 
-      allData: aggregatedData
+      allData: aggregatedArray
     };
-  }, [phData]);
+  }, [phData, timeRange]);
 
   // Paginate data
   const paginatedData = useMemo(() => {
@@ -109,9 +144,34 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
 
     const labels = displayData.map(d => {
       const date = d.timestamp;
-      const month = date.toLocaleDateString('en-US', { month: 'short' });
-      const day = date.getDate();
-      return `${month} ${day}`;
+      
+      switch (timeRange) {
+        case 'weeks': {
+          // Show week range: "Nov 11-17"
+          const weekEnd = new Date(date);
+          weekEnd.setDate(date.getDate() + 6);
+          const startMonth = date.toLocaleDateString('en-US', { month: 'short' });
+          const endMonth = weekEnd.toLocaleDateString('en-US', { month: 'short' });
+          const startDay = date.getDate();
+          const endDay = weekEnd.getDate();
+          
+          if (startMonth === endMonth) {
+            return `${startMonth} ${startDay}-${endDay}`;
+          }
+          return `${startMonth} ${startDay}-${endMonth} ${endDay}`;
+        }
+        case 'months': {
+          // Show month and year: "Nov 2025"
+          return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        }
+        case 'days':
+        default: {
+          // Show month and day: "Nov 15"
+          const month = date.toLocaleDateString('en-US', { month: 'short' });
+          const day = date.getDate();
+          return `${month} ${day}`;
+        }
+      }
     });
 
     const values = displayData.map(d => d.value);
@@ -327,12 +387,45 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
   const dateRangeText = useMemo(() => {
     if (!startDate || !endDate) return '';
     
-    const start = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const end = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    
-    if (start === end) return start;
-    return `${start} - ${end}`;
-  }, [startDate, endDate]);
+    switch (timeRange) {
+      case 'weeks': {
+        const startWeekEnd = new Date(startDate);
+        startWeekEnd.setDate(startDate.getDate() + 6);
+        const endWeekEnd = new Date(endDate);
+        endWeekEnd.setDate(endDate.getDate() + 6);
+        
+        const start = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const end = endWeekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        return `${start} - ${end}`;
+      }
+      case 'months': {
+        const start = startDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        const end = endDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        
+        if (start === end) return start;
+        return `${start} - ${end}`;
+      }
+      case 'days':
+      default: {
+        const start = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const end = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        if (start === end) return start;
+        return `${start} - ${end}`;
+      }
+    }
+  }, [startDate, endDate, timeRange]);
+
+  // Get display unit label
+  const getUnitLabel = () => {
+    switch (timeRange) {
+      case 'weeks': return 'Weeks';
+      case 'months': return 'Months';
+      case 'days':
+      default: return 'Days';
+    }
+  };
 
   // Handle no data state
   if (!processedData.hasData) {
@@ -431,7 +524,7 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
             color: '#a0aec0',
             fontWeight: '500'
           }}>
-            Last {barsPerPage} Days
+            Last {barsPerPage} {getUnitLabel()}
           </span>
         </div>
 

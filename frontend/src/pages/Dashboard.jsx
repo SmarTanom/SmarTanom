@@ -25,7 +25,7 @@ import {
 import { ChevronLeft } from 'lucide-react';
 import { MdScience } from 'react-icons/md';
 import { getUserDevices } from '../services/api/devices.js';
-import { getDeviceSensors, getSensorData } from '../services/api/sensors.js';
+import { getDeviceSensors, getSensorData, getSensorDataAll } from '../services/api/sensors.js';
 // Reservoirs endpoint removed; device now carries plant/start/end fields
 import { listPlants } from '../services/api/plants.js';
 import { authApi } from '../services/apiClient.js';
@@ -692,9 +692,9 @@ export default function Dashboard() {
             if (sensor.sensor_type === 'ph') {
               // Fetch more data for pH sensors based on time range
               switch (timeRange) {
-                case 'weeks': limit = 300; break; // 20 weeks worth of daily data
-                case 'months': limit = 500; break; // 12 months worth of daily data
-                default: limit = 500; break; // 90 days worth of data (increased from 300)
+                case 'weeks': limit = 1500; break; // larger page size to cover many weeks
+                case 'months': limit = 2500; break; // larger page size to cover many months
+                default: limit = 2000; break; // up to ~1 year of daily data
               }
             }
             // Date range params (helps backend filter accurately and align with chart labels)
@@ -703,22 +703,25 @@ export default function Dashboard() {
               const now = new Date();
               if (timeRange === 'days') {
                 const start = new Date(now);
-                start.setDate(now.getDate() - 90); // 90-day window to capture more history
+                start.setDate(now.getDate() - 365); // 1-year window to capture more history
                 start.setHours(0, 0, 0, 0);
                 opts = { start: start.toISOString(), end: now.toISOString() };
               } else if (timeRange === 'weeks') {
                 const start = new Date(now);
-                start.setDate(now.getDate() - 140); // 20 weeks
+                start.setDate(now.getDate() - (52 * 3)); // ~3 years of weeks
                 start.setHours(0, 0, 0, 0);
                 opts = { start: start.toISOString(), end: now.toISOString() };
               } else if (timeRange === 'months') {
                 const start = new Date(now);
-                start.setMonth(now.getMonth() - 12); // 12 months
+                start.setMonth(now.getMonth() - 60); // 5 years of months
                 start.setHours(0, 0, 0, 0);
                 opts = { start: start.toISOString(), end: now.toISOString() };
               }
             }
-            const resp = await getSensorData(sensor.id, limit, opts);
+            // Use paginated fetch for pH to retrieve enough history for chart navigation
+            const resp = sensor.sensor_type === 'ph'
+              ? await getSensorDataAll(sensor.id, Math.min(200, limit), opts, 8000)
+              : await getSensorData(sensor.id, limit, opts);
             const data = resp && resp.results ? resp.results : resp;
             console.log(`[Dashboard] Fetched ${sensor.sensor_type} sensor data:`, data?.length || 0, `records (limit: ${limit})`);
             return { sensorId: sensor.id, data: Array.isArray(data) ? data : (data ? [data] : []) };
@@ -2090,7 +2093,7 @@ export default function Dashboard() {
             <PHLineChart 
               phData={data?.phRawData || []}
               plant={data?.plant || currentDevice?.plant}
-              barsPerPage={10}
+              barsPerPage={PH_WINDOW_SIZE}
               timeRange={timeRange}
             />
           </div>
