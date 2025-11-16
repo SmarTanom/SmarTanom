@@ -1651,6 +1651,40 @@ def respond_to_invitation(request):
         if action == 'accept':
             collaboration = invitation.accept(request.user.email)
             logger.info(f"User {request.user.email} accepted invitation for device {invitation.device.device_serial}")
+            # Broadcast WebSocket update so UIs can refresh immediately
+            try:
+                device = invitation.device
+                # Global/device channel (staff-enabled broadcast)
+                broadcast_device_update(
+                    "collaborator_added",
+                    device,
+                    collaborator_email=request.user.email,
+                    collaborator_id=getattr(request.user, 'id', None),
+                    invited_by_email=invitation.invited_by_email,
+                )
+
+                # User-specific channel to notify the accepting user (works for non-staff)
+                channel_layer = get_channel_layer()
+                if channel_layer and getattr(request.user, 'id', None):
+                    async_to_sync(channel_layer.group_send)(
+                        f"user_{request.user.id}",
+                        {
+                            "type": "user_notification",
+                            "message": "device_update",
+                            "data": {
+                                "action": "collaborator_added",
+                                "device_id": device.id,
+                                "device_serial": device.device_serial,
+                                "device_name": device.device_name,
+                                "collaborator_email": request.user.email,
+                                "collaboration_id": collaboration.id,
+                            },
+                            "timestamp": timezone.now().isoformat(),
+                        },
+                    )
+            except Exception as _e:
+                # Don't fail the request on WS issues
+                logger.debug("WebSocket notify on invitation accept failed", exc_info=True)
             return Response({
                 'success': True,
                 'message': 'Invitation accepted successfully.',

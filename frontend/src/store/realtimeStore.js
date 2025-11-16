@@ -633,6 +633,18 @@ export const useRealtimeStore = create(persist((set, get) => ({
           if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processing alert update payload:', payload);
           get().handleNewAlert(payload);
         }
+      } else if (msg?.action && msg?.data) {
+        // Handle generic device updates coming from DeviceConsumer
+        if (msg.action === 'collaborator_added') {
+          if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Collaborator added event received; refreshing initial data');
+          get().fetchInitial();
+        }
+      } else if (msg?.message === 'device_update' && msg?.data?.action) {
+        // Handle user-specific notifications carrying device update actions
+        if (msg.data.action === 'collaborator_added') {
+          if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] User notification: collaborator added; refreshing initial data');
+          get().fetchInitial();
+        }
       }
     });
 
