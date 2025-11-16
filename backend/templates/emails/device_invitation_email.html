@@ -50,10 +50,26 @@
         <li>System alerts and notifications</li>
       </ul>
 
-      <div class="section">
-        <a href="{{ accept_url }}" class="btn btn-primary">Accept Invitation</a>
-        <span style="display:inline-block;width:8px;"></span>
-        <a href="{{ decline_url }}" class="btn btn-secondary">Decline</a>
+      <div class="section" style="margin:16px 0;">
+        <!-- Bulletproof buttons (table-based with inline styles for maximum client support) -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;border-spacing:8px 0;">
+          <tr>
+            <td align="left" style="border-radius:10px;background:#339432;">
+              <a
+                href="{{ accept_url }}"
+                target="_blank"
+                style="display:inline-block;padding:12px 18px;border-radius:10px;background:#339432;color:#ffffff;font-weight:bold;text-decoration:none;font-family:Arial,sans-serif;"
+              >Accept Invitation</a>
+            </td>
+            <td align="left" style="border-radius:10px;background:#eef2f7;">
+              <a
+                href="{{ decline_url }}"
+                target="_blank"
+                style="display:inline-block;padding:12px 18px;border-radius:10px;background:#eef2f7;color:#111827;font-weight:bold;text-decoration:none;font-family:Arial,sans-serif;"
+              >Decline</a>
+            </td>
+          </tr>
+        </table>
       </div>
 
       <div class="card section">
