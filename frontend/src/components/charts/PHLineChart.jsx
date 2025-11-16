@@ -58,11 +58,9 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
   // Process and sort pH data - aggregate by day/week/month based on timeRange
   const processedData = useMemo(() => {
     if (!Array.isArray(phData) || phData.length === 0) {
-      console.log('[PHLineChart] No pH data provided');
       return { labels: [], values: [], hasData: false, timestamps: [], allData: [] };
     }
 
-    console.log(`[PHLineChart] Processing ${phData.length} pH readings for ${timeRange} view`);
 
     // Filter valid data
     const validData = phData
@@ -74,7 +72,6 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
       .filter(d => !isNaN(d.timestamp.getTime()) && Number.isFinite(d.value))
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Newest first
 
-    console.log(`[PHLineChart] Valid readings: ${validData.length}`);
     
     if (validData.length === 0) {
       return { labels: [], values: [], hasData: false, timestamps: [], allData: [] };
@@ -83,7 +80,6 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
     // Log date range of data
     const oldestDate = validData[validData.length - 1].timestamp;
     const newestDate = validData[0].timestamp;
-    console.log(`[PHLineChart] Data range: ${oldestDate.toLocaleDateString()} to ${newestDate.toLocaleDateString()}`);
 
     // Group data based on timeRange
     const aggregatedData = new Map();
@@ -110,12 +106,10 @@ const PHLineChart = ({ phData = [], plant = null, barsPerPage = 10, timeRange = 
       }
     });
 
-    const aggregationLabel = timeRange === 'weeks' ? 'weeks' : timeRange === 'months' ? 'months' : 'days';
-    console.log(`[PHLineChart] Aggregated to ${aggregatedData.size} unique ${aggregationLabel}`);
+  const aggregationLabel = timeRange === 'weeks' ? 'weeks' : timeRange === 'months' ? 'months' : 'days';
     
     // Log first 10 keys for debugging
-    const dataKeys = Array.from(aggregatedData.keys()).slice(0, 10);
-    console.log(`[PHLineChart] First 10 aggregated ${aggregationLabel}:`, dataKeys);
+  const dataKeys = Array.from(aggregatedData.keys()).slice(0, 10);
 
     // Convert map to array and sort by date (newest first)
     const aggregatedArray = Array.from(aggregatedData.values())

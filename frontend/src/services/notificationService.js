@@ -26,7 +26,6 @@ class PWANotificationService {
       const isDev = typeof window !== 'undefined' && window.location && /localhost|127\.0\.0\.1/.test(window.location.host);
       // Wait for service worker to be ready in production; dev returns null to no-op
       this.registration = isDev ? null : await navigator.serviceWorker.ready;
-      console.log('Notification service initialized with registration:', this.registration);
       return true;
     } catch (error) {
       console.error('Failed to initialize notification service:', error);

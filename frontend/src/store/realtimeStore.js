@@ -157,8 +157,8 @@ export const useRealtimeStore = create(persist((set, get) => ({
     const alreadyFetched = state._initialFetchedAt && (Date.now() - state._initialFetchedAt < 15_000);
     if (alreadyFetched) return;
     try {
-      set({ loadingInitial: true, errorInitial: null });
-      console.log('[RealtimeStore] Fetching initial data...');
+  set({ loadingInitial: true, errorInitial: null });
+  if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Fetching initial data...');
 
       // Use combined endpoint to reduce round trips
       const payload = await getInitialDashboard({ reading_limit: 60, alert_limit: 200 });

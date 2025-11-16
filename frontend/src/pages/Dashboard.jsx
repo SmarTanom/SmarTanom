@@ -99,12 +99,10 @@ const transformSensorData = (sensors, sensorDataMap) => {
 // by created_at so the overwrite logic always leaves the true latest value; prevents stale value after refresh.
 const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
   if (!phSensorId || !sensorDataMap[phSensorId]) {
-    console.log('[Dashboard] No pH sensor data available:', { phSensorId, hasData: !!sensorDataMap[phSensorId] });
     return null;
   }
 
   const phDataRaw = sensorDataMap[phSensorId] || [];
-  console.log(`[Dashboard] Processing ${phDataRaw.length} pH readings for ${timeRange} view`);
 
   // Sort ascending by created_at to ensure later overwrite wins are actual latest
   const phData = [...phDataRaw].sort((a, b) => {
@@ -178,7 +176,6 @@ const getPHHistory = (sensorDataMap, phSensorId, timeRange = 'days') => {
   });
 
   const result = Object.values(dateMap);
-  console.log(`[Dashboard] Generated pH history: ${validReadings} valid readings, ${result.filter(v => v !== null).length} non-null periods`);
   return result;
 };
 
@@ -430,7 +427,6 @@ export default function Dashboard() {
     if (currentDevice) {
       const savedData = localPhData[currentDevice.id];
       if (!savedData || savedData.timeRange !== newTimeRange) {
-        console.log(`[Dashboard] Time range changed to ${newTimeRange}, refreshing pH data for device ${currentDevice.id}`);
         fetchDeviceDataById(currentDevice.id);
       }
     }
@@ -441,7 +437,6 @@ export default function Dashboard() {
     try {
       localStorage.removeItem('dashboard.activeDeviceIndex');
       localStorage.removeItem('dashboard.activeDeviceId');
-      console.log('Cleared saved device persistence');
     } catch (e) {
       console.warn('Failed to clear saved device persistence:', e);
     }
@@ -476,9 +471,6 @@ export default function Dashboard() {
     // Zustand persist rehydrates synchronously on store creation
     // We need to wait a bit to ensure the hydration has completed and data is available
     const timer = setTimeout(() => {
-      console.log('✅ Store hydration complete');
-      console.log('📦 Devices in store:', useRealtimeStore.getState().devices.length);
-      console.log('📦 Device data keys:', Object.keys(useRealtimeStore.getState().deviceData));
       setIsHydrated(true);
     }, 100); // Increased delay to ensure hydration is complete
 
@@ -526,15 +518,7 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDevice?.id, timeRange]);
 
-  // Debug logging for data availability
-  useEffect(() => {
-    if (currentDevice) {
-      console.log('🔍 Current device:', currentDevice.device_name || currentDevice.id);
-      console.log('🔍 Device data available:', !!data);
-      console.log('🔍 Device data sensors:', data?.sensors);
-      console.log('🔍 All devices data keys:', Object.keys(devicesData));
-    }
-  }, [currentDevice, data, devicesData]);
+  // Debug logging removed to reduce console noise
 
   // Latest reading for the first device's first sensor (useful for small widgets)
   const [firstSensorReading, setFirstSensorReading] = useState(null);
@@ -570,7 +554,6 @@ export default function Dashboard() {
       };
       setLocalPhData(updatedData);
       localStorage.setItem('dashboard.phData', JSON.stringify(updatedData));
-      console.log(`[Dashboard] Persisted pH data for device ${deviceId}:`, phHistory?.length || 0, 'points');
     } catch (e) {
       console.warn('Failed to persist pH data:', e);
     }
@@ -599,11 +582,9 @@ export default function Dashboard() {
 
   // WebSocket real-time updates - handled by store
   useEffect(() => {
-    console.log('[Dashboard] Ensuring WebSocket connection via store...');
     const unsub = connectWS();
 
     return () => {
-      console.log('[Dashboard] Cleaning up WebSocket connection...');
       unsub && unsub();
     };
   }, [connectWS]);
@@ -617,11 +598,6 @@ export default function Dashboard() {
     const isDifferentDevice = lastFetchedDeviceRef.current !== currentDevice.id;
 
     if (isDifferentDevice || needsAugment) {
-      console.log(`📡 Device context changed or missing plant/history for ${currentDevice.id}. Fetching full device data...`, {
-        isDifferentDevice,
-        hasPlant: !!existing?.plant,
-        phPoints: existing?.phHistory?.length || 0
-      });
       fetchDeviceDataById(currentDevice.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -723,7 +699,6 @@ export default function Dashboard() {
               ? await getSensorDataAll(sensor.id, Math.min(200, limit), opts, 8000)
               : await getSensorData(sensor.id, limit, opts);
             const data = resp && resp.results ? resp.results : resp;
-            console.log(`[Dashboard] Fetched ${sensor.sensor_type} sensor data:`, data?.length || 0, `records (limit: ${limit})`);
             return { sensorId: sensor.id, data: Array.isArray(data) ? data : (data ? [data] : []) };
           } catch (_e) {
             console.warn(`Failed to fetch data for sensor ${sensor.id}:`, _e);
@@ -735,10 +710,8 @@ export default function Dashboard() {
       }
       const transformedSensors = transformSensorData(sensors || [], sensorDataMap);
       const phSensor = Array.isArray(sensors) ? sensors.find(s => s.sensor_type === 'ph') : null;
-      console.log('[Dashboard] pH sensor found:', phSensor?.id, 'with data:', sensorDataMap[phSensor?.id]?.length || 0);
       const phHistory = getPHHistory(sensorDataMap, phSensor?.id, timeRange);
       const phLabels = getPHLabels(sensorDataMap, phSensor?.id, timeRange);
-      console.log('[Dashboard] Generated pH history:', phHistory?.length || 0, 'points');
 
       // Persist pH data to localStorage
       if (phHistory && phHistory.length > 0) {
@@ -944,9 +917,8 @@ export default function Dashboard() {
     const idx = ownedDevices.findIndex(d => d.id === device.id);
     if (idx >= 0) {
       try {
-        localStorage.setItem('dashboard.activeDeviceIndex', idx.toString());
-        localStorage.setItem('dashboard.activeDeviceId', device.id.toString());
-        console.log(`[Dashboard] Saved device selection before navigating to device details: ${device.device_name || device.id}`);
+  localStorage.setItem('dashboard.activeDeviceIndex', idx.toString());
+  localStorage.setItem('dashboard.activeDeviceId', device.id.toString());
       } catch (e) {
         console.warn('Failed to save device selection:', e);
       }
@@ -1163,7 +1135,6 @@ export default function Dashboard() {
     } else {
       // Non-infinite: scroll directly to restored device index
       el.scrollLeft = (cardW + gap) * activeIdx;
-      console.log(`Scrolled carousel to device index ${activeIdx}`);
     }
   }, [ownedDevices, activeIdx, isInfinite]);
 
@@ -1189,7 +1160,6 @@ export default function Dashboard() {
       if (!isInfinite) {
         // Non-infinite: directly map scroll index to device index (0..len-1)
         const clamped = Math.max(0, Math.min(ownedDevices.length - 1, idx));
-        console.log(`Non-infinite carousel: scroll idx=${idx}, clamped=${clamped}, devices.length=${ownedDevices.length}`);
         setActiveIdx(clamped);
         return;
       }
@@ -1251,14 +1221,12 @@ export default function Dashboard() {
   }, [currentDevice, phWindows, maxStart]);
   const phHistoryDisplay = useMemo(() => {
     if (!mergedData || !Array.isArray(mergedData.phHistory)) {
-      console.log('[Dashboard] No pH history data available:', mergedData);
       return [];
     }
     // Show 10-day window from the 30-day dataset based on currentStart
     const start = Math.max(0, currentStart);
     const end = Math.min(mergedData.phHistory.length, start + PH_WINDOW_SIZE);
     const result = mergedData.phHistory.slice(start, end);
-    console.log('[Dashboard] pH history display:', result);
     return result;
   }, [mergedData, currentStart, PH_WINDOW_SIZE, mergedData?.phHistory?.length]);
   const phLabelsDisplay = useMemo(() => {
@@ -1374,11 +1342,8 @@ export default function Dashboard() {
 
     // Check if we have persisted pH data for this device
     const savedData = localPhData[currentDevice.id];
-    if (savedData && savedData.timeRange === timeRange) {
-      console.log(`[Dashboard] Using persisted pH data for device ${currentDevice.id}:`, savedData.phHistory?.length || 0, 'points');
-    } else {
+    if (!(savedData && savedData.timeRange === timeRange)) {
       // Fetch fresh pH data if we don't have it or time range changed
-      console.log(`[Dashboard] Fetching fresh pH data for device ${currentDevice.id} (timeRange: ${timeRange})`);
       fetchDeviceDataById(currentDevice.id);
     }
 
@@ -1428,7 +1393,6 @@ export default function Dashboard() {
         const deviceName = ownedDevices[activeIdx].device_name || ownedDevices[activeIdx].plant_name || `Device ${deviceId}`;
         localStorage.setItem('dashboard.activeDeviceIndex', activeIdx.toString());
         localStorage.setItem('dashboard.activeDeviceId', deviceId);
-        console.log(`💾 Saved device selection: "${deviceName}" (Index: ${activeIdx}, ID: ${deviceId})`);
       } catch (e) {
         console.warn('Failed to save active device index:', e);
       }
@@ -1443,7 +1407,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isHydrated || !ownedDevices || ownedDevices.length === 0 || hasRestoredRef.current) return;
 
-    console.log('🔄 Starting device restoration...');
     hasRestoredRef.current = true;
 
     try {
@@ -1456,20 +1419,17 @@ export default function Dashboard() {
       if (savedDeviceId) {
         const deviceIdxById = ownedDevices.findIndex(d => d.id.toString() === savedDeviceId);
         if (deviceIdxById >= 0) {
-          console.log(`✅ Restored device by ID: ${savedDeviceId} at index ${deviceIdxById}`);
           restoredIdx = deviceIdxById;
         }
       }
 
       // Fallback to saved index if valid for current device list
       if (restoredIdx < 0 && savedIdx >= 0 && savedIdx < ownedDevices.length) {
-        console.log(`✅ Restored device by index: ${savedIdx}`);
         restoredIdx = savedIdx;
       }
 
       // If neither works, reset to first device
       if (restoredIdx < 0) {
-        console.log('⚠️ No valid saved device found, defaulting to first device');
         restoredIdx = 0;
         localStorage.setItem('dashboard.activeDeviceIndex', '0');
         if (ownedDevices[0]) {
@@ -1486,12 +1446,7 @@ export default function Dashboard() {
         // Check if we already have data in the store
         const existingData = devicesData[restoredDevice.id];
 
-        console.log(`🔍 Checking existing data for device ${restoredDevice.id}:`, {
-          hasData: !!existingData,
-          hasSensors: !!existingData?.sensors,
-          sensorsKeys: existingData?.sensors ? Object.keys(existingData.sensors) : [],
-          sensorValues: existingData?.sensors
-        });
+        // Check existing data for restored device
 
         // Determine if we must augment: plant missing or pH history missing
         const hasValidSensorData = existingData?.sensors &&
@@ -1499,15 +1454,9 @@ export default function Dashboard() {
         const needsPlantOrPh = !existingData?.plant || !Array.isArray(existingData?.phHistory) || existingData.phHistory.length === 0;
 
         if (!existingData || !hasValidSensorData || needsPlantOrPh) {
-          console.log(`🔄 Fetching enriched data for: ${restoredDevice.device_name || restoredDevice.id}`, {
-            hasValidSensorData,
-            hasPlant: !!existingData?.plant,
-            phPoints: existingData?.phHistory?.length || 0
-          });
           // Use setTimeout to ensure this happens after the render
           setTimeout(() => fetchDeviceDataById(restoredDevice.id), 50);
         } else {
-          console.log(`✅ Using existing enriched data for: ${restoredDevice.device_name || restoredDevice.id}`);
           // Mark as fetched
           lastFetchedDeviceRef.current = restoredDevice.id;
         }

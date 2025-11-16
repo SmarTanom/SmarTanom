@@ -1,3 +1,5 @@
+// Disable verbose Workbox logs in development for a cleaner console
+self.__WB_DISABLE_DEV_LOGS = true;
 import { precacheAndRoute } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
 import { NetworkFirst, CacheFirst } from 'workbox-strategies';
@@ -37,7 +39,6 @@ registerRoute(
 
 // Push notification event listener
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push received:', event);
 
   let data = {
     title: 'SmarTanom Alert',
@@ -78,14 +79,12 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     self.registration.showNotification(data.title, options)
-      .then(() => console.log('[Service Worker] Notification shown'))
       .catch((error) => console.error('[Service Worker] Notification error:', error))
   );
 });
 
 // Notification click event listener
 self.addEventListener('notificationclick', (event) => {
-  console.log('[Service Worker] Notification click:', event);
 
   event.notification.close();
 
@@ -93,7 +92,6 @@ self.addEventListener('notificationclick', (event) => {
 
   // Handle action button clicks
   if (event.action) {
-    console.log('[Service Worker] Action clicked:', event.action);
     targetUrl = event.action; // Use action as URL path
   } else if (event.notification.data && event.notification.data.url) {
     targetUrl = event.notification.data.url;
@@ -125,4 +123,4 @@ self.addEventListener('message', (event) => {
   }
 });
 
-console.log('[Service Worker] Loaded with push notification support');
+// quiet: no console message on load

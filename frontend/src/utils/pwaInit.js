@@ -22,14 +22,12 @@ export function initializePWA() {
   }
   // In development, only enable PWA if explicitly allowed via env flag
   const enablePwaInDev = String(import.meta.env?.VITE_ENABLE_PWA_IN_DEV || '').toLowerCase() === 'true';
-  if (import.meta.env.DEV) {
-    console.log('[PWA] Dev mode. VITE_ENABLE_PWA_IN_DEV =', enablePwaInDev);
-  }
+  // Quiet console in dev by default; enable via VITE_DEBUG=true when needed
 
   // Skip actual registration in development by default to avoid dev SW issues
   if (import.meta.env.DEV && !enablePwaInDev) {
     return {
-      updateSW: () => console.log('PWA update skipped in development'),
+      updateSW: () => {},
       isUpdateAvailable: () => false
     };
   }
@@ -40,19 +38,19 @@ export function initializePWA() {
       immediate: true,
       onNeedRefresh() {
         updateAvailable = true;
-        console.log('PWA update available');
+        if (import.meta.env.VITE_DEBUG === 'true') console.log('PWA update available');
 
         // Show update notification to user
         showUpdateNotification();
       },
       onOfflineReady() {
-        console.log('PWA ready to work offline');
+        if (import.meta.env.VITE_DEBUG === 'true') console.log('PWA ready to work offline');
 
         // Show offline ready notification
         showOfflineNotification();
       },
       onRegistered(registration) {
-        console.log('PWA service worker registered:', registration);
+        if (import.meta.env.VITE_DEBUG === 'true') console.log('PWA service worker registered:', registration);
 
         // Initialize notification service
         initializeNotifications(registration);
@@ -63,7 +61,7 @@ export function initializePWA() {
         if ('caches' in window) {
           caches.keys().then(names => {
             names.forEach(name => {
-              console.log(`Clearing cache: ${name}`);
+              if (import.meta.env.VITE_DEBUG === 'true') console.log(`Clearing cache: ${name}`);
               caches.delete(name);
             });
           });
@@ -213,7 +211,7 @@ function showOfflineNotification() {
 async function initializeNotifications(registration) {
   try {
     await notificationService.initialize();
-    console.log('Notification service initialized');
+    if (import.meta.env.VITE_DEBUG === 'true') console.log('Notification service initialized');
   } catch (error) {
     console.warn('Failed to initialize notification service:', error);
   }
@@ -283,11 +281,11 @@ export function setupInstallPrompt() {
     deferredPrompt = e;
     try { window.__deferredPWAInstallPrompt = e; } catch (_) { }
 
-    console.log('PWA install prompt available');
+    if (import.meta.env.VITE_DEBUG === 'true') console.log('PWA install prompt available');
   });
 
   window.addEventListener('appinstalled', () => {
-    console.log('PWA was installed');
+    if (import.meta.env.VITE_DEBUG === 'true') console.log('PWA was installed');
     deferredPrompt = null;
     try { window.__deferredPWAInstallPrompt = null; } catch (_) { }
   });
