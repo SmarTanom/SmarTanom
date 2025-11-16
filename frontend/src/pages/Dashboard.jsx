@@ -1522,7 +1522,7 @@ export default function Dashboard() {
       <div className="dashboard-root">
         <header className="dash-header" role="banner">
           <h1 className="dash-header-title">
-            Hello, {displayName} <span className="dash-header-emoji">🌿</span>
+            Hello, {displayName}
           </h1>
         </header>
         <GlobalLoadingSpinner message="Loading your devices..." />
@@ -1536,7 +1536,7 @@ export default function Dashboard() {
       <div className="dashboard-root">
         <header className="dash-header" role="banner">
           <h1 className="dash-header-title">
-            Hello, {displayName} <span className="dash-header-emoji">🌿</span>
+            Hello, {displayName}
           </h1>
         </header>
         <div style={{
@@ -1573,7 +1573,7 @@ export default function Dashboard() {
       <div className="dashboard-root">
         <header className="dash-header" role="banner">
           <h1 className="dash-header-title">
-            Hello, {displayName} <span className="dash-header-emoji">🌿</span>
+            Hello, {displayName}
           </h1>
         </header>
         <div style={{
@@ -1691,7 +1691,7 @@ export default function Dashboard() {
       {/* Desktop Header (hidden on mobile) */}
       <header className="dash-header" role="banner">
         <h1 className="dash-header-title">
-          Hello, {displayName} <span className="dash-header-emoji">🌿</span>
+          Hello, {displayName}
         </h1>
         <button className="dash-header-settings" aria-label="Sync" onClick={fetchInitial}>
           <RefreshCw size={24} color={PRIMARY_GREEN} />
@@ -2004,9 +2004,9 @@ export default function Dashboard() {
                 e.target.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
               }}
             >
-              <option value="days">📅 Days</option>
-              <option value="weeks">📊 Weeks</option>
-              <option value="months">📈 Months</option>
+              <option value="days">Days</option>
+              <option value="weeks">Weeks</option>
+              <option value="months">Months</option>
             </select>
           </div>
           <div className="ph-legend" style={{ 

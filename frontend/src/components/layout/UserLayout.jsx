@@ -78,11 +78,9 @@ export default function UserLayout({ children }) {
           >
             <Bell size={18} strokeWidth={2.5} />
             <span>Alerts</span>
-            {totalUnread > 0 && (
-              <span className="user-nav-badge">
-                {totalUnread > 9 ? '9+' : totalUnread}
-              </span>
-            )}
+            <span className="user-nav-badge">
+              {totalUnread > 9 ? '9+' : String(totalUnread ?? 0)}
+            </span>
           </button>
 
           <button
@@ -148,11 +146,9 @@ export default function UserLayout({ children }) {
           style={{ position: 'relative' }}
         >
           <AlertCircle size={20} />
-          {totalUnread > 0 && (
-            <span className="user-nav-notification-badge">
-              {totalUnread > 9 ? '9+' : totalUnread}
-            </span>
-          )}
+          <span className="user-nav-notification-badge">
+            {totalUnread > 9 ? '9+' : String(totalUnread ?? 0)}
+          </span>
           <span>Alerts</span>
         </button>
 

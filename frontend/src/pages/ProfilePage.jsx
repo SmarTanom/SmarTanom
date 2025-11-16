@@ -746,14 +746,7 @@ export default function ProfilePage() {
                   <span className="info-label">Email</span>
                   <span className="info-value">{user.email}</span>
                 </div>
-                <div className="info-row">
-                  <span className="info-label">Role</span>
-                  <span className="info-value">{(user.role || 'user').charAt(0).toUpperCase() + (user.role || 'user').slice(1)}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Member Since</span>
-                  <span className="info-value">{formatMemberSince(user.joinedDate)}</span>
-                </div>
+                {/* Role and Member Since hidden per spec */}
               </>
             ) : (
               <div className="edit-form">
