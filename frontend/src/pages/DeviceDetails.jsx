@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import '../assets/styles/device-redesign.css';
 import DeviceHeader from '../components/device/DeviceHeader.jsx';
+import BottomNav from '../components/navigation/BottomNav.jsx';
 import SegmentedTabs from '../components/device/SegmentedTabs.jsx';
 import PlantView from '../components/device/PlantView.jsx';
 import LogsView from '../components/device/LogsView.jsx';
@@ -11,9 +12,6 @@ import {
   ChevronLeft,
   MoreVertical,
   Clock,
-  Leaf,
-  AlertCircle,
-  User,
   ChevronRight,
   ChevronDown,
   TriangleAlert,
@@ -720,41 +718,7 @@ export default function DeviceDetails() {
       </div>
 
       {/* Bottom navigation */}
-      <nav className="bottom-nav" aria-label="Primary">
-        <button className="nav-item active" aria-current="page" onClick={() => navigate('/dashboard')}>
-          <Leaf size={20} />
-          <span>Tanom</span>
-        </button>
-        <button className="nav-item" onClick={() => navigate('/alerts')} style={{ position: 'relative' }}>
-          <AlertCircle size={20} />
-          {totalUnread > 0 && (
-            <span className="nav-notification-badge" style={{
-              position: 'absolute',
-              top: '8px',
-              right: '18px',
-              backgroundColor: '#e74c3c',
-              color: 'white',
-              borderRadius: '50%',
-              width: '16px',
-              height: '16px',
-              fontSize: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold',
-              border: '2px solid white',
-              minWidth: '16px',
-            }}>
-              {totalUnread > 9 ? '9+' : totalUnread}
-            </span>
-          )}
-          <span>Alerts</span>
-        </button>
-        <button className="nav-item" onClick={() => navigate('/profile')}>
-          <User size={20} />
-          <span>Profile</span>
-        </button>
-      </nav>
+      <BottomNav active="tanom" totalUnread={totalUnread} />
 
       {/* Plant Photo Change Modal */}
       {showPhotoModal && (

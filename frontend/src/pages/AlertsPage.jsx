@@ -20,6 +20,7 @@ import {
 
 import { useRealtimeStore } from '../store/realtimeStore';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
+import BottomNav from '../components/navigation/BottomNav.jsx';
 
 // Helper: format a ISO date string to a relative time (minutes/hours/days ago)
 function relativeTimeFromISO(iso) {
@@ -298,16 +299,7 @@ export default function AlertsPage() {
         </div>
       </header>
 
-      {/* Guidance text */}
-      {!loadingInitial && !loadingAlerts && !errorAlerts && (
-        <div style={{
-          margin: '8px 16px 0',
-          color: '#64748b',
-          fontSize: '12px'
-        }}>
-          Tip: Tap an alert to open the device and mark it as read. Use “Mark all as read” to clear unread counters.
-        </div>
-      )}
+      {/* Guidance text removed per request */}
 
       {/* Loading / Error states */}
       {(loadingInitial || loadingAlerts) && (
@@ -492,41 +484,7 @@ export default function AlertsPage() {
       )}
 
       {/* Bottom navigation */}
-      <nav className="bottom-nav" aria-label="Primary">
-        <button className="nav-item" onClick={() => navigate('/dashboard')}>
-          <Leaf size={20} />
-          <span>Tanom</span>
-        </button>
-        <button className="nav-item active" aria-current="page" style={{ position: 'relative' }}>
-          <AlertCircle size={20} />
-          {totalUnread > 0 && (
-            <span className="nav-notification-badge" style={{
-              position: 'absolute',
-              top: '8px',
-              right: '18px',
-              backgroundColor: '#e74c3c',
-              color: 'white',
-              borderRadius: '50%',
-              width: '16px',
-              height: '16px',
-              fontSize: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold',
-              border: '2px solid white',
-              minWidth: '16px',
-            }}>
-              {totalUnread > 9 ? '9+' : totalUnread}
-            </span>
-          )}
-          <span>Alerts</span>
-        </button>
-        <button className="nav-item" onClick={() => navigate('/profile')}>
-          <User size={20} />
-          <span>Profile</span>
-        </button>
-      </nav>
+      <BottomNav active="alerts" totalUnread={totalUnread} />
     </div>
   );
 }

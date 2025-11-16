@@ -19,6 +19,7 @@ import { wsClient } from '../services/websocketClient';
 import { Toast } from '../components/ui/Toast.jsx';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
+import BottomNav from '../components/navigation/BottomNav.jsx';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -1130,41 +1131,7 @@ export default function ProfilePage() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="bottom-nav" aria-label="Primary">
-        <button className="nav-item" onClick={() => navigate('/dashboard')}>
-          <Leaf size={20} />
-          <span>Tanom</span>
-        </button>
-        <button className="nav-item" onClick={() => navigate('/alerts')} style={{ position: 'relative' }}>
-          <AlertCircle size={20} />
-          {totalUnread > 0 && (
-            <span className="nav-notification-badge" style={{
-              position: 'absolute',
-              top: '8px',
-              right: '18px',
-              backgroundColor: '#e74c3c',
-              color: 'white',
-              borderRadius: '50%',
-              width: '16px',
-              height: '16px',
-              fontSize: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold',
-              border: '2px solid white',
-              minWidth: '16px',
-            }}>
-              {totalUnread > 9 ? '9+' : totalUnread}
-            </span>
-          )}
-          <span>Alerts</span>
-        </button>
-        <button className="nav-item active" aria-current="page">
-          <User size={20} />
-          <span>Profile</span>
-        </button>
-      </nav>
+      <BottomNav active="profile" totalUnread={totalUnread} />
 
       {/* Share Device Modal */}
       {showShareModal && (
