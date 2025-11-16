@@ -367,8 +367,16 @@ class AlertViewSet(BaseAuthViewSet):
         user = self.request.user
         if user.is_staff:
             return qs
-        # Owner-only visibility for non-admins: filter alerts to devices bound to the user's email
-        return qs.filter(Q(device__bound_email=user.email, device__is_bound=True))
+        # Visibility for non-admins: include owned devices and active shared devices
+        shared_device_ids = DeviceCollaboration.objects.filter(
+            collaborator_email__iexact=user.email,
+            status=DeviceCollaboration.Status.ACTIVE,
+        ).values_list("device_id", flat=True)
+
+        return qs.filter(
+            Q(device__bound_email=user.email, device__is_bound=True)
+            | Q(device_id__in=shared_device_ids)
+        )
 
     def perform_update(self, serializer):
         # Only allow ack/resolve updates; device ownership enforced by queryset scoping

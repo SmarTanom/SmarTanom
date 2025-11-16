@@ -173,9 +173,9 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
                     'alerts': []
                 })
 
-            # Base queryset - user's notification logs for accessible devices only
+            # Base queryset - logs for accessible devices (owner or collaborator)
+            # Do not restrict by NotificationLog.user to allow collaborators to see device alerts
             queryset = NotificationLog.objects.filter(
-                user=request.user,
                 metadata__device_id__in=accessible_device_ids
             )
 

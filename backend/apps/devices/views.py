@@ -2027,9 +2027,8 @@ def initial_dashboard_data(request):
         alerts_payload = {'count': 0, 'alerts': []}
         if device_ids:
             from apps.notifications.models import NotificationLog
-            # Only user's alerts for accessible devices
+            # Alerts for accessible devices (owner or collaborator) regardless of delivery user
             alert_qs = NotificationLog.objects.filter(
-                user=user,
                 metadata__device_id__in=device_ids,
             ).order_by('-sent_at')[:alert_limit]
 
