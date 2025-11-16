@@ -210,8 +210,17 @@ if USE_CLOUDINARY:
 			"cloudinary",
 			"cloudinary_storage",
 		]
-	# Store uploaded media on Cloudinary
-	DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+	# Store uploaded media on Cloudinary. In Django 4.2+, STORAGES takes precedence
+	# over DEFAULT_FILE_STORAGE, so update STORAGES['default'] directly.
+	STORAGES["default"] = {
+		"BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+	}
+	# Optional explicit config if not using CLOUDINARY_URL (kept empty by default).
+	# CLOUDINARY_STORAGE = {
+	#     "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME", ""),
+	#     "API_KEY": os.getenv("CLOUDINARY_API_KEY", ""),
+	#     "API_SECRET": os.getenv("CLOUDINARY_API_SECRET", ""),
+	# }
 else:
 	# Ensure media directory exists when using local filesystem storage
 	MEDIA_ROOT.mkdir(exist_ok=True, parents=True)

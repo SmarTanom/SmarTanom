@@ -286,6 +286,17 @@ DRF_USER_THROTTLE=5000/day            # Authenticated user limit
 DRF_ANON_THROTTLE=1000/day            # Anonymous user limit
 ```
 
+### Media Storage (Cloudinary)
+
+Enable CDN-backed media storage by setting `CLOUDINARY_URL`:
+
+```bash
+# Format: cloudinary://<api_key>:<api_secret>@<cloud_name>
+CLOUDINARY_URL=cloudinary://1234567890:abcDEFghiJKLmnopQRSTuvwx@mycloud
+```
+
+When this is set, the backend automatically switches `STORAGES["default"]` to use Cloudinary for MEDIA uploads while keeping static files served by WhiteNoise. See `backend/README_CLOUDINARY.md` for step-by-step setup and verification.
+
 ## 🛠️ Management Commands
 
 ### Generate Mock Data
