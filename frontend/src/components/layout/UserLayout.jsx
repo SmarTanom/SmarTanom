@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Leaf, AlertCircle, User, Plus, LogOut, Bell } from 'lucide-react';
 import '../../assets/styles/UserLayout.css';
@@ -10,6 +10,12 @@ export default function UserLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const totalUnread = useRealtimeStore(s => s.totalUnread);
+  const deviceAlerts = useRealtimeStore(s => s.deviceAlerts);
+  const devices = useRealtimeStore(s => s.devices);
+  const fetchInitial = useRealtimeStore(s => s.fetchInitial);
+  const fetchAlerts = useRealtimeStore(s => s.fetchAlerts);
+  const wsStatus = useRealtimeStore(s => s.wsStatus);
+  const connectWS = useRealtimeStore(s => s.connectWS);
   const { user, logout } = useAuth();
 
   // Show username in sidebar (fallback to email); stop using full_name/firstName
@@ -32,6 +38,51 @@ export default function UserLayout({ children }) {
       navigate('/');
     }
   };
+
+  // Ensure unread counts reflect the latest data even outside Alerts page
+  useEffect(() => {
+    // Hydrate devices/alerts if needed
+    const hasDevices = Array.isArray(devices) && devices.length > 0;
+    if (!hasDevices) {
+      try { fetchInitial(); } catch (_) {}
+    }
+    // Always try a light refresh of alerts on layout mount
+    try { fetchAlerts(); } catch (_) {}
+
+    // Connect WS for realtime updates; clean up on unmount
+    const cleanup = typeof connectWS === 'function' ? connectWS() : undefined;
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        try { fetchAlerts(); } catch (_) {}
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      if (typeof cleanup === 'function') cleanup();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Derive a reliable unread count: prefer store totalUnread, fallback to summing deviceAlerts
+  const sidebarUnread = useMemo(() => {
+    const t = Number(totalUnread || 0);
+    if (t > 0) return t;
+    // Fallback: compute from deviceAlerts to avoid zero badge when alerts are loaded but counters lag
+    try {
+      let sum = 0;
+      if (deviceAlerts && typeof deviceAlerts === 'object') {
+        Object.values(deviceAlerts).forEach(arr => {
+          if (Array.isArray(arr)) {
+            sum += arr.filter(a => !a?.is_read).length;
+          }
+        });
+      }
+      return sum;
+    } catch (_e) {
+      return t;
+    }
+  }, [totalUnread, deviceAlerts]);
 
   return (
     <div className="user-layout-root">
@@ -79,7 +130,7 @@ export default function UserLayout({ children }) {
             <Bell size={18} strokeWidth={2.5} />
             <span>Alerts</span>
             <span className="user-nav-badge">
-              {totalUnread > 9 ? '9+' : String(totalUnread ?? 0)}
+              {sidebarUnread > 9 ? '9+' : String(sidebarUnread ?? 0)}
             </span>
           </button>
 
@@ -146,9 +197,11 @@ export default function UserLayout({ children }) {
           style={{ position: 'relative' }}
         >
           <AlertCircle size={20} />
-          <span className="user-nav-notification-badge">
-            {totalUnread > 9 ? '9+' : String(totalUnread ?? 0)}
-          </span>
+          {sidebarUnread > 0 && (
+            <span className="user-nav-notification-badge">
+              {sidebarUnread > 9 ? '9+' : String(sidebarUnread)}
+            </span>
+          )}
           <span>Alerts</span>
         </button>
 

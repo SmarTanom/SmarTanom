@@ -7,7 +7,7 @@ import { getDeviceSensors, getSensorData } from '../services/api/sensors';
 import { getInitialDashboard } from '../services/api/dashboard';
 import { authApi } from '../services/apiClient';
 import { getUserAlerts, markAlertsAsRead, markAllAlertsAsRead } from '../services/api/userAlerts';
-import { listAlerts as listSensorAlerts } from '../services/api/alerts.js';
+import { listAlertsAll as listAllSensorAlerts } from '../services/api/alerts.js';
 
 // Helper utilities replicated minimally (consider DRY refactor later)
 const generateAlertText = (s) => {
@@ -292,38 +292,56 @@ export const useRealtimeStore = create(persist((set, get) => ({
     try {
       set({ loadingAlerts: true, errorAlerts: null });
       if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Fetching alerts from backend...');
-      // Prefer canonical sensors alerts table; fallback to notifications logs if sensors API fails
+      // Strategy: fetch ALL alerts from sensors endpoint (authoritative, paginated)
+      // and merge read status from NotificationLog (user alerts) where available.
       let alerts = [];
+      let unreadReadingIds = new Set();
       try {
-        const sensorResp = await listSensorAlerts({ ordering: '-created_at' });
-        const rows = Array.isArray(sensorResp?.results) ? sensorResp.results : (Array.isArray(sensorResp) ? sensorResp : []);
+        // Fetch unread mapping from Notification logs (cap to reasonable window)
+        const logsResp = await getUserAlerts({ limit: 1000 });
+        const logs = Array.isArray(logsResp?.alerts) ? logsResp.alerts : [];
+        unreadReadingIds = new Set(
+          logs
+            .filter(l => !l.is_read && l?.metadata && (l.metadata.alert_id != null))
+            .map(l => l.metadata.alert_id)
+        );
+        if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Notification logs fetched:', logs.length, 'unread map size:', unreadReadingIds.size);
+      } catch (e) {
+        if (import.meta.env.VITE_DEBUG === 'true') console.warn('[RealtimeStore] Failed to fetch notification logs for read mapping:', e);
+        unreadReadingIds = new Set();
+      }
+
+      try {
+        const rows = await listAllSensorAlerts({ ordering: '-created_at' });
         const devs = get().devices || [];
         const deviceIdByLabel = new Map(devs.map(d => [
           `${d.device_name} (${d.device_serial})`, d.id
         ]));
-        alerts = rows.map(a => {
+        alerts = (Array.isArray(rows) ? rows : []).map(a => {
           const label = a.device || '';
           const resolvedDeviceId = a.device_id || deviceIdByLabel.get(label);
+          const readingId = (a?.metadata && (a.metadata.reading_id != null)) ? a.metadata.reading_id : a.id;
+          const isRead = unreadReadingIds.size > 0 ? !unreadReadingIds.has(readingId) : false; // default unread when mapping unavailable
           return {
             id: a.id,
-            reading_id: a.id,
+            reading_id: readingId,
             device_id: resolvedDeviceId,
             title: a.title,
             body: a.recommendation,
             severity: a.severity,
             timestamp: a.created_at,
-            is_read: false, // sensors alerts don't track read status; UI will still work
+            is_read: isRead,
             sensor_type: a.metric,
             value: a.value,
           };
         });
-        if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Sensors alerts response:', alerts.length);
+        if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Sensors alerts (all pages) received:', alerts.length);
       } catch (e) {
-        if (import.meta.env.VITE_DEBUG === 'true') console.warn('[RealtimeStore] Sensors alerts fetch failed, falling back to notifications logs:', e);
-        const response = await getUserAlerts({ limit: 200 });
+        if (import.meta.env.VITE_DEBUG === 'true') console.warn('[RealtimeStore] Full sensors alerts fetch failed, falling back to notifications logs only:', e);
+        const response = await getUserAlerts({ limit: 1000 });
         alerts = response.alerts || [];
       }
-      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processing', alerts.length, 'alerts');
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Processing', alerts.length, 'normalized alerts');
 
       // Group alerts by device_id
       const deviceAlerts = {};
@@ -360,7 +378,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
         // Add alert to device's alert list
         deviceAlerts[deviceId].push(normalizedAlert);
 
-        // Update unread counts
+        // Update unread counts using normalized is_read
         if (!normalizedAlert.is_read) {
           unreadCounts[deviceId] = (unreadCounts[deviceId] || 0) + 1;
           totalUnread += 1;
