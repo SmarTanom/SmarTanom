@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import './assets/styles/global.css';
 import CacheManager from './utils/cacheManager.js';
+import ScrollToTop from './components/routing/ScrollToTop.jsx';
 
 // Development helpers
 if (import.meta.env.DEV) {
@@ -41,6 +42,8 @@ try {
   createRoot(document.getElementById('root')).render(
     <React.StrictMode>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        {/* Global scroll restoration on each route change */}
+        <ScrollToTop />
         <App />
       </BrowserRouter>
     </React.StrictMode>

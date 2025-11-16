@@ -26,7 +26,7 @@ import {
 import { getDeviceById, uploadPlantPhoto, resetDeviceWiFi } from '../services/api/devices.js';
 // Reservoirs endpoint removed; device now carries plant/start/end fields
 import { useRealtimeStore } from '../store/realtimeStore';
-import { getUserAlerts } from '../services/api/userAlerts';
+import { listAlertsAll } from '../services/api/alerts';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 import { deviceApi } from '../services/apiClient.js';
 
@@ -235,36 +235,26 @@ export default function DeviceDetails() {
         setLoadingLogs(true);
         setErrorLogs(null);
 
-        // Fetch without device filter to avoid backend JSON string/number matching issues; filter client-side
-        const resp = await getUserAlerts({ limit: 200 });
-        const alerts = Array.isArray(resp?.alerts) ? resp.alerts : [];
+        // Fetch ALL alerts for this device from sensors alerts endpoint (authoritative history)
+        const allAlerts = await listAlertsAll({ deviceId: did, ordering: '-created_at' });
 
-        // Filter by device here to ensure type-safe match (number vs string in JSON)
-        const filteredByDevice = alerts.filter(a => {
-          const aid = a?.device_id;
-          if (aid == null) return false;
-          // loose equal to match '123' and 123
-          return aid == did;
+        // Map to log entries; AlertSerializer returns created_at, severity, title, recommendation
+        const mapped = (Array.isArray(allAlerts) ? allAlerts : []).map(a => {
+          const iso = a.created_at || a.timestamp || new Date().toISOString();
+          const sev = (a.severity || '').toLowerCase();
+          const type = sev === 'critical' ? 'critical' : (sev === 'warning' ? 'warning' : 'info');
+          return {
+            id: a.id,
+            readingId: a.id,
+            type,
+            title: a.title || 'Alert',
+            message: a.recommendation || a.message || '',
+            time: relativeTimeFromISO(iso),
+            date: new Date(iso).toLocaleDateString(),
+            createdAt: iso,
+            isRead: Boolean(a.is_acknowledged),
+          };
         });
-
-        // Map and sanitize; drop any entry explicitly marked deleted in metadata
-        const mapped = filteredByDevice
-          .filter(a => !(a?.metadata && a.metadata.deleted === true))
-          .map(a => {
-            const iso = a.timestamp || a.created_at || new Date().toISOString();
-            const severity = a.severity || a.type || 'info';
-            return {
-              id: a.id || a.reading_id || `${did}:${iso}`,
-              readingId: a.reading_id || a.id,
-              type: severity === 'critical' ? 'critical' : (severity === 'warning' ? 'warning' : 'info'),
-              title: a.title || 'Alert',
-              message: a.body || a.message || '',
-              time: relativeTimeFromISO(iso),
-              date: new Date(iso).toLocaleDateString(),
-              createdAt: iso,
-              isRead: !!a.is_read,
-            };
-          });
 
         // Dedupe by readingId/id to avoid duplicates from any persisted state
         const seen = new Set();
