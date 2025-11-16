@@ -224,7 +224,7 @@ class PushNotificationService:
 
             if email_enabled and user.email:
                 # Prepare context for email templates
-                frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+                frontend_url = getattr(settings, 'FRONTEND_URL', 'https://smartanom.netlify.app')
                 notification_url = url if url else '/notifications'
                 if not notification_url.startswith('http'):
                     notification_url = f"{frontend_url}{notification_url}"

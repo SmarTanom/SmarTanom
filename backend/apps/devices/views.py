@@ -354,7 +354,15 @@ def send_device_otp_email(device_serial, email, code):
 def send_device_invitation_email(invitation):
     """Send an email invitation for device sharing to the invited user."""
     try:
-        frontend_base = getattr(settings, 'FRONTEND_URL', None) or os.getenv('FRONTEND_URL') or os.getenv('FRONTEND_BASE_URL') or 'http://localhost:5173'
+        frontend_base = (
+            getattr(settings, 'FRONTEND_URL', None)
+            or os.getenv('FRONTEND_URL')
+            or os.getenv('FRONTEND_BASE_URL')
+            or 'https://smartanom.netlify.app'
+        )
+        # Normalize trailing slash
+        if frontend_base.endswith('/'):
+            frontend_base = frontend_base.rstrip('/')
         accept_url = f"{frontend_base}/invitations/accept?token={invitation.token}"
         decline_url = f"{frontend_base}/invitations/decline?token={invitation.token}"
 

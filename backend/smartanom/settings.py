@@ -635,7 +635,7 @@ SIMPLE_JWT = {
 # =============================================
 # Frontend URLs (for CORS)
 # =============================================
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'https://smartanom.netlify.app')
 # Support multiple frontend URLs for different environments
 FRONTEND_URLS = [
     'http://localhost:5173',      # Vite dev server
