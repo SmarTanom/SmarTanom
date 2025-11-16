@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Search, Plus } from 'lucide-react';
+import { ChevronLeft, Search, Plus, Calendar } from 'lucide-react';
 import '../assets/styles/StartCyclePage.css';
 import { listPlants } from '../services/api/plants.js';
 import { deviceApi } from '../services/apiClient.js';
@@ -29,6 +29,7 @@ const StartCyclePage = () => {
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
   // Reservoir model removed; device fields will be updated directly
   const [submitting, setSubmitting] = useState(false);
+  const todayISO = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [endDate, setEndDate] = useState(() => {
     const d = new Date();
@@ -161,6 +162,24 @@ const StartCyclePage = () => {
     }
   };
 
+  // Helpers for date min/max and quick presets
+  const setDurationDays = (days) => {
+    try {
+      const s = new Date(startDate);
+      const d = new Date(s);
+      d.setDate(s.getDate() + Number(days));
+      setEndDate(d.toISOString().slice(0,10));
+    } catch (_) {}
+  };
+
+  const onChangeStart = (val) => {
+    setStartDate(val);
+    // Keep endDate >= startDate
+    if (endDate < val) {
+      setEndDate(val);
+    }
+  };
+
   return (
     <div className="start-cycle-root">
       {/* Header */}
@@ -174,109 +193,159 @@ const StartCyclePage = () => {
         </button>
       </div>
 
-  {/* Content */}
-  <div className="start-cycle-content">
-        <h1 className="cycle-title">Starting a New Cycle!</h1>
+      {/* Content */}
+      <div className="start-cycle-content">
+        <h1 className="cycle-title">Start a New Cycle</h1>
         <p className="cycle-subtitle">
-          Select one plant for this device. Each plant has specific water, pH, and nutrient thresholds tailored for optimal growth.
+          Choose one plant and set your cycle dates. We’ll apply the right thresholds for healthy growth.
         </p>
 
-        {/* Device is determined by the page you came from; no manual selection here */}
         {!loading && !selectedDeviceId && (
           <div className="no-results"><p>{error || 'No device selected. Please start from a device.'}</p></div>
         )}
 
-        {/* Search Bar */}
-        <div className="search-container">
-          <Search size={20} color="var(--color-muted)" />
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Search plants"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+        <div className="start-cycle-grid">
+          {/* Left: plant selector */}
+          <section className="sc-left" aria-label="Plant selection">
+            <div className="search-container" role="search">
+              <Search size={20} color="var(--color-muted)" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Search plants"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search plants"
+              />
+            </div>
 
-        {/* Plant List */}
-        {error && (
-          <div className="no-results"><p>{error}</p></div>
-        )}
-        {loading && !error && (
-          <div className="no-results"><p>Loading plants…</p></div>
-        )}
-        <div className="plant-list">
-          {filteredPlants.map(plant => {
-            const isSelected = selectedPlant === plant.id;
-            return (
-              <div
-                key={plant.id}
-                className={`plant-item ${isSelected ? 'selected' : ''}`}
-                onClick={() => togglePlantSelection(plant.id)}
-              >
-                <div className="plant-info">
-                  <span className="plant-emoji">{plant.image}</span>
-                  <div className="plant-text">
-                    <div className="plant-name">{plant.name}</div>
-                    <div className="plant-category">{plant.category}</div>
+            {error && (
+              <div className="no-results"><p>{error}</p></div>
+            )}
+            {loading && !error && (
+              <div className="no-results"><p>Loading plants…</p></div>
+            )}
+
+            <div className="plant-list" role="list">
+              {filteredPlants.map(plant => {
+                const isSelected = selectedPlant === plant.id;
+                return (
+                  <div
+                    key={plant.id}
+                    className={`plant-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => togglePlantSelection(plant.id)}
+                    role="listitem"
+                    aria-pressed={isSelected}
+                  >
+                    <div className="plant-info">
+                      <span className="plant-emoji" aria-hidden>{plant.image}</span>
+                      <div className="plant-text">
+                        <div className="plant-name">{plant.name}</div>
+                        <div className="plant-category">{plant.category}</div>
+                      </div>
+                    </div>
+                    <button
+                      className={`add-button ${isSelected ? 'added' : ''}`}
+                      aria-label={isSelected ? 'Selected plant' : `Select ${plant.name}`}
+                      type="button"
+                    >
+                      <Plus size={20} />
+                    </button>
                   </div>
-                </div>
-                <button
-                  className={`add-button ${isSelected ? 'added' : ''}`}
-                  aria-label={isSelected ? 'Selected plant' : 'Select plant'}
-                >
-                  <Plus size={20} />
-                </button>
+                );
+              })}
+            </div>
+
+            {!loading && filteredPlants.length === 0 && (
+              <div className="no-results">
+                <p>No plants found matching "{searchQuery}"</p>
               </div>
-            );
-          })}
-        </div>
+            )}
+          </section>
 
-        {!loading && filteredPlants.length === 0 && (
-          <div className="no-results">
-            <p>No plants found matching "{searchQuery}"</p>
-          </div>
-        )}
+          {/* Right: summary and dates */}
+          <aside className="sc-right" aria-label="Cycle summary and dates">
+            <div className="summary-card">
+              <div className="summary-header">
+                <h2>Cycle setup</h2>
+                {selectedPlant ? (
+                  <div className="selected-pill">Plant selected</div>
+                ) : (
+                  <div className="selected-pill muted">Select a plant</div>
+                )}
+              </div>
 
-        {/* Dates moved into content to avoid calendar overlap with fixed footer */}
-        <div className="date-section">
-          <div className="date-row">
-            <div className="date-field">
-              <label htmlFor="startDate" className="date-label">Start date</label>
-              <input
-                id="startDate"
-                type="date"
-                className="date-input"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <div className="summary-plant">
+                {selectedPlant ? (
+                  (() => {
+                    const p = plants.find(x => x.id === selectedPlant);
+                    return (
+                      <div className="summary-plant-row">
+                        <span className="plant-emoji" aria-hidden>{p?.image}</span>
+                        <div className="plant-text">
+                          <div className="plant-name">{p?.name}</div>
+                          <div className="plant-category">{p?.category}</div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <p className="summary-placeholder">Pick a plant from the list</p>
+                )}
+              </div>
+
+              <div className="date-block">
+                <label htmlFor="startDate" className="date-label with-icon">
+                  <Calendar size={16} />
+                  Start date
+                </label>
+                <input
+                  id="startDate"
+                  type="date"
+                  className="date-input"
+                  value={startDate}
+                  min={todayISO}
+                  onChange={(e) => onChangeStart(e.target.value)}
+                />
+
+                <label htmlFor="endDate" className="date-label with-icon" style={{marginTop: 12}}>
+                  <Calendar size={16} />
+                  End date
+                </label>
+                <input
+                  id="endDate"
+                  type="date"
+                  className="date-input"
+                  value={endDate}
+                  min={startDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+
+                <div className="quick-presets" role="group" aria-label="Quick durations">
+                  {[30,45,60,90].map((d)=> (
+                    <button key={d} type="button" className="preset-chip" onClick={() => setDurationDays(d)}>
+                      {d} days
+                    </button>
+                  ))}
+                </div>
+                <p className="hint">End date adjusts automatically and can’t be before the start date.</p>
+              </div>
+
+              {error && (
+                <div className="error-box" role="alert">{error}</div>
+              )}
+
+              <button
+                className="start-button summary-action"
+                onClick={handleStartCycle}
+                disabled={!selectedPlant || !selectedDeviceId || submitting}
+              >
+                {submitting ? 'Starting Cycle…' : selectedPlant ? 'Start Cycle' : 'Select a Plant to Continue'}
+              </button>
+              <p className="help-text">One plant per device • Custom thresholds for each variety</p>
             </div>
-            <div className="date-field">
-              <label htmlFor="endDate" className="date-label">End date</label>
-              <input
-                id="endDate"
-                type="date"
-                className="date-input"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-          </div>
+          </aside>
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="start-cycle-footer">
-        <button
-          className="start-button"
-          onClick={handleStartCycle}
-          disabled={!selectedPlant || !selectedDeviceId || submitting}
-        >
-          {submitting ? 'Starting Cycle…' : selectedPlant ? 'Start Cycle with Selected Plant' : 'Select a Plant to Continue'}
-        </button>
-        <p className="help-text">
-          One plant per device • Custom thresholds for each variety
-        </p>
       </div>
     </div>
   );

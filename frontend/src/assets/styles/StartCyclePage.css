@@ -84,6 +84,16 @@
   padding: 28px 20px;
 }
 
+/* Grid layout: stack on mobile, split on larger screens */
+.start-cycle-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.sc-left { min-width: 0; }
+.sc-right { min-width: 0; }
+
 .cycle-title {
   font-family: 'Abril Fatface', serif;
   font-size: 36px;
@@ -374,28 +384,68 @@
   font-size: 15px;
 }
 
-/* Footer */
-.start-cycle-footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 20px;
-  box-shadow:
-    0 -4px 16px rgba(0, 0, 0, 0.08),
-    0 -1px 3px rgba(0, 0, 0, 0.04);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  border-top: 2px solid rgba(51, 148, 50, 0.1);
-  z-index: 1; /* keep footer below native date picker popover */
+/* Summary card on the right */
+.summary-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow-md);
 }
 
-/* Date section (now in content) */
-.date-section { margin-top: 18px; padding: 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; box-shadow: var(--shadow-sm); }
+.summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.summary-header h2 {
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.selected-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #2d8028 100%);
+}
+.selected-pill.muted {
+  background: #eef2f7;
+  color: #64748b;
+}
+
+.summary-plant { margin: 8px 0 12px 0; }
+.summary-plant-row { display: flex; align-items: center; gap: 12px; }
+.summary-placeholder { color: var(--color-muted); font-size: 14px; margin: 0; }
+
+.date-block { margin-top: 8px; display: flex; flex-direction: column; }
+.date-label.with-icon { display: inline-flex; align-items: center; gap: 8px; }
+
+.quick-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.preset-chip {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.preset-chip:hover { border-color: var(--color-primary); box-shadow: 0 2px 8px rgba(51,148,50,.15); transform: translateY(-1px); }
+
+.hint { margin-top: 8px; color: var(--color-muted); font-size: 12px; }
+.error-box { margin-top: 12px; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 12px; font-weight: 600; }
+.summary-action { margin-top: 14px; }
 
 /* Date inputs */
 .date-row {
@@ -556,22 +606,14 @@
 
 /* Responsive adjustments */
 @media (min-width: 768px) {
-  .start-cycle-content {
-    max-width: 600px;
-    margin: 0 auto;
-    width: 100%;
-  }
-
-  .start-cycle-footer {
-    left: 50%;
-    transform: translateX(-50%);
-    max-width: 600px;
-    width: 100%;
-  }
+  .start-cycle-content { max-width: 1100px; margin: 0 auto; width: 100%; }
+  .start-cycle-grid { grid-template-columns: 1fr 360px; align-items: start; }
+  .summary-card { position: sticky; top: 84px; }
 }
 
 /* Mobile tweaks: ensure inputs are reachable above the fixed footer */
 @media (max-width: 767px) {
-  .start-cycle-root { padding-bottom: 160px; }
+  /* no fixed footer anymore; keep generous bottom spacing */
+  .start-cycle-root { padding-bottom: 40px; }
   .date-input { font-size: 16px; } /* prevent iOS zoom */
 }
