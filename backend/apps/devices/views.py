@@ -1068,6 +1068,32 @@ class DeviceViewSet(BaseAuthViewSet):
         # Send email notification
         email_sent = send_device_invitation_email(invitation)
 
+        # Notify the invited user in real-time via WebSocket (if they have an account)
+        try:
+            invited_user = User.objects.filter(email__iexact=invite_email).first()
+            channel_layer = get_channel_layer()
+            if channel_layer and invited_user and getattr(invited_user, 'id', None):
+                async_to_sync(channel_layer.group_send)(
+                    f"user_{invited_user.id}",
+                    {
+                        "type": "user_notification",
+                        "message": "device_invitation",
+                        "data": {
+                            "action": "invitation_created",
+                            "invitation_id": invitation.id,
+                            "device_id": device.id,
+                            "device_serial": device.device_serial,
+                            "device_name": device.device_name,
+                            "invited_by_email": request.user.email,
+                            "permissions": str(permissions),
+                        },
+                        "timestamp": timezone.now().isoformat(),
+                    },
+                )
+        except Exception:
+            # Do not block on WS issues
+            logger.debug("WebSocket notify on invitation create failed", exc_info=True)
+
         logger.info(f"Device {device.device_serial} shared with {invite_email} by {request.user.email}")
 
         return Response({

@@ -14,6 +14,7 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import PWAInstallButton from '../components/pwa/PWAInstallButton.jsx';
 import OtpInput from '../components/auth/OtpInput.jsx';
 import { useRealtimeStore } from '../store/realtimeStore';
+import { wsClient } from '../services/websocketClient';
 
 import { Toast } from '../components/ui/Toast.jsx';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
@@ -141,6 +142,28 @@ export default function ProfilePage() {
       loadSentInvitations();
     }
   }, [user]);
+
+  // Live-refresh pending invitations when an owner sends a new invite
+  useEffect(() => {
+    // Subscribe to user-specific WebSocket notifications
+    const unsubscribe = wsClient.subscribe((msg) => {
+      try {
+        // Expected shapes (from backend):
+        // { type: 'user_notification', message: 'device_invitation', data: { action: 'invitation_created', ... } }
+        // or a simplified variant with top-level action field
+        const action = msg?.data?.action || msg?.action || null;
+        const message = msg?.message || null;
+        if ((msg?.type === 'user_notification' && message === 'device_invitation' && action === 'invitation_created')
+          || (message === 'device_invitation' && action === 'invitation_created')
+          || (action === 'invitation_created')) {
+          // Refresh pending invitations list without a full page reload
+          loadPendingInvitations();
+        }
+      } catch (_) { /* ignore parse errors */ }
+    });
+    return () => { if (typeof unsubscribe === 'function') unsubscribe(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const openLogoutModal = () => setShowLogoutModal(true);
   const closeLogoutModal = () => setShowLogoutModal(false);
