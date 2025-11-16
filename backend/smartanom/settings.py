@@ -438,6 +438,7 @@ OTP_EXPIRE_MINUTES = int(os.getenv('OTP_EXPIRE_MINUTES', '5'))
 OTP_MAX_ATTEMPTS = int(os.getenv('OTP_MAX_ATTEMPTS', '10'))  # Increased for development
 OTP_RATE_LIMIT_MINUTES = int(os.getenv('OTP_RATE_LIMIT_MINUTES', '15'))
 OTP_RATE_LIMIT_ATTEMPTS = int(os.getenv('OTP_RATE_LIMIT_ATTEMPTS', '50'))  # Increased for development
+OTP_RESEND_COOLDOWN_SECONDS = int(os.getenv('OTP_RESEND_COOLDOWN_SECONDS', '60'))
 
 # Logging Configuration
 LOGGING = {

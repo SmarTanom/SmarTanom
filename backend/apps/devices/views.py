@@ -477,11 +477,33 @@ def request_device_otp(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Create OTP
-        otp = DeviceOTPCode.create_otp(device, email)
+        # Enforce resend cooldown to prevent duplicate emails
+        now = timezone.now()
+        cooldown_seconds = getattr(settings, 'OTP_RESEND_COOLDOWN_SECONDS', 60)
+        cutoff = now - timezone.timedelta(seconds=cooldown_seconds)
 
-        # Send email
-        email_sent = send_device_otp_email(device.device_serial, email, otp.code)
+        # Try to reuse a recent, valid OTP
+        otp = DeviceOTPCode.objects.filter(
+            device=device,
+            email=email,
+            is_verified=False,
+            expires_at__gt=now,
+            created_at__gte=cutoff,
+        ).order_by('-created_at').first()
+
+        email_sent = False
+        if otp is None:
+            # No recent OTP: create fresh and send
+            otp = DeviceOTPCode.create_otp(device, email)
+            email_sent = send_device_otp_email(device.device_serial, email, otp.code)
+        else:
+            # Reuse recent code and invalidate any older unused ones for this device/email
+            DeviceOTPCode.objects.filter(
+                device=device,
+                email=email,
+                is_verified=False,
+            ).exclude(id=otp.id).update(is_verified=True)
+            email_sent = False
 
         # Always return success message to avoid device enumeration
         response_data = {
@@ -770,21 +792,30 @@ class DeviceViewSet(BaseAuthViewSet):
             )
 
         try:
-            # Invalidate any previous unused OTPs for this device+email
-            DeviceOTPCode.objects.filter(
+            # Enforce resend cooldown to avoid duplicate sends
+            now = timezone.now()
+            cooldown_seconds = getattr(settings, 'OTP_RESEND_COOLDOWN_SECONDS', 60)
+            cutoff = now - timezone.timedelta(seconds=cooldown_seconds)
+
+            otp = DeviceOTPCode.objects.filter(
                 device=device,
                 email=email,
-                is_verified=False
-            ).delete()
+                is_verified=False,
+                expires_at__gt=now,
+                created_at__gte=cutoff,
+            ).order_by('-created_at').first()
 
-            # Create new OTP
-            otp = DeviceOTPCode.objects.create(
-                device=device,
-                email=email
-            )
-
-            # Send email
-            send_bind_otp_email(device, email, otp.code)
+            if otp is None:
+                # Create new OTP and send email
+                otp = DeviceOTPCode.objects.create(device=device, email=email)
+                send_bind_otp_email(device, email, otp.code)
+            else:
+                # When reusing recent OTP, invalidate any older unused ones
+                DeviceOTPCode.objects.filter(
+                    device=device,
+                    email=email,
+                    is_verified=False,
+                ).exclude(id=otp.id).update(is_verified=True)
 
             logger.info(f"Admin {request.user.email} initiated bind OTP for device {device.device_serial} to {email}")
 
@@ -1332,21 +1363,30 @@ class DeviceViewSet(BaseAuthViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Invalidate any previous unused OTPs for this collaborator addition
-            DeviceOTPCode.objects.filter(
+            # Apply resend cooldown: reuse recent OTP and avoid duplicate email
+            now = timezone.now()
+            cooldown_seconds = getattr(settings, 'OTP_RESEND_COOLDOWN_SECONDS', 60)
+            cutoff = now - timezone.timedelta(seconds=cooldown_seconds)
+
+            otp = DeviceOTPCode.objects.filter(
                 device=device,
                 email=collaborator_email,
-                is_verified=False
-            ).delete()
+                is_verified=False,
+                expires_at__gt=now,
+                created_at__gte=cutoff,
+            ).order_by('-created_at').first()
 
-            # Create new OTP
-            otp = DeviceOTPCode.objects.create(
-                device=device,
-                email=collaborator_email
-            )
-
-            # Send OTP email
-            email_sent = send_collaborator_otp_email(device, collaborator_email, otp.code)
+            if otp is None:
+                otp = DeviceOTPCode.objects.create(device=device, email=collaborator_email)
+                email_sent = send_collaborator_otp_email(device, collaborator_email, otp.code)
+            else:
+                # Invalidate any older unused ones
+                DeviceOTPCode.objects.filter(
+                    device=device,
+                    email=collaborator_email,
+                    is_verified=False,
+                ).exclude(id=otp.id).update(is_verified=True)
+                email_sent = False
 
             logger.info(f"Admin {request.user.email} sent collaborator OTP for device {device.device_serial} to {collaborator_email}")
 
@@ -1515,22 +1555,31 @@ class DeviceViewSet(BaseAuthViewSet):
             )
 
         try:
-            # Invalidate any previous unused OTPs for this device ownership removal
             from apps.accounts.models import OTPCode
-            OTPCode.objects.filter(
-                email=device.bound_email,
+            # Apply resend cooldown: reuse recent valid OTP for this purpose
+            now = timezone.now()
+            cooldown_seconds = getattr(settings, 'OTP_RESEND_COOLDOWN_SECONDS', 60)
+            cutoff = now - timezone.timedelta(seconds=cooldown_seconds)
+
+            otp = OTPCode.objects.filter(
+                email__iexact=device.bound_email,
                 purpose=OTPCode.PURPOSE_REMOVE_OWNERSHIP,
-                is_verified=False
-            ).delete()
+                is_used=False,
+                expires_at__gt=now,
+                created_at__gte=cutoff,
+            ).order_by('-created_at').first()
 
-            # Create new OTP for ownership removal
-            otp = OTPCode.objects.create(
-                email=device.bound_email,
-                purpose=OTPCode.PURPOSE_REMOVE_OWNERSHIP
-            )
-
-            # Send OTP email
-            email_sent = send_ownership_removal_otp_email(device, request.user.email, otp.code)
+            if otp is None:
+                otp = OTPCode.create_otp(device.bound_email, OTPCode.PURPOSE_REMOVE_OWNERSHIP)
+                email_sent = send_ownership_removal_otp_email(device, request.user.email, otp.code)
+            else:
+                # Invalidate any older unused codes for this email/purpose
+                OTPCode.objects.filter(
+                    email__iexact=device.bound_email,
+                    purpose=OTPCode.PURPOSE_REMOVE_OWNERSHIP,
+                    is_used=False,
+                ).exclude(id=otp.id).update(is_used=True)
+                email_sent = False
 
             logger.info(f"Admin {request.user.email} initiated ownership removal OTP for device {device.device_serial} owned by {device.bound_email}")
 

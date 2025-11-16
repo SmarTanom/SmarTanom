@@ -303,8 +303,33 @@ def request_otp(request):
                 return Response({'error': 'Email is not invited.'}, status=status.HTTP_400_BAD_REQUEST)
             purpose = OTPCode.PURPOSE_REGISTER
 
-        # Otherwise create OTP (covers normal login for existing account, or register/create flow, or register attempt for existing which we coerce to login)
-        otp = OTPCode.create_otp(email, purpose)
+        # Resend cooldown to avoid duplicate sends
+        now = timezone.now()
+        cooldown_seconds = getattr(settings, 'OTP_RESEND_COOLDOWN_SECONDS', 60)
+        cutoff = now - timezone.timedelta(seconds=cooldown_seconds)
+
+        # If a recent, valid OTP exists, reuse it and avoid resending email
+        otp = OTPCode.objects.filter(
+            email__iexact=email,
+            purpose=purpose,
+            is_used=False,
+            expires_at__gt=now,
+            created_at__gte=cutoff,
+        ).order_by('-created_at').first()
+
+        should_send_email = False
+        if otp is None:
+            # No recent OTP: create a fresh code and send
+            otp = OTPCode.create_otp(email, purpose)
+            should_send_email = True
+        else:
+            # When reusing a recent OTP, invalidate any older unused codes to ensure a single active code
+            OTPCode.objects.filter(
+                email__iexact=email,
+                purpose=purpose,
+                is_used=False,
+            ).exclude(id=otp.id).update(is_used=True)
+            should_send_email = False
 
         # Send email with device info for revoke purpose
         device_name = None
@@ -313,7 +338,10 @@ def request_otp(request):
             # It will be used in the actual revoke operation
             device_name = request.data.get('device_name', 'Unknown Device')
 
-        if send_otp_email(email, otp.code, purpose, device_name):
+        if should_send_email and send_otp_email(email, otp.code, purpose, device_name):
+            LoginAttempt.record_attempt(email, ip_address, successful=True)
+        elif not should_send_email:
+            # Treat reuse as a successful issuance for rate metrics, but don't resend email
             LoginAttempt.record_attempt(email, ip_address, successful=True)
         # Always return generic message regardless of underlying send failure to avoid probing
         response_data = {
