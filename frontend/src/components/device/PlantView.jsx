@@ -25,6 +25,15 @@ export default function PlantView({
   const tds = metrics.tds;
   const waterTemp = metrics.water_temp;
 
+  const formatDate = (d) => {
+    if (!d || isNaN(d)) return '—';
+    try {
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (_) {
+      return String(d).slice(0, 10);
+    }
+  };
+
   const phC = classifyPH ? classifyPH(ph, device?.plant) : { severity: 'none' };
   const ecC = classifyEC ? classifyEC(ec, device?.plant) : { severity: 'none' };
   const tdsC = classifyTDS ? classifyTDS(tds, device?.plant) : { severity: 'none' };
@@ -85,10 +94,24 @@ export default function PlantView({
       </div>
 
       <div className="card">
-        <div className="card-body countdown">
-          <Clock size={22} />
-          <div className="days">{daysTillHarvest == null ? '—' : (daysTillHarvest < 0 ? `+${Math.abs(daysTillHarvest)}` : daysTillHarvest)}</div>
-          <div className="label">days until harvest</div>
+        <div className="card-body">
+          {(start || end) && (
+            <div className="plant-dates" role="note" aria-label="Cycle dates">
+              <div className="date-item">
+                <div className="date-label">Start date</div>
+                <div className="date-value">{formatDate(start)}</div>
+              </div>
+              <div className="date-item">
+                <div className="date-label">Harvest date</div>
+                <div className="date-value">{formatDate(end)}</div>
+              </div>
+            </div>
+          )}
+          <div className="countdown">
+            <Clock size={22} />
+            <div className="days">{daysTillHarvest == null ? '—' : (daysTillHarvest < 0 ? `+${Math.abs(daysTillHarvest)}` : daysTillHarvest)}</div>
+            <div className="label">days until harvest</div>
+          </div>
         </div>
       </div>
     </div>

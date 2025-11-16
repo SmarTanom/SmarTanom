@@ -23,10 +23,8 @@ export default function LogsView({ entries = [], loading, error, onRetry }) {
         <div className="filters">
           <select className="select" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter logs">
             <option value="all">All</option>
-            <option value="info">Info</option>
             <option value="warning">Warning</option>
             <option value="critical">Critical</option>
-            <option value="harvest">Harvest</option>
           </select>
         </div>
 

@@ -391,7 +391,11 @@
   flex-direction: column;
   gap: 16px;
   border-top: 2px solid rgba(51, 148, 50, 0.1);
+  z-index: 1; /* keep footer below native date picker popover */
 }
+
+/* Date section (now in content) */
+.date-section { margin-top: 18px; padding: 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; box-shadow: var(--shadow-sm); }
 
 /* Date inputs */
 .date-row {
@@ -564,4 +568,10 @@
     max-width: 600px;
     width: 100%;
   }
+}
+
+/* Mobile tweaks: ensure inputs are reachable above the fixed footer */
+@media (max-width: 767px) {
+  .start-cycle-root { padding-bottom: 160px; }
+  .date-input { font-size: 16px; } /* prevent iOS zoom */
 }

@@ -70,6 +70,33 @@ const StartCyclePage = () => {
     load();
   }, []);
 
+  // Ensure date inputs scroll into view so the native calendar isn't obscured by the sticky footer
+  useEffect(() => {
+    const ids = ['startDate', 'endDate'];
+    const handlers = [];
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        const handler = () => {
+          try {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } catch (_) {
+            // no-op
+          }
+        };
+        el.addEventListener('focus', handler);
+        el.addEventListener('click', handler);
+        handlers.push([el, handler]);
+      }
+    });
+    return () => {
+      handlers.forEach(([el, handler]) => {
+        el.removeEventListener('focus', handler);
+        el.removeEventListener('click', handler);
+      });
+    };
+  }, []);
+
   const selectedDevice = useMemo(() => selectedDeviceId ? { id: selectedDeviceId } : null, [selectedDeviceId]);
 
   const filteredPlants = plants.filter(plant =>
@@ -147,8 +174,8 @@ const StartCyclePage = () => {
         </button>
       </div>
 
-      {/* Content */}
-      <div className="start-cycle-content">
+  {/* Content */}
+  <div className="start-cycle-content">
         <h1 className="cycle-title">Starting a New Cycle!</h1>
         <p className="cycle-subtitle">
           Select one plant for this device. Each plant has specific water, pH, and nutrient thresholds tailored for optimal growth.
@@ -210,33 +237,36 @@ const StartCyclePage = () => {
             <p>No plants found matching "{searchQuery}"</p>
           </div>
         )}
+
+        {/* Dates moved into content to avoid calendar overlap with fixed footer */}
+        <div className="date-section">
+          <div className="date-row">
+            <div className="date-field">
+              <label htmlFor="startDate" className="date-label">Start date</label>
+              <input
+                id="startDate"
+                type="date"
+                className="date-input"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="date-field">
+              <label htmlFor="endDate" className="date-label">End date</label>
+              <input
+                id="endDate"
+                type="date"
+                className="date-input"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Footer */}
       <div className="start-cycle-footer">
-        {/* Dates */}
-        <div className="date-row">
-          <div className="date-field">
-            <label htmlFor="startDate" className="date-label">Start date</label>
-            <input
-              id="startDate"
-              type="date"
-              className="date-input"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div className="date-field">
-            <label htmlFor="endDate" className="date-label">End date</label>
-            <input
-              id="endDate"
-              type="date"
-              className="date-input"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
-        </div>
         <button
           className="start-button"
           onClick={handleStartCycle}

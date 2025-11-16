@@ -165,14 +165,7 @@ export default function DeviceDetails() {
   const [photoError, setPhotoError] = useState(null);
   // Days till harvest (recomputes periodically)
   const [daysTillHarvest, setDaysTillHarvest] = useState(null);
-  // Start new cycle modal state
-  const [showNewCycle, setShowNewCycle] = useState(false);
-  const [cycleStart, setCycleStart] = useState(() => new Date().toISOString().slice(0,10));
-  const [cycleEnd, setCycleEnd] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate()+60); return d.toISOString().slice(0,10);
-  });
-  const [savingCycle, setSavingCycle] = useState(false);
-  const [cycleError, setCycleError] = useState('');
+  // Start cycle uses dedicated page; keep no local modal state
   // Edit device info modal state
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
   const [editDeviceName, setEditDeviceName] = useState('');
@@ -521,45 +514,15 @@ export default function DeviceDetails() {
     }
   };
 
-  // Start new plant cycle
+  // Start new plant cycle → navigate to dedicated page
   const openNewCycle = () => {
     if (!isOwner) {
       setDeniedMessage('You cannot start a new plant cycle. Only the device owner can perform this action.');
       setShowDenied(true);
       return;
     }
-    setCycleError('');
-    // Prefill with suggested dates
-    setCycleStart(new Date().toISOString().slice(0,10));
-    const d = new Date(); d.setDate(d.getDate()+60); setCycleEnd(d.toISOString().slice(0,10));
-    setShowNewCycle(true);
-  };
-
-  const confirmNewCycle = async () => {
-    if (!device?.id) return;
-    if (!isOwner) {
-      setDeniedMessage('You cannot start a new plant cycle. Only the device owner can perform this action.');
-      setShowDenied(true);
-      return;
-    }
-    if (!cycleStart || !cycleEnd) { setCycleError('Start and end dates are required.'); return; }
-    if (new Date(cycleEnd) <= new Date(cycleStart)) { setCycleError('End date must be after start date.'); return; }
-    try {
-      setSavingCycle(true); setCycleError('');
-      const token = localStorage.getItem('authToken');
-      await deviceApi.update(device.id, { start_date: cycleStart, end_date: cycleEnd }, token);
-      setDevice(prev => ({ ...prev, start_date: cycleStart, end_date: cycleEnd }));
-      setDaysTillHarvest(computeDaysTillHarvest(cycleEnd));
-      setShowNewCycle(false);
-    } catch (e) {
-      if (e?.status === 403) {
-        setDeniedMessage('You cannot start a new plant cycle. Only the device owner can perform this action.');
-        setShowDenied(true);
-        setShowNewCycle(false);
-      } else {
-        setCycleError(e?.message || 'Failed to start new cycle');
-      }
-    } finally { setSavingCycle(false); }
+    // Navigate and pass device context so StartCyclePage patches the correct device
+    navigate('/start-cycle', { state: { deviceId: device?.id || deviceId } });
   };
 
   // Open edit modal and prefill
@@ -1003,36 +966,7 @@ export default function DeviceDetails() {
         </div>
       )}
 
-      {/* Start New Cycle Modal */}
-      {showNewCycle && (
-        <div className="modal-overlay" onClick={() => setShowNewCycle(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 style={{ margin: 0 }}>Start New Plant Cycle</h3>
-              <button className="modal-close" onClick={() => setShowNewCycle(false)}>
-                <X size={24} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="row" style={{ marginBottom: 12 }}>
-                <div>
-                  <label className="label" htmlFor="cycleStart">Start date</label>
-                  <input id="cycleStart" className="input" type="date" value={cycleStart} onChange={(e)=>setCycleStart(e.target.value)} />
-                </div>
-                <div>
-                  <label className="label" htmlFor="cycleEnd">End date</label>
-                  <input id="cycleEnd" className="input" type="date" value={cycleEnd} min={cycleStart} onChange={(e)=>setCycleEnd(e.target.value)} />
-                </div>
-              </div>
-              {cycleError && <p className="setup-error" style={{ color: '#E1554A', marginTop: 4 }} role="alert">{cycleError}</p>}
-            </div>
-            <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="setup-btn outline" onClick={() => setShowNewCycle(false)}>Cancel</button>
-              <button className="setup-btn" onClick={confirmNewCycle} disabled={savingCycle}>{savingCycle ? 'Starting…' : 'Start Cycle'}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Start New Cycle now handled in StartCyclePage via navigation */}
     </div>
   );
 }
