@@ -49,6 +49,21 @@ services:
         value: "SmarTanom <noreply@yourdomain.com>"
       - key: VAPID_ADMIN_EMAIL
         value: admin@yourdomain.com
+      # Cloud media storage (recommended on free plan). Set this to enable Cloudinary.
+      # Format: cloudinary://<api_key>:<api_secret>@<cloud_name>
+      - key: CLOUDINARY_URL
+        sync: false
+
+    # Optional persistent disk alternative (paid plans only)
+    # Uncomment to store media locally on a Render Persistent Disk instead of Cloudinary.
+    # disk:
+    #   name: media
+    #   mountPath: /var/media
+    #   sizeGB: 1
+    # And set MEDIA_ROOT to the mount path:
+    # envVars:
+    #   - key: MEDIA_ROOT
+    #     value: /var/media
 
   - type: worker
     name: smartanom-redis-subscriber

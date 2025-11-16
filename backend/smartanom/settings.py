@@ -197,11 +197,24 @@ STORAGES = {
 }
 
 # Media files (uploads)
+# Prefer cloud storage when configured; otherwise use filesystem storage pointing to MEDIA_ROOT.
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", BASE_DIR / "media"))
 
-# Ensure media directory exists
-MEDIA_ROOT.mkdir(exist_ok=True)
+# Optional: Cloudinary integration (auto-enabled when CLOUDINARY_URL is set)
+USE_CLOUDINARY = bool(os.getenv("CLOUDINARY_URL"))
+if USE_CLOUDINARY:
+	# Defer import list extension until after INSTALLED_APPS defined above
+	if "cloudinary" not in INSTALLED_APPS:
+		INSTALLED_APPS += [
+			"cloudinary",
+			"cloudinary_storage",
+		]
+	# Store uploaded media on Cloudinary
+	DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+else:
+	# Ensure media directory exists when using local filesystem storage
+	MEDIA_ROOT.mkdir(exist_ok=True, parents=True)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
