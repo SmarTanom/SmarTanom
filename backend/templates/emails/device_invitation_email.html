@@ -15,12 +15,17 @@
     .card { background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px; }
     .btn { display:inline-block;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:bold;font-family:Arial,sans-serif; }
     .btn-primary { background:#339432;color:#fff; }
-    .btn-secondary { background:#eef2f7;color:#111827; }
+    .btn-secondary { background:#ffffff;color:#111827;border:1px solid #e5e7eb; }
     .device-title { margin:0 0 4px 0;font-size:16px; }
     .kbd { font-family:Consolas,Monaco,monospace;color:#111827;word-break:break-all; }
     .list { margin:0 0 0 18px;padding:0;color:#374151; }
     .footer { border-top:1px solid #eee;padding:16px 24px; }
-    @media (max-width:480px){ .content{padding:18px;} .brand{padding:16px 18px;} }
+    .cta-table { margin:0 auto; }
+    @media (max-width:480px){
+      .content{padding:18px;} .brand{padding:16px 18px;}
+      .cta-table td{ display:block; width:100% !important; }
+      .cta-table a{ display:block; text-align:center; width:100% !important; }
+    }
   </style>
   <!--[if mso]>
   <style type="text/css">.btn{border:0!important;} .btn-primary{background:#339432;color:#ffffff!important;} .btn-secondary{background:#eef2f7;color:#111827!important;}</style>
@@ -34,6 +39,13 @@
     <div class="content">
       <h2 style="margin:0 0 8px 0;font-size:18px;color:#111827;">Device Monitoring Invitation</h2>
       <p style="margin:0 0 12px 0;color:#374151;">You’ve been invited by <strong>{{ invited_by }}</strong> to collaborate on monitoring a device.</p>
+
+      {% if inviter_message %}
+      <div class="card section">
+        <p style="margin:0 0 4px 0;color:#111827;"><strong>Message from {{ invited_by }}:</strong></p>
+        <p style="margin:0;color:#374151;">{{ inviter_message }}</p>
+      </div>
+      {% endif %}
 
       <div class="card section">
         <p class="device-title"><strong>Device:</strong> {{ device_name }}</p>
@@ -52,33 +64,26 @@
 
       <div class="section" style="margin:16px 0;">
         <!-- Bulletproof buttons (table-based with inline styles for maximum client support) -->
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;border-spacing:8px 0;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="cta-table" style="border-collapse:separate;border-spacing:8px 0;">
           <tr>
-            <td align="left" style="border-radius:10px;background:#339432;">
+            <td align="center" style="border-radius:10px;background:#339432;">
               <a
                 href="{{ accept_url }}"
                 target="_blank"
                 style="display:inline-block;padding:12px 18px;border-radius:10px;background:#339432;color:#ffffff;font-weight:bold;text-decoration:none;font-family:Arial,sans-serif;"
               >Accept Invitation</a>
             </td>
-            <td align="left" style="border-radius:10px;background:#eef2f7;">
+            <td align="center" style="border-radius:10px;background:#ffffff;border:1px solid #e5e7eb;">
               <a
                 href="{{ decline_url }}"
                 target="_blank"
-                style="display:inline-block;padding:12px 18px;border-radius:10px;background:#eef2f7;color:#111827;font-weight:bold;text-decoration:none;font-family:Arial,sans-serif;"
+                style="display:inline-block;padding:12px 18px;border-radius:10px;background:#ffffff;color:#111827;font-weight:bold;text-decoration:none;font-family:Arial,sans-serif;"
               >Decline</a>
             </td>
           </tr>
         </table>
       </div>
-
-      <div class="card section">
-        <p class="muted" style="margin:0;">If the buttons don’t work, copy and paste these links into your browser:</p>
-        <p style="margin:8px 0 0 0;font-size:13px;"><strong>Accept:</strong><br><span class="kbd">{{ accept_url }}</span></p>
-        <p style="margin:8px 0 0 0;font-size:13px;"><strong>Decline:</strong><br><span class="kbd">{{ decline_url }}</span></p>
-      </div>
-
-      <p class="muted" style="margin:12px 0 0 0;">For security, this invitation expires in 24 hours.</p>
+      <p class="muted" style="margin:12px 0 0 0;">For security, this invitation expires {{ expires_at|default:"in 24 hours" }}.</p>
     </div>
     <div class="footer">
       <p class="muted" style="margin:0;">This is an automated message from SmarTanom. Please do not reply.</p>
