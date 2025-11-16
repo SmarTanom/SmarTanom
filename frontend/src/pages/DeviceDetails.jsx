@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import '../assets/styles/DeviceDetails.css';
+import '../assets/styles/device-redesign.css';
+import DeviceHeader from '../components/device/DeviceHeader.jsx';
+import SegmentedTabs from '../components/device/SegmentedTabs.jsx';
+import PlantView from '../components/device/PlantView.jsx';
+import LogsView from '../components/device/LogsView.jsx';
+import SettingsView from '../components/device/SettingsView.jsx';
 import { resolveMediaUrl, withImgFallback } from '../utils/media';
 import {
   ChevronLeft,
@@ -28,7 +33,7 @@ import { getDeviceById, uploadPlantPhoto, resetDeviceWiFi } from '../services/ap
 import { useRealtimeStore } from '../store/realtimeStore';
 import { listAlertsAll } from '../services/api/alerts';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
-import { deviceApi } from '../services/apiClient.js';
+import { deviceApi, authApi } from '../services/apiClient.js';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -132,6 +137,16 @@ export default function DeviceDetails() {
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [errorLogs, setErrorLogs] = useState(null);
   const [alertsReloadKey, setAlertsReloadKey] = useState(0);
+  // Current user email for ownership checks
+  const [currentEmail, setCurrentEmail] = useState('');
+  const isOwner = (() => {
+    const a = (device?.bound_email || '').trim().toLowerCase();
+    const b = (currentEmail || '').trim().toLowerCase();
+    return a && b && a === b;
+  })();
+  // Permission modal
+  const [showDenied, setShowDenied] = useState(false);
+  const [deniedMessage, setDeniedMessage] = useState('');
 
   // Real-time data integration
   const deviceData = useRealtimeStore(state => state.deviceData[deviceId]);
@@ -150,6 +165,14 @@ export default function DeviceDetails() {
   const [photoError, setPhotoError] = useState(null);
   // Days till harvest (recomputes periodically)
   const [daysTillHarvest, setDaysTillHarvest] = useState(null);
+  // Start new cycle modal state
+  const [showNewCycle, setShowNewCycle] = useState(false);
+  const [cycleStart, setCycleStart] = useState(() => new Date().toISOString().slice(0,10));
+  const [cycleEnd, setCycleEnd] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate()+60); return d.toISOString().slice(0,10);
+  });
+  const [savingCycle, setSavingCycle] = useState(false);
+  const [cycleError, setCycleError] = useState('');
   // Edit device info modal state
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
   const [editDeviceName, setEditDeviceName] = useState('');
@@ -210,6 +233,12 @@ export default function DeviceDetails() {
 
       // Initialize real-time store
       await fetchInitial();
+
+      // Load user profile for permission checks
+      try {
+        const profile = await authApi.getProfile(token);
+        if (profile?.email) setCurrentEmail(profile.email);
+      } catch (_) { /* ignore */ }
     };
 
     initRealtime();
@@ -316,6 +345,11 @@ export default function DeviceDetails() {
 
   // Photo change handlers
   const handleOpenPhotoModal = () => {
+    if (!isOwner) {
+      setDeniedMessage('You cannot change the plant photo. Only the device owner can perform this action.');
+      setShowDenied(true);
+      return;
+    }
     setShowPhotoModal(true);
     setPhotoError(null);
   };
@@ -424,6 +458,12 @@ export default function DeviceDetails() {
       return;
     }
 
+    if (!isOwner) {
+      setDeniedMessage('You cannot reset WiFi on this device. Only the device owner can perform this action.');
+      setShowDenied(true);
+      return;
+    }
+
     // Confirm action with user
     const confirmMessage =
       `⚠️ WiFi Reset Confirmation\n\n` +
@@ -481,6 +521,47 @@ export default function DeviceDetails() {
     }
   };
 
+  // Start new plant cycle
+  const openNewCycle = () => {
+    if (!isOwner) {
+      setDeniedMessage('You cannot start a new plant cycle. Only the device owner can perform this action.');
+      setShowDenied(true);
+      return;
+    }
+    setCycleError('');
+    // Prefill with suggested dates
+    setCycleStart(new Date().toISOString().slice(0,10));
+    const d = new Date(); d.setDate(d.getDate()+60); setCycleEnd(d.toISOString().slice(0,10));
+    setShowNewCycle(true);
+  };
+
+  const confirmNewCycle = async () => {
+    if (!device?.id) return;
+    if (!isOwner) {
+      setDeniedMessage('You cannot start a new plant cycle. Only the device owner can perform this action.');
+      setShowDenied(true);
+      return;
+    }
+    if (!cycleStart || !cycleEnd) { setCycleError('Start and end dates are required.'); return; }
+    if (new Date(cycleEnd) <= new Date(cycleStart)) { setCycleError('End date must be after start date.'); return; }
+    try {
+      setSavingCycle(true); setCycleError('');
+      const token = localStorage.getItem('authToken');
+      await deviceApi.update(device.id, { start_date: cycleStart, end_date: cycleEnd }, token);
+      setDevice(prev => ({ ...prev, start_date: cycleStart, end_date: cycleEnd }));
+      setDaysTillHarvest(computeDaysTillHarvest(cycleEnd));
+      setShowNewCycle(false);
+    } catch (e) {
+      if (e?.status === 403) {
+        setDeniedMessage('You cannot start a new plant cycle. Only the device owner can perform this action.');
+        setShowDenied(true);
+        setShowNewCycle(false);
+      } else {
+        setCycleError(e?.message || 'Failed to start new cycle');
+      }
+    } finally { setSavingCycle(false); }
+  };
+
   // Open edit modal and prefill
   const openEditInfo = () => {
     setEditDeviceName(device?.device_name || '');
@@ -497,6 +578,11 @@ export default function DeviceDetails() {
 
   const saveDeviceInfo = async () => {
     if (!device || !device.id) return;
+    if (!isOwner) {
+      setDeniedMessage('You cannot edit device settings. Only the device owner can perform this action.');
+      setShowDenied(true);
+      return;
+    }
     const name = (editDeviceName || '').trim();
     const loc = (editLocation || '').trim();
     if (!name) {
@@ -551,9 +637,7 @@ export default function DeviceDetails() {
     : 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop';
 
   // Loading / error / empty states
-  if (loading) {
-    return <GlobalLoadingSpinner message="Loading device details..." />;
-  }
+  if (loading) return <GlobalLoadingSpinner message="Loading device details..." />;
 
   if (error) {
     return (
@@ -590,280 +674,87 @@ export default function DeviceDetails() {
     );
   }
   return (
-    <div className="device-details-root">
-      {/* Header with background image */}
-      <header className="device-header" style={{ backgroundImage: `url(${headerImage})` }}>
-        <div className="device-header-overlay">
-          <button className="back-button" onClick={handleGoBack}>
-            <ChevronLeft size={20} />
-            <span>Go back</span>
+    <div className="device-page">
+      <div className="device-container">
+        <div className="top-bar">
+          <button className="back-btn" onClick={() => navigate(-1)}>
+            <ChevronLeft size={18} />
+            <span>Back</span>
           </button>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              className="edit-photo-button"
-              onClick={handleOpenPhotoModal}
-              aria-label="Change plant photo"
-              title="Change plant photo"
-            >
-              <Camera size={20} />
-            </button>
-            <button className="more-button" aria-label="More options">
-              <MoreVertical size={24} />
-            </button>
-          </div>
         </div>
-      </header>
+        <DeviceHeader
+          name={resolvedDevice.device_name}
+          serial={resolvedDevice.device_serial}
+          location={resolvedDevice.location}
+          photoUrl={resolvedDevice.plant_photo_url || headerImage}
+          isOnline={Boolean(resolvedDevice?.is_online || deviceData)}
+          wifiConfigured={resolvedDevice?.wifi_configured}
+          onChangePhoto={handleOpenPhotoModal}
+        />
 
-      {/* Device info */}
-      <div className="device-info-section">
-        <h1 className="device-info-title">{resolvedDevice.device_name || location.state?.deviceName || 'Device'}</h1>
-        <p className="device-info-id">Serial: {resolvedDevice.device_serial || location.state?.deviceSerial || deviceId}</p>
-        {resolvedDevice.location ? (
-          <p className="device-location">Location: {resolvedDevice.location}</p>
-        ) : null}
-      </div>
+        <SegmentedTabs
+          value={activeTab}
+          onChange={setActiveTab}
+          tabs={[{ value: 'plants', label: 'Plant' }, { value: 'log', label: 'Logs' }, { value: 'settings', label: 'Settings' }]}
+        />
 
-      {/* Tabs */}
-      <nav className="device-tabs" role="tablist">
-        <button
-          className={`device-tab ${activeTab === 'plants' ? 'active' : ''}`}
-          onClick={() => setActiveTab('plants')}
-          role="tab"
-          aria-selected={activeTab === 'plants'}
-        >
-          PLANTS
-        </button>
-        <button
-          className={`device-tab ${activeTab === 'log' ? 'active' : ''}`}
-          onClick={() => setActiveTab('log')}
-          role="tab"
-          aria-selected={activeTab === 'log'}
-        >
-          LOG
-        </button>
-        <button
-          className={`device-tab ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settings')}
-          role="tab"
-          aria-selected={activeTab === 'settings'}
-        >
-          SETTINGS
-        </button>
-      </nav>
-
-      {/* Content */}
-      <main className="device-content">
         {activeTab === 'plants' && (
-          <>
-            {/* Harvest estimate */}
-            <div className="harvest-estimate">
-              <Clock size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-              <p className="harvest-estimate-text">
-                {(device && device.plant_name)
-                  ? `Growing ${device.plant_name}${device.plant_variety ? ` (${device.plant_variety})` : ''} - ${device.plant_status || 'Active'}`
-                  : 'Device is running normally.'
-                }
-              </p>
-            </div>
-
-            {/* Device status badge */}
-            <div className={`device-status-badge status-${statusClass}`} title={`Device status: ${statusLabel}`}>
-              <span className="status-dot" aria-hidden="true" />
-              <span className="device-status-text">{statusLabel}</span>
-            </div>
-
-            {/* Plant card */}
-            <div className="plant-card">
-              <div className="plant-card-image">
-                <img
-                  src={device?.plant_photo_url ? resolveMediaUrl(device.plant_photo_url) : 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop'}
-                  alt={device?.plant_name || 'Plant'}
-                  onError={(e) => withImgFallback(e, 'https://images.unsplash.com/photo-1466781783364-36c955e42a7f?w=800&auto=format&fit=crop')}
-                />
-              </div>
-              <div className="plant-card-content">
-                <div className="plant-card-info">
-                  {plantName && (
-                    <h3 className="plant-card-name">{plantName}</h3>
-                  )}
-                  {plantVariety && (
-                    <p className="plant-card-variety">{plantVariety}</p>
-                  )}
-                </div>
-                {harvestText && (
-                  <div className="plant-card-harvest">
-                    <span className="harvest-label">{harvestText}</span>
-                  </div>
-                )}
-                {/* Inline cycle details inside the same card */}
-                <div className="plant-card-cycle">
-                  <div className="plant-cycle-row">
-                    <span className="plant-cycle-label">Plant type</span>
-                    <span className="plant-cycle-value">{device?.plant?.plant_name || device?.plant_name || '—'}</span>
-                  </div>
-                  <div className="plant-cycle-row">
-                    <span className="plant-cycle-label">Start date</span>
-                    <span className="plant-cycle-value">{device?.start_date ? new Date(device.start_date).toLocaleDateString() : '—'}</span>
-                  </div>
-                  <div className="plant-cycle-row">
-                    <span className="plant-cycle-label">End date</span>
-                    <span className="plant-cycle-value">{device?.end_date ? new Date(device.end_date).toLocaleDateString() : '—'}</span>
-                  </div>
-                  <div className="plant-cycle-row">
-                    <span className="plant-cycle-label">Days till harvest</span>
-                    <span className="plant-cycle-value">
-                      {device?.end_date ? (
-                        daysTillHarvest == null ? '—' : (
-                          daysTillHarvest < 0
-                            ? `Overdue by ${Math.abs(daysTillHarvest)} day${Math.abs(daysTillHarvest) === 1 ? '' : 's'}`
-                            : daysTillHarvest === 0
-                              ? 'Today'
-                              : `${daysTillHarvest} day${daysTillHarvest === 1 ? '' : 's'}`
-                        )
-                      ) : '—'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Start new cycle button */}
-            <button
-              className="start-cycle-button"
-              onClick={() => {
-                const deviceIdToUse = device?.id || deviceId;
-                navigate('/start-cycle', { state: { deviceId: deviceIdToUse } });
-              }}
-            >
-              Start New Cycle
-            </button>
-          </>
+          <PlantView
+            device={device}
+            daysTillHarvest={daysTillHarvest}
+            metrics={{
+              ph: deviceData?.sensors?.ph,
+              ec: deviceData?.sensors?.ec,
+              tds: deviceData?.sensors?.tds,
+              water_temp: (deviceData?.sensors?.water_temperature ?? deviceData?.sensors?.water_temp),
+            }}
+            classifyPH={classifyPH}
+            classifyEC={classifyEC}
+            classifyTDS={classifyTDS}
+            classifyWaterTemp={classifyWaterTemp}
+          />
         )}
 
         {activeTab === 'log' && (
-          <>
-            {/* Sort by header */}
-            <div className="log-header">
-              <span className="log-header-label">Sort by:</span>
-              <button className="log-sort-button" onClick={toggleSortOrder}>
-                <span>Date: {sortOrder === 'desc' ? 'Descending' : 'Ascending'}</span>
-                <ChevronDown size={16} />
-              </button>
-            </div>
-
-            {/* Log entries */}
-            {(loadingInitial || loadingLogs) ? (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '24px' }}>
-                <Clock size={20} color={PRIMARY_GREEN} style={{ marginRight: 8 }} />
-                <span>Loading alerts…</span>
-              </div>
-            ) : errorLogs ? (
-              <div style={{ textAlign: 'center', padding: '24px', color: '#E1554A' }}>
-                <p>Failed to load alerts: {errorLogs}</p>
-                <button
-                  onClick={() => setAlertsReloadKey(v => v + 1)}
-                  style={{
-                    marginTop: '8px',
-                    padding: '8px 12px',
-                    background: PRIMARY_GREEN,
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Retry
-                </button>
-              </div>
-            ) : (
-              <div className="log-entries">
-                {sortedLogEntries.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '24px', color: '#6B7D75' }}>
-                    No alerts for this device yet.
-                  </div>
-                ) : (
-                  sortedLogEntries.map((entry) => (
-                    <div key={entry.id} className="log-entry">
-                      <div className="log-entry-icon">
-                        {getLogIcon(entry.type)}
-                      </div>
-                      <div className="log-entry-content">
-                        <div className="log-entry-header">
-                          <h4 className="log-entry-title">{entry.title}</h4>
-                          <span className="log-entry-time">{entry.time}</span>
-                        </div>
-                        <p className="log-entry-message">{entry.message}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </>
+          <LogsView
+            entries={sortedLogEntries}
+            loading={loadingInitial || loadingLogs}
+            error={errorLogs}
+            onRetry={() => setAlertsReloadKey(v => v + 1)}
+          />
         )}
 
         {activeTab === 'settings' && (
-          <div className="settings-list">
-            <button className="settings-item" onClick={openEditInfo}>
-              <div className="settings-item-left">
-                <RefreshCw size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-                <span className="settings-item-label">Edit Name & Location</span>
-              </div>
-              <ChevronRight size={20} color="#8BA797" />
-            </button>
-            <button className="settings-item" onClick={() => console.log('Connectivity')}>
-              <div className="settings-item-left">
-                <Wifi size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-                <span className="settings-item-label">Connectivity</span>
-              </div>
-              <div className="settings-item-right">
-                <span className="settings-item-value">
-                  {device?.wifi_configured ? 'Connected via WiFi' : 'Not configured'}
-                </span>
-                <ChevronRight size={20} color="#8BA797" />
-              </div>
-            </button>
-
-            <button
-              className="settings-item settings-item-danger"
-              onClick={handleResetWiFi}
-              style={{ borderTop: '1px solid rgba(231, 76, 60, 0.2)' }}
-            >
-              <div className="settings-item-left">
-                <RefreshCw size={20} color="#e74c3c" strokeWidth={2.5} />
-                <span className="settings-item-label" style={{ color: '#e74c3c' }}>
-                  Reset WiFi Configuration
-                </span>
-              </div>
-              <ChevronRight size={20} color="#e74c3c" />
-            </button>
-
-            <button className="settings-item" onClick={() => console.log('Sensor Settings')}>
-              <div className="settings-item-left">
-                <Gauge size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-                <span className="settings-item-label">Sensor Settings</span>
-              </div>
-              <ChevronRight size={20} color="#8BA797" />
-            </button>
-
-            <button className="settings-item" onClick={() => console.log('Cycle Settings')}>
-              <div className="settings-item-left">
-                <RefreshCw size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-                <span className="settings-item-label">Cycle Settings</span>
-              </div>
-              <ChevronRight size={20} color="#8BA797" />
-            </button>
-
-            <button className="settings-item" onClick={() => console.log('SmarTanom Sync Settings')}>
-              <div className="settings-item-left">
-                <Database size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
-                <span className="settings-item-label">SmarTanom Sync Settings</span>
-              </div>
-              <ChevronRight size={20} color="#8BA797" />
-            </button>
-          </div>
+          <SettingsView
+            device={device}
+            canManage={isOwner}
+            saving={savingInfo}
+            onStartNewCycle={openNewCycle}
+            onSaveInfo={async (payload) => {
+              if (!isOwner) {
+                setDeniedMessage('You cannot edit device settings. Only the device owner can perform this action.');
+                setShowDenied(true);
+                return;
+              }
+              try {
+                setSavingInfo(true);
+                const token = localStorage.getItem('authToken');
+                await deviceApi.update(device.id, payload, token);
+                setDevice(prev => ({ ...prev, ...payload }));
+                updateDeviceMeta?.(device.id, payload);
+              } catch (e) {
+                if (e?.status === 403) {
+                  setDeniedMessage('You cannot edit device settings. Only the device owner can perform this action.');
+                  setShowDenied(true);
+                } else {
+                  alert(e?.message || 'Failed to save changes');
+                }
+              } finally { setSavingInfo(false); }
+            }}
+            onResetWiFi={handleResetWiFi}
+          />
         )}
-      </main>
+      </div>
 
       {/* Bottom navigation */}
       <nav className="bottom-nav" aria-label="Primary">
@@ -1084,6 +975,60 @@ export default function DeviceDetails() {
               <button className="setup-btn" onClick={saveDeviceInfo} disabled={savingInfo || !editDeviceName.trim()}>
                 {savingInfo ? 'Saving…' : 'Save Changes'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permission Denied Modal */}
+      {showDenied && (
+        <div className="modal-overlay" onClick={() => setShowDenied(false)}>
+          <div className="modal-content warn" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <TriangleAlert size={22} color="#E1554A" />
+                <h3 style={{ margin: 0 }}>Action not allowed</h3>
+              </div>
+              <button className="modal-close" onClick={() => setShowDenied(false)}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ color: '#6B7D75', lineHeight: 1.5 }}>{deniedMessage || 'This action is restricted. Only the device owner can perform this action.'}</p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="setup-btn" onClick={() => setShowDenied(false)}>Got it</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Start New Cycle Modal */}
+      {showNewCycle && (
+        <div className="modal-overlay" onClick={() => setShowNewCycle(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 style={{ margin: 0 }}>Start New Plant Cycle</h3>
+              <button className="modal-close" onClick={() => setShowNewCycle(false)}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="row" style={{ marginBottom: 12 }}>
+                <div>
+                  <label className="label" htmlFor="cycleStart">Start date</label>
+                  <input id="cycleStart" className="input" type="date" value={cycleStart} onChange={(e)=>setCycleStart(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label" htmlFor="cycleEnd">End date</label>
+                  <input id="cycleEnd" className="input" type="date" value={cycleEnd} min={cycleStart} onChange={(e)=>setCycleEnd(e.target.value)} />
+                </div>
+              </div>
+              {cycleError && <p className="setup-error" style={{ color: '#E1554A', marginTop: 4 }} role="alert">{cycleError}</p>}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="setup-btn outline" onClick={() => setShowNewCycle(false)}>Cancel</button>
+              <button className="setup-btn" onClick={confirmNewCycle} disabled={savingCycle}>{savingCycle ? 'Starting…' : 'Start Cycle'}</button>
             </div>
           </div>
         </div>
