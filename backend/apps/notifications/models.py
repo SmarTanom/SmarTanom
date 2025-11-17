@@ -1,6 +1,6 @@
 from django.db import models
 from django.conf import settings
-from django.utils import timezone
+"""Notification-related models and per-admin alert read receipts."""
 
 
 class PushSubscription(models.Model):
@@ -266,7 +266,7 @@ class AdminAlertReadReceipt(models.Model):
     )
 
     alert = models.ForeignKey(
-        'apps.sensors.Alert',
+        'sensors.Alert',
         on_delete=models.CASCADE,
         related_name='admin_read_receipts',
         help_text='Sensor alert that was read by the admin'
