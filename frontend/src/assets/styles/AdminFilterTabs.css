@@ -19,6 +19,7 @@
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   white-space: nowrap;
+  position: relative;
 }
 
 .admin-filter-tab:hover {
@@ -29,47 +30,69 @@
 }
 
 .admin-filter-tab.active {
-  background: linear-gradient(135deg, #2eb72e 0%, #16a34a 100%);
+  background: #2eb72e;
   color: #ffffff;
   border-color: #16a34a;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(46, 183, 46, 0.25), 0 2px 4px rgba(46, 183, 46, 0.15);
+  box-shadow: 0 2px 6px rgba(46, 183, 46, 0.35);
 }
 
 /* Status- and type-specific active styles */
 .admin-filter-tab.status-active.active,
 .admin-filter-tab.success.active {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border-color: #059669;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25), 0 2px 4px rgba(16, 185, 129, 0.15);
+  background: #059669;
+  border-color: #047857;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35);
 }
 
 .admin-filter-tab.status-inactive.active,
 .admin-filter-tab.neutral.active {
-  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
-  border-color: #4b5563;
-  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.25), 0 2px 4px rgba(107, 114, 128, 0.15);
+  background: #4b5563;
+  border-color: #374151;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(75, 85, 99, 0.35);
 }
 
 .admin-filter-tab.status-maintenance.active,
 .admin-filter-tab.warning.active {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  border-color: #d97706;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25), 0 2px 4px rgba(245, 158, 11, 0.15);
+  background: #d97706;
+  border-color: #b45309;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.35);
 }
 
 .admin-filter-tab.status-decommissioned.active,
 .admin-filter-tab.critical.active {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  border-color: #dc2626;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25), 0 2px 4px rgba(239, 68, 68, 0.15);
+  background: #dc2626;
+  border-color: #b91c1c;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
 }
 
 .admin-filter-tab.info.active {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-  border-color: #3b82f6;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25), 0 2px 4px rgba(59, 130, 246, 0.15);
+  background: #3b82f6;
+  border-color: #1d4ed8;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.35);
 }
+
+/* Base (non-active) status colors for consistency */
+.admin-filter-tab.status-active { background:#ecfdf5; color:#065f46; border-color:#d1fae5; }
+.admin-filter-tab.status-inactive { background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
+.admin-filter-tab.status-maintenance { background:#fffbeb; color:#92400e; border-color:#fef3c7; }
+.admin-filter-tab.status-decommissioned { background:#fef2f2; color:#b91c1c; border-color:#fee2e2; }
+
+/* Assignment category active variants */
+.admin-filter-tab.category-assigned.active { background:#065f46; border-color:#064e3b; color:#fff; }
+.admin-filter-tab.category-available.active { background:#047857; border-color:#065f46; color:#fff; }
+.admin-filter-tab.category-shared.active { background:#2563eb; border-color:#1d4ed8; color:#fff; }
+.admin-filter-tab.category-all.active { background:#2eb72e; border-color:#16a34a; color:#fff; }
+
+/* Focus accessibility */
+.admin-filter-tab:focus-visible { outline:3px solid #2eb72e; outline-offset:2px; }
+
+/* Compact layout adjustments for filter sections */
+.filter-section .admin-filter-tabs { gap:8px; }
 
 /* Small screens: allow horizontal scroll if needed without ugly scrollbar */
 .admin-filter-tabs {

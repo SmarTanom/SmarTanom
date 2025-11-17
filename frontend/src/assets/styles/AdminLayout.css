@@ -43,14 +43,9 @@ html {
   background: linear-gradient(180deg, #2f8d2e 0%, #2bb35e 100%);
   border-right: 1px solid rgba(255,255,255,0.08);
   padding: 24px 16px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  box-shadow: 0 6px 30px rgba(0,0,0,0.12);
+  /* default mobile/tablet hidden state; desktop overrides below */
   color: #ffffff;
-  overflow-y: auto;
-  flex-shrink: 0; /* Prevent sidebar from shrinking */
-  z-index: 1000; /* Ensure sidebar stays above scrolling content/cards */
+  flex-shrink: 0;
 }
 
 /* Brand container - Fixed height and alignment */
@@ -210,6 +205,8 @@ html {
   display: flex;
   flex-direction: column;
   padding: 20px;
+  /* Extra bottom padding so fixed bottom nav doesn't cover content */
+  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
   gap: 20px;
   max-width: 1400px;
   margin: 0 auto;
@@ -270,6 +267,13 @@ html {
   .admin-sidebar {
     display: flex;
     flex-direction: column;
+    position: fixed; /* keep sidebar static while content scrolls */
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 1600;
   }
 
   .admin-bottom-nav {
@@ -278,6 +282,7 @@ html {
 
   .admin-main {
     padding: 32px 40px;
+    margin-left: var(--sidebar-width); /* offset main content */
   }
 }
 

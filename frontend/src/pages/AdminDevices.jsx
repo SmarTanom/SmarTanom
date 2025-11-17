@@ -399,52 +399,11 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 	});
 
 	return (
-		<div className="modal-overlay" onClick={onClose}>
-			<div className="device-modal" onClick={(e) => e.stopPropagation()}>
-				<button className="modal-close" onClick={onClose} aria-label="Close">
-					<X size={20} />
-				</button>
+		<div className="modal-overlay" role="dialog" aria-modal="true" aria-label={`Device details for ${deviceSerial}`} onClick={onClose}>
+			<div className="device-modal" onClick={(e) => e.stopPropagation()} role="document" tabIndex={-1}>
 
-				<div className="modal-header">
-					<Boxes size={20} />
-					<h2>Device Details</h2>
-				</div>
-				<p className="modal-subtitle">Complete information and QR for device registration</p>
+				
 
-				<div className="modal-device-title">{deviceSerial}</div>
-				<span className={`modal-status-badge ${device.status.toLowerCase()}`}>
-					{device.status}
-				</span>
-
-				<div className="modal-info-grid">
-					{deviceOwner && (
-						<div className="modal-info-item">
-							<User size={16} className="info-icon" />
-							<div>
-								<div className="info-label">Assigned To</div>
-								<div className="info-value">{deviceOwner}</div>
-							</div>
-						</div>
-					)}
-
-					{device.assignedDate && (
-						<div className="modal-info-item">
-							<Calendar size={16} className="info-icon" />
-							<div>
-								<div className="info-label">Assigned Date</div>
-								<div className="info-value">{device.assignedDate}</div>
-							</div>
-						</div>
-					)}
-
-					<div className="modal-info-item">
-						<Activity size={16} className="info-icon" />
-						<div>
-							<div className="info-label">Last Activity</div>
-							<div className="info-value">{device.lastSeen || 'Never'}</div>
-						</div>
-					</div>
-				</div>
 
 				{/* QR Section */}
 				<div className="qr-code-section">
@@ -598,7 +557,7 @@ function DeviceDetailsModal({ device, onClose, onDeviceUpdate }) {
 											<li key={collab.id} className="collaborator-item">
 												<User size={14} />
 												<span className="collab-email">{collab.collaborator_email}</span>
-												<span className="collab-permission">{collab.permissions}</span>
+												
 												<button
 													className="btn-revoke-collab"
 													onClick={() => handleRevokeAccess(collab.user_id || collab.id, collab.collaborator_email)}
@@ -1002,25 +961,25 @@ export default function AdminDevices() {
 						<div className="filter-label">Assignment Status</div>
 						<div className="admin-filter-tabs">
 							<button
-								className={`admin-filter-tab ${activeFilter === 'all' ? 'active' : ''}`}
+								className={`admin-filter-tab category-all ${activeFilter === 'all' ? 'active' : ''}`}
 								onClick={() => setActiveFilter('all')}
 							>
 								All ({totalDevices})
 							</button>
 							<button
-								className={`admin-filter-tab ${activeFilter === 'assigned' ? 'active' : ''}`}
+								className={`admin-filter-tab category-assigned ${activeFilter === 'assigned' ? 'active' : ''}`}
 								onClick={() => setActiveFilter('assigned')}
 							>
 								Assigned ({assignedCount})
 							</button>
 							<button
-								className={`admin-filter-tab ${activeFilter === 'available' ? 'active' : ''}`}
+								className={`admin-filter-tab category-available ${activeFilter === 'available' ? 'active' : ''}`}
 								onClick={() => setActiveFilter('available')}
 							>
 								Available ({availableCount})
 							</button>
 							<button
-								className={`admin-filter-tab ${activeFilter === 'shared' ? 'active' : ''}`}
+								className={`admin-filter-tab category-shared ${activeFilter === 'shared' ? 'active' : ''}`}
 								onClick={() => setActiveFilter('shared')}
 							>
 								Shared ({sharedCount})
