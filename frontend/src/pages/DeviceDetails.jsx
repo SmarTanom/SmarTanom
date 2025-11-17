@@ -137,11 +137,13 @@ export default function DeviceDetails() {
   const [alertsReloadKey, setAlertsReloadKey] = useState(0);
   // Current user email for ownership checks
   const [currentEmail, setCurrentEmail] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   const isOwner = (() => {
     const a = (device?.bound_email || '').trim().toLowerCase();
     const b = (currentEmail || '').trim().toLowerCase();
     return a && b && a === b;
   })();
+  const canManage = isOwner || isAdmin;
   // Permission modal
   const [showDenied, setShowDenied] = useState(false);
   const [deniedMessage, setDeniedMessage] = useState('');
@@ -229,6 +231,9 @@ export default function DeviceDetails() {
       try {
         const profile = await authApi.getProfile(token);
         if (profile?.email) setCurrentEmail(profile.email);
+        if (profile?.is_admin === true || profile?.is_staff === true || profile?.user?.is_admin === true || profile?.user?.is_staff === true) {
+          setIsAdmin(true);
+        }
       } catch (_) { /* ignore */ }
     };
 
@@ -336,8 +341,8 @@ export default function DeviceDetails() {
 
   // Photo change handlers
   const handleOpenPhotoModal = () => {
-    if (!isOwner) {
-      setDeniedMessage('You cannot change the plant photo. Only the device owner can perform this action.');
+    if (!canManage) {
+      setDeniedMessage('You cannot change the plant photo. Only the device owner or an admin can perform this action.');
       setShowDenied(true);
       return;
     }
@@ -449,8 +454,8 @@ export default function DeviceDetails() {
       return;
     }
 
-    if (!isOwner) {
-      setDeniedMessage('You cannot reset WiFi on this device. Only the device owner can perform this action.');
+    if (!canManage) {
+      setDeniedMessage('You cannot reset WiFi on this device. Only the device owner or an admin can perform this action.');
       setShowDenied(true);
       return;
     }
@@ -514,8 +519,8 @@ export default function DeviceDetails() {
 
   // Start new plant cycle → navigate to dedicated page
   const openNewCycle = () => {
-    if (!isOwner) {
-      setDeniedMessage('You cannot start a new plant cycle. Only the device owner can perform this action.');
+    if (!canManage) {
+      setDeniedMessage('You cannot start a new plant cycle. Only the device owner or an admin can perform this action.');
       setShowDenied(true);
       return;
     }
@@ -539,8 +544,8 @@ export default function DeviceDetails() {
 
   const saveDeviceInfo = async () => {
     if (!device || !device.id) return;
-    if (!isOwner) {
-      setDeniedMessage('You cannot edit device settings. Only the device owner can perform this action.');
+    if (!canManage) {
+      setDeniedMessage('You cannot edit device settings. Only the device owner or an admin can perform this action.');
       setShowDenied(true);
       return;
     }
@@ -688,12 +693,12 @@ export default function DeviceDetails() {
         {activeTab === 'settings' && (
           <SettingsView
             device={device}
-            canManage={isOwner}
+            canManage={canManage}
             saving={savingInfo}
             onStartNewCycle={openNewCycle}
             onSaveInfo={async (payload) => {
-              if (!isOwner) {
-                setDeniedMessage('You cannot edit device settings. Only the device owner can perform this action.');
+              if (!canManage) {
+                setDeniedMessage('You cannot edit device settings. Only the device owner or an admin can perform this action.');
                 setShowDenied(true);
                 return;
               }
@@ -705,7 +710,7 @@ export default function DeviceDetails() {
                 updateDeviceMeta?.(device.id, payload);
               } catch (e) {
                 if (e?.status === 403) {
-                  setDeniedMessage('You cannot edit device settings. Only the device owner can perform this action.');
+                  setDeniedMessage('You cannot edit device settings. Only the device owner or an admin can perform this action.');
                   setShowDenied(true);
                 } else {
                   alert(e?.message || 'Failed to save changes');

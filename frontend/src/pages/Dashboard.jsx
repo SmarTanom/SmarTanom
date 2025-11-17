@@ -448,11 +448,13 @@ export default function Dashboard() {
   // State for real data
   // Centralized realtime store state
   const devices = useRealtimeStore(s => s.devices);
-  // Display devices bound to the logged-in user that are either owned or shared with them
-  const ownedDevices = useMemo(
-    () => (devices || []).filter(d => d?.is_bound && (d?.is_owner || d?.is_collaborator)),
-    [devices]
-  );
+  const isAdmin = Boolean(user?.is_admin || user?.is_staff);
+  // Admins: see all bound devices; Users: see owned or shared devices
+  const ownedDevices = useMemo(() => {
+    const list = devices || [];
+    if (isAdmin) return list.filter(d => d?.is_bound);
+    return list.filter(d => d?.is_bound && (d?.is_owner || d?.is_collaborator));
+  }, [devices, isAdmin]);
   const devicesData = useRealtimeStore(s => s.deviceData);
   const fetchInitial = useRealtimeStore(s => s.fetchInitial);
   const connectWS = useRealtimeStore(s => s.connectWS);

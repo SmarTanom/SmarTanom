@@ -4,7 +4,6 @@
  */
 
 import { registerSW } from 'virtual:pwa-register';
-import notificationService from '../services/notificationService.js';
 
 // PWA update available flag
 let updateAvailable = false;
@@ -51,9 +50,7 @@ export function initializePWA() {
       },
       onRegistered(registration) {
         if (import.meta.env.VITE_DEBUG === 'true') console.log('PWA service worker registered:', registration);
-
-        // Initialize notification service
-        initializeNotifications(registration);
+        // Notifications disabled by request – skip push/email notification initialization
       },
       onRegisterError(error) {
         console.error('PWA service worker registration failed:', error);
@@ -205,17 +202,7 @@ function showOfflineNotification() {
   }, 5000);
 }
 
-/**
- * Initialize notification service
- */
-async function initializeNotifications(registration) {
-  try {
-    await notificationService.initialize();
-    if (import.meta.env.VITE_DEBUG === 'true') console.log('Notification service initialized');
-  } catch (error) {
-    console.warn('Failed to initialize notification service:', error);
-  }
-}
+// Notifications feature removed – no initialization
 
 /**
  * Handle network status changes

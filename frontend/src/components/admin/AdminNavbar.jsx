@@ -7,7 +7,8 @@ import {
   Bell,
   Settings,
   Plus,
-  Leaf
+  Leaf,
+  LogOut
 } from 'lucide-react';
 import logoMarkWhite from '../../assets/images/logo-mark-white.png';
 import '../../assets/styles/AdminLayout.css';
@@ -19,6 +20,7 @@ const AdminNavbar = () => {
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingPath, setPendingPath] = useState('');
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const navItems = [
     { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
@@ -33,6 +35,15 @@ const AdminNavbar = () => {
   const isActive = (path) => {
     if (path === '/admin') return currentPath === '/admin';
     return currentPath === path || currentPath.startsWith(path + '/');
+  };
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userEmail');
+    } catch (e) {}
+    navigate('/login');
+    window.location.reload();
   };
 
   return (
@@ -78,6 +89,11 @@ const AdminNavbar = () => {
               </React.Fragment>
             );
           })}
+          {/* Logout action */}
+          <button className="side-link" onClick={() => setLogoutConfirmOpen(true)}>
+            <LogOut size={18} />
+            <span>Logout</span>
+          </button>
         </nav>
 
         <div className="system-status">
@@ -126,6 +142,30 @@ const AdminNavbar = () => {
                 }}
               >
                 Yes, switch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logout confirmation modal */}
+      {logoutConfirmOpen && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true">
+          <div className="confirm-modal">
+            <h3>Sign out</h3>
+            <p>Are you sure you want to sign out? You can sign back in anytime using your email.</p>
+            <div className="confirm-actions">
+              <button className="confirm-btn confirm-secondary" onClick={() => setLogoutConfirmOpen(false)}>
+                Cancel
+              </button>
+              <button
+                className="confirm-btn confirm-primary"
+                onClick={() => {
+                  setLogoutConfirmOpen(false);
+                  handleLogout();
+                }}
+              >
+                Sign Out
               </button>
             </div>
           </div>

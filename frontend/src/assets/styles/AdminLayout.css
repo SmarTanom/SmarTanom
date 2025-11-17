@@ -50,6 +50,7 @@ html {
   color: #ffffff;
   overflow-y: auto;
   flex-shrink: 0; /* Prevent sidebar from shrinking */
+  z-index: 1000; /* Ensure sidebar stays above scrolling content/cards */
 }
 
 /* Brand container - Fixed height and alignment */
