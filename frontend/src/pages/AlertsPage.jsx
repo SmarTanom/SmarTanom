@@ -86,19 +86,18 @@ export default function AlertsPage() {
 
   const [filteredDeviceName, setFilteredDeviceName] = useState(null);
 
-  // Ensure store is hydrated and alerts loaded
+  // Ensure store is hydrated and alerts loaded.
+  // Do NOT clear alerts on every mount; that caused a flash + disappearance.
+  // Fetch alerts once devices are available; re-fetch when device filter changes.
   useEffect(() => {
     const hasDevices = Array.isArray(devices) && devices.length > 0;
-    // Clear locally cached alerts to avoid showing stale entries that may have been deleted server-side
-    try { clearAlerts(); } catch (_) { }
     if (!hasDevices) {
       fetchInitial();
     } else {
-      // refresh alerts each time deviceId filter changes to be safe
       fetchAlertsStore();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceId]);
+  }, [deviceId, devices]);
 
   // Establish WebSocket connection for real-time alerts; refetch on tab focus as a safety net
   useEffect(() => {
@@ -380,7 +379,7 @@ export default function AlertsPage() {
                     if (e.target.closest('button')) return; // safety
                     // Auto mark as read when opening recommendation modal
                     if (!alert.read) {
-                      try { markAsRead(alert); toast.success('Marked as read'); } catch (_) {}
+                      try { markAsRead(alert); toast.success('Marked as read'); } catch (_) { }
                       // Optimistically set read state for modal
                       setActiveAlert({ ...alert, read: true });
                     } else {

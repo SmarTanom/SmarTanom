@@ -165,6 +165,8 @@ class Alert(TimeStampedModel):
     recommendation = models.TextField()
 
     # Lifecycle controls for UX
+    # Client-visible read state for per-user UX; defaults to False on creation
+    is_read = models.BooleanField(default=False, db_index=True)
     is_acknowledged = models.BooleanField(default=False)
     acknowledged_at = models.DateTimeField(null=True, blank=True)
     is_resolved = models.BooleanField(default=False)

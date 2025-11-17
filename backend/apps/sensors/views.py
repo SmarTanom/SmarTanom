@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from rest_framework import filters, permissions, status
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
@@ -356,6 +357,7 @@ class AlertViewSet(BaseAuthViewSet):
         "severity",
         "is_resolved",
         "is_acknowledged",
+        "is_read",
         "plant_category",
     ]
     search_fields = ["title", "recommendation", "plant_name", "device__device_name"]
@@ -381,6 +383,39 @@ class AlertViewSet(BaseAuthViewSet):
     def perform_update(self, serializer):
         # Only allow ack/resolve updates; device ownership enforced by queryset scoping
         serializer.save()
+
+    @action(detail=True, methods=["post"], url_path="mark-read")
+    def mark_read(self, request, pk=None):
+        """Mark a single alert as read or unread.
+
+        Body optional: {"is_read": true|false} (default true)
+        """
+        alert = self.get_object()
+        val = request.data.get("is_read")
+        is_read = True if val is None else bool(val)
+        alert.is_read = is_read
+        alert.save(update_fields=["is_read", "updated_at"])
+        return Response({"id": alert.id, "is_read": alert.is_read})
+
+    @action(detail=False, methods=["post"], url_path="mark-all-read")
+    def mark_all_read(self, request):
+        """Bulk mark alerts as read for the scoped queryset.
+
+        Optional params:
+          - device: device id to scope within
+          - is_read: set to false to bulk mark unread (default true)
+        """
+        qs = self.get_queryset()
+        device_id = request.data.get("device") or request.query_params.get("device")
+        if device_id:
+            try:
+                qs = qs.filter(device_id=int(device_id))
+            except Exception:
+                pass
+        val = request.data.get("is_read")
+        is_read = True if val is None else bool(val)
+        updated = qs.update(is_read=is_read)
+        return Response({"updated": int(updated), "is_read": is_read})
 
 
 def _user_can_manage_device(user, device) -> bool:

@@ -8,8 +8,17 @@ from .models import Sensor, SensorData, Alert
 @admin.register(Sensor)
 class SensorAdmin(admin.ModelAdmin):
     """Admin configuration for Sensor model."""
+    # Show all concrete fields as columns to make all data visible in Render admin
+    def get_list_display(self, request):
+        # Exclude many-to-many and reverse relations
+        fields = [f.name for f in self.model._meta.get_fields() if not (f.many_to_many or f.one_to_many)]
+        # Ensure a stable order and include timestamps
+        # Keep id first for quick access
+        if 'id' in fields:
+            fields.remove('id')
+            fields = ['id'] + fields
+        return tuple(fields)
 
-    list_display = ('id', 'sensor_type', 'device', 'unit', 'created_at')
     list_filter = ('sensor_type', 'device__status')
     search_fields = ('device__device_name', 'sensor_type', 'unit')
     ordering = ('-created_at',)
@@ -20,8 +29,14 @@ class SensorAdmin(admin.ModelAdmin):
 @admin.register(SensorData)
 class SensorDataAdmin(admin.ModelAdmin):
     """Admin configuration for SensorData model."""
-
-    list_display = ('id', 'sensor', 'value', 'created_at', 'device_name')
+    # Show all concrete fields for full visibility; include helper device_name at end
+    def get_list_display(self, request):
+        fields = [f.name for f in self.model._meta.get_fields() if not (f.many_to_many or f.one_to_many)]
+        if 'id' in fields:
+            fields.remove('id')
+            fields = ['id'] + fields
+        # Append helper column to show device name inline
+        return tuple(fields + ['device_name'])
     list_filter = ('sensor__sensor_type', 'created_at')
     search_fields = ('sensor__device__device_name', 'sensor__sensor_type')
     ordering = ('-created_at',)
@@ -68,17 +83,26 @@ class SensorDataAdmin(admin.ModelAdmin):
 @admin.register(Alert)
 class AlertAdmin(admin.ModelAdmin):
     """Admin configuration for Alert model."""
+    # Display all model fields to make every column visible in admin
+    def get_list_display(self, request):
+        fields = [f.name for f in self.model._meta.get_fields() if not (f.many_to_many or f.one_to_many)]
+        # Ensure primary fields are prominent
+        priority = ['id', 'device', 'sensor', 'metric', 'severity', 'trigger', 'value', 'unit', 'is_read', 'is_acknowledged', 'is_resolved', 'created_at']
+        ordered = []
+        for p in priority:
+            if p in fields:
+                ordered.append(p)
+                fields.remove(p)
+        ordered.extend(fields)  # append any remaining fields (e.g., plant_name, recommendation, metadata, updated_at)
+        return tuple(ordered)
 
-    list_display = (
-        'id', 'device', 'sensor', 'metric', 'trigger', 'severity',
-        'value', 'unit', 'plant_name', 'short_recommendation', 'created_at',
-        'is_acknowledged', 'is_resolved'
-    )
-    list_filter = ('metric', 'trigger', 'severity', 'is_acknowledged', 'is_resolved', 'plant_category')
+    list_filter = ('metric', 'trigger', 'severity', 'is_read', 'is_acknowledged', 'is_resolved', 'plant_category')
     search_fields = ('title', 'recommendation', 'device__device_name', 'plant_name')
     ordering = ('-created_at',)
     raw_id_fields = ('device', 'sensor')
     list_select_related = ('device', 'sensor')
+    date_hierarchy = 'created_at'
+    list_per_page = 50
 
     def short_recommendation(self, obj):
         """Truncated recommendation for list view readability."""

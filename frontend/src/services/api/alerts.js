@@ -58,4 +58,23 @@ export async function listAlertsAll({ deviceId, ordering = '-created_at', pageSi
     return items;
 }
 
+/** Mark a single alert as read/unread */
+export async function markAlertRead(alertId, is_read = true) {
+    const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : null;
+    if (!token) throw new Error('No authentication token found');
+    const path = `/api/sensors/alerts/${alertId}/`;
+    return apiClient.patch(path, { is_read }, { authToken: token });
+}
+
+/** Bulk mark all alerts read/unread, optionally scoped to a device */
+export async function markAllAlertsRead({ deviceId, is_read = true } = {}) {
+    const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('authToken') : null;
+    if (!token) throw new Error('No authentication token found');
+    const path = `/api/sensors/alerts/mark-all-read/`;
+    const body = {};
+    if (deviceId) body.device = deviceId;
+    body.is_read = is_read;
+    return apiClient.post(path, body, { authToken: token });
+}
+
 export default { listAlerts };

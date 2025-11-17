@@ -87,6 +87,7 @@ class AlertSerializer(serializers.ModelSerializer):
             "plant_category",
             "title",
             "recommendation",
+            "is_read",
             "is_acknowledged",
             "acknowledged_at",
             "is_resolved",
