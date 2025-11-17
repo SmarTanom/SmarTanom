@@ -289,7 +289,7 @@ export default function AdminAlerts() {
               <h1 className="page-title">System Alerts</h1>
               <p className="page-subtitle">Monitor and manage all system notifications</p>
             </div>
-            <div className="header-stats">
+            <div className="header-actions">
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
@@ -303,29 +303,12 @@ export default function AdminAlerts() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  marginRight: '12px',
                   fontWeight: 600
                 }}
               >
                 <RefreshCw size={16} className={refreshing ? 'spinner' : ''} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
                 {refreshing ? 'Refreshing...' : 'Refresh'}
               </button>
-              <div className="stat-badge unread">
-                <Bell size={16} />
-                <span>{counts.unread} Unread</span>
-              </div>
-              <div className="stat-badge critical">
-                <AlertTriangle size={16} />
-                <span>{counts.critical} Critical</span>
-              </div>
-              <div className="stat-badge warning">
-                <AlertCircle size={16} />
-                <span>{counts.warning} Warnings</span>
-              </div>
-              <div className="stat-badge info">
-                <Info size={16} />
-                <span>{counts.info} Info</span>
-              </div>
             </div>
           </div>
 
@@ -346,7 +329,7 @@ export default function AdminAlerts() {
           </div>
         </header>
 
-        {/* Filter Section */}
+        {/* Filter Section (Status filter removed to avoid redundancy with header stats) */}
         <section className="filters-section">
           {/* Type Filters */}
           <div className="filter-group">
@@ -373,45 +356,11 @@ export default function AdminAlerts() {
               >
                 Warning ({counts.warning})
               </button>
-              <button
-                className={`filter-tab info ${typeFilter === 'info' ? 'active' : ''}`}
-                onClick={() => setTypeFilter('info')}
-              >
-                Info ({counts.info})
-              </button>
+              {/* Info filter removed per request */}
             </div>
           </div>
 
-          {/* Status Filters */}
-          <div className="filter-group">
-            <label className="filter-label">Status</label>
-            <div className="filter-tabs">
-              <button
-                className={`filter-tab ${statusFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setStatusFilter('all')}
-              >
-                All
-              </button>
-              <button
-                className={`filter-tab ${statusFilter === 'unread' ? 'active' : ''}`}
-                onClick={() => setStatusFilter('unread')}
-              >
-                Unread ({counts.unread})
-              </button>
-              <button
-                className={`filter-tab ${statusFilter === 'active' ? 'active' : ''}`}
-                onClick={() => setStatusFilter('active')}
-              >
-                Active ({counts.active})
-              </button>
-              <button
-                className={`filter-tab ${statusFilter === 'resolved' ? 'active' : ''}`}
-                onClick={() => setStatusFilter('resolved')}
-              >
-                Resolved ({counts.resolved})
-              </button>
-            </div>
-          </div>
+          {/* Status Filters removed per request */}
 
           {/* Advanced Filters */}
           <div className="filter-group inline">
@@ -551,35 +500,11 @@ export default function AdminAlerts() {
                     <p>{selectedAlert.timestamp.toLocaleString()}</p>
                   </div>
 
-                  <div className="detail-section">
-                    <label>Status</label>
-                    <p>
-                      {selectedAlert.resolved ? (
-                        <span className="status-resolved">
-                          <CheckCircle2 size={14} />
-                          Resolved
-                        </span>
-                      ) : (
-                        <span className="status-active">
-                          <AlertCircle size={14} />
-                          Active
-                        </span>
-                      )}
-                    </p>
-                  </div>
+                  {/* Status section removed per request */}
                 </div>
               </div>
 
               <div className="modal-footer">
-                {!selectedAlert.resolved && (
-                  <button
-                    className="btn btn-resolve"
-                    onClick={() => markAsResolved(selectedAlert.id)}
-                  >
-                    <CheckCircle2 size={18} />
-                    Mark as Resolved
-                  </button>
-                )}
                 <button
                   className="btn btn-view-device"
                   onClick={() => navigate(`/admin/devices`)}
