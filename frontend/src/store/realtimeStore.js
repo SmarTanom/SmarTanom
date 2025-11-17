@@ -7,7 +7,7 @@ import { getDeviceSensors, getSensorData } from '../services/api/sensors';
 import { getInitialDashboard } from '../services/api/dashboard';
 import { authApi } from '../services/apiClient';
 // Notifications API removed; read state is managed locally in the store
-import { listAlertsAll as listAllSensorAlerts } from '../services/api/alerts.js';
+import { listAlertsAll as listAllSensorAlerts, markAlertRead as apiMarkAlertRead, markAllAlertsRead as apiMarkAllAlertsRead } from '../services/api/alerts.js';
 
 // Helper utilities replicated minimally (consider DRY refactor later)
 const generateAlertText = (s) => {
@@ -109,8 +109,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
   _initialFetchedAt: null,
   loadingAlerts: false,
   errorAlerts: null,
-  // Track read status locally by reading_id -> true
-  readAlertIds: {},
+  // Server-authoritative read status via is_read on Alert
 
   // Clear all alert-related state (useful to avoid stale entries after deletions)
   clearAlerts: () => set({ deviceAlerts: {}, unreadCounts: {}, totalUnread: 0, latestAlerts: {} }),
@@ -304,12 +303,10 @@ export const useRealtimeStore = create(persist((set, get) => ({
         const deviceIdByLabel = new Map(devs.map(d => [
           `${d.device_name} (${d.device_serial})`, d.id
         ]));
-        const readMap = get().readAlertIds || {};
         alerts = (Array.isArray(rows) ? rows : []).map(a => {
           const label = a.device || '';
           const resolvedDeviceId = a.device_id || deviceIdByLabel.get(label);
           const readingId = (a?.metadata && (a.metadata.reading_id != null)) ? a.metadata.reading_id : a.id;
-          const isRead = !!readMap[readingId];
           return {
             id: a.id,
             reading_id: readingId,
@@ -318,7 +315,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
             body: a.recommendation,
             severity: a.severity,
             timestamp: a.created_at,
-            is_read: isRead,
+            is_read: !!a.is_read,
             sensor_type: a.metric,
             value: a.value,
           };
@@ -773,7 +770,13 @@ export const useRealtimeStore = create(persist((set, get) => ({
 
   markAlertAsRead: async (deviceId, readingId) => {
     try {
-      // Update local state only; backend notifications removed
+      // Find the alert id by reading_id and call API to mark read
+      const state = get();
+      const alerts = state.deviceAlerts[deviceId] || [];
+      const target = alerts.find(a => a.reading_id === readingId);
+      if (target?.id) {
+        await apiMarkAlertRead(target.id, true);
+      }
       set(state => {
         const deviceAlerts = { ...state.deviceAlerts };
         const alerts = deviceAlerts[deviceId] || [];
@@ -792,16 +795,10 @@ export const useRealtimeStore = create(persist((set, get) => ({
         if (unreadCounts[deviceId] > 0) {
           unreadCounts[deviceId] -= 1;
         }
-
-        // Track read id
-        const readAlertIds = { ...(state.readAlertIds || {}) };
-        readAlertIds[readingId] = true;
-
         return {
           deviceAlerts,
           unreadCounts,
           totalUnread: Math.max(0, state.totalUnread - 1),
-          readAlertIds,
         };
       });
     } catch (err) {
@@ -811,7 +808,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
 
   markAllDeviceAlertsRead: async (deviceId) => {
     try {
-      // Update local state only; backend notifications removed
+      await apiMarkAllAlertsRead({ deviceId, is_read: true });
       set(state => {
         const deviceAlerts = { ...state.deviceAlerts };
         const alerts = deviceAlerts[deviceId] || [];
@@ -824,15 +821,10 @@ export const useRealtimeStore = create(persist((set, get) => ({
         const unreadCounts = { ...state.unreadCounts };
         unreadCounts[deviceId] = 0;
 
-        // Track read ids
-        const readAlertIds = { ...(state.readAlertIds || {}) };
-        alerts.forEach(a => { readAlertIds[a.reading_id] = true; });
-
         return {
           deviceAlerts,
           unreadCounts,
           totalUnread: Math.max(0, state.totalUnread - unreadCount),
-          readAlertIds,
         };
       });
     } catch (err) {
@@ -848,6 +840,5 @@ export const useRealtimeStore = create(persist((set, get) => ({
     latestAlerts: state.latestAlerts,
     unreadCounts: state.unreadCounts,
     totalUnread: state.totalUnread,
-    readAlertIds: state.readAlertIds,
   }),
 }));
