@@ -87,20 +87,37 @@ export default function AdminAlerts() {
       setError(null);
       const response = await getAdminAlerts({ limit: 500 });
 
-      // Transform backend data to match frontend format
-      const transformedAlerts = response.alerts.map(alert => ({
-        id: alert.id,
-        type: alert.type,
-        device: alert.device?.name || 'Unknown Device',
-        deviceId: alert.device?.serial || alert.device?.id || 'N/A',
-        title: alert.title,
-        message: alert.message,
-        timestamp: new Date(alert.timestamp),
-        status: alert.status,
-        resolved: alert.resolved,
-        user: alert.user,
-        metadata: alert.metadata
-      }));
+      // Transform backend data to a consistent shape for UI consumption
+      const transformedAlerts = (response?.alerts || []).map(alert => {
+        const deviceName = alert?.device?.name || 'Unknown Device';
+        // Normalize device identifier to a string for reliable filtering
+        const deviceId = String(alert?.device?.serial || alert?.device?.id || 'N/A');
+        // Prefer explicit message, fallback to body if endpoint differs
+  const message = alert?.message || alert?.body || alert?.recommendation || '';
+        const title = alert?.title || 'Alert';
+        // Accept multiple timestamp field names and coerce to Date
+        const ts = alert?.timestamp || alert?.created_at || null;
+        const timestamp = ts ? new Date(ts) : new Date();
+        // Normalize read/resolved flags across endpoints
+        const status = alert?.status || (alert?.is_read ? 'read' : 'unread');
+        const resolved = (typeof alert?.resolved === 'boolean')
+          ? alert.resolved
+          : (alert?.status === 'sent');
+
+        return {
+          id: alert?.id,
+          type: alert?.type || alert?.severity || 'info',
+          device: deviceName,
+          deviceId,
+          title,
+          message,
+          timestamp,
+          status,
+          resolved,
+          user: alert?.user,
+          metadata: alert?.metadata || {}
+        };
+      });
 
       setAlerts(transformedAlerts);
     } catch (err) {
@@ -125,7 +142,7 @@ export default function AdminAlerts() {
       alert.device.toLowerCase().includes(searchQuery.toLowerCase());
 
     // Device filter
-    const matchesDevice = deviceFilter === 'all' || alert.deviceId === deviceFilter;
+  const matchesDevice = deviceFilter === 'all' || String(alert.deviceId) === String(deviceFilter);
 
     // Type filter
     const matchesType = typeFilter === 'all' || alert.type === typeFilter;
@@ -154,7 +171,7 @@ export default function AdminAlerts() {
 
   // Get unique devices for filter dropdown
   const devices = Array.from(
-    new Map(alerts.map(a => [a.deviceId, { id: a.deviceId, name: a.device }])).values()
+    new Map(alerts.map(a => [String(a.deviceId), { id: String(a.deviceId), name: a.device }])).values()
   );
 
   // Calculate filter counts
