@@ -28,6 +28,7 @@ import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminAlerts.css';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
+import AdminNavbar from '../components/admin/AdminNavbar.jsx';
 
 export default function AdminAlerts() {
   const navigate = useNavigate();
@@ -87,20 +88,37 @@ export default function AdminAlerts() {
       setError(null);
       const response = await getAdminAlerts({ limit: 500 });
 
-      // Transform backend data to match frontend format
-      const transformedAlerts = response.alerts.map(alert => ({
-        id: alert.id,
-        type: alert.type,
-        device: alert.device?.name || 'Unknown Device',
-        deviceId: alert.device?.serial || alert.device?.id || 'N/A',
-        title: alert.title,
-        message: alert.message,
-        timestamp: new Date(alert.timestamp),
-        status: alert.status,
-        resolved: alert.resolved,
-        user: alert.user,
-        metadata: alert.metadata
-      }));
+      // Transform backend data to a consistent shape for UI consumption
+      const transformedAlerts = (response?.alerts || []).map(alert => {
+        const deviceName = alert?.device?.name || 'Unknown Device';
+        // Normalize device identifier to a string for reliable filtering
+        const deviceId = String(alert?.device?.serial || alert?.device?.id || 'N/A');
+        // Prefer explicit message, fallback to body if endpoint differs
+  const message = alert?.message || alert?.body || alert?.recommendation || '';
+        const title = alert?.title || 'Alert';
+        // Accept multiple timestamp field names and coerce to Date
+        const ts = alert?.timestamp || alert?.created_at || null;
+        const timestamp = ts ? new Date(ts) : new Date();
+        // Normalize read/resolved flags across endpoints
+        const status = alert?.status || (alert?.is_read ? 'read' : 'unread');
+        const resolved = (typeof alert?.resolved === 'boolean')
+          ? alert.resolved
+          : (alert?.status === 'sent');
+
+        return {
+          id: alert?.id,
+          type: alert?.type || alert?.severity || 'info',
+          device: deviceName,
+          deviceId,
+          title,
+          message,
+          timestamp,
+          status,
+          resolved,
+          user: alert?.user,
+          metadata: alert?.metadata || {}
+        };
+      });
 
       setAlerts(transformedAlerts);
     } catch (err) {
@@ -125,7 +143,7 @@ export default function AdminAlerts() {
       alert.device.toLowerCase().includes(searchQuery.toLowerCase());
 
     // Device filter
-    const matchesDevice = deviceFilter === 'all' || alert.deviceId === deviceFilter;
+  const matchesDevice = deviceFilter === 'all' || String(alert.deviceId) === String(deviceFilter);
 
     // Type filter
     const matchesType = typeFilter === 'all' || alert.type === typeFilter;
@@ -154,7 +172,7 @@ export default function AdminAlerts() {
 
   // Get unique devices for filter dropdown
   const devices = Array.from(
-    new Map(alerts.map(a => [a.deviceId, { id: a.deviceId, name: a.device }])).values()
+    new Map(alerts.map(a => [String(a.deviceId), { id: String(a.deviceId), name: a.device }])).values()
   );
 
   // Calculate filter counts
@@ -229,52 +247,8 @@ export default function AdminAlerts() {
 
   return (
     <div className="admin-root">
-      {/* Sidebar navigation (desktop) */}
-      <aside className="admin-sidebar" aria-label="Admin sidebar">
-        <div className="brand">
-          <div className="brand-logo">
-            <img src={logoMarkWhite} alt="SmarTanom" />
-          </div>
-          <div className="brand-text">
-            <div className="brand-name">SmarTanom</div>
-            <div className="brand-subtitle">Dashboard</div>
-          </div>
-        </div>
-        <div className="side-nav-label">MENU</div>
-        <nav className="side-nav">
-          <button className="side-link" onClick={() => navigate('/admin')}>
-            <LayoutDashboard size={18} />
-            <span>Dashboard</span>
-          </button>
-          <button className="side-link" onClick={() => navigate('/admin/devices')}>
-            <Boxes size={18} />
-            <span>Devices</span>
-          </button>
-          <button className="side-link" onClick={() => navigate('/admin/create')}>
-            <Plus size={18} />
-            <span>Create</span>
-          </button>
-          <button className="side-link" onClick={() => navigate('/admin/users')}>
-            <Users size={18} />
-            <span>Users</span>
-          </button>
-          <button className="side-link active" onClick={() => navigate('/admin/alerts')}>
-            <Bell size={18} />
-            <span>Alerts</span>
-          </button>
-          <button className="side-link" onClick={() => navigate('/admin/settings')}>
-            <Settings size={18} />
-            <span>Settings</span>
-          </button>
-        </nav>
-        <div className="system-status">
-          <span className="status-dot online" />
-          <div>
-            <div className="status-title">System Online</div>
-            <div className="status-sub">All services operational</div>
-          </div>
-        </div>
-      </aside>
+      {/* Unified Admin navigation (includes User Dashboard link) */}
+      <AdminNavbar />
 
       {/* Main content */}
       <main className="admin-main">
@@ -331,6 +305,10 @@ export default function AdminAlerts() {
                 <RefreshCw size={16} className={refreshing ? 'spinner' : ''} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
                 {refreshing ? 'Refreshing...' : 'Refresh'}
               </button>
+              <div className="stat-badge unread">
+                <Bell size={16} />
+                <span>{counts.unread} Unread</span>
+              </div>
               <div className="stat-badge critical">
                 <AlertTriangle size={16} />
                 <span>{counts.critical} Critical</span>
@@ -478,9 +456,6 @@ export default function AdminAlerts() {
                     <div className="alert-header">
                       <h3 className="alert-title">{alert.title}</h3>
                       <div className="alert-badges">
-                        {alert.status === 'unread' && (
-                          <span className="badge unread-badge">New</span>
-                        )}
                         {alert.resolved && (
                           <span className="badge resolved-badge">
                             <CheckCircle2 size={12} />
@@ -504,15 +479,7 @@ export default function AdminAlerts() {
                     </div>
                   </div>
 
-                  <button
-                    className="view-detail-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      viewDetails(alert);
-                    }}
-                  >
-                    <Eye size={18} />
-                  </button>
+                  {/* view-detail-btn intentionally removed per UX request */}
                 </article>
               ))
             ) : (

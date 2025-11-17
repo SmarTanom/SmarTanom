@@ -243,93 +243,107 @@ class AdminDashboardViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def alerts(self, request):
         """
-        Get all notification logs/alerts for admin panel with filtering
-        Supports query params: type, status, device, user, limit
+        Get all device alerts across the system (admin aggregate).
+        Source of truth: apps.sensors.models.Alert, not delivery logs.
+        Supports query params: type (critical|warning|info), status (active|resolved|read|unread), device, user, limit
         """
         try:
-            # Base queryset - all notification logs
-            queryset = NotificationLog.objects.select_related('user').all()
+            from apps.sensors.models import Alert as SensorAlert
 
-            # Filter by notification type (critical, warning, info)
-            notification_type = request.query_params.get('type')
-            if notification_type:
-                queryset = queryset.filter(notification_type=notification_type)
+            # Base queryset: all alerts
+            queryset = SensorAlert.objects.select_related('device', 'sensor').all()
 
-            # Filter by status (sent, failed)
+            # Type filter maps to severity (critical|warning); 'info' yields empty
+            type_filter = request.query_params.get('type')
+            if type_filter:
+                if type_filter in ['critical', 'warning']:
+                    queryset = queryset.filter(severity=type_filter)
+                else:
+                    # No 'info' severity in SensorAlert; force empty set
+                    queryset = queryset.none()
+
+            # Status filter
             status_filter = request.query_params.get('status')
-            if status_filter:
-                queryset = queryset.filter(status=status_filter)
+            if status_filter == 'resolved':
+                queryset = queryset.filter(is_resolved=True)
+            elif status_filter == 'active':
+                queryset = queryset.filter(is_resolved=False)
+            elif status_filter == 'read':
+                queryset = queryset.filter(is_acknowledged=True)
+            elif status_filter == 'unread':
+                queryset = queryset.filter(is_acknowledged=False)
 
-            # Filter by device (from metadata)
+            # Device filter
             device_id = request.query_params.get('device')
             if device_id:
-                queryset = queryset.filter(metadata__device_id=device_id)
+                queryset = queryset.filter(device_id=device_id)
 
-            # Filter by user
+            # Optional user filter (show alerts for devices owned by that user's email)
             user_id = request.query_params.get('user')
             if user_id:
-                queryset = queryset.filter(user_id=user_id)
+                try:
+                    owner = User.objects.get(id=user_id)
+                    queryset = queryset.filter(device__bound_email=owner.email)
+                except User.DoesNotExist:
+                    queryset = queryset.none()
 
-            # Limit results
-            limit = request.query_params.get('limit', 100)
+            # Limit results (admin view defaults higher to aggregate more alerts)
+            limit = request.query_params.get('limit', 500)
             try:
                 limit = int(limit)
-                limit = min(limit, 500)  # Max 500 records
+                limit = min(limit, 2000)
             except ValueError:
-                limit = 100
+                limit = 500
 
-            # Order by most recent first
-            alerts = queryset.order_by('-sent_at')[:limit]
+            alerts = list(queryset.order_by('-created_at')[:limit])
 
-            # Format response
+            # Format response for the admin UI
             alert_data = []
-            for alert in alerts:
-                # Extract device info from metadata
+            for a in alerts:
                 device_info = None
-                if alert.metadata and 'device_id' in alert.metadata:
-                    device_id = alert.metadata.get('device_id')
-                    try:
-                        device = Device.objects.get(id=device_id)
+                try:
+                    d = a.device
+                    if d:
                         device_info = {
-                            'id': device.id,
-                            'serial': device.device_serial,
-                            'name': device.device_name or f'Device {device.device_serial}'
+                            'id': d.id,
+                            'serial': d.device_serial,
+                            'name': d.device_name or f'Device {d.device_serial}',
                         }
-                    except Device.DoesNotExist:
-                        device_info = {
-                            'id': device_id,
-                            'serial': f'DEV{device_id:03d}',
-                            'name': f'Device {device_id}'
-                        }
+                except Exception:
+                    device_info = None
+
+                # Best-effort owner for display (optional)
+                owner_payload = None
+                try:
+                    if a.device and a.device.bound_email:
+                        owner = User.objects.filter(email=a.device.bound_email).first()
+                        if owner:
+                            owner_payload = {
+                                'id': owner.id,
+                                'email': owner.email,
+                                'name': owner.full_name or owner.username or owner.email.split('@')[0],
+                            }
+                except Exception:
+                    owner_payload = None
 
                 alert_data.append({
-                    'id': alert.id,
-                    'type': alert.notification_type,
-                    'title': alert.title,
-                    'message': alert.message,
-                    'status': 'read' if alert.status == 'sent' else 'unread',
-                    'resolved': alert.status == 'sent',
+                    'id': a.id,
+                    'type': a.severity,  # 'critical' | 'warning'
+                    'title': a.title,
+                    'message': a.recommendation,
+                    'status': 'read' if a.is_acknowledged else 'unread',
+                    'resolved': bool(a.is_resolved),
                     'device': device_info,
-                    'user': {
-                        'id': alert.user.id,
-                        'email': alert.user.email,
-                        'name': alert.user.full_name or alert.user.email.split('@')[0]
-                    },
-                    'timestamp': alert.sent_at.isoformat(),
-                    'metadata': alert.metadata
+                    'user': owner_payload,
+                    'timestamp': a.created_at.isoformat(),
+                    'metadata': a.metadata or {},
                 })
 
-            return Response({
-                'count': len(alert_data),
-                'alerts': alert_data
-            })
+            return Response({'count': len(alert_data), 'alerts': alert_data})
 
         except Exception as e:
             logger.error(f"Error fetching admin alerts: {e}", exc_info=True)
-            return Response(
-                {'error': 'Failed to fetch alerts'},
-                status=500
-            )
+            return Response({'error': 'Failed to fetch alerts'}, status=500)
 
     @action(detail=False, methods=['get'])
     def users(self, request):

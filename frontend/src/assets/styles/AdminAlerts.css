@@ -69,6 +69,13 @@
   color: #2563eb;
 }
 
+/* Unread count badge */
+.stat-badge.unread {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
 /* Search Bar */
 .search-bar {
   position: relative;

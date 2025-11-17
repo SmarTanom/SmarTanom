@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -17,6 +17,8 @@ import '../../assets/styles/AdminLayout.css';
 const AdminNavbar = () => {
   const navigate = useNavigate();
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingPath, setPendingPath] = useState('');
 
   const navItems = [
     { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
@@ -64,7 +66,10 @@ const AdminNavbar = () => {
                 {isAlerts && (
                   <button
                     className={`side-link ${isActive('/dashboard') ? 'active' : ''}`}
-                    onClick={() => navigate('/dashboard')}
+                    onClick={() => {
+                      setPendingPath('/dashboard');
+                      setConfirmOpen(true);
+                    }}
                   >
                     <Leaf size={18} />
                     <span>User Dashboard</span>
@@ -100,6 +105,32 @@ const AdminNavbar = () => {
           );
         })}
       </nav>
+
+      {/* Confirm switch modal */}
+      {confirmOpen && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true">
+          <div className="confirm-modal">
+            <h3>Switch to User Dashboard?</h3>
+            <p>
+              You are about to leave the Admin area and open the User Dashboard. This may change available features and
+              filters. Do you want to continue?
+            </p>
+            <div className="confirm-actions">
+              <button className="confirm-btn confirm-secondary" onClick={() => setConfirmOpen(false)}>Cancel</button>
+              <button
+                className="confirm-btn confirm-primary"
+                onClick={() => {
+                  const target = pendingPath || '/dashboard';
+                  setConfirmOpen(false);
+                  navigate(target);
+                }}
+              >
+                Yes, switch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
