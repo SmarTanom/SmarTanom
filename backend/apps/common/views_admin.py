@@ -14,6 +14,7 @@ from apps.accounts.models import User
 from apps.notifications.models import NotificationLog
 from apps.sensors.models import SensorData
 from apps.sensors.models import Sensor
+from apps.notifications.models import AdminAlertReadReceipt
 import logging
 
 logger = logging.getLogger(__name__)
@@ -297,6 +298,20 @@ class AdminDashboardViewSet(viewsets.ViewSet):
 
             alerts = list(queryset.order_by('-created_at')[:limit])
 
+            # Fetch per-admin read receipts for these alerts
+            read_map = set()
+            try:
+                if alerts:
+                    alert_ids = [a.id for a in alerts]
+                    read_map = set(
+                        AdminAlertReadReceipt.objects.filter(
+                            user=request.user,
+                            alert_id__in=alert_ids
+                        ).values_list('alert_id', flat=True)
+                    )
+            except Exception as _read_err:
+                logger.warning(f"Could not load admin read receipts: {_read_err}")
+
             # Format response for the admin UI
             alert_data = []
             for a in alerts:
@@ -326,12 +341,15 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                 except Exception:
                     owner_payload = None
 
+                is_read = a.id in read_map
                 alert_data.append({
                     'id': a.id,
                     'type': a.severity,  # 'critical' | 'warning'
                     'title': a.title,
                     'message': a.recommendation,
-                    'status': 'read' if a.is_acknowledged else 'unread',
+                    # Use per-admin read status; do not leak global acknowledgment
+                    'status': 'read' if is_read else 'unread',
+                    'is_read': is_read,
                     'resolved': bool(a.is_resolved),
                     'device': device_info,
                     'user': owner_payload,
@@ -344,6 +362,40 @@ class AdminDashboardViewSet(viewsets.ViewSet):
         except Exception as e:
             logger.error(f"Error fetching admin alerts: {e}", exc_info=True)
             return Response({'error': 'Failed to fetch alerts'}, status=500)
+
+    @action(detail=False, methods=['post'])
+    def mark_read(self, request):
+        """Mark specific sensor alerts as read for the current admin only.
+        Expects JSON { "alert_ids": [1,2,3] }
+        Creates per-admin read receipts; idempotent.
+        """
+        try:
+            ids = request.data.get('alert_ids') or []
+            if not isinstance(ids, list) or not ids:
+                return Response({'error': 'alert_ids (list) is required'}, status=400)
+
+            # Deduplicate provided IDs
+            alert_ids = list({int(aid) for aid in ids if str(aid).isdigit()})
+            if not alert_ids:
+                return Response({'updated_count': 0, 'success': True})
+
+            # Create receipts for those not yet present
+            created = 0
+            from django.db import IntegrityError
+            for aid in alert_ids:
+                try:
+                    AdminAlertReadReceipt.objects.get_or_create(user=request.user, alert_id=aid)
+                    created += 1
+                except IntegrityError:
+                    # Already exists (unique constraint), skip
+                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to create read receipt for alert {aid}: {e}")
+
+            return Response({'success': True, 'updated_count': created})
+        except Exception as e:
+            logger.error(f"Error marking admin alerts as read: {e}", exc_info=True)
+            return Response({'error': 'Failed to mark alerts as read'}, status=500)
 
     @action(detail=False, methods=['get'])
     def users(self, request):

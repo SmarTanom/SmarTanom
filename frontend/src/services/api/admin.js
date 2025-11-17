@@ -225,6 +225,26 @@ export const getAdminAlerts = async (filters = {}) => {
   }
 };
 
+/**
+ * Mark specific admin alerts as read (per-admin only)
+ * @param {number[]} alertIds
+ * @returns {Promise<{success: boolean, updated_count: number}>}
+ */
+export const markAdminAlertsAsRead = async (alertIds = []) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await apiClient.post('/api/admin/dashboard/mark_read/', {
+      alert_ids: alertIds
+    }, {
+      authToken: token
+    });
+    return response;
+  } catch (error) {
+    console.error('Error marking admin alerts as read:', error);
+    throw error;
+  }
+};
+
 export default {
   getAdminStats,
   getRecentActivity,
@@ -236,5 +256,6 @@ export default {
   updateAdminPreferences,
   getUserDevices,
   deleteUser,
-  getAdminAlerts
+  getAdminAlerts,
+  markAdminAlertsAsRead
 };

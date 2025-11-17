@@ -22,7 +22,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
-import { getAdminAlerts } from '../services/api/admin';
+import { getAdminAlerts, markAdminAlertsAsRead } from '../services/api/admin';
 import { wsClient } from '../services/websocketClient';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import '../assets/styles/AdminLayout.css';
@@ -89,7 +89,7 @@ export default function AdminAlerts() {
       const response = await getAdminAlerts({ limit: 500 });
 
       // Transform backend data to a consistent shape for UI consumption
-      const transformedAlerts = (response?.alerts || []).map(alert => {
+  const transformedAlerts = (response?.alerts || []).map(alert => {
         const deviceName = alert?.device?.name || 'Unknown Device';
         // Normalize device identifier to a string for reliable filtering
         const deviceId = String(alert?.device?.serial || alert?.device?.id || 'N/A');
@@ -100,7 +100,7 @@ export default function AdminAlerts() {
         const ts = alert?.timestamp || alert?.created_at || null;
         const timestamp = ts ? new Date(ts) : new Date();
         // Normalize read/resolved flags across endpoints
-        const status = alert?.status || (alert?.is_read ? 'read' : 'unread');
+  const status = (alert?.is_read === true || alert?.status === 'read') ? 'read' : 'unread';
         const resolved = (typeof alert?.resolved === 'boolean')
           ? alert.resolved
           : (alert?.status === 'sent');
@@ -235,7 +235,12 @@ export default function AdminAlerts() {
     setSelectedAlert(alert);
     setShowDetailModal(true);
     if (alert.status === 'unread') {
+      // Optimistic update
       markAsRead(alert.id);
+      // Persist per-admin read receipt
+      markAdminAlertsAsRead([alert.id]).catch((e) => {
+        console.warn('[AdminAlerts] Failed to persist read receipt:', e);
+      });
     }
   };
 

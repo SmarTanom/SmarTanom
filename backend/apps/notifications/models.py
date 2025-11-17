@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class PushSubscription(models.Model):
@@ -248,3 +249,40 @@ class NotificationPreferences(models.Model):
             return False
 
         return self.allows_notification_type(notification_type)
+
+
+class AdminAlertReadReceipt(models.Model):
+    """Per-admin read receipts for sensor alerts.
+
+    Decouples admin UI read state from global delivery/read state so that
+    marking an alert as read in the admin does not affect end-user unread counts.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='admin_alert_reads',
+        help_text='Admin user who read this alert in the admin UI'
+    )
+
+    alert = models.ForeignKey(
+        'apps.sensors.Alert',
+        on_delete=models.CASCADE,
+        related_name='admin_read_receipts',
+        help_text='Sensor alert that was read by the admin'
+    )
+
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (('user', 'alert'),)
+        indexes = [
+            models.Index(fields=['user'], name='idx_adminread_user'),
+            models.Index(fields=['alert'], name='idx_adminread_alert'),
+            models.Index(fields=['read_at'], name='idx_adminread_read_at'),
+        ]
+        verbose_name = 'Admin Alert Read Receipt'
+        verbose_name_plural = 'Admin Alert Read Receipts'
+
+    def __str__(self):
+        return f"AdminRead(user={self.user_id}, alert={self.alert_id})"
