@@ -2205,6 +2205,7 @@ def initial_dashboard_data(request):
                 }
                 severity = severity_mapping.get(getattr(alert, 'notification_type', None), 'info')
 
+                # Use read_at to determine read state; delivery status is not read tracking
                 alerts.append({
                     'id': alert.id,
                     'reading_id': alert.id,
@@ -2213,7 +2214,7 @@ def initial_dashboard_data(request):
                     'body': alert.message,
                     'severity': severity,
                     'type': getattr(alert, 'notification_type', None),
-                    'is_read': alert.status == 'sent',
+                    'is_read': bool(getattr(alert, 'read_at', None)),
                     'timestamp': (alert.sent_at.isoformat() if getattr(alert, 'sent_at', None) else timezone.now().isoformat()),
                     'created_at': (alert.sent_at.isoformat() if getattr(alert, 'sent_at', None) else timezone.now().isoformat()),
                     'device': device_info,
