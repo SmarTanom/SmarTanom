@@ -11,10 +11,10 @@ from django.utils import timezone
 from datetime import timedelta
 from apps.devices.models import Device, DeviceCollaboration
 from apps.accounts.models import User
-from apps.notifications.models import NotificationLog
 from apps.sensors.models import SensorData
 from apps.sensors.models import Sensor
 from apps.notifications.models import AdminAlertReadReceipt
+from apps.sensors.models import Alert as SensorAlert
 import logging
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,7 @@ class AdminDashboardViewSet(viewsets.ViewSet):
 
             # Device Usage Trend (last 12 months)
             device_trend = []
+            # error_trend now represents monthly alert counts (critical + warning)
             error_trend = []
             months = []
 
@@ -93,21 +94,20 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                 devices_count = Device.objects.filter(created_at__lte=month_end).count()
                 device_trend.append(devices_count)
 
-                # Count notification errors for this month
-                error_count = NotificationLog.objects.filter(
-                    sent_at__gte=month_start,
-                    sent_at__lt=month_end,
-                    status='failed'
+                # Count alerts for this month using SensorAlert
+                error_count = SensorAlert.objects.filter(
+                    created_at__gte=month_start,
+                    created_at__lt=month_end,
                 ).count()
                 error_trend.append(error_count)
 
                 months.append(month_date.strftime('%b'))
 
-            # System Alerts (last 7 days)
+            # System Alerts (last 7 days) from SensorAlert
             seven_days_ago = now - timedelta(days=7)
-            recent_alerts = NotificationLog.objects.filter(
-                sent_at__gte=seven_days_ago
-            ).values('notification_type').annotate(count=Count('id'))
+            recent_alerts = SensorAlert.objects.filter(
+                created_at__gte=seven_days_ago
+            ).values('severity').annotate(count=Count('id'))
 
             alert_stats = {
                 'critical': 0,
@@ -117,14 +117,15 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             }
 
             for alert in recent_alerts:
-                ntype = alert['notification_type']
-                count = alert['count']
+                sev = alert.get('severity')
+                count = alert.get('count', 0)
                 alert_stats['total'] += count
-                if ntype in ['critical', 'alert']:
+                if sev == 'critical':
                     alert_stats['critical'] += count
-                elif ntype == 'warning':
+                elif sev == 'warning':
                     alert_stats['warning'] += count
                 else:
+                    # No 'info' severity in SensorAlert; keep key for UI compatibility
                     alert_stats['info'] += count
 
             # System Performance (based on sensor data freshness)
@@ -137,9 +138,11 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             disk_usage = min(85, 25 + (total_devices % 40))
 
             # Error Reports (last 30 days)
-            failed_notifications = NotificationLog.objects.filter(
-                sent_at__gte=thirty_days_ago,
-                status='failed'
+            # Use unresolved critical alerts as a proxy for "notification_failures"
+            failed_notifications = SensorAlert.objects.filter(
+                created_at__gte=thirty_days_ago,
+                severity='critical',
+                is_resolved=False,
             ).count()
 
             device_errors = Device.objects.filter(
@@ -195,7 +198,7 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             return Response(response_data)
 
         except Exception as e:
-            logger.error(f"Error fetching admin dashboard stats: {e}")
+            logger.error(f"Error fetching admin dashboard stats: {e}", exc_info=True)
             return Response(
                 {'error': 'Failed to fetch dashboard statistics'},
                 status=500
@@ -223,10 +226,18 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                 'id', 'email', 'full_name', 'date_joined', 'is_active'
             )
 
-            # Recent alerts
-            recent_alerts = NotificationLog.objects.order_by('-sent_at')[:10].values(
-                'id', 'notification_type', 'title', 'sent_at', 'status'
-            )
+            # Recent alerts (from SensorAlert)
+            _recent_alerts = SensorAlert.objects.order_by('-created_at')[:10]
+            recent_alerts = [
+                {
+                    'id': a.id,
+                    'notification_type': a.severity,  # keep key name for UI compatibility
+                    'title': a.title,
+                    'sent_at': a.created_at,
+                    'status': 'resolved' if a.is_resolved else 'active',
+                }
+                for a in _recent_alerts
+            ]
 
             return Response({
                 'recent_devices': list(recent_devices),
