@@ -81,8 +81,8 @@
 .perf-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .perf-row > span { font-weight:700; font-size:15px; color:#111; min-width:130px; flex-shrink:0; }
 .progress-row { display:flex; align-items:center; gap:14px; margin-left:auto; flex:1; min-width:200px; }
-.progress-bar { flex:1; height:8px; background:#f1f5f3; border-radius:999px; overflow:hidden; }
-.progress-fill { height:100%; background:#2eb72e; border-radius:999px; }
+.progress-bar { flex:1; height:10px; background:#f1f5f3; border-radius:999px; overflow:hidden; position:relative; }
+.progress-fill { position:absolute; top:0; left:0; height:100%; border-radius:999px; transition:width 0.4s ease, background 0.4s ease; }
 .progress-value { font-weight:800; color:#2eb72e; min-width:56px; text-align:right; font-size:15px; }
 .grade-card { background: #e8f5e9; border:1px solid #d0ead3; border-radius:12px; margin:12px 20px 16px; padding:18px 20px; display:flex; align-items:center; justify-content:space-between; }
 .grade-title { font-weight:800; color:#2eb72e; font-size:16px; margin:0; }
@@ -122,11 +122,25 @@
 /* Mobile adjustments for dashboard */
 @media (max-width: 480px) {
   .admin-title { font-size:24px; }
-  .progress-row { flex-direction:column; align-items:flex-start; margin-left:0; width:100%; }
-  .progress-bar { width:100%; max-width:100%; }
+  .progress-row { flex-direction:column; align-items:flex-start; margin-left:0 !important; width:100%; min-width:0 !important; }
+  .progress-bar { width:100%; max-width:100%; height:16px; background:#e4e9e7; border:1px solid #d0d6d3; border-radius:10px; position:relative; }
+  .progress-fill { position:absolute; top:0; left:0; height:100%; border-radius:10px; box-shadow:0 0 0 1px rgba(0,0,0,0.04); }
   .perf-row > span { width:100%; }
   .panel-title { font-size:15px; }
   .summary-value { font-size:36px; }
+}
+
+/* Ensure progress bars remain visible on ultra-narrow widths (<480px) */
+@media (max-width: 480px) {
+  .progress-row { min-width:0; }
+  .progress-bar { display:block; }
+}
+
+/* Additional ultra-small fix: stack perf-row entirely <420px */
+@media (max-width: 420px) {
+  .perf-row { flex-direction:column; align-items:flex-start; }
+  .perf-row > span { margin-bottom:6px; }
+  .progress-row { margin-left:0 !important; }
 }
 
 /* Ultra-small devices */

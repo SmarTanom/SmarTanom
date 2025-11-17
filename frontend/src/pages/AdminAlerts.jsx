@@ -455,9 +455,6 @@ export default function AdminAlerts() {
         {showDetailModal && selectedAlert && (
           <div className="modal-overlay" onClick={closeModal}>
             <div className="modal-content alert-detail-modal" onClick={(e) => e.stopPropagation()}>
-              <button className="modal-close" onClick={closeModal}>
-                <X size={20} />
-              </button>
 
               <div className={`modal-header ${selectedAlert.type}`}>
                 <div className="modal-icon">
@@ -465,17 +462,7 @@ export default function AdminAlerts() {
                 </div>
                 <div>
                   <h2 className="modal-title">{selectedAlert.title}</h2>
-                  <div className="modal-badges">
-                    <span className={`badge type-badge ${selectedAlert.type}`}>
-                      {selectedAlert.type.charAt(0).toUpperCase() + selectedAlert.type.slice(1)}
-                    </span>
-                    {selectedAlert.resolved && (
-                      <span className="badge resolved-badge">
-                        <CheckCircle2 size={12} />
-                        Resolved
-                      </span>
-                    )}
-                  </div>
+                 
                 </div>
               </div>
 
@@ -506,12 +493,7 @@ export default function AdminAlerts() {
               </div>
 
               <div className="modal-footer">
-                <button
-                  className="btn btn-view-device"
-                  onClick={() => navigate(`/admin/devices`)}
-                >
-                  View Device
-                </button>
+               
                 <button className="btn btn-secondary" onClick={closeModal}>
                   Close
                 </button>

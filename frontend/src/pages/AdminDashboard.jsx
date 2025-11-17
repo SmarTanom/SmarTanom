@@ -93,12 +93,31 @@ function DeviceTrendChart({ labels = [], series = [], chartRef }) {
 }
 
 function Progress({ value = 0, label }) {
+	const clamped = Math.min(100, Math.max(0, value));
+	const minDisplayed = clamped > 0 && clamped < 4 ? 4 : clamped; // ensure visibility for tiny percentages
+	// Color thresholds: low usage = green, medium = amber, high = red
+	let color = '#2eb72e';
+	if (clamped >= 70 && clamped < 85) color = '#f59e0b';
+	else if (clamped >= 85) color = '#e11d48';
 	return (
 		<div className="progress-row" aria-label={label}>
-			<div className="progress-bar">
-				<div className="progress-fill" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+			<div
+				className="progress-bar"
+				role="progressbar"
+				aria-valuenow={clamped}
+				aria-valuemin={0}
+				aria-valuemax={100}
+				data-usage={clamped}
+			>
+				<div
+					className="progress-fill"
+					style={{
+						width: `${minDisplayed}%`,
+						background: `linear-gradient(90deg, ${color}, ${color} 60%, ${color}CC)`
+					}}
+				/>
 			</div>
-			<span className="progress-value">{value.toFixed(1)}%</span>
+			<span className="progress-value">{clamped.toFixed(1)}%</span>
 		</div>
 	);
 }

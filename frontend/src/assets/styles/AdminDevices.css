@@ -253,9 +253,9 @@
 	overflow: visible;
 	width: 100%;
 	max-width: 100%;
-	/* Extra space so last device never sits flush against bottom nav */
-	padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
-	scroll-padding-bottom: 120px; /* mobile browsers: ensure scroll snapping leaves gap */
+	/* Use unified variables from AdminLayout for consistent bottom spacing */
+	padding-bottom: calc(var(--admin-bottom-nav-height) + var(--admin-bottom-extra-gap) + env(safe-area-inset-bottom, 0px));
+	scroll-padding-bottom: calc(var(--admin-bottom-nav-height) + var(--admin-bottom-extra-gap));
 }
 
 .device-card {

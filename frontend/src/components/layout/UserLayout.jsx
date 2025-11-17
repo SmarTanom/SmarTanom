@@ -130,9 +130,7 @@ export default function UserLayout({ children }) {
           >
             <Bell size={18} strokeWidth={2.5} />
             <span>Alerts</span>
-            <span className="user-nav-badge">
-              {sidebarUnread > 9 ? '9+' : String(sidebarUnread ?? 0)}
-            </span>
+
           </button>
 
           <button

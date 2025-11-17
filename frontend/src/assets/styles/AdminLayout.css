@@ -11,6 +11,8 @@
   --radius-2xl: 20px;
   --shadow: 0 8px 24px rgba(0,0,0,0.08);
   --sidebar-width: 260px;
+  --admin-bottom-nav-height: 64px; /* base height of bottom nav (without safe-area) */
+  --admin-bottom-extra-gap: 72px; /* increased gap for consistent clearance across all pages */
 }
 
 /* Utility animations */
@@ -205,13 +207,24 @@ html {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  /* Extra bottom padding so fixed bottom nav doesn't cover content */
-  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+  /* Unified mobile bottom spacing: nav height + extra gap + safe area */
+  padding-bottom: calc(var(--admin-bottom-nav-height) + var(--admin-bottom-extra-gap) + env(safe-area-inset-bottom, 0px));
   gap: 20px;
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
   min-width: 0; /* Allow content to shrink */
+}
+
+/* Consistent spacer so last content isn't hidden by bottom nav (mobile/tablet only) */
+@media (max-width: 1023.98px) {
+  .admin-main::after {
+    content: "";
+    display: block;
+    height: calc(var(--admin-bottom-nav-height) + var(--admin-bottom-extra-gap) + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    flex-shrink: 0;
+  }
 }
 
 /* Bottom navigation (mobile) */
@@ -229,6 +242,15 @@ html {
   box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
   z-index: 1600;
   gap: 8px;
+}
+
+@media (max-width: 425px) {
+  .admin-bottom-nav {
+    padding-left: 10px;
+    padding-right: 10px;
+    gap: 6px;
+  }
+  .bn-item { padding: 6px 8px; }
 }
 
 .bn-item {
@@ -283,26 +305,29 @@ html {
   .admin-main {
     padding: 32px 40px;
     margin-left: var(--sidebar-width); /* offset main content */
+    /* Desktop: remove extra bottom gap since no bottom nav */
+    padding-bottom: 40px;
   }
 }
 
 @media (max-width: 1023.98px) {
   .admin-main {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); /* Space for bottom nav */
+    /* Ensure consistent formula across tablet range */
+    padding-bottom: calc(var(--admin-bottom-nav-height) + var(--admin-bottom-extra-gap) + env(safe-area-inset-bottom, 0px));
   }
 }
 
 /* Tablet adjustments */
 @media (min-width: 768px) and (max-width: 1023.98px) {
   .admin-main {
-    padding: 24px 32px 96px;
+    padding: 24px 32px calc(var(--admin-bottom-nav-height) + var(--admin-bottom-extra-gap) + env(safe-area-inset-bottom, 0px));
   }
 }
 
 /* Mobile adjustments */
 @media (max-width: 767.98px) {
   .admin-main {
-    padding: 16px 16px calc(120px + env(safe-area-inset-bottom, 0px));
+    padding: 16px 16px calc(var(--admin-bottom-nav-height) + var(--admin-bottom-extra-gap) + env(safe-area-inset-bottom, 0px));
   }
 
   .brand {
