@@ -37,8 +37,8 @@ import { Line } from 'react-chartjs-2';
 
 ChartJS.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler);
 
-// Simple, self-contained sparkline/line path based on data points
-function DeviceTrendChart({ labels = [], series = [] }) {
+// Simple, self-contained line chart with gradient fill
+function DeviceTrendChart({ labels = [], series = [], chartRef }) {
 	const safeLabels = Array.isArray(labels) ? labels : [];
 	const safeSeries = Array.isArray(series) ? series : [];
 	const data = {
@@ -56,26 +56,40 @@ function DeviceTrendChart({ labels = [], series = [] }) {
 					return gradient;
 				},
 				fill: true,
-				pointRadius: 4,
-				pointHoverRadius: 5,
+				pointRadius: 3,
+				pointHoverRadius: 6,
+				pointHitRadius: 10,
 				tension: 0.35,
-				borderWidth: 3
+				borderWidth: 2
 			}
 		]
 	};
 	const options = {
 		responsive: true,
 		maintainAspectRatio: false,
-		plugins: { legend: { display: false }, tooltip: { intersect: false, mode: 'index' } },
+		plugins: {
+			legend: { display: false },
+			tooltip: {
+				intersect: false,
+				mode: 'index',
+				callbacks: {
+					label: (ctx) => {
+						const v = ctx.parsed.y ?? 0;
+						return `${v} devices`;
+					}
+				}
+			}
+		},
 		scales: {
 			x: { grid: { display: false }, ticks: { color: '#6f8876', font: { weight: 600 } } },
 			y: {
 				grid: { color: 'rgba(139,167,151,0.15)' },
-				ticks: { color: '#6f8876', font: { weight: 600 } }
+				ticks: { color: '#6f8876', font: { weight: 600 } },
+				beginAtZero: true
 			}
 		}
 	};
-	return <Line data={data} options={options} height={220} />;
+	return <Line ref={chartRef} data={data} options={options} height={220} />;
 }
 
 function Progress({ value = 0, label }) {
@@ -120,7 +134,35 @@ export default function AdminDashboard() {
 		};
 	}, [fetchAdminStats, connectAdminWS, setWsStatus]);
 
-	// Show loading state
+	// Extract data needed for hooks (safe defaults for early returns)
+	const trendLabels = stats?.device_trend?.map(d => d.month) || [];
+	const trendData = stats?.device_trend?.map(d => d.count) || [];
+
+	// Range selector state and memoized slices must be declared before any early return
+	const [chartRange, setChartRange] = useState('12m'); // '3m' | '6m' | '12m' | 'all'
+	const chartRef = useRef(null);
+	const { rangeLabels, rangeSeries } = useMemo(() => {
+		const allLabels = Array.isArray(trendLabels) ? trendLabels : [];
+		const allSeries = Array.isArray(trendData) ? trendData : [];
+		const map = { '3m': 3, '6m': 6, '12m': 12 };
+		if (chartRange === 'all' || allLabels.length === 0) {
+			return { rangeLabels: allLabels, rangeSeries: allSeries };
+		}
+		const n = map[chartRange] ?? 12;
+		return {
+			rangeLabels: allLabels.slice(-n),
+			rangeSeries: allSeries.slice(-n)
+		};
+	}, [chartRange, trendLabels, trendData]);
+	const kpis = useMemo(() => {
+		if (!rangeSeries || rangeSeries.length === 0) return { min: 0, max: 0, avg: 0 };
+		const min = Math.min(...rangeSeries);
+		const max = Math.max(...rangeSeries);
+		const avg = rangeSeries.reduce((a, b) => a + b, 0) / rangeSeries.length;
+		return { min, max, avg: Number.isFinite(avg) ? avg : 0 };
+	}, [rangeSeries]);
+
+	// Show loading state AFTER declaring hooks to preserve hook order
 	if (loading) {
 		return (
 			<div className="admin-root">
@@ -132,7 +174,7 @@ export default function AdminDashboard() {
 		);
 	}
 
-	// Show error state
+	// Show error state AFTER declaring hooks to preserve hook order
 	if (error) {
 		return (
 			<div className="admin-root">
@@ -161,7 +203,7 @@ export default function AdminDashboard() {
 		);
 	}
 
-	// Extract data from stats
+	// Extract data from stats for rest of UI
 	const summary = {
 		totalDevices: stats?.summary?.devices?.total || 0,
 		activeDevices: stats?.summary?.devices?.active || 0,
@@ -174,9 +216,6 @@ export default function AdminDashboard() {
 			total: stats?.summary?.growth?.devices || 0
 		}
 	};
-
-	const trendLabels = stats?.device_trend?.map(d => d.month) || [];
-	const trendData = stats?.device_trend?.map(d => d.count) || [];
 
 
 	const alerts = stats?.alerts || { critical: 0, warning: 0, info: 0 };
@@ -265,15 +304,75 @@ export default function AdminDashboard() {
 								<Activity size={18} />
 								<span>Device Usage Trend</span>
 							</div>
-							<button className="export-btn" type="button" onClick={() => window.alert('Exporting...')}>{/* placeholder */}
-								<BarChart2 size={16} />
-								<span>Export</span>
-							</button>
+							<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+								<div className="btn-group" role="group" aria-label="Chart range selector" style={{ background: '#f3f7f5', borderRadius: 999, padding: 2 }}>
+									{[
+										{ key: '3m', label: '3m' },
+										{ key: '6m', label: '6m' },
+										{ key: '12m', label: '12m' },
+										{ key: 'all', label: 'All' }
+									].map(btn => (
+										<button
+											key={btn.key}
+											type="button"
+											onClick={() => setChartRange(btn.key)}
+											style={{
+												border: 'none',
+												background: chartRange === btn.key ? '#ffffff' : 'transparent',
+												color: '#0d3923',
+												padding: '6px 10px',
+												borderRadius: 999,
+												cursor: 'pointer',
+												fontWeight: 600
+											}}
+										>
+											{btn.label}
+										</button>
+									))}
+								</div>
+								<button
+									className="export-btn"
+									type="button"
+									onClick={() => {
+										const chart = chartRef.current;
+										if (!chart) return;
+										const url = chart.toBase64Image ? chart.toBase64Image() : chart.canvas?.toDataURL?.('image/png');
+										if (!url) return;
+										const a = document.createElement('a');
+										a.href = url;
+										a.download = 'device-usage-trend.png';
+										a.click();
+									}}
+								>
+									<BarChart2 size={16} />
+									<span>Export</span>
+								</button>
+							</div>
 						</header>
 						<div className="panel-body">
-							<div style={{ height: 260 }}>
-								<DeviceTrendChart labels={trendLabels} series={trendData} />
-							</div>
+							{(rangeSeries && rangeSeries.length > 0) ? (
+								<>
+									<div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+										<div className="kpi-chip" title="Minimum">
+											<span style={{ color: '#6f8876', fontWeight: 600 }}>Min</span>
+											<strong style={{ marginLeft: 6 }}>{kpis.min}</strong>
+										</div>
+										<div className="kpi-chip" title="Average">
+											<span style={{ color: '#6f8876', fontWeight: 600 }}>Avg</span>
+											<strong style={{ marginLeft: 6 }}>{kpis.avg.toFixed(1)}</strong>
+										</div>
+										<div className="kpi-chip" title="Maximum">
+											<span style={{ color: '#6f8876', fontWeight: 600 }}>Max</span>
+											<strong style={{ marginLeft: 6 }}>{kpis.max}</strong>
+										</div>
+									</div>
+									<div style={{ height: 260 }}>
+										<DeviceTrendChart labels={rangeLabels} series={rangeSeries} chartRef={chartRef} />
+									</div>
+								</>
+							) : (
+								<div style={{ padding: '24px 8px', color: '#6f8876' }}>No trend data available.</div>
+							)}
 						</div>
 					</article>
 
