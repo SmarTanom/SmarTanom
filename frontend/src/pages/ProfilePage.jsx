@@ -9,7 +9,7 @@ import '../assets/styles/ProfilePage.css';
 import '../assets/styles/sharedAccess.css';
 import { authApi, apiClient } from '../services/apiClient';
 import { getUserDevices } from '../services/api/devices.js';
-import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation, getSentInvitations, cancelSentInvitation, resendInvitation } from '../services/api/sharing.js';
+import { shareDevice, getDeviceCollaborators, revokeDeviceAccess, getPendingInvitations, acceptDeviceInvitation, declineDeviceInvitation, getSentInvitations, cancelSentInvitation, resendInvitation, leaveSharedDevice } from '../services/api/sharing.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import PWAInstallButton from '../components/pwa/PWAInstallButton.jsx';
 import OtpInput from '../components/auth/OtpInput.jsx';
@@ -70,6 +70,10 @@ export default function ProfilePage() {
   const [otpSent, setOtpSent] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [toast, setToast] = useState(null);
+  // Leave shared device states
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leaveTargetDevice, setLeaveTargetDevice] = useState(null);
+  const [leaveLoading, setLeaveLoading] = useState(false);
   // Inline edit states
   const [isEditing, setIsEditing] = useState(false);
   // Username now used instead of separate first/last names
@@ -760,73 +764,73 @@ export default function ProfilePage() {
           </div>
           {accountInfoExpanded && (
             <div className="info-card">
-            {!isEditing ? (
-              <>
-                <div className="info-row">
-                  <span className="info-label">Username</span>
-                  <span className="info-value">{user.username || '—'}</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Email</span>
-                  <span className="info-value">{user.email}</span>
-                </div>
-                {/* Role and Member Since hidden per spec */}
-              </>
-            ) : (
-              <div className="edit-form">
-                <div className="form-group">
-                  <label className="form-label">Profile Photo</label>
-                  <div className="photo-upload-section">
-                    <input id="photo-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={onSelectPhoto} />
-                    <button className="btn-upload-photo" type="button" onClick={() => document.getElementById('photo-input').click()}>
-                      <User size={18} />
-                      Change Photo
+              {!isEditing ? (
+                <>
+                  <div className="info-row">
+                    <span className="info-label">Username</span>
+                    <span className="info-value">{user.username || '—'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Email</span>
+                    <span className="info-value">{user.email}</span>
+                  </div>
+                  {/* Role and Member Since hidden per spec */}
+                </>
+              ) : (
+                <div className="edit-form">
+                  <div className="form-group">
+                    <label className="form-label">Profile Photo</label>
+                    <div className="photo-upload-section">
+                      <input id="photo-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={onSelectPhoto} />
+                      <button className="btn-upload-photo" type="button" onClick={() => document.getElementById('photo-input').click()}>
+                        <User size={18} />
+                        Change Photo
+                      </button>
+                      {newPhotoFile && (
+                        <div className="photo-selected-indicator">
+                          <Check size={16} />
+                          <span>{newPhotoFile.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Username</label>
+                    <input
+                      className="form-input"
+                      value={editUsername}
+                      onChange={(e) => setEditUsername(e.target.value)}
+                      placeholder="Enter your username"
+                    />
+                  </div>
+                  {saveError && (
+                    <div className="form-error-banner" role="alert">
+                      <AlertCircle size={16} />
+                      <span>{saveError}</span>
+                    </div>
+                  )}
+                  <div className="edit-actions">
+                    <button className="btn-cancel" onClick={cancelEdit} disabled={saving}>
+                      <X size={16} />
+                      Cancel
                     </button>
-                    {newPhotoFile && (
-                      <div className="photo-selected-indicator">
-                        <Check size={16} />
-                        <span>{newPhotoFile.name}</span>
-                      </div>
-                    )}
+                    <button className="btn-save" onClick={saveProfile} disabled={saving}>
+                      {saving ? (
+                        <>
+                          <div className="btn-spinner" />
+                          Saving…
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} />
+                          Save Changes
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Username</label>
-                  <input
-                    className="form-input"
-                    value={editUsername}
-                    onChange={(e) => setEditUsername(e.target.value)}
-                    placeholder="Enter your username"
-                  />
-                </div>
-                {saveError && (
-                  <div className="form-error-banner" role="alert">
-                    <AlertCircle size={16} />
-                    <span>{saveError}</span>
-                  </div>
-                )}
-                <div className="edit-actions">
-                  <button className="btn-cancel" onClick={cancelEdit} disabled={saving}>
-                    <X size={16} />
-                    Cancel
-                  </button>
-                  <button className="btn-save" onClick={saveProfile} disabled={saving}>
-                    {saving ? (
-                      <>
-                        <div className="btn-spinner" />
-                        Saving…
-                      </>
-                    ) : (
-                      <>
-                        <Check size={16} />
-                        Save Changes
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
           )}
         </section>
 
@@ -845,7 +849,7 @@ export default function ProfilePage() {
                 </p>
               </div>
             </div>
-            <PWAInstallButton 
+            <PWAInstallButton
               onOpenModal={(type) => setPwaModalType(type)}
               onCloseModal={() => setPwaModalType(null)}
             />
@@ -1081,7 +1085,18 @@ export default function ProfilePage() {
                           <span className="permission-badge view">View-only</span>
                         </div>
                         <div className="access-divider" />
-                        {/* No actions for shared-with-me */}
+                        {/* Leave device action for collaborators */}
+                        <div className="access-actions">
+                          <button
+                            className="btn-revoke"
+                            onClick={() => { setLeaveTargetDevice(device); setShowLeaveConfirm(true); }}
+                            title={`Leave ${deviceName}`}
+                            aria-label={`Leave device ${deviceName}`}
+                          >
+                            <X size={14} />
+                            Leave Device
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -1412,6 +1427,60 @@ export default function ProfilePage() {
         cancelText="Keep"
         onConfirm={confirmCancelInvitation}
         onCancel={() => setCancelInviteId(null)}
+        confirmVariant="danger"
+      />
+
+      {/* Leave Shared Device Confirmation */}
+      <ConfirmModal
+        isOpen={showLeaveConfirm}
+        title="Leave Shared Device"
+        description={
+          leaveTargetDevice && (
+            <div>
+              <p style={{ margin: 0, color: '#2F3E46' }}>
+                Are you sure you want to leave <strong>{leaveTargetDevice.device_name || leaveTargetDevice.plant_name || `Device ${leaveTargetDevice.id}`}</strong>?
+              </p>
+              <p style={{ margin: '8px 0 0', color: '#6B7D75', fontSize: 14 }}>
+                You will immediately lose access to its monitoring data and alerts.
+              </p>
+            </div>
+          )
+        }
+        confirmText={leaveLoading ? 'Leaving…' : 'Leave Device'}
+        cancelText="Cancel"
+        onConfirm={async () => {
+          if (!leaveTargetDevice) return;
+          setLeaveLoading(true);
+          try {
+            await leaveSharedDevice(leaveTargetDevice.id);
+            // Remove from local devices list
+            setDevices(prev => Array.isArray(prev) ? prev.filter(d => d.id !== leaveTargetDevice.id) : prev);
+            setToast({ type: 'success', message: 'You left this device.' });
+            setShowLeaveConfirm(false);
+            setLeaveTargetDevice(null);
+          } catch (err) {
+            // Provide a clearer message when feature isn't available on backend yet
+            if (err?.status === 404 || err?.response?.status === 404) {
+              setToast({
+                type: 'error',
+                message: 'This server version does not support leaving a shared device yet. Please update the backend, or ask the owner to revoke your access.',
+              });
+            } else {
+              const msg = err?.response?.data?.error || err?.message || 'Failed to leave device';
+              setToast({ type: 'error', message: msg });
+            }
+            setShowLeaveConfirm(false);
+            setLeaveTargetDevice(null);
+          } finally {
+            setLeaveLoading(false);
+            // Refresh lists shortly after to reflect server truth
+            setTimeout(() => {
+              loadDevicesForSharing();
+              loadSharedAccess();
+            }, 500);
+          }
+        }}
+        onCancel={() => { setShowLeaveConfirm(false); setLeaveTargetDevice(null); }}
         confirmVariant="danger"
       />
 

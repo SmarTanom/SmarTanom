@@ -1023,6 +1023,72 @@ class DeviceViewSet(BaseAuthViewSet):
 
     # Device Collaboration Endpoints
 
+    @action(detail=True, methods=['post'], url_path='leave')
+    def leave_shared_device(self, request, pk=None):
+        """Allow a collaborator to revoke their own access (leave device).
+
+        POST /api/devices/{id}/leave/
+
+        Rules:
+        - Only the collaborator themself can leave a device that is shared with them
+        - Device owners cannot use this endpoint (they should unbind/revoke via owner/admin flows)
+        - No OTP required for self-leave
+        """
+        device = self.get_object()
+
+        # Owners cannot "leave" their own device
+        if (device.bound_email or '').lower() == (request.user.email or '').lower():
+            return Response(
+                {'error': 'Owners cannot leave their own device.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Find active collaboration for this user on this device
+        try:
+            collaboration = DeviceCollaboration.objects.get(
+                device=device,
+                collaborator_email__iexact=request.user.email,
+                status=DeviceCollaboration.Status.ACTIVE,
+            )
+        except DeviceCollaboration.DoesNotExist:
+            return Response(
+                {'error': 'Active collaboration not found for this device.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Revoke (self-leave)
+        collaboration.status = DeviceCollaboration.Status.REVOKED
+        try:
+            collaboration.revoked_by = request.user  # optional admin tracking field
+        except Exception:
+            # Best-effort; field allows null
+            pass
+        collaboration.revoked_at = timezone.now()
+        collaboration.save()
+
+        logger.info(
+            "User %s left device %s (serial=%s)",
+            request.user.email,
+            device.id,
+            device.device_serial,
+        )
+
+        # Broadcast WebSocket update so UIs can refresh immediately
+        try:
+            broadcast_device_update(
+                "collaborator_revoked",
+                device,
+                collaborator_email=request.user.email,
+                collaborator_id=getattr(request.user, 'id', None),
+                revoked_by_self=True,
+            )
+        except Exception:
+            logger.debug("WebSocket notify on collaborator leave failed", exc_info=True)
+
+        return Response({
+            'success': True,
+            'message': 'You have left this shared device.',
+        })
     @action(detail=True, methods=['post'], url_path='share')
     def share_device(self, request, pk=None):
         """Share a device with another user by email."""

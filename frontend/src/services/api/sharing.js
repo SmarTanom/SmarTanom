@@ -213,3 +213,23 @@ export const resendInvitation = async (invitationId) => {
     throw error;
   }
 };
+
+// Collaborator leaves a shared device (self-revoke)
+export const leaveSharedDevice = async (deviceId) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await apiClient.post(
+      `/api/devices/${encodeURIComponent(deviceId)}/leave/`,
+      {},
+      { authToken: token }
+    );
+    return response;
+  } catch (error) {
+    console.error('Failed to leave shared device:', error);
+    throw error;
+  }
+};
