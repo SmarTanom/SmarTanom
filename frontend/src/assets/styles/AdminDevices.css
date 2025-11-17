@@ -253,8 +253,9 @@
 	overflow: visible;
 	width: 100%;
 	max-width: 100%;
-	/* Reserve space for fixed bottom nav so last cards aren't hidden */
-	padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+	/* Extra space so last device never sits flush against bottom nav */
+	padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+	scroll-padding-bottom: 120px; /* mobile browsers: ensure scroll snapping leaves gap */
 }
 
 .device-card {
@@ -560,10 +561,32 @@
 
 /* Responsive adjustments to prevent clipping and overlap */
 @media (max-width: 640px) {
-	.device-card { flex-wrap: wrap; padding: 14px 16px !important; }
-	.device-info { flex: 1 1 100%; flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
-	.device-status-row { width: 100%; }
-	.device-actions { width: 100%; justify-content: space-between; margin-top: 8px; }
+	.device-card { 
+		flex-direction: column !important; 
+		align-items: flex-start !important; 
+		padding: 14px 16px !important; 
+		gap: 12px !important; 
+	}
+	.device-icon { width: 48px; height: 48px; }
+	.device-info { 
+		flex: 1 1 auto; 
+		width: 100%; 
+		flex-direction: column !important; 
+		align-items: flex-start !important; 
+		gap: 10px !important; 
+		min-width: 0 !important; 
+		overflow: visible; 
+	}
+	.device-main-info { min-width: 0 !important; width: 100%; }
+	.device-status-row { width: 100%; order: 3; }
+	.device-actions { 
+		width: 100%; 
+		justify-content: flex-start; 
+		margin-top: 4px; 
+		gap: 8px !important; 
+		flex-wrap: wrap !important; 
+	}
+	.device-actions button { flex: 1 1 calc(50% - 8px); min-width: 0; }
 }
 @media (max-width: 420px) {
 	.device-card { padding: 12px 14px !important; }
@@ -822,13 +845,32 @@
 .modal-overlay {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.5);
+	background: rgba(0, 0, 0, 0.55);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	z-index: 1000;
+	z-index: 2200; /* above bottom nav (1600) and sidebar (1600) */
 	padding: 20px;
 	backdrop-filter: blur(4px);
+	overscroll-behavior: contain;
+}
+
+/* Mobile adjustments: ensure modal content isn't hidden behind fixed bottom nav */
+@media (max-width: 1023.98px) {
+	.modal-overlay { padding: 24px 14px 24px; }
+	.device-modal {
+		max-height: calc(100dvh - 32px); /* near full height; overlay covers nav */
+		padding: 20px 18px 20px;
+		padding-bottom: 90px; /* space for sticky actions */
+	}
+	.modal-actions {
+		position: sticky;
+		bottom: 0;
+		background: linear-gradient(to top,#ffffff 80%, rgba(255,255,255,0.85));
+		padding: 12px 0 0;
+		margin-top: 8px;
+		box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+	}
 }
 
 .device-modal {
@@ -838,7 +880,7 @@
 	padding: 28px 28px 26px; /* slightly reduced top padding now that top close button removed */
 	max-width: 520px;
 	width: 100%;
-	max-height: 90vh;
+	max-height: 90vh; /* desktop default */
 	overflow-y: auto;
 	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
@@ -1413,6 +1455,20 @@
 	background: #fff;
 	border: 1px solid #E8F1EA;
 	border-radius: 12px;
+}
+
+/* Override earlier height cap so mobile stacked layout shows all content */
+@media (max-width: 640px) {
+	.devices-list .device-card {
+		max-height: none !important;
+		min-height: auto !important;
+		height: auto !important;
+		overflow: visible !important;
+	}
+	.devices-list .device-card .device-info,
+	.devices-list .device-card .device-main-info,
+	.devices-list .device-card .device-status-row,
+	.devices-list .device-card .device-actions { display: flex !important; }
 }
 
 .bound-device-info {
