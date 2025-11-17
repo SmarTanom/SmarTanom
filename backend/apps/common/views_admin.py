@@ -103,11 +103,8 @@ class AdminDashboardViewSet(viewsets.ViewSet):
 
                 months.append(month_date.strftime('%b'))
 
-            # System Alerts (last 7 days) from SensorAlert
-            seven_days_ago = now - timedelta(days=7)
-            recent_alerts = SensorAlert.objects.filter(
-                created_at__gte=seven_days_ago
-            ).values('severity').annotate(count=Count('id'))
+            # System Alerts (all time) from SensorAlert to match Admin Alerts page default
+            recent_alerts = SensorAlert.objects.values('severity').annotate(count=Count('id'))
 
             alert_stats = {
                 'critical': 0,
@@ -210,7 +207,7 @@ class AdminDashboardViewSet(viewsets.ViewSet):
             return 100.0 if new_count > 0 else 0.0
         return ((new_count - old_count) / old_count) * 100
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='activity')
     def recent_activity(self, request):
         """
         Get recent system activity
