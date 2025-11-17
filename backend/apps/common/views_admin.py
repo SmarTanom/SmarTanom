@@ -125,14 +125,34 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                     # No 'info' severity in SensorAlert; keep key for UI compatibility
                     alert_stats['info'] += count
 
-            # System Performance (based on sensor data freshness)
+            # System Performance
+            # Prefer real host metrics via psutil when available; fallback to activity-based proxy
             one_hour_ago = now - timedelta(hours=1)
             recent_sensor_data = SensorData.objects.filter(created_at__gte=one_hour_ago).count()
 
-            # Calculate performance metrics
-            cpu_usage = min(95, 30 + (recent_sensor_data % 40))  # Simulated based on activity
-            memory_usage = min(90, 45 + (active_devices % 30))
-            disk_usage = min(85, 25 + (total_devices % 40))
+            cpu_usage = None
+            memory_usage = None
+            disk_usage = None
+            try:
+                import os
+                from pathlib import Path
+                import psutil  # type: ignore
+
+                # psutil can return instantaneous or sampled values; short interval keeps it fast
+                cpu_usage = float(psutil.cpu_percent(interval=0.1))
+                memory_usage = float(psutil.virtual_memory().percent)
+
+                # Choose a sensible root path across OSes
+                try:
+                    root = Path(os.getcwd()).anchor or '/'
+                except Exception:
+                    root = '/'
+                disk_usage = float(psutil.disk_usage(root).percent)
+            except Exception:
+                # Fallback to proxy metrics derived from activity if psutil unavailable
+                cpu_usage = float(min(95, 30 + (recent_sensor_data % 40)))
+                memory_usage = float(min(90, 45 + (active_devices % 30)))
+                disk_usage = float(min(85, 25 + (total_devices % 40)))
 
             # Error Reports (last 30 days)
             # Use unresolved critical alerts as a proxy for "notification_failures"
@@ -181,9 +201,9 @@ class AdminDashboardViewSet(viewsets.ViewSet):
                 ],
                 'alerts': alert_stats,
                 'performance': {
-                    'cpu_usage': round(cpu_usage, 1),
-                    'memory_usage': round(memory_usage, 1),
-                    'disk_usage': round(disk_usage, 1)
+                    'cpu_usage': round(float(cpu_usage), 1),
+                    'memory_usage': round(float(memory_usage), 1),
+                    'disk_usage': round(float(disk_usage), 1)
                 },
                 'errors': {
                     'total': total_errors,
