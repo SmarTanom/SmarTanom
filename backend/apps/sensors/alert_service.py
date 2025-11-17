@@ -37,49 +37,118 @@ class SensorAlertService:
 
     # Plant-specific recommendation templates
     PLANT_RECOMMENDATION_TEMPLATES = {
-        "Lettuce": {
-            "general": "Keep roots cool and solution well oxygenated.",
+        # Default (stage-specific) templates used for generic plants with growth stages
+        "Default_Germination": {
+            "general": "Use clean, pH‑balanced water (5.5–6.0). Keep solution 18–24°C and well‑aerated.",
             "ph": {
-                "below_min": "Raise slowly to avoid nutrient lockout; aim 5.8–6.2.",
-                "above_max": "Slightly high pH can reduce iron uptake; adjust 0.2 at a time.",
-                "near_min": "Trend downward? Buffer with small pH Up dose.",
-                "near_max": "Monitor — drifting high may cause tip burn risk.",
+                "below_min": "Too acidic for sprouting. Raise reservoir pH slowly to 5.5–6.0.",
+                "above_max": "Too alkaline for sprouting. Gently lower to 5.5–6.0.",
+                "near_min": "Monitor trend; a very small pH Up dose may help.",
+                "near_max": "If drifting high, plan a gentle pH Down correction.",
             },
             "tds": {
-                "below_min": "Increase EC gradually (no more than +100 ppm per adjustment).",
-                "above_max": "Dilute to avoid bitterness; target mid‑range.",
-                "near_min": "Plan a mild nutrient top-up soon.",
-                "near_max": "If leaves pale or edges curl, dilute slightly.",
+                "below_min": "Low nutrients are OK at germination. Consider plain pH’d water until cotyledons show.",
+                "above_max": "Too concentrated for new roots. Dilute reservoir with plain pH’d water.",
+                "near_min": "Ideal for sprouting; maintain moisture and oxygen.",
+                "near_max": "Close to the upper limit. Watch for salt stress and dilute if needed.",
             },
             "ec": {
-                "below_min": "Increase EC gradually (0.2-0.3 mS/cm per adjustment).",
-                "above_max": "Dilute to avoid nutrient lockout; target mid‑range.",
-                "near_min": "Plan a mild nutrient top-up soon.",
-                "near_max": "Monitor for signs of nutrient burn.",
-            },
-            "light": {
-                "below_min": "Add supplemental light or reduce canopy shading.",
-                "above_max": "Too intense light can cause tip burn; raise fixture or diffuse.",
-                "near_min": "Consider extending photoperiod if growth slows.",
-                "near_max": "Watch for leaf edge curl — may need to raise lights.",
-            },
-            "environment_temp": {
-                "below_min": "Cool air slows growth — ensure adequate circulation but avoid drafts.",
-                "above_max": "High heat risks bolting — increase ventilation or shading.",
-                "near_min": "If trend continues, pre‑warm incoming air.",
-                "near_max": "Improve airflow to stabilize temperature.",
+                "below_min": "Low EC is fine for sprouting. Introduce mild nutrients only after emergence.",
+                "above_max": "High EC dehydrates new roots. Dilute immediately.",
+                "near_min": "Acceptable for germination; keep consistent.",
+                "near_max": "Near upper limit for sprouting. Consider slight dilution.",
             },
             "water_temperature": {
-                "below_min": "Cold roots slow nutrient uptake — insulate reservoir.",
-                "above_max": "Warm solution lowers dissolved oxygen; consider chilling.",
-                "near_min": "Monitor nightly lows; add insulation if dropping further.",
-                "near_max": "Aerate more or partially replace with cooler water.",
+                "below_min": "Cold solution slows germination. Insulate reservoir or add a small heater.",
+                "above_max": "Warm solution (>24°C) risks pathogens. Add cooling and extra aeration.",
+                "near_min": "A bit cool. Buffer nightly lows; insulate if needed.",
+                "near_max": "On the warm side. Increase aeration to keep oxygen up.",
             },
-            "humidity": {
-                "below_min": "Low RH increases transpiration — add gentle misting.",
-                "above_max": "High RH risks mildew — add airflow / dehumidify.",
-                "near_min": "If leaves wilt mid‑day, raise RH slightly.",
-                "near_max": "Ensure leaves dry before dark period.",
+        },
+
+        "Default_Seedling": {
+            "general": "Introduce a light nutrient solution. Maintain gentle airflow and strong aeration.",
+            "ph": {
+                "below_min": "Too acidic. Raise reservoir pH slowly toward 5.5–6.0.",
+                "above_max": "Too alkaline. Lower reservoir pH gently toward 5.5–6.0.",
+                "near_min": "Trend downward? Add a small pH Up dose and re‑test.",
+                "near_max": "Monitor; drifting higher can limit uptake for young roots.",
+            },
+            "tds": {
+                "below_min": "Nutrients low. Add a mild top‑up suitable for seedlings.",
+                "above_max": "Too strong for young plants. Dilute with fresh pH’d water.",
+                "near_min": "Plan a gentle feed soon if growth slows.",
+                "near_max": "Near upper limit. Watch leaf tips for burn; dilute slightly if needed.",
+            },
+            "ec": {
+                "below_min": "Increase EC gradually (small steps) and re‑test.",
+                "above_max": "Too high for seedlings. Dilute reservoir to mid‑range.",
+                "near_min": "Slightly low; consider a mild feed.",
+                "near_max": "Close to upper limit. Slight dilution may help.",
+            },
+            "water_temperature": {
+                "below_min": "Cold roots slow uptake. Insulate reservoir or add a heater.",
+                "above_max": "Warm solution lowers oxygen. Add cooling or partially replace with cooler water.",
+                "near_min": "Monitor nightly lows; protect against further drops.",
+                "near_max": "Increase aeration to maintain oxygen levels.",
+            },
+        },
+
+        "Default_Growing": {
+            "general": "Keep conditions stable; adjust in small steps and re‑check.",
+            "ph": {
+                "below_min": "Raise pH gradually toward mid‑range; mix and re‑test.",
+                "above_max": "Lower pH slowly (~0.2 steps) to restore availability.",
+                "near_min": "Monitor; a small pH Up correction may help.",
+                "near_max": "Drifting up — plan a gentle pH Down.",
+            },
+            "tds": {
+                "below_min": "Increase nutrient concentration gradually; observe new growth.",
+                "above_max": "Dilute or partial drain/refill to reduce salt stress.",
+                "near_min": "Plan a mild top‑up soon.",
+                "near_max": "Consider slight dilution if burn symptoms appear.",
+            },
+            "ec": {
+                "below_min": "Increase EC in small increments and re‑test.",
+                "above_max": "Dilute to mid‑range to avoid lockout.",
+                "near_min": "Monitor; mild feed if trending downward.",
+                "near_max": "Slight dilution can relieve stress near the top end.",
+            },
+            "water_temperature": {
+                "below_min": "Insulate or gently warm reservoir; cold reduces uptake.",
+                "above_max": "Cool solution and boost aeration to maintain oxygen.",
+                "near_min": "Monitor lows; prepare heating if needed.",
+                "near_max": "Consider partial swap with cooler water; aerate more.",
+            },
+        },
+
+        
+        # Growing-stage explicit templates (alias the base crop guidance with tiny emphasis tweaks)
+        "Lettuce_Growing": {
+            "general": "Maintain steady feed and cool roots for firm heads.",
+            "ph": {
+                "below_min": "Raise pH gradually toward 5.8–6.2 to keep nutrients available.",
+                "above_max": "High pH reduces Fe uptake — lower ~0.2 and re‑test.",
+                "near_min": "Trend down? Small pH Up micro‑dose.",
+                "near_max": "Close to high end — watch tip burn risk and correct gently.",
+            },
+            "tds": {
+                "below_min": "Increase EC gradually; support head formation.",
+                "above_max": "Dilute to avoid bitterness/tip burn; aim mid‑range.",
+                "near_min": "Plan a modest nutrient top‑up soon.",
+                "near_max": "If edges curl or tips brown, dilute slightly.",
+            },
+            "ec": {
+                "below_min": "Increase EC by ~0.2–0.3 mS/cm and re‑test.",
+                "above_max": "Dilute to relieve salt stress; return to mid‑range.",
+                "near_min": "Schedule a mild feed to avoid slowdown.",
+                "near_max": "Monitor for burn; slight dilution may help.",
+            },
+            "water_temperature": {
+                "below_min": "Warm gently; cold roots slow uptake.",
+                "above_max": "Cool solution; low O2 risks quality. Add aeration.",
+                "near_min": "Insulate if nightly lows persist.",
+                "near_max": "Increase aeration or add cooler top‑up water.",
             },
         },
         "Lettuce_Germination": {
@@ -172,13 +241,14 @@ class SensorAlertService:
             "near_max": "Ensure good airflow to prevent mildew on tender leaves."
             }
         },
-        "Basil": {
-            "general": "Ensure consistent pruning to encourage airflow.",
+        
+        "Basil_Growing": {
+            "general": "Steady feed and airflow enhance aroma and leaf mass.",
             "ph": {
-                "below_min": "Low pH can mute aroma compounds — raise gradually.",
+                "below_min": "Low pH can mute aroma — raise gradually.",
                 "above_max": "High pH reduces micronutrient availability — adjust slowly.",
                 "near_min": "Stabilize with small pH Up micro‑dose.",
-                "near_max": "If trending higher, perform partial dilution.",
+                "near_max": "If trending higher, partial dilution often helps.",
             },
             "tds": {
                 "below_min": "Slight boost supports leaf mass; add balanced nutrients.",
@@ -187,34 +257,16 @@ class SensorAlertService:
                 "near_max": "Maintain airflow; high EC plus heat stresses basil.",
             },
             "ec": {
-                "below_min": "Slight boost supports leaf mass; add balanced nutrients.",
-                "above_max": "Excess salts can dull flavor — dilute 10–20%.",
-                "near_min": "Consider mild feed if new growth is pale.",
-                "near_max": "Maintain airflow; high EC plus heat stresses basil.",
-            },
-            "light": {
-                "below_min": "Increase PPFD for compact, aromatic growth.",
-                "above_max": "Too much light may cause chlorosis — raise fixture.",
-                "near_min": "Extend photoperiod a little for fuller canopy.",
-                "near_max": "Watch for leaf curl; diffuse if necessary.",
-            },
-            "environment_temp": {
-                "below_min": "Basil slows < optimal temp — avoid cold drafts.",
-                "above_max": "High heat + high RH invites fungus — vent promptly.",
-                "near_min": "If nights are cool, buffer with thermal mass.",
-                "near_max": "Improve evaporative cooling or shading.",
+                "below_min": "Increment EC gently and watch aroma/leaf response.",
+                "above_max": "Dilute back to mid‑range for flavor quality.",
+                "near_min": "Mild feed may be beneficial.",
+                "near_max": "Slight dilution and airflow help avoid stress.",
             },
             "water_temperature": {
-                "below_min": "Cool solution reduces root vigor — gently warm.",
-                "above_max": "Warm solution invites pathogen pressure — cool it.",
-                "near_min": "Insulate lines if chill is recurring.",
+                "below_min": "Warm solution to 21–25°C; cool roots slow basil.",
+                "above_max": "Too warm risks pathogens — cool and aerate.",
+                "near_min": "Insulate if chill reappears.",
                 "near_max": "Increase aeration to maintain oxygen.",
-            },
-            "humidity": {
-                "below_min": "Low RH can stunt tender tips — raise slightly.",
-                "above_max": "Prone to downy mildew — dehumidify now.",
-                "near_min": "Monitor leaf edge dry‑out.",
-                "near_max": "Ensure canopy dries before dark.",
             },
         },
         "Basil_Germination": {
@@ -307,49 +359,32 @@ class SensorAlertService:
             "near_max": "Ensure canopy dries before dark."
             }
         },
-        "Pechay": {
-            "general": "Keep solution fresh; steady feed and airflow help tight heads.",
+        
+        "Pechay_Growing": {
+            "general": "Steady nutrients and cool solution reduce bolting risk.",
             "ph": {
                 "below_min": "Raise toward mid‑6s slowly to maintain nutrient availability.",
-                "above_max": "High pH limits Ca uptake — lower by ~0.2 and re‑test.",
+                "above_max": "High pH limits Ca uptake — lower ~0.2 and re‑test.",
                 "near_min": "Trend down? Add a small pH Up dose and monitor.",
                 "near_max": "If drifting up, plan a gentle pH Down correction.",
             },
             "tds": {
                 "below_min": "Increase EC gradually; watch for pale leaves or slowed growth.",
-                "above_max": "Dilute to prevent bitterness and tip burn; target mid‑range.",
+                "above_max": "Dilute to prevent bitterness and tip burn; aim mid‑range.",
                 "near_min": "Schedule a modest nutrient top‑up soon.",
                 "near_max": "If edges curl or tips brown, dilute slightly.",
             },
             "ec": {
-                "below_min": "Increase EC in small steps (≈0.2–0.3 mS/cm) and re‑test.",
-                "above_max": "Dilute to avoid salt stress; aim for mid‑range.",
-                "near_min": "Plan a mild feed to avoid slowdown.",
-                "near_max": "Monitor for burn; slight dilution may help.",
-            },
-            "light": {
-                "below_min": "Provide bright, even light; reduce canopy shading.",
-                "above_max": "Diffuse or raise fixture to avoid leaf scorch.",
-                "near_min": "Extend photoperiod slightly if growth is leggy.",
-                "near_max": "Watch for curling — raise or dim lights if needed.",
-            },
-            "environment_temp": {
-                "below_min": "Cool air slows head formation — reduce drafts and heat gently.",
-                "above_max": "Heat can cause bolting — improve ventilation or shading.",
-                "near_min": "If trend continues, buffer nights with thermal mass.",
-                "near_max": "Enhance airflow to stabilize temperature.",
+                "below_min": "Raise EC in small steps and re‑test.",
+                "above_max": "Dilute to avoid salt stress; return to mid‑range.",
+                "near_min": "Mild feed can prevent slowdown.",
+                "near_max": "Slight dilution may help if burn appears.",
             },
             "water_temperature": {
-                "below_min": "Gently warm solution; cold roots slow uptake.",
-                "above_max": "Cool solution to maintain oxygen; consider partial swap.",
-                "near_min": "Insulate reservoir if nightly lows persist.",
+                "below_min": "Warm solution gently; cold roots slow uptake.",
+                "above_max": "Cool solution and add aeration to keep oxygen high.",
+                "near_min": "Insulate reservoir when nightly lows persist.",
                 "near_max": "Increase aeration or add cooler top‑up water.",
-            },
-            "humidity": {
-                "below_min": "Raise RH modestly (misters/trays) to reduce stress.",
-                "above_max": "Increase airflow; brassicas are mildew‑prone.",
-                "near_min": "Monitor midday wilt; bump RH slightly if needed.",
-                "near_max": "Ensure leaves dry before dark to prevent disease.",
             },
         },
 
@@ -729,13 +764,35 @@ class SensorAlertService:
 
     @staticmethod
     def _plant_category_for(plant_name: Optional[str]) -> str:
+        """Map a free-form plant name to a recommendation template category.
+
+        Supports base crops (Lettuce, Basil, Pechay) and stage suffixes
+        (Germination, Seedling, Growing). Also recognizes "Default" stage
+        plants and maps them to Default_* categories; otherwise falls back to Generic.
+        """
         name = (plant_name or "").strip().lower()
-        if name == "lettuce":
-            return "Lettuce"
-        if name == "basil":
-            return "Basil"
-        if name == "pechay":
-            return "Pechay"
+
+        # Determine stage from name tokens
+        stage = None
+        if "germination" in name:
+            stage = "Germination"
+        elif "seedling" in name:
+            stage = "Seedling"
+        elif "grow" in name:  # matches growing/grow
+            stage = "Growing"
+
+        # Known crops
+        if "lettuce" in name:
+            return f"Lettuce_{stage}" if stage else "Lettuce"
+        if "basil" in name:
+            return f"Basil_{stage}" if stage else "Basil"
+        if "pechay" in name:
+            return f"Pechay_{stage}" if stage else "Pechay"
+
+        # Default templates
+        if "default" in name and stage:
+            return f"Default_{stage}"
+
         return "Generic"
 
     @staticmethod
@@ -809,6 +866,11 @@ class SensorAlertService:
         if sensor_type == "ph":
             ph_min = plant_ranges.get("ph_min") if plant_ranges else SensorAlertService.PH_MIN
             ph_max = plant_ranges.get("ph_max") if plant_ranges else SensorAlertService.PH_MAX
+            # If a plant provides a degenerate/disabled range (e.g., 0..0), suppress pH alerts
+            if plant_ranges and (
+                ph_min is None or ph_max is None or float(ph_min) == 0.0 and float(ph_max) == 0.0 or float(ph_max) <= float(ph_min)
+            ):
+                return None
             span = max(0.0, float(ph_max) - float(ph_min))
             base_buf = max(0.1, span * 0.1)
             buf = min(0.4, base_buf)
@@ -825,6 +887,11 @@ class SensorAlertService:
         elif sensor_type == "tds":
             ppm_min = plant_ranges.get("ppm_min") if plant_ranges else SensorAlertService.TDS_MIN
             ppm_max = plant_ranges.get("ppm_max") if plant_ranges else SensorAlertService.TDS_MAX
+            # If a plant provides a degenerate/disabled range (e.g., 0..0), suppress TDS alerts
+            if plant_ranges and (
+                ppm_min is None or ppm_max is None or float(ppm_min) == 0.0 and float(ppm_max) == 0.0 or float(ppm_max) <= float(ppm_min)
+            ):
+                return None
             span = max(0.0, float(ppm_max) - float(ppm_min))
             base_buf = span * 0.1
             buf = max(50.0, min(200.0, base_buf))
@@ -862,6 +929,9 @@ class SensorAlertService:
             if plant_ranges:
                 wmin = plant_ranges.get("water_temp_min")
                 wmax = plant_ranges.get("water_temp_max")
+                # Suppress when range is disabled/degenerate
+                if wmin is None or wmax is None or float(wmax) <= float(wmin):
+                    return None
                 span = max(0.0, float(wmax) - float(wmin))
                 buf = max(0.2, min(1.0, span * 0.1))
                 if value < wmin:
@@ -878,6 +948,9 @@ class SensorAlertService:
             if plant_ranges:
                 emin = plant_ranges.get("ec_min")
                 emax = plant_ranges.get("ec_max")
+                # If a plant provides a degenerate/disabled range (e.g., 0..0), suppress EC alerts
+                if emin is None or emax is None or float(emin) == 0.0 and float(emax) == 0.0 or float(emax) <= float(emin):
+                    return None
                 span = max(0.0, float(emax) - float(emin))
                 buf = max(0.05, min(0.5, span * 0.1))
                 if value < emin:
