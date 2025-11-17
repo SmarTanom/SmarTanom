@@ -7,6 +7,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import AdminNavbar from '../components/admin/AdminNavbar';
 import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminDevices.css';
+import '../assets/styles/AdminFilterTabs.css';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
 import { apiClient } from '../services/apiClient';
 import { wsClient } from '../services/websocketClient';
@@ -999,27 +1000,27 @@ export default function AdminDevices() {
 					{/* Assignment Status Filters */}
 					<div className="filter-section">
 						<div className="filter-label">Assignment Status</div>
-						<div className="filter-tabs">
+						<div className="admin-filter-tabs">
 							<button
-								className={`filter-tab ${activeFilter === 'all' ? 'active' : ''}`}
+								className={`admin-filter-tab ${activeFilter === 'all' ? 'active' : ''}`}
 								onClick={() => setActiveFilter('all')}
 							>
 								All ({totalDevices})
 							</button>
 							<button
-								className={`filter-tab ${activeFilter === 'assigned' ? 'active' : ''}`}
+								className={`admin-filter-tab ${activeFilter === 'assigned' ? 'active' : ''}`}
 								onClick={() => setActiveFilter('assigned')}
 							>
 								Assigned ({assignedCount})
 							</button>
 							<button
-								className={`filter-tab ${activeFilter === 'available' ? 'active' : ''}`}
+								className={`admin-filter-tab ${activeFilter === 'available' ? 'active' : ''}`}
 								onClick={() => setActiveFilter('available')}
 							>
 								Available ({availableCount})
 							</button>
 							<button
-								className={`filter-tab ${activeFilter === 'shared' ? 'active' : ''}`}
+								className={`admin-filter-tab ${activeFilter === 'shared' ? 'active' : ''}`}
 								onClick={() => setActiveFilter('shared')}
 							>
 								Shared ({sharedCount})
@@ -1030,33 +1031,33 @@ export default function AdminDevices() {
 					{/* Operational Status Filters */}
 					<div className="filter-section">
 						<div className="filter-label">Operational Status</div>
-						<div className="filter-tabs">
+						<div className="admin-filter-tabs">
 							<button
-								className={`filter-tab ${statusFilter === 'all' ? 'active' : ''}`}
+								className={`admin-filter-tab ${statusFilter === 'all' ? 'active' : ''}`}
 								onClick={() => setStatusFilter('all')}
 							>
 								All ({totalDevices})
 							</button>
 							<button
-								className={`filter-tab status-active ${statusFilter === 'active' ? 'active' : ''}`}
+								className={`admin-filter-tab status-active ${statusFilter === 'active' ? 'active' : ''}`}
 								onClick={() => setStatusFilter('active')}
 							>
 								🟢 Active ({activeStatusCount})
 							</button>
 							<button
-								className={`filter-tab status-inactive ${statusFilter === 'inactive' ? 'active' : ''}`}
+								className={`admin-filter-tab status-inactive ${statusFilter === 'inactive' ? 'active' : ''}`}
 								onClick={() => setStatusFilter('inactive')}
 							>
 								⚪ Inactive ({inactiveStatusCount})
 							</button>
 							<button
-								className={`filter-tab status-maintenance ${statusFilter === 'maintenance' ? 'active' : ''}`}
+								className={`admin-filter-tab status-maintenance ${statusFilter === 'maintenance' ? 'active' : ''}`}
 								onClick={() => setStatusFilter('maintenance')}
 							>
 								🛠️ Maintenance ({maintenanceStatusCount})
 							</button>
 							<button
-								className={`filter-tab status-decommissioned ${statusFilter === 'decommissioned' ? 'active' : ''}`}
+								className={`admin-filter-tab status-decommissioned ${statusFilter === 'decommissioned' ? 'active' : ''}`}
 								onClick={() => setStatusFilter('decommissioned')}
 							>
 								🔴 Decommissioned ({decommissionedStatusCount})

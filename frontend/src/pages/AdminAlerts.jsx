@@ -27,6 +27,7 @@ import { wsClient } from '../services/websocketClient';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminAlerts.css';
+import '../assets/styles/AdminFilterTabs.css';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 import AdminNavbar from '../components/admin/AdminNavbar.jsx';
 
@@ -337,21 +338,21 @@ export default function AdminAlerts() {
               <Filter size={14} />
               Type
             </label>
-            <div className="filter-tabs">
+            <div className="admin-filter-tabs">
               <button
-                className={`filter-tab ${typeFilter === 'all' ? 'active' : ''}`}
+                className={`admin-filter-tab ${typeFilter === 'all' ? 'active' : ''}`}
                 onClick={() => setTypeFilter('all')}
               >
                 All ({counts.all})
               </button>
               <button
-                className={`filter-tab critical ${typeFilter === 'critical' ? 'active' : ''}`}
+                className={`admin-filter-tab critical ${typeFilter === 'critical' ? 'active' : ''}`}
                 onClick={() => setTypeFilter('critical')}
               >
                 Critical ({counts.critical})
               </button>
               <button
-                className={`filter-tab warning ${typeFilter === 'warning' ? 'active' : ''}`}
+                className={`admin-filter-tab warning ${typeFilter === 'warning' ? 'active' : ''}`}
                 onClick={() => setTypeFilter('warning')}
               >
                 Warning ({counts.warning})

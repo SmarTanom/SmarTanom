@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import logoMarkWhite from '../../assets/images/logo-mark-white.png';
 import '../../assets/styles/AdminLayout.css';
+import { authApi } from '../../services/apiClient.js';
+import ConfirmModal from '../ui/ConfirmModal.jsx';
 
 // Unified Admin navigation: renders the left sidebar on desktop and a bottom
 // nav on mobile. Styles are defined in AdminLayout.css.
@@ -37,11 +39,15 @@ const AdminNavbar = () => {
     return currentPath === path || currentPath.startsWith(path + '/');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userEmail');
-    } catch (e) {}
+      const token = localStorage.getItem('authToken');
+      await authApi.logout(token);
+    } catch (e) {
+      // non-fatal
+    }
+    try { localStorage.removeItem('authToken'); } catch (e) {}
+    try { localStorage.removeItem('userEmail'); } catch (e) {}
     navigate('/login');
     window.location.reload();
   };
@@ -122,55 +128,30 @@ const AdminNavbar = () => {
         })}
       </nav>
 
-      {/* Confirm switch modal */}
-      {confirmOpen && (
-        <div className="confirm-overlay" role="dialog" aria-modal="true">
-          <div className="confirm-modal">
-            <h3>Switch to User Dashboard?</h3>
-            <p>
-              You are about to leave the Admin area and open the User Dashboard. This may change available features and
-              filters. Do you want to continue?
-            </p>
-            <div className="confirm-actions">
-              <button className="confirm-btn confirm-secondary" onClick={() => setConfirmOpen(false)}>Cancel</button>
-              <button
-                className="confirm-btn confirm-primary"
-                onClick={() => {
-                  const target = pendingPath || '/dashboard';
-                  setConfirmOpen(false);
-                  navigate(target);
-                }}
-              >
-                Yes, switch
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title="Switch to User Dashboard?"
+        description="You are about to leave the Admin area and open the User Dashboard. This may change available features and filters."
+        confirmText="Yes, switch"
+        cancelText="Cancel"
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          const target = pendingPath || '/dashboard';
+          setConfirmOpen(false);
+          navigate(target);
+        }}
+      />
 
-      {/* Logout confirmation modal */}
-      {logoutConfirmOpen && (
-        <div className="confirm-overlay" role="dialog" aria-modal="true">
-          <div className="confirm-modal">
-            <h3>Sign out</h3>
-            <p>Are you sure you want to sign out? You can sign back in anytime using your email.</p>
-            <div className="confirm-actions">
-              <button className="confirm-btn confirm-secondary" onClick={() => setLogoutConfirmOpen(false)}>
-                Cancel
-              </button>
-              <button
-                className="confirm-btn confirm-primary"
-                onClick={() => {
-                  setLogoutConfirmOpen(false);
-                  handleLogout();
-                }}
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={logoutConfirmOpen}
+        title="Sign out"
+        description="Are you sure you want to sign out? You can sign back in anytime using your email."
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        confirmVariant="danger"
+        onCancel={() => setLogoutConfirmOpen(false)}
+        onConfirm={() => { setLogoutConfirmOpen(false); handleLogout(); }}
+      />
     </>
   );
 };

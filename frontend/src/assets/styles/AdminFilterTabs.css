@@ -1,0 +1,83 @@
+/* Shared Admin Filter Tabs Styles */
+
+.admin-filter-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.admin-filter-tab {
+  padding: 10px 18px;
+  border: 2px solid #e2e8f0; /* var(--color-border) fallback */
+  border-radius: 12px;
+  background: #ffffff;
+  color: #475569;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  white-space: nowrap;
+}
+
+.admin-filter-tab:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.admin-filter-tab.active {
+  background: linear-gradient(135deg, #2eb72e 0%, #16a34a 100%);
+  color: #ffffff;
+  border-color: #16a34a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(46, 183, 46, 0.25), 0 2px 4px rgba(46, 183, 46, 0.15);
+}
+
+/* Status- and type-specific active styles */
+.admin-filter-tab.status-active.active,
+.admin-filter-tab.success.active {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-color: #059669;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25), 0 2px 4px rgba(16, 185, 129, 0.15);
+}
+
+.admin-filter-tab.status-inactive.active,
+.admin-filter-tab.neutral.active {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  border-color: #4b5563;
+  box-shadow: 0 4px 12px rgba(107, 114, 128, 0.25), 0 2px 4px rgba(107, 114, 128, 0.15);
+}
+
+.admin-filter-tab.status-maintenance.active,
+.admin-filter-tab.warning.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: #d97706;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25), 0 2px 4px rgba(245, 158, 11, 0.15);
+}
+
+.admin-filter-tab.status-decommissioned.active,
+.admin-filter-tab.critical.active {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border-color: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25), 0 2px 4px rgba(239, 68, 68, 0.15);
+}
+
+.admin-filter-tab.info.active {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25), 0 2px 4px rgba(59, 130, 246, 0.15);
+}
+
+/* Small screens: allow horizontal scroll if needed without ugly scrollbar */
+.admin-filter-tabs {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-filter-tabs::-webkit-scrollbar {
+  height: 0;
+  width: 0;
+}

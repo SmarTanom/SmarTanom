@@ -227,9 +227,10 @@ html {
   left: 0;
   right: 0;
   background: linear-gradient(180deg, #2f8d2e 0%, #2bb35e 100%);
-  padding: 12px 16px 16px;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
-  z-index: 100;
+  z-index: 1600;
   gap: 8px;
 }
 
@@ -282,7 +283,7 @@ html {
 
 @media (max-width: 1023.98px) {
   .admin-main {
-    padding-bottom: 80px; /* Space for bottom nav */
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); /* Space for bottom nav */
   }
 }
 
@@ -296,7 +297,7 @@ html {
 /* Mobile adjustments */
 @media (max-width: 767.98px) {
   .admin-main {
-    padding: 16px 16px 96px;
+    padding: 16px 16px calc(120px + env(safe-area-inset-bottom, 0px));
   }
 
   .brand {
@@ -381,4 +382,21 @@ html {
 .confirm-secondary {
   background: #f3f4f6;
   color: #374151;
+}
+
+/* Bottom nav fine-tuning for very small devices */
+@media (max-width: 380px) {
+  .bn-item span {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 340px) {
+  .bn-item span {
+    display: none; /* show icons only when extremely narrow */
+  }
+  .bn-item {
+    max-width: none;
+    padding: 10px;
+  }
 }
