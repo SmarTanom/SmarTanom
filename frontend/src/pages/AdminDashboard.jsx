@@ -15,7 +15,6 @@ import {
 	Settings,
 	User,
 	AlertTriangle,
-	Info,
 	Activity,
 	BarChart2,
 	Smartphone,
@@ -28,16 +27,15 @@ import {
 	Chart as ChartJS,
 	LineElement,
 	PointElement,
-	BarElement,
 	CategoryScale,
 	LinearScale,
 	Tooltip,
 	Legend,
 	Filler
 } from 'chart.js';
-import { Line, Bar } from 'react-chartjs-2';
+import { Line } from 'react-chartjs-2';
 
-ChartJS.register(LineElement, PointElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend, Filler);
+ChartJS.register(LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler);
 
 // Simple, self-contained sparkline/line path based on data points
 function DeviceTrendChart({ labels = [], series = [] }) {
@@ -180,12 +178,10 @@ export default function AdminDashboard() {
 	const trendLabels = stats?.device_trend?.map(d => d.month) || [];
 	const trendData = stats?.device_trend?.map(d => d.count) || [];
 
-	const errorLabels = stats?.error_trend?.map(d => d.month) || [];
-	const errorData = stats?.error_trend?.map(d => d.count) || [];
 
 	const alerts = stats?.alerts || { critical: 0, warning: 0, info: 0 };
 	const performance = stats?.performance || { cpu_usage: 0, memory_usage: 0, disk_usage: 0 };
-	const errors = stats?.errors || { total: 0, notification_failures: 0, device_errors: 0 };
+	// Error reports panel removed; related stats omitted
 
 	// Calculate utilization percentages
 	const capacityUtilization = summary.totalDevices > 0
@@ -393,41 +389,7 @@ export default function AdminDashboard() {
 						</div>
 					</article>
 
-					<article className="panel error-reports">
-						<header className="panel-head">
-							<div className="panel-title">
-								<BarChart2 size={18} />
-								<span>Error Reports</span>
-							</div>
-						</header>
-						<div className="panel-body" style={{ height: 240 }}>
-							<Bar
-								data={{
-									labels: Array.isArray(errorLabels) ? errorLabels : [],
-									datasets: [
-										{
-											label: 'Errors',
-											data: Array.isArray(errorData) ? errorData : [],
-											backgroundColor: 'rgba(239, 68, 68, 0.85)',
-											borderColor: 'rgba(239, 68, 68, 1)',
-											borderWidth: 1,
-											borderRadius: 8,
-											barThickness: 22
-										}
-									]
-								}}
-								options={{
-									responsive: true,
-									maintainAspectRatio: false,
-									plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
-									scales: {
-										x: { grid: { display: false }, ticks: { color: '#6f8876', font: { weight: 600 } } },
-										y: { grid: { color: 'rgba(139,167,151,0.15)' }, ticks: { color: '#6f8876', font: { weight: 600 } } }
-									}
-								}}
-							/>
-						</div>
-					</article>
+					{/* Error Reports panel removed per request */}
 				</section>
 			</main>
 		</div>
