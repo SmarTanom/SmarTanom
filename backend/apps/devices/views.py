@@ -2166,62 +2166,8 @@ def initial_dashboard_data(request):
                 sd_qs = SensorData.objects.filter(sensor_id=sid).order_by('-created_at')[:reading_limit]
                 readings_by_sensor[sid] = SensorDataSerializer(sd_qs, many=True).data
 
-        # Alerts: reuse logic similar to NotificationLogViewSet.alerts
-        try:
-            alert_limit = int(request.query_params.get('alert_limit', 200))
-        except ValueError:
-            alert_limit = 200
-        alert_limit = max(1, min(alert_limit, 500))
-
+        # Alerts payload removed: NotificationLog model deprecated.
         alerts_payload = {'count': 0, 'alerts': []}
-        if device_ids:
-            from apps.notifications.models import NotificationLog
-            # Alerts for accessible devices (owner or collaborator) regardless of delivery user
-            alert_qs = NotificationLog.objects.filter(
-                metadata__device_id__in=device_ids,
-            ).order_by('-sent_at')[:alert_limit]
-
-            alerts = []
-            for alert in alert_qs:
-                device_info = None
-                device_id = alert.metadata.get('device_id') if alert.metadata else None
-                if device_id:
-                    try:
-                        dev = next((d for d in devices if d.id == device_id), None)
-                        device_info = {
-                            'id': dev.id if dev else device_id,
-                            'serial': dev.device_serial if dev else f'DEV{int(device_id):03d}',
-                            'name': (dev.device_name if dev and dev.device_name else (f'Device {dev.device_serial}' if dev else f'Device {device_id}'))
-                        }
-                    except Exception:
-                        device_info = {'id': device_id}
-
-                severity_mapping = {
-                    'critical': 'critical',
-                    'alert': 'critical',
-                    'warning': 'warning',
-                    'info': 'info',
-                    'success': 'info',
-                }
-                severity = severity_mapping.get(getattr(alert, 'notification_type', None), 'info')
-
-                # Use read_at to determine read state; delivery status is not read tracking
-                alerts.append({
-                    'id': alert.id,
-                    'reading_id': alert.id,
-                    'device_id': device_id,
-                    'title': alert.title,
-                    'body': alert.message,
-                    'severity': severity,
-                    'type': getattr(alert, 'notification_type', None),
-                    'is_read': bool(getattr(alert, 'read_at', None)),
-                    'timestamp': (alert.sent_at.isoformat() if getattr(alert, 'sent_at', None) else timezone.now().isoformat()),
-                    'created_at': (alert.sent_at.isoformat() if getattr(alert, 'sent_at', None) else timezone.now().isoformat()),
-                    'device': device_info,
-                    'metadata': alert.metadata,
-                })
-
-            alerts_payload = {'count': len(alerts), 'alerts': alerts}
 
         return Response({
             'devices': device_data,

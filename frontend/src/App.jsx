@@ -26,7 +26,6 @@ import DeviceDetails from './pages/DeviceDetails.jsx';
 import AlertsPage from './pages/AlertsPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import StartCyclePage from './pages/StartCyclePage.jsx';
-import NotificationsPage from './pages/NotificationsPage.jsx';
 import PrivacySecurityPage from './pages/PrivacySecurityPage.jsx';
 import DevCacheHelper from './components/dev/DevCacheHelper.jsx';
 import WiFiSetup from './pages/WiFiSetup.jsx';
@@ -302,14 +301,6 @@ export default function App() {
                 <UserLayout>
                   <ProfilePage />
                 </UserLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/notifications"
-            element={
-              <ProtectedRoute>
-                <NotificationsPage />
               </ProtectedRoute>
             }
           />

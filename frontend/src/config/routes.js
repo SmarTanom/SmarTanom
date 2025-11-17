@@ -28,7 +28,6 @@ export const ROUTE_CONFIG = {
     '/device/:deviceId',
     '/alerts',
     '/profile',
-    '/notifications',
     '/privacy-security'
   ],
 

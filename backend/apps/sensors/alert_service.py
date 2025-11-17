@@ -6,7 +6,6 @@ import logging
 from typing import Optional
 from datetime import timedelta
 
-from apps.notifications.services import PushNotificationService
 from django.utils import timezone
 from typing import Tuple
 from django.conf import settings
@@ -664,67 +663,8 @@ class SensorAlertService:
             else:
                 logger.info(f"[WebSocket] Alert broadcasted to global group only (no device owner) for device {device.device_serial}")
 
-        # Create NotificationLog entry for the alert
-        from apps.notifications.models import NotificationLog
-        try:
-            meta = {
-                'device_id': device.id,
-                'device_serial': device.device_serial,
-                'sensor_type': sensor_type,
-                'sensor_value': float(value),
-                'alert_id': sensor_data.id,
-            }
-            # Include the persisted Alert row id when available for easier correlation/deletion later
-            try:
-                if 'alert_obj' in locals() and alert_obj:
-                    meta['alert_row_id'] = alert_obj.id
-            except Exception:
-                pass
-
-            notification_log = NotificationLog.objects.create(
-                user=user,
-                notification_type=severity,
-                title=title,
-                message=body,
-                status='sent',
-                metadata=meta
-            )
-            logger.info(f"Created NotificationLog entry {notification_log.id} for alert: {title}")
-        except Exception as e:
-            logger.error(f"Failed to create NotificationLog entry: {e}")
-
-        # Send push/email notification to device owner
-        result = PushNotificationService.send_alert_notification(
-            user=user,
-            alert_title=title,
-            alert_message=body,
-            alert_type=severity,
-            device_id=device.id,
-        )
-
-        # Log owner delivery summary
-        if result:
-            logger.info(
-                f"Owner notify summary for {user.email}: push_sent={result.get('sent', 0)}, push_failed={result.get('failed', 0)}"
-            )
-        else:
-            logger.warning(f"No result returned from PushNotificationService for {user.email}")
-
-        # Only broadcast to admins if this is a critical alert or if it's an unbound device
-        # For user-owned devices, only send to the device owner to avoid spam
-        if severity == 'critical' or not device.is_bound:
-            try:
-                PushNotificationService.send_to_all_admins(
-                    title=f"🌱 {title}",
-                    message=body,
-                    notification_type=severity,
-                    url=f"/alerts?device={device.id}",
-                    data={'device_id': device.id, 'alert_type': severity}
-                )
-            except Exception as e:
-                logger.error(f"Failed to broadcast alert to admins: {e}")
-        else:
-            logger.info(f"Skipping admin broadcast for {severity} alert on user-owned device {device.id}")
+        # Notification logging and push/email delivery have been removed.
+        # Alerts are persisted in the Alert model and broadcast via WebSocket only.
 
         return body
 
