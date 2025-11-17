@@ -314,12 +314,22 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
             if not alert_ids:
                 return Response({'error': 'alert_ids is required'}, status=400)
 
+            # Accept either NotificationLog ids OR sensor reading ids (metadata.alert_id)
             # Only set read_at where not already set (idempotent)
+            # Scope by devices the requester can access (owner or collaborator)
+            from django.db.models import Q
+            from apps.devices.models import Device, DeviceCollaboration
+            owned = Device.objects.filter(bound_email=request.user.email).values_list('id', flat=True)
+            collab = DeviceCollaboration.objects.filter(
+                collaborator_email=request.user.email,
+                status=DeviceCollaboration.Status.ACTIVE
+            ).values_list('device_id', flat=True)
+            accessible_device_ids = list(owned) + list(collab)
+
             qs = NotificationLog.objects.filter(
-                user=request.user,
-                id__in=alert_ids,
-                read_at__isnull=True
-            )
+                read_at__isnull=True,
+                metadata__device_id__in=accessible_device_ids
+            ).filter(Q(id__in=alert_ids) | Q(metadata__alert_id__in=alert_ids))
             updated_count = qs.update(read_at=timezone.now())
 
             logger.info(f"User {request.user.email} marked {updated_count} alerts as read (ids={alert_ids})")
@@ -337,7 +347,19 @@ class NotificationLogViewSet(viewsets.ReadOnlyModelViewSet):
         """Mark all alerts as read for the user by setting read_at if null."""
         from django.utils import timezone
         try:
-            qs = NotificationLog.objects.filter(user=request.user, read_at__isnull=True)
+            # Mark all alerts for devices the user can access (owner or collaborator)
+            from apps.devices.models import Device, DeviceCollaboration
+            owned = Device.objects.filter(bound_email=request.user.email).values_list('id', flat=True)
+            collab = DeviceCollaboration.objects.filter(
+                collaborator_email=request.user.email,
+                status=DeviceCollaboration.Status.ACTIVE
+            ).values_list('device_id', flat=True)
+            accessible_device_ids = list(owned) + list(collab)
+
+            qs = NotificationLog.objects.filter(
+                read_at__isnull=True,
+                metadata__device_id__in=accessible_device_ids
+            )
             updated_count = qs.update(read_at=timezone.now())
             logger.info(f"User {request.user.email} marked ALL alerts as read ({updated_count} updated)")
             return Response({
