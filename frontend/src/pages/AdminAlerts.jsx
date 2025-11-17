@@ -28,6 +28,7 @@ import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminAlerts.css';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
+import AdminNavbar from '../components/admin/AdminNavbar.jsx';
 
 export default function AdminAlerts() {
   const navigate = useNavigate();
@@ -246,52 +247,8 @@ export default function AdminAlerts() {
 
   return (
     <div className="admin-root">
-      {/* Sidebar navigation (desktop) */}
-      <aside className="admin-sidebar" aria-label="Admin sidebar">
-        <div className="brand">
-          <div className="brand-logo">
-            <img src={logoMarkWhite} alt="SmarTanom" />
-          </div>
-          <div className="brand-text">
-            <div className="brand-name">SmarTanom</div>
-            <div className="brand-subtitle">Dashboard</div>
-          </div>
-        </div>
-        <div className="side-nav-label">MENU</div>
-        <nav className="side-nav">
-          <button className="side-link" onClick={() => navigate('/admin')}>
-            <LayoutDashboard size={18} />
-            <span>Dashboard</span>
-          </button>
-          <button className="side-link" onClick={() => navigate('/admin/devices')}>
-            <Boxes size={18} />
-            <span>Devices</span>
-          </button>
-          <button className="side-link" onClick={() => navigate('/admin/create')}>
-            <Plus size={18} />
-            <span>Create</span>
-          </button>
-          <button className="side-link" onClick={() => navigate('/admin/users')}>
-            <Users size={18} />
-            <span>Users</span>
-          </button>
-          <button className="side-link active" onClick={() => navigate('/admin/alerts')}>
-            <Bell size={18} />
-            <span>Alerts</span>
-          </button>
-          <button className="side-link" onClick={() => navigate('/admin/settings')}>
-            <Settings size={18} />
-            <span>Settings</span>
-          </button>
-        </nav>
-        <div className="system-status">
-          <span className="status-dot online" />
-          <div>
-            <div className="status-title">System Online</div>
-            <div className="status-sub">All services operational</div>
-          </div>
-        </div>
-      </aside>
+      {/* Unified Admin navigation (includes User Dashboard link) */}
+      <AdminNavbar />
 
       {/* Main content */}
       <main className="admin-main">
@@ -348,6 +305,10 @@ export default function AdminAlerts() {
                 <RefreshCw size={16} className={refreshing ? 'spinner' : ''} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
                 {refreshing ? 'Refreshing...' : 'Refresh'}
               </button>
+              <div className="stat-badge unread">
+                <Bell size={16} />
+                <span>{counts.unread} Unread</span>
+              </div>
               <div className="stat-badge critical">
                 <AlertTriangle size={16} />
                 <span>{counts.critical} Critical</span>
@@ -495,9 +456,6 @@ export default function AdminAlerts() {
                     <div className="alert-header">
                       <h3 className="alert-title">{alert.title}</h3>
                       <div className="alert-badges">
-                        {alert.status === 'unread' && (
-                          <span className="badge unread-badge">New</span>
-                        )}
                         {alert.resolved && (
                           <span className="badge resolved-badge">
                             <CheckCircle2 size={12} />
@@ -521,15 +479,7 @@ export default function AdminAlerts() {
                     </div>
                   </div>
 
-                  <button
-                    className="view-detail-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      viewDetails(alert);
-                    }}
-                  >
-                    <Eye size={18} />
-                  </button>
+                  {/* view-detail-btn intentionally removed per UX request */}
                 </article>
               ))
             ) : (

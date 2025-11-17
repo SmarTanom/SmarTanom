@@ -323,3 +323,61 @@ html {
   /* Keep the sidebar green gradient even in dark mode for brand consistency */
   /* Individual pages can override content area colors if needed */
 }
+
+/* -- Generic confirmation modal (used by AdminNavbar) -- */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+}
+
+.confirm-modal {
+  background: #fff;
+  width: 100%;
+  max-width: 520px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow);
+  padding: 20px 24px;
+}
+
+.confirm-modal h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.confirm-modal p {
+  margin: 0 0 16px 0;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.confirm-btn {
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.confirm-primary {
+  background: var(--color-primary-solid);
+  color: #fff;
+}
+
+.confirm-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}

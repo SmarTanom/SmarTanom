@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Leaf, AlertCircle, User, Plus, LogOut, Bell } from 'lucide-react';
 import '../../assets/styles/UserLayout.css';
@@ -9,6 +9,7 @@ import logoMarkWhite from '../../assets/images/logo-mark-white.png';
 export default function UserLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const totalUnread = useRealtimeStore(s => s.totalUnread);
   const deviceAlerts = useRealtimeStore(s => s.deviceAlerts);
   const devices = useRealtimeStore(s => s.devices);
@@ -146,7 +147,7 @@ export default function UserLayout({ children }) {
           {(user?.role === 'admin' || user?.is_admin || user?.is_staff) && (
             <button
               className={`user-side-link ${isActive('/admin') ? 'active' : ''}`}
-              onClick={() => navigate('/admin')}
+              onClick={() => setConfirmOpen(true)}
               aria-current={isActive('/admin') ? 'page' : undefined}
             >
               <Leaf size={18} strokeWidth={2.5} />
@@ -216,7 +217,7 @@ export default function UserLayout({ children }) {
         {(user?.role === 'admin' || user?.is_admin || user?.is_staff) && (
           <button
             className={`user-nav-item ${isActive('/admin') ? 'active' : ''}`}
-            onClick={() => navigate('/admin')}
+            onClick={() => setConfirmOpen(true)}
             aria-current={isActive('/admin') ? 'page' : undefined}
           >
             <Leaf size={20} />
@@ -224,6 +225,29 @@ export default function UserLayout({ children }) {
           </button>
         )}
       </nav>
+      {confirmOpen && (
+        <div className="confirm-overlay" role="dialog" aria-modal="true">
+          <div className="confirm-modal">
+            <h3>Switch to Admin Dashboard?</h3>
+            <p>
+              You are about to leave the User Dashboard and open the Admin area. This section is intended for
+              administrators. Do you want to continue?
+            </p>
+            <div className="confirm-actions">
+              <button className="confirm-btn confirm-secondary" onClick={() => setConfirmOpen(false)}>Cancel</button>
+              <button
+                className="confirm-btn confirm-primary"
+                onClick={() => {
+                  setConfirmOpen(false);
+                  navigate('/admin');
+                }}
+              >
+                Yes, switch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
