@@ -30,6 +30,7 @@ import PrivacySecurityPage from './pages/PrivacySecurityPage.jsx';
 import DevCacheHelper from './components/dev/DevCacheHelper.jsx';
 import WiFiSetup from './pages/WiFiSetup.jsx';
 import UserLayout from './components/layout/UserLayout.jsx';
+import { useRealtimeStore } from './store/realtimeStore';
 
 function useKeyboardViewport() {
   useEffect(() => {
@@ -107,6 +108,15 @@ function PagePersistenceManager() {
 
 export default function App() {
   useKeyboardViewport();
+  const connectWS = useRealtimeStore(state => state.connectWS);
+
+  // Establish WebSocket connection on app mount for realtime updates
+  useEffect(() => {
+    const cleanup = connectWS();
+    return () => {
+      if (typeof cleanup === 'function') cleanup();
+    };
+  }, [connectWS]);
 
   // Initialize PWA features
   useEffect(() => {

@@ -743,13 +743,28 @@ def bootstrap_admin(request):
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_user(request, user_id):
-    """Delete a user safely (admin only)."""
+    """Delete a user with full cleanup (admin only, atomic).
+
+    Cleanup rules:
+    - Unbind all devices owned by the user (is_bound=False, bound_email=None)
+    - For each owned device, clear WiFi state (wifi_configured=False, ip_address=None)
+      and wipe device-specific data: SensorData, Alerts, Collaborations, Invitations, OTPs.
+    - Remove any collaborations where the user is a collaborator on other devices.
+    - Remove user auth artifacts (tokens, OTPs, login attempts, admin logs).
+    - Finally delete the user record.
+    If any step fails, the transaction is rolled back and an error is returned.
+    """
     if not request.user.is_admin:
         return Response(
             {'error': 'Admin access required'},
             status=status.HTTP_403_FORBIDDEN
         )
 
+    from django.db import transaction
+    from rest_framework.authtoken.models import Token
+    from django.contrib.admin.models import LogEntry
+    from apps.devices.models import DeviceInvitation, DeviceCollaboration, Device, DeviceOTPCode
+    from apps.sensors.models import SensorData, Alert, SensorLatest
     try:
         user_to_delete = User.objects.get(id=user_id)
 
@@ -766,35 +781,70 @@ def delete_user(request, user_id):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Clean up related data first (similar to safe_delete_users in admin.py)
-        from rest_framework.authtoken.models import Token
-        from django.contrib.admin.models import LogEntry
-        from apps.devices.models import DeviceInvitation, DeviceCollaboration, Device
-
-        Token.objects.filter(user=user_to_delete).delete()
-        LogEntry.objects.filter(user=user_to_delete).delete()
-        OTPCode.objects.filter(email=user_to_delete.email).delete()
-        LoginAttempt.objects.filter(email=user_to_delete.email).delete()
-
-        # Clean up device-related data
-        DeviceInvitation.objects.filter(invite_email=user_to_delete.email).delete()
-        DeviceCollaboration.objects.filter(collaborator_email=user_to_delete.email).delete()
-
-        # Delete owned devices (this will cascade to related data)
-        owned_devices = Device.objects.filter(bound_email=user_to_delete.email)
-        owned_devices.delete()
-
-        user_to_delete.groups.clear()
-        user_to_delete.user_permissions.clear()
-
-        # Store email for response before deletion
         deleted_email = user_to_delete.email
 
-        # Delete the user
-        user_to_delete.delete()
+        with transaction.atomic():
+            # 1) Clean up any collaborations/invitations tied to the user by email
+            DeviceInvitation.objects.filter(invite_email__iexact=deleted_email).delete()
+            DeviceCollaboration.objects.filter(collaborator_email__iexact=deleted_email).delete()
+
+            # 2) For devices owned by the user, purge device-specific data and unbind
+            owned_devices = list(Device.objects.filter(bound_email__iexact=deleted_email))
+
+            for device in owned_devices:
+                # Delete sensor data and alerts for this device
+                SensorData.objects.filter(sensor__device=device).delete()
+                Alert.objects.filter(device=device).delete()
+
+                # Reset denormalized latest values (do not remove sensors themselves)
+                SensorLatest.objects.filter(sensor__device=device).update(value=None, status="")
+
+                # Remove any sharing records and pending invites for this device
+                DeviceCollaboration.objects.filter(device=device).delete()
+                DeviceInvitation.objects.filter(device=device).delete()
+                DeviceOTPCode.objects.filter(device=device).delete()
+
+                # Clear plant/photo and WiFi-related state; unbind ownership
+                device.is_bound = False
+                device.bound_email = None
+                device.wifi_configured = False
+                device.ip_address = None
+                device.plant_photo = None
+                device.plant = None
+                device.start_date = None
+                device.end_date = None
+                device.location = None
+                device.save(update_fields=[
+                    'is_bound', 'bound_email', 'wifi_configured', 'ip_address',
+                    'plant_photo', 'plant', 'start_date', 'end_date', 'location', 'updated_at'
+                ])
+
+            # 3) Remove auth/session artifacts for the user
+            Token.objects.filter(user=user_to_delete).delete()
+            LogEntry.objects.filter(user=user_to_delete).delete()
+            OTPCode.objects.filter(email__iexact=deleted_email).delete()
+            LoginAttempt.objects.filter(email__iexact=deleted_email).delete()
+
+            # Clear any direct relations (groups/permissions)
+            user_to_delete.groups.clear()
+            user_to_delete.user_permissions.clear()
+
+            # 4) Finally delete the user
+            user_to_delete.delete()
+
+        # Best-effort: broadcast unbind events (outside transaction)
+        try:
+            from apps.devices.views import broadcast_device_update
+            for device in owned_devices:
+                broadcast_device_update('device_unbound', device, cleared=True)
+        except Exception as be:
+            logger.warning(f"Broadcast after user delete failed: {be}")
 
         return Response(
-            {'message': f'User {deleted_email} has been successfully deleted'},
+            {
+                'message': f'User {deleted_email} has been successfully deleted',
+                'devices_processed': [d.id for d in owned_devices],
+            },
             status=status.HTTP_200_OK
         )
 
@@ -804,9 +854,9 @@ def delete_user(request, user_id):
             status=status.HTTP_404_NOT_FOUND
         )
     except Exception as e:
-        logger.error(f"Error in delete_user: {str(e)}")
+        logger.error(f"Error in delete_user: {str(e)}", exc_info=True)
         return Response(
-            {'error': 'Internal server error'},
+            {'error': 'Failed to delete user. No changes were applied.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

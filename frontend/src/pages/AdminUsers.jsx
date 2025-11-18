@@ -9,6 +9,7 @@ import { getUserDevices, deleteUser } from '../services/api/admin';
 import UserDevicesModal from '../components/ui/UserDevicesModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
+import Toast from '../components/ui/Toast.jsx';
 import {
 	Search,
 	Smartphone,
@@ -35,11 +36,17 @@ function AdminUsers() {
 	const [userToDelete, setUserToDelete] = useState(null);
 	const [deletingUser, setDeletingUser] = useState(false);
 
+	// Toast state
+	const [toastOpen, setToastOpen] = useState(false);
+	const [toastMsg, setToastMsg] = useState('');
+	const [toastType, setToastType] = useState('success');
+
 	// Use admin realtime store
 	const users = useAdminRealtimeStore(state => state.allUsers);
 	const loading = useAdminRealtimeStore(state => state.loadingUsers);
 	const error = useAdminRealtimeStore(state => state.errorUsers);
 	const fetchAdminUsers = useAdminRealtimeStore(state => state.fetchAdminUsers);
+	const removeUser = useAdminRealtimeStore(state => state.removeUser);
 	const connectAdminWS = useAdminRealtimeStore(state => state.connectAdminWS);
 
 	useEffect(() => {
@@ -150,13 +157,19 @@ function AdminUsers() {
 		setDeletingUser(true);
 		try {
 			await deleteUser(userToDelete.id);
-			// Refresh the users list after successful deletion
-			fetchAdminUsers();
+			// Optimistically remove user row
+			removeUser(userToDelete.id);
+			// Success toast
+			setToastMsg('User deleted successfully. Device associations and data cleared.');
+			setToastType('success');
+			setToastOpen(true);
 			setIsDeleteModalOpen(false);
 			setUserToDelete(null);
 		} catch (error) {
 			console.error('Error deleting user:', error);
-			// Could add error toast here if needed
+			setToastMsg(error?.response?.data?.error || 'Failed to delete user. Please try again.');
+			setToastType('error');
+			setToastOpen(true);
 		} finally {
 			setDeletingUser(false);
 		}
@@ -397,6 +410,15 @@ function AdminUsers() {
 			confirmText={deletingUser ? "Deleting..." : "Delete User"}
 			cancelText="Cancel"
 			variant="danger"
+		/>
+
+		{/* Toast Notification */}
+		<Toast
+			open={toastOpen}
+			message={toastMsg}
+			type={toastType}
+			duration={3500}
+			onClose={() => setToastOpen(false)}
 		/>
 	</div>
 );

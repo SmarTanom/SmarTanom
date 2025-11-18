@@ -81,6 +81,14 @@ const useAdminRealtimeStore = create(
       },
 
       /**
+       * Remove a user from the local store (optimistic update)
+       */
+      removeUser: (userId) => {
+        const { allUsers } = get();
+        set({ allUsers: allUsers.filter(u => u.id !== userId) });
+      },
+
+      /**
        * Apply real-time updates from WebSocket
        * Handles incremental updates to avoid full data refetches
        */
