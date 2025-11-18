@@ -1,3 +1,34 @@
+import React, { useEffect } from 'react';
+import '../../assets/styles/Toast.css';
+
+/**
+ * Simple Toast component
+ * Props:
+ * - open: boolean
+ * - message: string
+ * - type: 'success' | 'error' | 'info'
+ * - duration: ms (default 3000)
+ * - onClose: function
+ */
+export default function Toast({ open, message, type = 'info', duration = 3000, onClose }) {
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => {
+      onClose && onClose();
+    }, duration);
+    return () => clearTimeout(timer);
+  }, [open, duration, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className={`toast-container`} role="status" aria-live="polite">
+      <div className={`toast toast-${type}`}>
+        <span className="toast-message">{message}</span>
+      </div>
+    </div>
+  );
+}
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
