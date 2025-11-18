@@ -93,35 +93,13 @@ class SensorDataAdmin(admin.ModelAdmin):
 @admin.register(Alert)
 class AlertAdmin(admin.ModelAdmin):
     """Admin configuration for Alert model."""
-    # Custom column order per request:
-    # id, device, sensor, plant, metric, unit, severity, trigger,
-    # title, recommendation, is_read, is_acknowledged, is_resolved,
-    # created_at, updated_at (adjacent)
-    def get_list_display(self, request):
-        # Concrete model fields
-        fields = [f.name for f in self.model._meta.get_fields() if not (f.many_to_many or f.one_to_many)]
-        # Desired explicit order (remove plant/ack/resolution and threshold-related fields per UI request)
-        desired = [
-            'id', 'device', 'sensor', 'value', 'metric', 'unit', 'severity', 'trigger',
-            'title', 'recommendation', 'is_read',
-            # created_at and updated_at will be appended at the very end to keep them adjacent
-        ]
-        # 1) Place explicit keys except timestamps
-        ordered = []
-        for key in desired:
-            if key in fields or key == 'plant':
-                ordered.append(key)
-                if key in fields:
-                    fields.remove(key)
-        # 2) Remove timestamps from remaining (to append at end adjacently)
-        for k in ('created_at', 'updated_at'):
-            if k in fields:
-                fields.remove(k)
-        # 3) Append remaining unspecified fields before timestamps
-        ordered.extend(fields)
-        # 4) Append timestamps adjacent at the very end
-        ordered.extend(['created_at', 'updated_at'])
-        return tuple(ordered)
+    # Fixed column set to ensure excluded fields never appear.
+    # Removed: plant_name, plant_category, min_threshold, max_threshold, buffer,
+    # is_acknowledged, acknowledged_at, is_resolved, resolved_at.
+    list_display = (
+        'id', 'device', 'sensor', 'plant', 'value', 'metric', 'unit', 'severity', 'trigger',
+        'title', 'recommendation', 'is_read', 'created_at', 'updated_at'
+    )
 
     # Keep filters lightweight and relevant to admin workflow; remove plant/category/ack/resolution filters
     list_filter = ('metric', 'trigger', 'severity', 'is_read')
@@ -133,16 +111,9 @@ class AlertAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     def plant(self, obj):
-        """Display plant name (or category) as 'Plant' column."""
+        """Single plant column (prefer explicit plant_name, fallback to category display)."""
         try:
             return obj.plant_name or obj.get_plant_category_display() or '—'
         except Exception:
             return '—'
     plant.short_description = 'Plant'
-
-    def short_recommendation(self, obj):
-        """Truncated recommendation for list view readability."""
-        rec = obj.recommendation or ''
-        rec = ' '.join(rec.split())  # collapse whitespace/newlines
-        return (rec[:120] + '…') if len(rec) > 120 else rec
-    short_recommendation.short_description = 'Recommendation'
