@@ -45,6 +45,8 @@ export default function DeviceActivityTrend() {
   const [series, setSeries] = useState({ labels: [], total: [], ph: [], ec: [], tds: [] });
   const chartRef = useRef(null);
   const cacheRef = useRef(new Map()); // key: `${range}|${granularity}|${stacked}` -> series
+  const initialLoadRef = useRef(true);
+  const lastFetchRef = useRef(0);
 
   const computeWindow = () => {
     const end = new Date();
@@ -57,17 +59,17 @@ export default function DeviceActivityTrend() {
     return { start, end };
   };
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
     try {
       setError(null);
-      setLoading(true);
+      if (!silent) setLoading(true);
       const { start, end } = computeWindow();
       const startISO = start.toISOString();
       const endISO = end.toISOString();
 
       const sensors = await getAllUserSensors();
       const interesting = sensors.filter(s => s && ['ph','ec','tds'].includes(String(s.sensor_type).toLowerCase()));
-      if (!interesting.length) { setSeries({ labels: [], total: [], ph: [], ec: [], tds: [] }); setLoading(false); return; }
+  if (!interesting.length) { setSeries({ labels: [], total: [], ph: [], ec: [], tds: [] }); if (!silent) setLoading(false); return; }
 
       const sensorMeta = interesting.map(s => ({ id: s.id, type: String(s.sensor_type).toLowerCase() }));
       const chunkSize = 50;
@@ -145,10 +147,11 @@ export default function DeviceActivityTrend() {
       const payload = { labels, total, ph, ec, tds };
       setSeries(payload);
       cacheRef.current.set(`${range}|${granularity}|${stacked}`, payload);
+      lastFetchRef.current = Date.now();
     } catch (e) {
       setError(e?.message || 'Failed to load activity trend');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -156,11 +159,17 @@ export default function DeviceActivityTrend() {
     const key = `${range}|${granularity}|${stacked}`;
     const cached = cacheRef.current.get(key);
     if (cached) { setSeries(cached); setLoading(false); }
-    else { fetchData(); }
+    // Always fetch silently so UI doesn’t flicker, even when changing controls
+    fetchData(true).finally(() => { if (initialLoadRef.current) initialLoadRef.current = false; });
 
-    const unsub = wsClient.subscribe((msg) => { if (msg?.type === 'sensor.update') fetchData(); });
-    wsClient.connect();
-    const id = setInterval(fetchData, 30000);
+    const unsub = wsClient.subscribe((msg) => {
+      if (msg?.type !== 'sensor.update') return;
+      const now = Date.now();
+      if (now - lastFetchRef.current < 20000) return; // throttle to 20s
+      fetchData(true);
+    });
+    // Background silent refresh every 60s
+    const id = setInterval(() => fetchData(true), 60000);
     return () => { if (typeof unsub === 'function') unsub(); clearInterval(id); };
   }, [range, granularity, stacked]);
 

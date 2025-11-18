@@ -48,6 +48,8 @@ export default function AdminPHLatestChart() {
   const chartRef = useRef(null);
   const [effectiveDate, setEffectiveDate] = useState(() => new Date());
   const [usingFallbackDate, setUsingFallbackDate] = useState(false);
+  const initialLoadRef = useRef(true);
+  const lastFetchRef = useRef(0);
 
   // Helper: plant-aware classification for color coding
   const classifyValue = (value, min, max) => {
@@ -65,15 +67,16 @@ export default function AdminPHLatestChart() {
     return PRIMARY_GREEN;
   };
 
-  const fetchAll = async () => {
+  const fetchAll = async (silent = false) => {
     try {
       setError(null);
+      if (!silent) setLoading(true);
       // 1) Get all sensors (admin sees all)
       const sensors = await getAllUserSensors();
       const interesting = sensors.filter(s => s && ['ph', 'ec', 'tds'].includes(String(s.sensor_type).toLowerCase()));
       if (!interesting.length) {
         setRows([]);
-        setLoading(false);
+        if (!silent) setLoading(false);
         return;
       }
 
@@ -242,10 +245,12 @@ export default function AdminPHLatestChart() {
       // cache
       const key = start.toISOString().slice(0,10);
       cacheRef.current.set(key, rowsOut);
+      lastFetchRef.current = Date.now();
     } catch (e) {
       setError(e?.message || 'Failed to load pH data');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+      if (initialLoadRef.current) initialLoadRef.current = false;
     }
   };
 
@@ -254,7 +259,6 @@ export default function AdminPHLatestChart() {
     const cached = cacheRef.current.get(key);
     if (cached) {
       setRows(cached);
-      // Recompute display date from cached rows to keep accuracy
       const getDateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
       const ts = [];
       cached.forEach(r => { if (r?.updatedAt) Object.values(r.updatedAt).forEach(t => { if (t) ts.push(new Date(t)); }); });
@@ -266,20 +270,23 @@ export default function AdminPHLatestChart() {
       setEffectiveDate(eff);
       setUsingFallbackDate(usedFallback);
       setLoading(false);
+      // silent refresh behind the scenes
+      fetchAll(true);
     } else {
-      setLoading(true);
-      fetchAll();
+      // first mount shows loader, later changes fetch silently
+      if (initialLoadRef.current) fetchAll(false); else fetchAll(true);
     }
 
-    // Refresh when sensor updates arrive
+    // Refresh when sensor updates arrive (throttled)
     const unsub = wsClient.subscribe((msg) => {
-      if (!msg) return;
-      if (msg.type === 'sensor.update') fetchAll();
+      if (!msg || msg.type !== 'sensor.update') return;
+      const now = Date.now(); if (now - lastFetchRef.current < 20000) return;
+      fetchAll(true);
     });
 
-    wsClient.connect();
+    if (!wsClient.isConnected?.()) wsClient.connect();
 
-    const id = setInterval(fetchAll, 20000);
+    const id = setInterval(() => fetchAll(true), 60000);
     return () => { clearInterval(id); if (typeof unsub === 'function') unsub(); };
   }, [selectedDate]);
 
@@ -489,7 +496,7 @@ export default function AdminPHLatestChart() {
         </div>
       </header>
       <div className="panel-body" style={{ minHeight: 360 }}>
-        {loading ? (
+        {loading && initialLoadRef.current ? (
           <ChartLoading />
         ) : error ? (
           <div style={{ padding: 24, color: '#b91c1c' }}>{error}</div>
