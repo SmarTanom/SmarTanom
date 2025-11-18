@@ -8,9 +8,9 @@ from .models import Sensor, SensorData, Alert
 @admin.register(Sensor)
 class SensorAdmin(admin.ModelAdmin):
     """Admin configuration for Sensor model."""
-    # Explicit column order per request: id, device, sensor_type, unit, created_at, updated_at, sensor_latest
+    # Column order updated: remove 'Latest' per request
     list_display = (
-        'id', 'device', 'sensor_type', 'unit', 'created_at', 'updated_at', 'sensor_latest'
+        'id', 'device', 'sensor_type', 'unit', 'created_at', 'updated_at'
     )
 
     list_filter = ('sensor_type', 'device__status')
@@ -19,27 +19,13 @@ class SensorAdmin(admin.ModelAdmin):
     raw_id_fields = ('device',)
     list_select_related = ('device',)
 
-    def sensor_latest(self, obj):
-        """Show latest reading value if SensorLatest row exists."""
-        try:
-            latest = getattr(obj, 'latest', None)
-            if not latest:
-                return '—'
-            val = latest.value
-            if val is None:
-                return '—'
-            return f"{val:.2f} (at {latest.updated_at.strftime('%H:%M:%S')})"
-        except Exception:
-            return '—'
-    sensor_latest.short_description = 'Latest'
-
 
 @admin.register(SensorData)
 class SensorDataAdmin(admin.ModelAdmin):
     """Admin configuration for SensorData model."""
-    # Explicit column order per request: id, device, sensor, value, created_at, updated_at, ingest_id
+    # Column order updated: remove 'ingest_id' per request
     list_display = (
-        'id', 'device_display', 'sensor', 'value', 'created_at', 'updated_at', 'ingest_id'
+        'id', 'device_display', 'sensor', 'value', 'created_at', 'updated_at'
     )
     list_filter = ('sensor__sensor_type', 'created_at')
     search_fields = ('sensor__device__device_name', 'sensor__sensor_type')
