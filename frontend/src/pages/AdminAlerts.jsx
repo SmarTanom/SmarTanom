@@ -22,7 +22,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
-import { getAdminAlerts, markAdminAlertsAsRead } from '../services/api/admin';
+import { listAlertsAll as listAllSensorAlerts, markAlertRead as apiMarkAlertRead } from '../services/api/alerts.js';
 import { wsClient } from '../services/websocketClient';
 import logoMarkWhite from '../assets/images/logo-mark-white.png';
 import '../assets/styles/AdminLayout.css';
@@ -87,37 +87,30 @@ export default function AdminAlerts() {
         setLoading(true);
       }
       setError(null);
-      const response = await getAdminAlerts({ limit: 500 });
-
-      // Transform backend data to a consistent shape for UI consumption
-  const transformedAlerts = (response?.alerts || []).map(alert => {
-        const deviceName = alert?.device?.name || 'Unknown Device';
-        // Normalize device identifier to a string for reliable filtering
-        const deviceId = String(alert?.device?.serial || alert?.device?.id || 'N/A');
-        // Prefer explicit message, fallback to body if endpoint differs
-  const message = alert?.message || alert?.body || alert?.recommendation || '';
-        const title = alert?.title || 'Alert';
-        // Accept multiple timestamp field names and coerce to Date
-        const ts = alert?.timestamp || alert?.created_at || null;
-        const timestamp = ts ? new Date(ts) : new Date();
-        // Normalize read/resolved flags across endpoints
-  const status = (alert?.is_read === true || alert?.status === 'read') ? 'read' : 'unread';
-        const resolved = (typeof alert?.resolved === 'boolean')
-          ? alert.resolved
-          : (alert?.status === 'sent');
+      // Pull authoritative alerts from sensors/alerts (all pages)
+      const rows = await listAllSensorAlerts({ ordering: '-created_at' });
+      const transformedAlerts = (Array.isArray(rows) ? rows : []).map(a => {
+        const deviceId = a.device_id != null ? String(a.device_id) : (a.device || 'N/A');
+        const deviceLabel = a.device || a.device_label || 'Unknown Device';
+        const title = a.title || 'Alert';
+        const message = a.recommendation || a.message || '';
+        const timestamp = a.created_at ? new Date(a.created_at) : null;
+        const type = a.severity || a.type || 'info';
+        const status = a.is_read ? 'read' : 'unread';
+        const resolved = !!a.is_resolved;
 
         return {
-          id: alert?.id,
-          type: alert?.type || alert?.severity || 'info',
-          device: deviceName,
+          id: a.id,
+          type,
+          device: deviceLabel,
           deviceId,
           title,
           message,
           timestamp,
           status,
           resolved,
-          user: alert?.user,
-          metadata: alert?.metadata || {}
+          user: a.user,
+          metadata: a.metadata || {}
         };
       });
 
@@ -158,8 +151,8 @@ export default function AdminAlerts() {
 
     // Date filter
     let matchesDate = true;
-    const now = Date.now();
-    const alertTime = alert.timestamp.getTime();
+  const now = Date.now();
+  const alertTime = alert.timestamp ? alert.timestamp.getTime() : 0;
     if (dateFilter === 'today') {
       matchesDate = now - alertTime < 24 * 3600000;
     } else if (dateFilter === 'week') {
@@ -189,6 +182,7 @@ export default function AdminAlerts() {
 
   // Format timestamp
   const formatTime = (timestamp) => {
+    if (!timestamp || isNaN(timestamp.getTime())) return 'Unknown';
     const now = Date.now();
     const diff = now - timestamp.getTime();
     const minutes = Math.floor(diff / 60000);
@@ -238,9 +232,9 @@ export default function AdminAlerts() {
     if (alert.status === 'unread') {
       // Optimistic update
       markAsRead(alert.id);
-      // Persist per-admin read receipt
-      markAdminAlertsAsRead([alert.id]).catch((e) => {
-        console.warn('[AdminAlerts] Failed to persist read receipt:', e);
+      // Persist read state to sensors/alerts
+      apiMarkAlertRead(alert.id, true).catch((e) => {
+        console.warn('[AdminAlerts] Failed to persist read:', e);
       });
     }
   };
@@ -485,7 +479,7 @@ export default function AdminAlerts() {
 
                   <div className="detail-section">
                     <label>Time</label>
-                    <p>{selectedAlert.timestamp.toLocaleString()}</p>
+                    <p>{selectedAlert.timestamp ? selectedAlert.timestamp.toLocaleString() : 'Unknown'}</p>
                   </div>
 
                   {/* Status section removed per request */}

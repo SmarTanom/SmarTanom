@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminDashboard.css';
 import AdminNavbar from '../components/admin/AdminNavbar';
+import AdminPHLatestChart from '../components/charts/AdminPHLatestChart.jsx';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
 import { wsClient } from '../services/websocketClient';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
@@ -315,8 +316,81 @@ export default function AdminDashboard() {
 					</article>
 				</section>
 
-				{/* Middle grid */}
+				{/* Middle grid: place Latest pH chart next to Quick Actions */}
 				<section className="middle-grid">
+					{/* Left: Latest pH across devices */}
+					<AdminPHLatestChart />
+
+					{/* Right: Quick Actions (unchanged) */}
+					<article className="panel">
+						<header className="panel-head">
+							<div className="panel-title">
+								<Wrench size={18} />
+								<span>Quick Actions</span>
+							</div>
+						</header>
+						<div className="quick-actions">
+							<button className="qa-btn" onClick={() => navigate('/admin/create')}>
+								<Plus size={20} /> Add New Device
+							</button>
+							<button className="qa-btn" onClick={() => navigate('/admin/users')}>
+								<User size={20} /> Manage Users
+							</button>
+							<button className="qa-btn" onClick={() => navigate('/admin/settings')}>
+								<Settings size={20} /> System Settings
+							</button>
+						</div>
+					</article>
+				</section>
+
+				{/* Lower grid: System Alerts + move Device Usage Trend here (swap with old performance panel) */}
+				<section className="lower-grid">
+					<article className="panel alerts">
+						<header className="panel-head">
+							<div className="panel-title">
+								<AlertTriangle size={18} />
+								<span>System Alerts</span>
+							</div>
+							<button className="view-all" onClick={() => navigate('/admin/alerts')}>
+								<Eye size={16} />
+								View All
+							</button>
+						</header>
+						<div className="alerts-list">
+							{alerts.critical > 0 && (
+								<div className="alert-card critical">
+									<div className="alert-meta"><Clock size={14} /> Recent</div>
+									<div className="alert-title">Critical Alerts</div>
+									<div className="alert-desc">{alerts.critical} critical {alerts.critical === 1 ? 'alert' : 'alerts'} requiring immediate attention</div>
+									<span className="alert-badge">Critical</span>
+								</div>
+							)}
+							{alerts.warning > 0 && (
+								<div className="alert-card warning">
+									<div className="alert-meta"><Clock size={14} /> Recent</div>
+									<div className="alert-title">Warning Alerts</div>
+									<div className="alert-desc">{alerts.warning} warning {alerts.warning === 1 ? 'alert' : 'alerts'} detected in the system</div>
+									<span className="alert-badge">Warning</span>
+								</div>
+							)}
+							{alerts.info > 0 && (
+								<div className="alert-card info">
+									<div className="alert-meta"><Clock size={14} /> Recent</div>
+									<div className="alert-title">Info Alerts</div>
+									<div className="alert-desc">{alerts.info} informational {alerts.info === 1 ? 'alert' : 'alerts'} for your review</div>
+									<span className="alert-badge">Info</span>
+								</div>
+							)}
+							{alerts.critical === 0 && alerts.warning === 0 && alerts.info === 0 && (
+								<div style={{ padding: '32px', textAlign: 'center', color: '#6f8876' }}>
+									<CheckCircle2 size={32} style={{ color: '#339432', margin: '0 auto 8px' }} />
+									<p>No active alerts</p>
+								</div>
+							)}
+						</div>
+					</article>
+
+					{/* Right column: Device Usage Trend (moved here) */}
 					<article className="panel">
 						<header className="panel-head">
 							<div className="panel-title">
@@ -392,118 +466,6 @@ export default function AdminDashboard() {
 							) : (
 								<div style={{ padding: '24px 8px', color: '#6f8876' }}>No trend data available.</div>
 							)}
-						</div>
-					</article>
-
-					<article className="panel">
-						<header className="panel-head">
-							<div className="panel-title">
-								<Wrench size={18} />
-								<span>Quick Actions</span>
-							</div>
-						</header>
-						<div className="quick-actions">
-							<button className="qa-btn" onClick={() => navigate('/admin/create')}>
-								<Plus size={20} /> Add New Device
-							</button>
-							<button className="qa-btn" onClick={() => navigate('/admin/users')}>
-								<User size={20} /> Manage Users
-							</button>
-							<button className="qa-btn" onClick={() => navigate('/admin/settings')}>
-								<Settings size={20} /> System Settings
-							</button>
-						</div>
-					</article>
-				</section>
-
-				{/* Lower grid */}
-				<section className="lower-grid">
-					<article className="panel alerts">
-						<header className="panel-head">
-							<div className="panel-title">
-								<AlertTriangle size={18} />
-								<span>System Alerts</span>
-							</div>
-							<button className="view-all" onClick={() => navigate('/admin/alerts')}>
-								<Eye size={16} />
-								View All
-							</button>
-						</header>
-						<div className="alerts-list">
-							{alerts.critical > 0 && (
-								<div className="alert-card critical">
-									<div className="alert-meta"><Clock size={14} /> Recent</div>
-									<div className="alert-title">Critical Alerts</div>
-									<div className="alert-desc">{alerts.critical} critical {alerts.critical === 1 ? 'alert' : 'alerts'} requiring immediate attention</div>
-									<span className="alert-badge">Critical</span>
-								</div>
-							)}
-							{alerts.warning > 0 && (
-								<div className="alert-card warning">
-									<div className="alert-meta"><Clock size={14} /> Recent</div>
-									<div className="alert-title">Warning Alerts</div>
-									<div className="alert-desc">{alerts.warning} warning {alerts.warning === 1 ? 'alert' : 'alerts'} detected in the system</div>
-									<span className="alert-badge">Warning</span>
-								</div>
-							)}
-							{alerts.info > 0 && (
-								<div className="alert-card info">
-									<div className="alert-meta"><Clock size={14} /> Recent</div>
-									<div className="alert-title">Info Alerts</div>
-									<div className="alert-desc">{alerts.info} informational {alerts.info === 1 ? 'alert' : 'alerts'} for your review</div>
-									<span className="alert-badge">Info</span>
-								</div>
-							)}
-							{alerts.critical === 0 && alerts.warning === 0 && alerts.info === 0 && (
-								<div style={{ padding: '32px', textAlign: 'center', color: '#6f8876' }}>
-									<CheckCircle2 size={32} style={{ color: '#339432', margin: '0 auto 8px' }} />
-									<p>No active alerts</p>
-								</div>
-							)}
-						</div>
-					</article>
-
-					<article className="panel performance">
-						<header className="panel-head">
-							<div className="panel-title">
-								<Activity size={18} />
-								<span>System Performance</span>
-							</div>
-						</header>
-						<div className="panel-body">
-							<div className="perf-rows">
-								<div className="perf-row">
-									<span>CPU Usage</span>
-									<Progress value={performance.cpu_usage} label="CPU Usage" />
-								</div>
-								<div className="perf-row">
-									<span>Memory Usage</span>
-									<Progress value={performance.memory_usage} label="Memory Usage" />
-								</div>
-								<div className="perf-row">
-									<span>Disk Usage</span>
-									<Progress value={performance.disk_usage} label="Disk Usage" />
-								</div>
-							</div>
-							<div className="grade-card">
-								<div>
-									<div className="grade-title">Overall Health Score</div>
-									<div className="grade-sub">
-										{performance.cpu_usage < 70 && performance.memory_usage < 70 && performance.disk_usage < 70
-											? 'Excellent system performance'
-											: performance.cpu_usage < 85 && performance.memory_usage < 85 && performance.disk_usage < 85
-												? 'Good system performance'
-												: 'System needs attention'}
-									</div>
-								</div>
-								<div className="grade-badge">
-									{performance.cpu_usage < 70 && performance.memory_usage < 70 && performance.disk_usage < 70
-										? 'A+'
-										: performance.cpu_usage < 85 && performance.memory_usage < 85 && performance.disk_usage < 85
-											? 'B'
-											: 'C'}
-								</div>
-							</div>
 						</div>
 					</article>
 
