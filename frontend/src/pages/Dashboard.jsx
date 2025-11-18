@@ -920,8 +920,8 @@ export default function Dashboard() {
     const idx = ownedDevices.findIndex(d => d.id === device.id);
     if (idx >= 0) {
       try {
-  localStorage.setItem('dashboard.activeDeviceIndex', idx.toString());
-  localStorage.setItem('dashboard.activeDeviceId', device.id.toString());
+        localStorage.setItem('dashboard.activeDeviceIndex', idx.toString());
+        localStorage.setItem('dashboard.activeDeviceId', device.id.toString());
       } catch (e) {
         console.warn('Failed to save device selection:', e);
       }
@@ -1940,8 +1940,8 @@ export default function Dashboard() {
             }}>
               <Activity size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />
             </div>
-            <span className="ph-card-title" style={{ 
-              fontSize: '16px', 
+            <span className="ph-card-title" style={{
+              fontSize: '16px',
               fontWeight: '700',
               color: '#2d3748'
             }}>
@@ -1978,9 +1978,9 @@ export default function Dashboard() {
               <option value="months">Months</option>
             </select>
           </div>
-          <div className="ph-legend" style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          <div className="ph-legend" style={{
+            display: 'flex',
+            alignItems: 'center',
             gap: 10,
             padding: '10px 20px',
             borderBottom: '1px solid rgba(139, 167, 151, 0.12)',
@@ -1999,16 +1999,16 @@ export default function Dashboard() {
               fontSize: '13px'
             }}>{legendLabel}</span>
           </div>
-          
+
           {/* pH Line Chart */}
-          <div style={{ 
-            padding: '20px', 
+          <div style={{
+            padding: '20px',
             height: '340px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <PHLineChart 
+            <PHLineChart
               phData={data?.phRawData || []}
               plant={data?.plant || currentDevice?.plant}
               barsPerPage={PH_WINDOW_SIZE}
@@ -2020,23 +2020,25 @@ export default function Dashboard() {
         {/* Current pH level (real-time latest reading, independent of history) */}
         <section className="card current-ph-card" aria-label="Current pH" onClick={() => setSelectedMonitoringCard('ph')} style={{ cursor: 'pointer' }}>
           {(() => {
-            // Resolve the freshest current pH value from multiple sources
-            // 1) Realtime snapshot (WS or lite refresh)
-            let latestPh = (typeof data?.sensors?.ph === 'number' && Number.isFinite(data.sensors.ph))
-              ? Number(data.sensors.ph)
-              : null;
-            // 2) Fallback to newest value in raw fetched history (by created_at)
-            if (latestPh === null && Array.isArray(data?.phRawData) && data.phRawData.length) {
+            // Resolve current pH with a stability-first strategy to avoid flicker:
+            // Prefer the newest reading from phRawData (has created_at), then fall back to realtime snapshot.
+            let latestPh = null;
+            let newestFromRaw = null;
+            if (Array.isArray(data?.phRawData) && data.phRawData.length) {
               try {
-                const newest = data.phRawData.reduce((acc, r) => {
+                newestFromRaw = data.phRawData.reduce((acc, r) => {
                   if (!r || r.value == null || !r.created_at) return acc;
                   const t = new Date(r.created_at).getTime();
                   if (!Number.isFinite(t)) return acc;
                   if (!acc || t > acc.t) return { t, v: Number(r.value) };
                   return acc;
                 }, null);
-                if (newest && Number.isFinite(newest.v)) latestPh = newest.v;
               } catch (_) { /* ignore */ }
+            }
+            if (newestFromRaw && Number.isFinite(newestFromRaw.v)) {
+              latestPh = newestFromRaw.v;
+            } else if (typeof data?.sensors?.ph === 'number' && Number.isFinite(data.sensors.ph)) {
+              latestPh = Number(data.sensors.ph);
             }
             const hasPh = typeof latestPh === 'number' && Number.isFinite(latestPh);
             const phVal = hasPh ? latestPh : null;

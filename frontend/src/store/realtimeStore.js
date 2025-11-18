@@ -451,23 +451,43 @@ export const useRealtimeStore = create(persist((set, get) => ({
       const lastIngest = { ...(state._lastIngestByDevice[device_id] || {}) };
       const lastVT = { ...(state._lastValueTsByDevice[device_id] || {}) };
 
+      const existingLastMs = existing?.lastUpdate ? new Date(existing.lastUpdate).getTime() : 0;
       const tryAssign = (sensorType, value) => {
         if (value === undefined) return;
         const newIngest = ingestIds && ingestIds[sensorType];
+        // Normalize target key (camelCase for water_level)
+        const targetKey = sensorType === 'water_level' ? 'waterLevel' : sensorType;
+
+        // If we have an explicit ingest id, use it to dedupe; still record timestamp
         if (newIngest) {
           if (lastIngest[sensorType] === newIngest) return; // duplicate ingest
           lastIngest[sensorType] = newIngest;
-          nextSensors[sensorType === 'water_level' ? 'waterLevel' : sensorType] = value;
+          // Guard against time going backwards if payload timestamp is older than what we have
+          const prevVT = lastVT[sensorType];
+          const prevTsMs = prevVT ? new Date(prevVT.t).getTime() : 0;
+          const curTsMs = new Date(timestamp).getTime();
+          // Only accept if this event is not clearly older than our last accepted value
+          if ((prevTsMs && curTsMs + 250 < prevTsMs) || (existingLastMs && curTsMs + 250 < existingLastMs)) {
+            return; // stale message, ignore
+          }
+          lastVT[sensorType] = { v: value, t: timestamp };
+          nextSensors[targetKey] = value;
           return;
         }
-        // Fallback dedupe: same value within 1s
+
+        // Fallback path (no ingest id): enforce monotonic time to prevent stale WS overwriting newer polled values
         const prev = lastVT[sensorType];
-        if (prev && prev.v === value) {
-          const dt = Math.abs(new Date(timestamp).getTime() - new Date(prev.t).getTime());
-          if (dt <= 1000) return; // ignore
-        }
+        const curTsMs = new Date(timestamp).getTime();
+        const prevTsMs = prev ? new Date(prev.t).getTime() : 0;
+
+        // If this update is older than the last accepted update by >250ms, ignore as stale
+        if ((prevTsMs && curTsMs + 250 < prevTsMs) || (existingLastMs && curTsMs + 250 < existingLastMs)) return;
+
+        // If value is unchanged and not newer, ignore noise
+        if (prev && prev.v === value && curTsMs <= prevTsMs) return;
+
         lastVT[sensorType] = { v: value, t: timestamp };
-        nextSensors[sensorType === 'water_level' ? 'waterLevel' : sensorType] = value;
+        nextSensors[targetKey] = value;
       };
 
       tryAssign('ph', s.ph);
@@ -530,6 +550,11 @@ export const useRealtimeStore = create(persist((set, get) => ({
         connectivity
       });
 
+      // Ensure lastUpdate never moves backwards in time
+      const prevLastUpdateMs = existing?.lastUpdate ? new Date(existing.lastUpdate).getTime() : 0;
+      const incomingTsMs = timestamp ? new Date(timestamp).getTime() : 0;
+      const nextLastUpdate = (incomingTsMs > prevLastUpdateMs) ? timestamp : existing?.lastUpdate;
+
       return {
         deviceData: {
           ...state.deviceData,
@@ -541,7 +566,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
             alertText,
             connectivity,
             lastSyncLabel: lastSync,
-            lastUpdate: timestamp,
+            lastUpdate: nextLastUpdate,
           }
         },
         _lastIngestByDevice: { ...state._lastIngestByDevice, [device_id]: lastIngest },
