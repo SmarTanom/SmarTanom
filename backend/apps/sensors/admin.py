@@ -96,33 +96,31 @@ class AlertAdmin(admin.ModelAdmin):
     # Custom column order per request:
     # id, device, sensor, plant, metric, unit, severity, trigger,
     # title, recommendation, is_read, is_acknowledged, is_resolved,
-    # created_at, <any remaining fields>, updated_at
+    # created_at, updated_at (adjacent)
     def get_list_display(self, request):
         # Concrete model fields
         fields = [f.name for f in self.model._meta.get_fields() if not (f.many_to_many or f.one_to_many)]
         # Desired explicit order (includes a computed 'plant' column)
         desired = [
-            'id', 'device', 'sensor', 'plant', 'metric', 'unit', 'severity', 'trigger',
-            'title', 'recommendation', 'is_read', 'is_acknowledged', 'is_resolved', 'created_at', 'updated_at'
+            'id', 'device', 'sensor', 'plant', 'value', 'metric', 'unit', 'severity', 'trigger',
+            'title', 'recommendation', 'is_read', 'is_acknowledged', 'is_resolved',
+            # created_at and updated_at will be appended at the very end to keep them adjacent
         ]
-        # Start with the ordered keys up to created_at
+        # 1) Place explicit keys except timestamps
         ordered = []
         for key in desired:
-            if key == 'updated_at':
-                # postpone placing updated_at until the end
-                continue
             if key in fields or key == 'plant':
                 ordered.append(key)
                 if key in fields:
                     fields.remove(key)
-        # Remove created/updated if present in remaining pool to avoid duplicates
+        # 2) Remove timestamps from remaining (to append at end adjacently)
         for k in ('created_at', 'updated_at'):
             if k in fields:
                 fields.remove(k)
-        # Place any remaining columns (not explicitly mentioned) before updated_at
+        # 3) Append remaining unspecified fields before timestamps
         ordered.extend(fields)
-        # Finally, updated_at last
-        ordered.append('updated_at')
+        # 4) Append timestamps adjacent at the very end
+        ordered.extend(['created_at', 'updated_at'])
         return tuple(ordered)
 
     list_filter = ('metric', 'trigger', 'severity', 'is_read', 'is_acknowledged', 'is_resolved', 'plant_category')
