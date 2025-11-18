@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
-import '../../assets/styles/Toast.css';
+import React, { useState, useEffect } from 'react';
+import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+// Inline styles to avoid CSS import resolution issues during dev
 
 /**
  * Simple Toast component
@@ -10,7 +11,8 @@ import '../../assets/styles/Toast.css';
  * - duration: ms (default 3000)
  * - onClose: function
  */
-export default function Toast({ open, message, type = 'info', duration = 3000, onClose }) {
+// Basic toast variant used in some admin pages (controlled by `open` prop)
+function BasicToast({ open, message, type = 'info', duration = 3000, onClose }) {
   useEffect(() => {
     if (!open) return;
     const timer = setTimeout(() => {
@@ -21,16 +23,41 @@ export default function Toast({ open, message, type = 'info', duration = 3000, o
 
   if (!open) return null;
 
+  const containerStyle = {
+    position: 'fixed',
+    right: 16,
+    bottom: 16,
+    zIndex: 1000,
+  };
+
+  const baseToast = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    maxWidth: 420,
+    padding: '12px 14px',
+    borderRadius: 8,
+    boxShadow: '0 6px 24px rgba(0,0,0,0.12)'
+  };
+
+  const variants = {
+    success: { background: '#e7f7ea', color: '#0b2710', border: '1px solid #bfe7c9' },
+    error: { background: '#fde8e8', color: '#7a1f1f', border: '1px solid #f5c2c2' },
+    info: { background: '#e8f0fe', color: '#132a64', border: '1px solid #c2d1f5' },
+  };
+
+  const toastStyle = { ...baseToast, ...(variants[type] || variants.info) };
+
   return (
-    <div className={`toast-container`} role="status" aria-live="polite">
-      <div className={`toast toast-${type}`}>
-        <span className="toast-message">{message}</span>
+    <div style={containerStyle} role="status" aria-live="polite">
+      <div style={toastStyle}>
+        <span style={{ fontSize: 14, lineHeight: 1.4 }}>{message}</span>
       </div>
     </div>
   );
 }
-import React, { useState, useEffect } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+
+// Keep default export for existing imports like `import Toast from './Toast'`
+export default BasicToast;
 
 export function Toast({ type = 'info', message, onClose, duration = 5000 }) {
   const [visible, setVisible] = useState(true);
