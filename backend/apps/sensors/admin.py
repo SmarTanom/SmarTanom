@@ -8,16 +8,10 @@ from .models import Sensor, SensorData, Alert
 @admin.register(Sensor)
 class SensorAdmin(admin.ModelAdmin):
     """Admin configuration for Sensor model."""
-    # Show all concrete fields as columns to make all data visible in Render admin
-    def get_list_display(self, request):
-        # Exclude many-to-many and reverse relations
-        fields = [f.name for f in self.model._meta.get_fields() if not (f.many_to_many or f.one_to_many)]
-        # Ensure a stable order and include timestamps
-        # Keep id first for quick access
-        if 'id' in fields:
-            fields.remove('id')
-            fields = ['id'] + fields
-        return tuple(fields)
+    # Explicit column order per request: id, device, sensor_type, unit, created_at, updated_at, sensor_latest
+    list_display = (
+        'id', 'device', 'sensor_type', 'unit', 'created_at', 'updated_at', 'sensor_latest'
+    )
 
     list_filter = ('sensor_type', 'device__status')
     search_fields = ('device__device_name', 'sensor_type', 'unit')
@@ -25,18 +19,28 @@ class SensorAdmin(admin.ModelAdmin):
     raw_id_fields = ('device',)
     list_select_related = ('device',)
 
+    def sensor_latest(self, obj):
+        """Show latest reading value if SensorLatest row exists."""
+        try:
+            latest = getattr(obj, 'latest', None)
+            if not latest:
+                return '—'
+            val = latest.value
+            if val is None:
+                return '—'
+            return f"{val:.2f} (at {latest.updated_at.strftime('%H:%M:%S')})"
+        except Exception:
+            return '—'
+    sensor_latest.short_description = 'Latest'
+
 
 @admin.register(SensorData)
 class SensorDataAdmin(admin.ModelAdmin):
     """Admin configuration for SensorData model."""
-    # Show all concrete fields for full visibility; include helper device_name at end
-    def get_list_display(self, request):
-        fields = [f.name for f in self.model._meta.get_fields() if not (f.many_to_many or f.one_to_many)]
-        if 'id' in fields:
-            fields.remove('id')
-            fields = ['id'] + fields
-        # Append helper column to show device name inline
-        return tuple(fields + ['device_name'])
+    # Explicit column order per request: id, device, sensor, value, created_at, updated_at, ingest_id
+    list_display = (
+        'id', 'device_display', 'sensor', 'value', 'created_at', 'updated_at', 'ingest_id'
+    )
     list_filter = ('sensor__sensor_type', 'created_at')
     search_fields = ('sensor__device__device_name', 'sensor__sensor_type')
     ordering = ('-created_at',)
@@ -46,10 +50,16 @@ class SensorDataAdmin(admin.ModelAdmin):
     list_per_page = 50
     actions = ['bulk_delete_old_data']
     
-    def device_name(self, obj):
-        """Display device name for better admin UX."""
-        return obj.sensor.device.device_name if obj.sensor and obj.sensor.device else 'N/A'
-    device_name.short_description = 'Device'
+    def device_display(self, obj):
+        """Show device name + serial for quick identification."""
+        try:
+            dev = obj.sensor.device
+            name = dev.device_name or f"Device {dev.device_serial}" if dev.device_serial else str(dev.id)
+            serial = dev.device_serial
+            return f"{name} ({serial})" if serial else name
+        except Exception:
+            return 'N/A'
+    device_display.short_description = 'Device'
     
     def save_model(self, request, obj, form, change):
         """Optimize sensor data saving in admin."""
