@@ -11,6 +11,7 @@ from apps.devices.models import Device, DeviceOTPCode, DeviceCollaboration, Devi
 class DeviceAdmin(admin.ModelAdmin):
     """Admin configuration for Device model."""
 
+    # Removed 'is_bound' column per request; binding state still accessible via detail view
     list_display = (
         'id',
         'device_serial',
@@ -23,7 +24,6 @@ class DeviceAdmin(admin.ModelAdmin):
         'start_date',
         'end_date',
         'last_seen',
-        'is_bound',
         'bound_email',
         'plant_photo_thumbnail',
         'created_at',
