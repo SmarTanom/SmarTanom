@@ -17,6 +17,28 @@ export async function getUserSensors() {
 }
 
 /**
+ * Get ALL sensors for authenticated user (follows pagination)
+ * Returns a flat array of sensor objects.
+ */
+export async function getAllUserSensors(maxPages = 200) {
+  const token = localStorage.getItem('authToken');
+  if (!token) throw new Error('No authentication token found');
+
+  let url = '/api/sensors/sensors/?page_size=100';
+  const items = [];
+  let guard = 0;
+  while (url && guard < maxPages) {
+    // apiClient accepts absolute next URLs too
+    const page = await apiClient.get(url, { authToken: token });
+    const rows = Array.isArray(page?.results) ? page.results : (Array.isArray(page) ? page : []);
+    items.push(...rows);
+    url = page?.next || null;
+    guard += 1;
+  }
+  return items;
+}
+
+/**
  * Get sensors for a specific device
  */
 export async function getDeviceSensors(deviceId) {
@@ -39,7 +61,7 @@ export async function getSensorData(sensorId, limit = 50, opts = {}) {
     throw new Error('No authentication token found');
   }
   // Include device_serial for strict backend scoping
-  const deviceSerial = localStorage.getItem('activeDeviceSerial') || '';
+  const deviceSerial = opts.ignoreDeviceSerial ? '' : (localStorage.getItem('activeDeviceSerial') || '');
   const serialParam = deviceSerial ? `&device_serial=${encodeURIComponent(deviceSerial)}` : '';
   const startParam = opts.start ? `&start=${encodeURIComponent(opts.start)}` : '';
   const endParam = opts.end ? `&end=${encodeURIComponent(opts.end)}` : '';
@@ -97,12 +119,22 @@ export async function getLatestReadings(deviceId) {
   return data; // array of {sensor_id, value, status, updated_at}
 }
 
+// Latest readings for ALL sensors visible to the current user (admin sees all)
+export async function getLatestReadingsAll() {
+  const token = localStorage.getItem('authToken');
+  if (!token) throw new Error('No authentication token found');
+  const data = await apiClient.get(`/api/sensors/latest/`, { authToken: token });
+  return data; // array of {sensor_id, value, status, updated_at}
+}
+
 // Export as default object
 export default {
   getUserSensors,
   getDeviceSensors,
+  getAllUserSensors,
   getSensorData,
   getSensorDataAll,
   getRecentSensorData,
-  getLatestReadings
+  getLatestReadings,
+  getLatestReadingsAll
 };
