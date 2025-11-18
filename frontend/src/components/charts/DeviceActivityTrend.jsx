@@ -86,12 +86,13 @@ export default function DeviceActivityTrend() {
         return formatMonth(dt);
       };
 
-      for (let i = 0; i < sensorMeta.length; i += chunkSize) {
-        const chunk = sensorMeta.slice(i, i + chunkSize);
+      // Process chunks in parallel to speed up loading
+      const chunks = [];
+      for (let i = 0; i < sensorMeta.length; i += chunkSize) chunks.push(sensorMeta.slice(i, i + chunkSize));
+      await Promise.all(chunks.map(async (chunk) => {
         const ids = chunk.map(s => s.id).join(',');
         let page = 1;
-        // loop pages defensively up to a cap
-        while (page <= 10) { // cap 10 pages per chunk to avoid runaway
+        while (page <= 6) { // lower cap; parallelized
           const resp = await apiClient.get(`/api/sensors/sensor-data/?sensor__in=${ids}&page_size=1000&page=${page}&ordering=-created_at&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`, { authToken: token });
           const items = Array.isArray(resp?.results) ? resp.results : (Array.isArray(resp) ? resp : []);
           if (!items.length) break;
@@ -105,28 +106,35 @@ export default function DeviceActivityTrend() {
           }
           if (resp?.next) { page += 1; } else { break; }
         }
-      }
+      }));
 
       // Fallback: if nothing aggregated (e.g., backend doesn't support sensor__in),
       // fetch per-sensor pages and aggregate.
       if (bucketMap.size === 0) {
-        for (let i = 0; i < sensorMeta.length; i += 20) {
-          const chunk = sensorMeta.slice(i, i + 20);
-          for (const meta of chunk) {
-            let page = 1;
-            while (page <= 8) {
-              const url = `/api/sensors/sensor-data/?sensor=${meta.id}&page_size=1000&page=${page}&ordering=-created_at&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}&ignoreDeviceSerial=true`;
-              const resp = await apiClient.get(url, { authToken: token });
-              const items = Array.isArray(resp?.results) ? resp.results : (Array.isArray(resp) ? resp : []);
-              if (!items.length) break;
-              for (const it of items) {
-                const t = it.created_at; if (!t) continue;
-                bump(keyFor(t), meta.type);
-              }
-              if (resp?.next) { page += 1; } else { break; }
+        // Concurrency-limited per-sensor fallback
+        const perSensor = async (meta) => {
+          let page = 1;
+          while (page <= 6) {
+            const url = `/api/sensors/sensor-data/?sensor=${meta.id}&page_size=1000&page=${page}&ordering=-created_at&start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}&ignoreDeviceSerial=true`;
+            const resp = await apiClient.get(url, { authToken: token });
+            const items = Array.isArray(resp?.results) ? resp.results : (Array.isArray(resp) ? resp : []);
+            if (!items.length) break;
+            for (const it of items) {
+              const t = it.created_at; if (!t) continue;
+              bump(keyFor(t), meta.type);
             }
+            if (resp?.next) { page += 1; } else { break; }
           }
-        }
+        };
+        const limit = 6;
+        let cursor = 0;
+        const runners = new Array(Math.min(limit, sensorMeta.length)).fill(0).map(async () => {
+          while (cursor < sensorMeta.length) {
+            const idx = cursor++;
+            await perSensor(sensorMeta[idx]);
+          }
+        });
+        await Promise.all(runners);
       }
 
       const labels = Array.from(bucketMap.keys()).sort((a,b) => a.localeCompare(b));
@@ -236,13 +244,13 @@ export default function DeviceActivityTrend() {
   );
 
   return (
-    <article className="panel">
+    <article className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
       <header className="panel-head">
         <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Activity size={18} />
           <span>Device Activity Trend</span>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className="btn-group" role="group" aria-label="Range selector" style={{ background: '#f3f7f5', borderRadius: 999, padding: 2 }}>
             {['3m','6m','12m','all'].map(k => (
               <button key={k} type="button" onClick={() => setRange(k)} style={{ border: 'none', background: range===k? '#fff':'transparent', color: '#0d3923', padding: '6px 10px', borderRadius: 999, cursor: 'pointer', fontWeight: 600 }}>{k.toUpperCase()}</button>
@@ -265,7 +273,7 @@ export default function DeviceActivityTrend() {
           </button>
         </div>
       </header>
-      <div className="panel-body">
+      <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading ? (
           <ChartLoading />
         ) : error ? (
@@ -274,12 +282,12 @@ export default function DeviceActivityTrend() {
           <div style={{ padding: 24, color: '#6f8876' }}>No activity in selected range.</div>
         ) : (
           <>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
               <div className="kpi-chip" title="Minimum"><span style={{ color: '#6f8876', fontWeight: 600 }}>Min</span><strong style={{ marginLeft: 6 }}>{kpis.min}</strong></div>
               <div className="kpi-chip" title="Average"><span style={{ color: '#6f8876', fontWeight: 600 }}>Avg</span><strong style={{ marginLeft: 6 }}>{kpis.avg.toFixed(1)}</strong></div>
               <div className="kpi-chip" title="Maximum"><span style={{ color: '#6f8876', fontWeight: 600 }}>Max</span><strong style={{ marginLeft: 6 }}>{kpis.max}</strong></div>
             </div>
-            <div style={{ height: 280 }}>
+            <div style={{ height: 280, minWidth: 0 }}>
               <Line ref={chartRef} data={data} options={options} height={260} />
             </div>
           </>
