@@ -9,7 +9,7 @@ import { getUserDevices, deleteUser } from '../services/api/admin';
 import UserDevicesModal from '../components/ui/UserDevicesModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
-import Toast from '../components/ui/Toast.jsx';
+import Toast from '../components/ui/Toast';
 import {
 	Search,
 	Smartphone,
