@@ -484,6 +484,31 @@ export default function Dashboard() {
   const currentDevice = ownedDevices[activeIdx];
   const data = currentDevice ? devicesData[currentDevice.id] : null;
 
+  // --- Stable lastUpdate to prevent flicker in "Last Data Sync" label ---
+  // We only advance the stable timestamp when we get a strictly newer reading.
+  // Minor out-of-order websocket messages or rapid polling within the same minute won't regress or churn the label.
+  const stableLastUpdateRef = useRef(null);
+  const [stableLastUpdate, setStableLastUpdate] = useState(null);
+  useEffect(() => {
+    const incoming = data?.lastUpdate;
+    if (!incoming) return;
+    try {
+      const incomingMs = new Date(incoming).getTime();
+      const prevMs = stableLastUpdateRef.current ? new Date(stableLastUpdateRef.current).getTime() : 0;
+      if (!prevMs || incomingMs > prevMs) {
+        stableLastUpdateRef.current = incoming;
+        setStableLastUpdate(incoming);
+      }
+    } catch (_) { /* ignore parse errors */ }
+  }, [data?.lastUpdate, currentDevice?.id]);
+
+  // Memoized connectivity + sync label derived from the stable timestamp
+  const connectivityStatus = useMemo(() => {
+    const ts = stableLastUpdate || data?.lastUpdate;
+    if (!ts) return { connectivity: data?.connectivity || 'Offline', lastSync: data?.lastSyncLabel || 'Never' };
+    return getConnectivityStatus(ts);
+  }, [stableLastUpdate, data?.lastUpdate, data?.connectivity, data?.lastSyncLabel]);
+
   // Persist current device serial for strict backend filtering of sensor data
   useEffect(() => {
     try {
@@ -1842,8 +1867,7 @@ export default function Dashboard() {
             <div className="status-box-content">
               <span className="status-label">Connectivity</span>
               {(() => {
-                const status = data?.lastUpdate ? getConnectivityStatus(data.lastUpdate) : { connectivity: data?.connectivity, lastSync: data?.lastSyncLabel };
-                const conn = status?.connectivity || 'Offline';
+                const conn = connectivityStatus?.connectivity || 'Offline';
                 return (
                   <span className={`status-value ${conn === 'Online' ? 'status-online' : 'status-offline'}`}>
                     {data ? conn : 'Loading...'}
@@ -1859,8 +1883,7 @@ export default function Dashboard() {
             <div className="status-box-content">
               <span className="status-label">Last Data Sync</span>
               {(() => {
-                const status = data?.lastUpdate ? getConnectivityStatus(data.lastUpdate) : { connectivity: data?.connectivity, lastSync: data?.lastSyncLabel };
-                const label = status?.lastSync || 'Never';
+                const label = connectivityStatus?.lastSync || 'Never';
                 return (
                   <span className="status-value">{data ? label : 'Loading...'}</span>
                 );
