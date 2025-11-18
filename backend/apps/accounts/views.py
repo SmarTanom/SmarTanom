@@ -763,8 +763,17 @@ def delete_user(request, user_id):
     from django.db import transaction
     from rest_framework.authtoken.models import Token
     from django.contrib.admin.models import LogEntry
-    from apps.devices.models import DeviceInvitation, DeviceCollaboration, Device, DeviceOTPCode
-    from apps.sensors.models import SensorData, Alert, SensorLatest
+    # Import optional models defensively to avoid 500s when migrations lag behind deploy
+    try:
+        from apps.devices.models import DeviceOTPCode  # type: ignore
+    except Exception:  # pragma: no cover - missing table/model edge
+        DeviceOTPCode = None
+        logger.warning("DeviceOTPCode model unavailable; skipping device OTP cleanup during user delete")
+    try:
+        from apps.sensors.models import SensorData, Alert, SensorLatest  # type: ignore
+    except Exception:  # pragma: no cover
+        SensorData = Alert = SensorLatest = None
+        logger.warning("Sensors models unavailable; skipping sensor/alert cleanup during user delete")
     try:
         user_to_delete = User.objects.get(id=user_id)
 
@@ -783,51 +792,90 @@ def delete_user(request, user_id):
 
         deleted_email = user_to_delete.email
 
+        warnings = []
         with transaction.atomic():
             # 1) Clean up any collaborations/invitations tied to the user by email
-            DeviceInvitation.objects.filter(invite_email__iexact=deleted_email).delete()
-            DeviceCollaboration.objects.filter(collaborator_email__iexact=deleted_email).delete()
+            try:
+                DeviceInvitation.objects.filter(invite_email__iexact=deleted_email).delete()
+                DeviceCollaboration.objects.filter(collaborator_email__iexact=deleted_email).delete()
+            except Exception as e:
+                logger.error(f"Failed cleaning invitations/collaborations for {deleted_email}: {e}")
+                warnings.append("collaboration_cleanup_failed")
 
             # 2) For devices owned by the user, purge device-specific data and unbind
             owned_devices = list(Device.objects.filter(bound_email__iexact=deleted_email))
 
             for device in owned_devices:
-                # Delete sensor data and alerts for this device
-                SensorData.objects.filter(sensor__device=device).delete()
-                Alert.objects.filter(device=device).delete()
-
-                # Reset denormalized latest values (do not remove sensors themselves)
-                SensorLatest.objects.filter(sensor__device=device).update(value=None, status="")
+                # Delete sensor data and alerts for this device (if models exist)
+                if SensorData is not None:
+                    try:
+                        SensorData.objects.filter(sensor__device=device).delete()
+                    except Exception as e:
+                        logger.error(f"SensorData cleanup failed for device {device.id}: {e}")
+                        warnings.append("sensor_data_cleanup_failed")
+                if Alert is not None:
+                    try:
+                        Alert.objects.filter(device=device).delete()
+                    except Exception as e:
+                        logger.error(f"Alert cleanup failed for device {device.id}: {e}")
+                        warnings.append("alert_cleanup_failed")
+                if SensorLatest is not None:
+                    try:
+                        SensorLatest.objects.filter(sensor__device=device).update(value=None, status="")
+                    except Exception as e:
+                        logger.error(f"SensorLatest reset failed for device {device.id}: {e}")
+                        warnings.append("sensor_latest_reset_failed")
 
                 # Remove any sharing records and pending invites for this device
-                DeviceCollaboration.objects.filter(device=device).delete()
-                DeviceInvitation.objects.filter(device=device).delete()
-                DeviceOTPCode.objects.filter(device=device).delete()
+                try:
+                    DeviceCollaboration.objects.filter(device=device).delete()
+                    DeviceInvitation.objects.filter(device=device).delete()
+                except Exception as e:
+                    logger.error(f"Per-device collaboration/invitation cleanup failed for device {device.id}: {e}")
+                    warnings.append("device_share_cleanup_failed")
+                if DeviceOTPCode is not None:
+                    try:
+                        DeviceOTPCode.objects.filter(device=device).delete()
+                    except Exception as e:
+                        logger.error(f"DeviceOTPCode cleanup failed for device {device.id}: {e}")
+                        warnings.append("device_otp_cleanup_failed")
 
                 # Clear plant/photo and WiFi-related state; unbind ownership
-                device.is_bound = False
-                device.bound_email = None
-                device.wifi_configured = False
-                device.ip_address = None
-                device.plant_photo = None
-                device.plant = None
-                device.start_date = None
-                device.end_date = None
-                device.location = None
-                device.save(update_fields=[
-                    'is_bound', 'bound_email', 'wifi_configured', 'ip_address',
-                    'plant_photo', 'plant', 'start_date', 'end_date', 'location', 'updated_at'
-                ])
+                try:
+                    device.is_bound = False
+                    device.bound_email = None
+                    device.wifi_configured = False
+                    device.ip_address = None
+                    device.plant_photo = None
+                    device.plant = None
+                    device.start_date = None
+                    device.end_date = None
+                    device.location = None
+                    device.save(update_fields=[
+                        'is_bound', 'bound_email', 'wifi_configured', 'ip_address',
+                        'plant_photo', 'plant', 'start_date', 'end_date', 'location', 'updated_at'
+                    ])
+                except Exception as e:
+                    logger.error(f"Device state reset failed for device {device.id}: {e}")
+                    warnings.append("device_state_reset_failed")
 
             # 3) Remove auth/session artifacts for the user
-            Token.objects.filter(user=user_to_delete).delete()
-            LogEntry.objects.filter(user=user_to_delete).delete()
-            OTPCode.objects.filter(email__iexact=deleted_email).delete()
-            LoginAttempt.objects.filter(email__iexact=deleted_email).delete()
+            try:
+                Token.objects.filter(user=user_to_delete).delete()
+                LogEntry.objects.filter(user=user_to_delete).delete()
+                OTPCode.objects.filter(email__iexact=deleted_email).delete()
+                LoginAttempt.objects.filter(email__iexact=deleted_email).delete()
+            except Exception as e:
+                logger.error(f"Auth/session artifact cleanup failed for {deleted_email}: {e}")
+                warnings.append("auth_artifact_cleanup_failed")
 
             # Clear any direct relations (groups/permissions)
-            user_to_delete.groups.clear()
-            user_to_delete.user_permissions.clear()
+            try:
+                user_to_delete.groups.clear()
+                user_to_delete.user_permissions.clear()
+            except Exception as e:
+                logger.error(f"Group/permission cleanup failed for {deleted_email}: {e}")
+                warnings.append("group_permission_cleanup_failed")
 
             # 4) Finally delete the user
             user_to_delete.delete()
@@ -840,13 +888,11 @@ def delete_user(request, user_id):
         except Exception as be:
             logger.warning(f"Broadcast after user delete failed: {be}")
 
-        return Response(
-            {
-                'message': f'User {deleted_email} has been successfully deleted',
-                'devices_processed': [d.id for d in owned_devices],
-            },
-            status=status.HTTP_200_OK
-        )
+        return Response({
+            'message': f'User {deleted_email} has been successfully deleted',
+            'devices_processed': [d.id for d in owned_devices],
+            'warnings': warnings,
+        }, status=status.HTTP_200_OK)
 
     except User.DoesNotExist:
         return Response(
