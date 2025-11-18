@@ -313,6 +313,48 @@ static inline float phFromVoltage(float v) {
 #endif
 }
 
+// =============================================
+// New pH calculation (median filtering + linear formula)
+// Based on provided calibrated sketch
+// =============================================
+// Adjust this value based on your calibration buffer readings
+static const float PH_CALIBRATION_VALUE = 21.34f - 1.0f;
+
+static float computePhFromSensor() {
+    // Read 10 samples from PH_PIN, with small delays, then sort and
+    // average the middle 6 samples to reduce noise and outliers.
+    int samples[10];
+    for (int i = 0; i < 10; i++) {
+        samples[i] = analogRead(PH_PIN);
+        delay(30);
+    }
+
+    // Bubble sort (small fixed-size array)
+    for (int i = 0; i < 9; i++) {
+        for (int j = i + 1; j < 10; j++) {
+            if (samples[i] > samples[j]) {
+                int tmp = samples[i];
+                samples[i] = samples[j];
+                samples[j] = tmp;
+            }
+        }
+    }
+
+    // Average of the middle 6 samples (ignore 2 lowest and 2 highest)
+    unsigned long avgSum = 0;
+    for (int i = 2; i < 8; i++) {
+        avgSum += samples[i];
+    }
+
+    // Convert to voltage using 12-bit ADC range and ESP32 reference voltage
+    // Divide by 6 because avgSum is the total of 6 readings
+    float volt = (float)avgSum * (VREF / ADC_RES) / 6.0f;
+
+    // Convert voltage to pH (linear relation from provided calibration)
+    float ph = (-5.70f * volt) + PH_CALIBRATION_VALUE;
+    return ph;
+}
+
 float waterAdcToPercent(int adc) {
   int span = calibWet - calibDry;
   if (span <= 0) return 0.0f;
@@ -1710,8 +1752,8 @@ void readSensorsOnce() {
     //    With TDS_FACTOR = 0.5, this becomes TDS = EC × 500. Ensures 1.2 mS/cm → 600 ppm.
     tdsValue = ec_mS * (1000.0f * TDS_FACTOR) * TDS_CAL_FACTOR;
 
-    // pH calculation using table-based interpolation (pH 0–14)
-    phValue = phFromVoltage(averageVoltagePH);
+    // pH calculation using new calibrated method (median filter + linear formula)
+    phValue = computePhFromSensor();
 
 #if FORCE_FAKE_PH
     // Override: Use a random but stable pH value within [FAKE_PH_MIN, FAKE_PH_MAX]
