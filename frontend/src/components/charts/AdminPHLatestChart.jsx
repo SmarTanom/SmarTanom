@@ -15,6 +15,7 @@ import { Activity, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getAllUserSensors, getSensorData } from '../../services/api/sensors';
 import { getUserDevices } from '../../services/api/devices';
 import { apiClient } from '../../services/apiClient';
+import Spinner from '../ui/Spinner.jsx';
 import { wsClient } from '../../services/websocketClient';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
@@ -46,6 +47,8 @@ export default function AdminPHLatestChart() {
   const cacheRef = useRef(new Map()); // key: 'YYYY-MM-DD' -> rows array
   const dragRef = useRef({ active: false, startX: 0, dx: 0 });
   const phRef = useRef(null); const ecRef = useRef(null); const tdsRef = useRef(null);
+  const [effectiveDate, setEffectiveDate] = useState(() => new Date());
+  const [usingFallbackDate, setUsingFallbackDate] = useState(false);
 
   // Helper: plant-aware classification for color coding
   const classifyValue = (value, min, max) => {
@@ -135,7 +138,7 @@ export default function AdminPHLatestChart() {
         } catch (_) { return null; }
       };
 
-      const outBySerial = new Map(); // serial -> row
+  const outBySerial = new Map(); // serial -> row
       // Try batched multi-sensor request with sensor__in to reduce API calls
       const token = localStorage.getItem('authToken');
       const chunkSize = 50;
@@ -175,7 +178,9 @@ export default function AdminPHLatestChart() {
       }
 
       // Fallback: if no data matched selected day, pull the latest reading per sensor (no date filter)
+      let fallbackUsed = false;
       if (outBySerial.size === 0) {
+        fallbackUsed = true;
         const fetchLatestAny = async (sensorId) => {
           try {
             const payload = await getSensorData(sensorId, 1, { ignoreDeviceSerial: true });
@@ -206,6 +211,32 @@ export default function AdminPHLatestChart() {
       })).sort((a, b) => String(a.serial).localeCompare(String(b.serial)));
 
       setRows(rowsOut);
+      // Determine accurate display date based on the data we actually show
+      const getDateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const gatherTimestamps = (rows) => {
+        const ts = [];
+        rows.forEach(r => {
+          if (r?.updatedAt) Object.values(r.updatedAt).forEach(t => { if (t) ts.push(new Date(t)); });
+        });
+        return ts.filter(t => !Number.isNaN(t.getTime()));
+      };
+      const allTs = gatherTimestamps(rowsOut);
+      let eff = new Date(selectedDate);
+      let usedFallback = fallbackUsed;
+      if (allTs.length) {
+        const anySameDay = allTs.some(t => getDateOnly(t).getTime() === getDateOnly(selectedDate).getTime());
+        if (anySameDay) {
+          eff = getDateOnly(selectedDate);
+          usedFallback = false;
+        } else {
+          // Use most recent timestamp's day
+          const maxTs = allTs.reduce((a, b) => (a > b ? a : b));
+          eff = getDateOnly(maxTs);
+          usedFallback = true;
+        }
+      }
+      setEffectiveDate(eff);
+      setUsingFallbackDate(usedFallback);
       // cache
       const key = start.toISOString().slice(0,10);
       cacheRef.current.set(key, rowsOut);
@@ -221,6 +252,17 @@ export default function AdminPHLatestChart() {
     const cached = cacheRef.current.get(key);
     if (cached) {
       setRows(cached);
+      // Recompute display date from cached rows to keep accuracy
+      const getDateOnly = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const ts = [];
+      cached.forEach(r => { if (r?.updatedAt) Object.values(r.updatedAt).forEach(t => { if (t) ts.push(new Date(t)); }); });
+      let usedFallback = false; let eff = new Date(selectedDate);
+      if (ts.length) {
+        const anySameDay = ts.some(t => getDateOnly(t).getTime() === getDateOnly(selectedDate).getTime());
+        if (!anySameDay) { usedFallback = true; eff = getDateOnly(ts.reduce((a,b)=> (a>b?a:b))); }
+      }
+      setEffectiveDate(eff);
+      setUsingFallbackDate(usedFallback);
       setLoading(false);
     } else {
       setLoading(true);
@@ -408,6 +450,19 @@ export default function AdminPHLatestChart() {
     }
   };
 
+  const ChartLoading = () => (
+    <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+      <style>{`
+        @keyframes shimmerAnim { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+      `}</style>
+      <div style={{ position: 'absolute', inset: 24, borderRadius: 12, background: 'linear-gradient(90deg, rgba(139,167,151,0.06), rgba(139,167,151,0.12), rgba(139,167,151,0.06))', backgroundSize: '200% 100%', animation: 'shimmerAnim 1.8s linear infinite' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, background: 'rgba(255,255,255,0.85)', border: '1px solid #e5e7eb', borderRadius: 10, zIndex: 1 }}>
+        <Spinner size={22} />
+        <span style={{ color: '#6f8876', fontWeight: 600 }}>Loading chart…</span>
+      </div>
+    </div>
+  );
+
   return (
     <article className="panel">
       <header className="panel-head">
@@ -416,8 +471,13 @@ export default function AdminPHLatestChart() {
           <span>Daily pH/EC/TDS by Device</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }} title="Drag left/right on chart to change day">
-            {selectedDate.toLocaleDateString()}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title="Drag left/right on chart to change day">
+            <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
+              {effectiveDate ? effectiveDate.toLocaleDateString() : selectedDate.toLocaleDateString()}
+            </span>
+            {usingFallbackDate && (
+              <span style={{ fontSize: 10, color: '#065f46', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '2px 6px', borderRadius: 999 }}>latest</span>
+            )}
           </div>
           {clickInfo && (
             <div style={{ fontSize: 12, color: '#065f46', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '4px 8px', borderRadius: 6 }}>
@@ -438,7 +498,7 @@ export default function AdminPHLatestChart() {
         onTouchEnd={onDragEnd}
       >
         {loading ? (
-          <div style={{ padding: 24, color: '#6f8876' }}>Loading...</div>
+          <ChartLoading />
         ) : error ? (
           <div style={{ padding: 24, color: '#b91c1c' }}>{error}</div>
         ) : rows.length === 0 ? (
