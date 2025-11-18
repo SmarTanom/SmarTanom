@@ -4,6 +4,7 @@ import '../assets/styles/AdminLayout.css';
 import '../assets/styles/AdminDashboard.css';
 import AdminNavbar from '../components/admin/AdminNavbar';
 import AdminPHLatestChart from '../components/charts/AdminPHLatestChart.jsx';
+import DeviceActivityTrend from '../components/charts/DeviceActivityTrend.jsx';
 import useAdminRealtimeStore from '../store/adminRealtimeStore';
 import { wsClient } from '../services/websocketClient';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
@@ -316,34 +317,15 @@ export default function AdminDashboard() {
 					</article>
 				</section>
 
-				{/* Middle grid: place Latest pH chart next to Quick Actions */}
+				{/* Middle grid: place Latest pH chart next to Device Activity Trend */}
 				<section className="middle-grid">
 					{/* Left: Latest pH across devices */}
 					<AdminPHLatestChart />
-
-					{/* Right: Quick Actions (unchanged) */}
-					<article className="panel">
-						<header className="panel-head">
-							<div className="panel-title">
-								<Wrench size={18} />
-								<span>Quick Actions</span>
-							</div>
-						</header>
-						<div className="quick-actions">
-							<button className="qa-btn" onClick={() => navigate('/admin/create')}>
-								<Plus size={20} /> Add New Device
-							</button>
-							<button className="qa-btn" onClick={() => navigate('/admin/users')}>
-								<User size={20} /> Manage Users
-							</button>
-							<button className="qa-btn" onClick={() => navigate('/admin/settings')}>
-								<Settings size={20} /> System Settings
-							</button>
-						</div>
-					</article>
+					{/* Right: Device Activity Trend */}
+					<DeviceActivityTrend />
 				</section>
 
-				{/* Lower grid: System Alerts + move Device Usage Trend here (swap with old performance panel) */}
+				{/* Lower grid: System Alerts + Quick Actions (moved down) */}
 				<section className="lower-grid">
 					<article className="panel alerts">
 						<header className="panel-head">
@@ -390,82 +372,24 @@ export default function AdminDashboard() {
 						</div>
 					</article>
 
-					{/* Right column: Device Usage Trend (moved here) */}
+					{/* Right column: Quick Actions (moved down) */}
 					<article className="panel">
 						<header className="panel-head">
 							<div className="panel-title">
-								<Activity size={18} />
-								<span>Device Usage Trend</span>
-							</div>
-							<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-								<div className="btn-group" role="group" aria-label="Chart range selector" style={{ background: '#f3f7f5', borderRadius: 999, padding: 2 }}>
-									{[
-										{ key: '3m', label: '3m' },
-										{ key: '6m', label: '6m' },
-										{ key: '12m', label: '12m' },
-										{ key: 'all', label: 'All' }
-									].map(btn => (
-										<button
-											key={btn.key}
-											type="button"
-											onClick={() => setChartRange(btn.key)}
-											style={{
-												border: 'none',
-												background: chartRange === btn.key ? '#ffffff' : 'transparent',
-												color: '#0d3923',
-												padding: '6px 10px',
-												borderRadius: 999,
-												cursor: 'pointer',
-												fontWeight: 600
-											}}
-										>
-											{btn.label}
-										</button>
-									))}
-								</div>
-								<button
-									className="export-btn"
-									type="button"
-									onClick={() => {
-										const chart = chartRef.current;
-										if (!chart) return;
-										const url = chart.toBase64Image ? chart.toBase64Image() : chart.canvas?.toDataURL?.('image/png');
-										if (!url) return;
-										const a = document.createElement('a');
-										a.href = url;
-										a.download = 'device-usage-trend.png';
-										a.click();
-									}}
-								>
-									<BarChart2 size={16} />
-									<span>Export</span>
-								</button>
+								<Wrench size={18} />
+								<span>Quick Actions</span>
 							</div>
 						</header>
-						<div className="panel-body">
-							{(rangeSeries && rangeSeries.length > 0) ? (
-								<>
-									<div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
-										<div className="kpi-chip" title="Minimum">
-											<span style={{ color: '#6f8876', fontWeight: 600 }}>Min</span>
-											<strong style={{ marginLeft: 6 }}>{kpis.min}</strong>
-										</div>
-										<div className="kpi-chip" title="Average">
-											<span style={{ color: '#6f8876', fontWeight: 600 }}>Avg</span>
-											<strong style={{ marginLeft: 6 }}>{kpis.avg.toFixed(1)}</strong>
-										</div>
-										<div className="kpi-chip" title="Maximum">
-											<span style={{ color: '#6f8876', fontWeight: 600 }}>Max</span>
-											<strong style={{ marginLeft: 6 }}>{kpis.max}</strong>
-										</div>
-									</div>
-									<div style={{ height: 260 }}>
-										<DeviceTrendChart labels={rangeLabels} series={rangeSeries} chartRef={chartRef} />
-									</div>
-								</>
-							) : (
-								<div style={{ padding: '24px 8px', color: '#6f8876' }}>No trend data available.</div>
-							)}
+						<div className="quick-actions">
+							<button className="qa-btn" onClick={() => navigate('/admin/create')}>
+								<Plus size={20} /> Add New Device
+							</button>
+							<button className="qa-btn" onClick={() => navigate('/admin/users')}>
+								<User size={20} /> Manage Users
+							</button>
+							<button className="qa-btn" onClick={() => navigate('/admin/settings')}>
+								<Settings size={20} /> System Settings
+							</button>
 						</div>
 					</article>
 

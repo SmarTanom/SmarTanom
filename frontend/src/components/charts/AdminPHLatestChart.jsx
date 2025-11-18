@@ -10,7 +10,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { Bar, Line } from 'react-chartjs-2';
+import { Bar, Line, getElementAtEvent } from 'react-chartjs-2';
 import { Activity, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getAllUserSensors, getSensorData } from '../../services/api/sensors';
 import { getUserDevices } from '../../services/api/devices';
@@ -45,8 +45,7 @@ export default function AdminPHLatestChart() {
   });
   const [clickInfo, setClickInfo] = useState('');
   const cacheRef = useRef(new Map()); // key: 'YYYY-MM-DD' -> rows array
-  const dragRef = useRef({ active: false, startX: 0, dx: 0 });
-  const phRef = useRef(null); const ecRef = useRef(null); const tdsRef = useRef(null);
+  const chartRef = useRef(null);
   const [effectiveDate, setEffectiveDate] = useState(() => new Date());
   const [usingFallbackDate, setUsingFallbackDate] = useState(false);
 
@@ -83,6 +82,7 @@ export default function AdminPHLatestChart() {
       try { devices = await getUserDevices(); } catch (_) { devices = []; }
       const deviceRows = (Array.isArray(devices?.results) ? devices.results : (Array.isArray(devices) ? devices : []));
       const plantBySerial = new Map();
+      const idBySerial = new Map();
       const serialByName = new Map();
       const serialByNameLower = new Map();
       deviceRows.forEach(d => {
@@ -90,6 +90,7 @@ export default function AdminPHLatestChart() {
         const name = d?.device_name || d?.name || '';
         if (serial) {
           plantBySerial.set(String(serial), d.plant || d?.current_plant || d?.plant_info || null);
+          if (d?.id != null) idBySerial.set(String(serial), d.id);
           if (name) {
             serialByName.set(String(name), String(serial));
             serialByNameLower.set(String(name).toLowerCase(), String(serial));
@@ -208,6 +209,7 @@ export default function AdminPHLatestChart() {
       const rowsOut = Array.from(outBySerial.values()).map(r => ({
         ...r,
         plant: plantBySerial.get(r.serial) || null,
+        deviceId: idBySerial.get(r.serial) || null,
       })).sort((a, b) => String(a.serial).localeCompare(String(b.serial)));
 
       setRows(rowsOut);
@@ -425,17 +427,10 @@ export default function AdminPHLatestChart() {
     setSelectedDate(prev => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + delta));
   };
 
-  // Drag navigation handlers
-  const onDragStart = (clientX) => { dragRef.current = { active: true, startX: clientX, dx: 0 }; };
-  const onDragMove = (clientX) => { if (!dragRef.current.active) return; dragRef.current.dx = clientX - dragRef.current.startX; };
-  const onDragEnd = () => {
-    const { active, dx } = dragRef.current; dragRef.current.active = false; if (!active) return;
-    const pxPerDay = 120; const delta = Math.round(-dx / pxPerDay); // drag left -> older
-    if (delta !== 0) changeDay(delta);
-  };
-
   // Click handlers to show date for clicked bar
-  const handleLineClick = (evt, elements) => {
+  const handleLineClick = (evt) => {
+    if (!chartRef.current) return;
+    const elements = getElementAtEvent(chartRef.current, evt);
     if (!elements || elements.length === 0) return;
     const el = elements[0];
     const idx = el.index;
@@ -445,7 +440,8 @@ export default function AdminPHLatestChart() {
     const ts = row?.updatedAt?.[metric];
     if (ts) {
       const when = new Date(ts).toLocaleString();
-      setClickInfo(`${metric.toUpperCase()} reading date: ${when}`);
+      const devId = row?.deviceId != null ? ` • Device ID: ${row.deviceId}` : '';
+      setClickInfo(`${metric.toUpperCase()} date: ${when}${devId}`);
       setTimeout(() => setClickInfo(''), 3000);
     }
   };
@@ -471,7 +467,10 @@ export default function AdminPHLatestChart() {
           <span>Daily pH/EC/TDS by Device</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} title="Drag left/right on chart to change day">
+          <button onClick={() => changeDay(-1)} title="Previous day" style={{ background: 'transparent', border: '1px solid #d1d5db', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}>
+            <ChevronLeft size={16} />
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
               {effectiveDate ? effectiveDate.toLocaleDateString() : selectedDate.toLocaleDateString()}
             </span>
@@ -479,6 +478,9 @@ export default function AdminPHLatestChart() {
               <span style={{ fontSize: 10, color: '#065f46', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '2px 6px', borderRadius: 999 }}>latest</span>
             )}
           </div>
+          <button onClick={() => changeDay(1)} title="Next day" style={{ background: 'transparent', border: '1px solid #d1d5db', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}>
+            <ChevronRight size={16} />
+          </button>
           {clickInfo && (
             <div style={{ fontSize: 12, color: '#065f46', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '4px 8px', borderRadius: 6 }}>
               {clickInfo}
@@ -486,17 +488,7 @@ export default function AdminPHLatestChart() {
           )}
         </div>
       </header>
-      <div
-        className="panel-body"
-        style={{ minHeight: 360, cursor: dragRef.current.active ? 'grabbing' : 'grab' }}
-        onMouseDown={(e) => onDragStart(e.clientX)}
-        onMouseMove={(e) => onDragMove(e.clientX)}
-        onMouseUp={onDragEnd}
-        onMouseLeave={onDragEnd}
-        onTouchStart={(e) => onDragStart(e.touches[0].clientX)}
-        onTouchMove={(e) => onDragMove(e.touches[0].clientX)}
-        onTouchEnd={onDragEnd}
-      >
+      <div className="panel-body" style={{ minHeight: 360 }}>
         {loading ? (
           <ChartLoading />
         ) : error ? (
@@ -506,7 +498,7 @@ export default function AdminPHLatestChart() {
         ) : (
           <div style={{ height: 300, overflowX: 'auto', overflowY: 'hidden' }}>
             <div style={{ width: Math.max(700, rows.length * 140) }}>
-              <Line data={combined.data} options={combined.options} height={280} onClick={handleLineClick} />
+              <Line ref={chartRef} data={combined.data} options={combined.options} height={280} onClick={handleLineClick} />
             </div>
           </div>
         )}
