@@ -100,10 +100,10 @@ class AlertAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         # Concrete model fields
         fields = [f.name for f in self.model._meta.get_fields() if not (f.many_to_many or f.one_to_many)]
-        # Desired explicit order (includes a computed 'plant' column)
+        # Desired explicit order (remove plant/ack/resolution and threshold-related fields per UI request)
         desired = [
-            'id', 'device', 'sensor', 'plant', 'value', 'metric', 'unit', 'severity', 'trigger',
-            'title', 'recommendation', 'is_read', 'is_acknowledged', 'is_resolved',
+            'id', 'device', 'sensor', 'value', 'metric', 'unit', 'severity', 'trigger',
+            'title', 'recommendation', 'is_read',
             # created_at and updated_at will be appended at the very end to keep them adjacent
         ]
         # 1) Place explicit keys except timestamps
@@ -123,8 +123,9 @@ class AlertAdmin(admin.ModelAdmin):
         ordered.extend(['created_at', 'updated_at'])
         return tuple(ordered)
 
-    list_filter = ('metric', 'trigger', 'severity', 'is_read', 'is_acknowledged', 'is_resolved', 'plant_category')
-    search_fields = ('title', 'recommendation', 'device__device_name', 'plant_name')
+    # Keep filters lightweight and relevant to admin workflow; remove plant/category/ack/resolution filters
+    list_filter = ('metric', 'trigger', 'severity', 'is_read')
+    search_fields = ('title', 'recommendation', 'device__device_name')
     ordering = ('-created_at',)
     raw_id_fields = ('device', 'sensor')
     list_select_related = ('device', 'sensor')
