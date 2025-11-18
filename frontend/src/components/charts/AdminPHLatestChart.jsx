@@ -134,7 +134,8 @@ export default function AdminPHLatestChart() {
 
       const fetchLatestInDay = async (sensorId) => {
         try {
-          const payload = await getSensorData(sensorId, 200, { start: startISO, end: endISO, ignoreDeviceSerial: true });
+          // Request only the latest reading within the day to reduce payload and ensure correctness
+          const payload = await getSensorData(sensorId, 1, { start: startISO, end: endISO, ordering: '-created_at', ignoreDeviceSerial: true });
           const items = Array.isArray(payload?.results) ? payload.results : (Array.isArray(payload) ? payload : []);
           const last = items[0];
           if (!last) return null;
@@ -187,7 +188,7 @@ export default function AdminPHLatestChart() {
         fallbackUsed = true;
         const fetchLatestAny = async (sensorId) => {
           try {
-            const payload = await getSensorData(sensorId, 1, { ignoreDeviceSerial: true });
+            const payload = await getSensorData(sensorId, 1, { ordering: '-created_at', ignoreDeviceSerial: true });
             const items = Array.isArray(payload?.results) ? payload.results : (Array.isArray(payload) ? payload : []);
             const last = items[0];
             if (!last) return null;
@@ -479,10 +480,10 @@ export default function AdminPHLatestChart() {
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-              {effectiveDate ? effectiveDate.toLocaleDateString() : selectedDate.toLocaleDateString()}
+              {selectedDate.toLocaleDateString()}
             </span>
             {usingFallbackDate && (
-              <span style={{ fontSize: 10, color: '#065f46', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '2px 6px', borderRadius: 999 }}>latest</span>
+              <span title={`Showing ${effectiveDate?.toLocaleDateString?.() || ''}`} style={{ fontSize: 10, color: '#065f46', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '2px 6px', borderRadius: 999 }}>latest</span>
             )}
           </div>
           <button onClick={() => changeDay(1)} title="Next day" style={{ background: 'transparent', border: '1px solid #d1d5db', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}>

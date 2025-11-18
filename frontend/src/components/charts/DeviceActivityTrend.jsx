@@ -159,8 +159,13 @@ export default function DeviceActivityTrend() {
     const key = `${range}|${granularity}|${stacked}`;
     const cached = cacheRef.current.get(key);
     if (cached) { setSeries(cached); setLoading(false); }
-    // Always fetch silently so UI doesn’t flicker, even when changing controls
-    fetchData(true).finally(() => { if (initialLoadRef.current) initialLoadRef.current = false; });
+    // For first render without cache, do a non-silent fetch so loading state clears.
+    const shouldSilent = !!cached || !initialLoadRef.current ? true : false;
+    fetchData(!shouldSilent ? false : true).finally(() => {
+      if (initialLoadRef.current) initialLoadRef.current = false;
+      // Safety: if we fetched silently on first mount (edge), make sure to hide spinner
+      if (shouldSilent && !cached) setLoading(false);
+    });
 
     const unsub = wsClient.subscribe((msg) => {
       if (msg?.type !== 'sensor.update') return;

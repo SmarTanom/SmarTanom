@@ -65,7 +65,8 @@ export async function getSensorData(sensorId, limit = 50, opts = {}) {
   const serialParam = deviceSerial ? `&device_serial=${encodeURIComponent(deviceSerial)}` : '';
   const startParam = opts.start ? `&start=${encodeURIComponent(opts.start)}` : '';
   const endParam = opts.end ? `&end=${encodeURIComponent(opts.end)}` : '';
-  return apiClient.get(`/api/sensors/sensor-data/?sensor=${sensorId}&limit=${limit}${serialParam}${startParam}${endParam}`, {
+  const orderingParam = opts.ordering ? `&ordering=${encodeURIComponent(opts.ordering)}` : '';
+  return apiClient.get(`/api/sensors/sensor-data/?sensor=${sensorId}&limit=${limit}${serialParam}${startParam}${endParam}${orderingParam}`, {
     authToken: token
   });
 }
