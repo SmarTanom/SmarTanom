@@ -1106,29 +1106,7 @@ export default function ProfilePage() {
           })()}
         </section>
 
-        {/* Settings Menu */}
-        <section className="profile-section">
-          <h2 className="section-title">Settings</h2>
-          <div className="settings-list">
-            {/* Notifications removed per request */}
-
-            <button className="setting-item" onClick={() => navigate('/privacy-security')}>
-              <div className="setting-icon">
-                <Shield size={22} color="rgba(51, 148, 50, 0.9)" />
-              </div>
-              <span className="setting-label">Privacy & Security</span>
-              <ChevronRight size={20} color="rgba(51, 148, 50, 0.9)" />
-            </button>
-
-            <button className="setting-item">
-              <div className="setting-icon">
-                <Settings size={22} color="rgba(51, 148, 50, 0.9)" />
-              </div>
-              <span className="setting-label">Preferences</span>
-              <ChevronRight size={20} color="rgba(51, 148, 50, 0.9)" />
-            </button>
-          </div>
-        </section>
+        {/* Settings Menu removed per request */}
 
         {/* Logout Button */}
         <section className="profile-section">
