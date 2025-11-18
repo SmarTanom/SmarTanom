@@ -93,17 +93,36 @@ class SensorDataAdmin(admin.ModelAdmin):
 @admin.register(Alert)
 class AlertAdmin(admin.ModelAdmin):
     """Admin configuration for Alert model."""
-    # Display all model fields to make every column visible in admin
+    # Custom column order per request:
+    # id, device, sensor, plant, metric, unit, severity, trigger,
+    # title, recommendation, is_read, is_acknowledged, is_resolved,
+    # created_at, <any remaining fields>, updated_at
     def get_list_display(self, request):
+        # Concrete model fields
         fields = [f.name for f in self.model._meta.get_fields() if not (f.many_to_many or f.one_to_many)]
-        # Ensure primary fields are prominent
-        priority = ['id', 'device', 'sensor', 'metric', 'severity', 'trigger', 'value', 'unit', 'is_read', 'is_acknowledged', 'is_resolved', 'created_at']
+        # Desired explicit order (includes a computed 'plant' column)
+        desired = [
+            'id', 'device', 'sensor', 'plant', 'metric', 'unit', 'severity', 'trigger',
+            'title', 'recommendation', 'is_read', 'is_acknowledged', 'is_resolved', 'created_at', 'updated_at'
+        ]
+        # Start with the ordered keys up to created_at
         ordered = []
-        for p in priority:
-            if p in fields:
-                ordered.append(p)
-                fields.remove(p)
-        ordered.extend(fields)  # append any remaining fields (e.g., plant_name, recommendation, metadata, updated_at)
+        for key in desired:
+            if key == 'updated_at':
+                # postpone placing updated_at until the end
+                continue
+            if key in fields or key == 'plant':
+                ordered.append(key)
+                if key in fields:
+                    fields.remove(key)
+        # Remove created/updated if present in remaining pool to avoid duplicates
+        for k in ('created_at', 'updated_at'):
+            if k in fields:
+                fields.remove(k)
+        # Place any remaining columns (not explicitly mentioned) before updated_at
+        ordered.extend(fields)
+        # Finally, updated_at last
+        ordered.append('updated_at')
         return tuple(ordered)
 
     list_filter = ('metric', 'trigger', 'severity', 'is_read', 'is_acknowledged', 'is_resolved', 'plant_category')
@@ -113,6 +132,14 @@ class AlertAdmin(admin.ModelAdmin):
     list_select_related = ('device', 'sensor')
     date_hierarchy = 'created_at'
     list_per_page = 50
+
+    def plant(self, obj):
+        """Display plant name (or category) as 'Plant' column."""
+        try:
+            return obj.plant_name or obj.get_plant_category_display() or '—'
+        except Exception:
+            return '—'
+    plant.short_description = 'Plant'
 
     def short_recommendation(self, obj):
         """Truncated recommendation for list view readability."""
