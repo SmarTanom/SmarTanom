@@ -44,6 +44,7 @@ class WebSocketClient {
     this.status = 'disconnected'; // 'connecting' | 'connected' | 'disconnected'
     this.statusCallbacks = new Set();
     this.lastUserId = null; // Remember userId for reconnects
+    this._userRouteFailures = 0; // count consecutive failures to user route
   }
 
   /**
@@ -103,7 +104,8 @@ class WebSocketClient {
 
     this.isConnecting = true;
     this.setStatus('connecting');
-    this.lastUserId = userId;
+  this.lastUserId = userId;
+  const usingUserRoute = !!userId;
 
     // Use user-specific endpoint if userId is provided, otherwise use global devices endpoint
     const wsUrl = userId
@@ -114,13 +116,14 @@ class WebSocketClient {
     }
 
     try {
-      this.ws = new WebSocket(wsUrl);
+  this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
         if (import.meta.env.VITE_DEBUG === 'true') {
           console.log('[WebSocket] Connected successfully');
         }
         this.reconnectAttempts = 0;
+        if (usingUserRoute) this._userRouteFailures = 0;
         this.isConnecting = false;
         this.setStatus('connected');
       };
@@ -157,12 +160,26 @@ class WebSocketClient {
         this.setStatus('disconnected');
       };
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (evt) => {
         if (import.meta.env.VITE_DEBUG === 'true') {
           console.log('[WebSocket] Disconnected');
         }
         this.isConnecting = false;
         this.setStatus('disconnected');
+        // If user route is failing repeatedly, fall back to global devices route
+        if (usingUserRoute) {
+          this._userRouteFailures += 1;
+          if (import.meta.env.VITE_DEBUG === 'true') {
+            console.warn('[WebSocket] user route close event; failures =', this._userRouteFailures, 'code=', evt?.code);
+          }
+          if (this._userRouteFailures >= 2) {
+            if (import.meta.env.VITE_DEBUG === 'true') {
+              console.warn('[WebSocket] Falling back to global /ws/devices/ after repeated user route failures');
+            }
+            this.lastUserId = null; // switch to global route
+            this._userRouteFailures = 0;
+          }
+        }
         this.attemptReconnect();
       };
     } catch (error) {
@@ -171,6 +188,14 @@ class WebSocketClient {
       }
       this.isConnecting = false;
       this.setStatus('disconnected');
+      // Same fallback path as onclose when user route errors immediately
+      if (usingUserRoute) {
+        this._userRouteFailures += 1;
+        if (this._userRouteFailures >= 2) {
+          this.lastUserId = null;
+          this._userRouteFailures = 0;
+        }
+      }
       this.attemptReconnect();
     }
   }
