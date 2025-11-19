@@ -967,6 +967,20 @@ export default function Dashboard() {
     }
   };
 
+  // --- Silent reload every 70s for all sensor data ---
+  useEffect(() => {
+    if (!currentDevice?.id) return;
+
+    const SILENT_RELOAD_INTERVAL = 70000; // 70 seconds
+
+    const intervalId = setInterval(() => {
+      // Silently refresh data for the current device
+      refreshLiteDeviceData(currentDevice.id);
+    }, SILENT_RELOAD_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [currentDevice?.id]);
+
   // Fallback polling: ONLY when WebSocket is disconnected.
   // Live updates come exclusively from sensor.update messages over WS; database reads are secondary.
   // When wsStatus === 'connected' we rely 100% on realtimeStore.applyRealtime.
@@ -2005,7 +2019,7 @@ export default function Dashboard() {
         }}>
           <div className="ph-card-header">
             <div className="icon-circle" style={{
-              background: 'linear-gradient(135deg, rgba(51, 148, 50, 0.15) 0%, rgba(51, 148, 50, 0.08) 100%)',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               border: '2px solid rgba(51, 148, 50, 0.2)'
             }}>
               <Activity size={20} color={PRIMARY_GREEN} strokeWidth={2.5} />

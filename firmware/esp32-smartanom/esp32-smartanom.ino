@@ -47,7 +47,7 @@
 // DEVICE CONFIGURATION - SET BEFORE FLASHING
 // =============================================
 #ifndef DEVICE_SERIAL
-#define DEVICE_SERIAL "SMRT-YIH-D68"  // * CHANGE THIS BEFORE FLASHING *
+#define DEVICE_SERIAL "SMRT-DNX-XYS"  // * CHANGE THIS BEFORE FLASHING *
 #endif
 #define FIRMWARE_VERSION "1.2.0"
 
@@ -314,7 +314,7 @@ static inline float phFromVoltage(float v) {
 // Based on provided calibrated sketch
 // =============================================
 // Adjust this value based on your calibration buffer readings
-static const float PH_CALIBRATION_VALUE = 21.34f - 0.9f;
+static const float PH_CALIBRATION_VALUE = 21.34f - 0.5f;
 
 static float computePhFromSensor() {
     // Read 10 samples from PH_PIN, with small delays, then sort and
@@ -466,6 +466,21 @@ const unsigned long SENSOR_SEND_INTERVAL_MS = UPSTASH_PUBLISH_MIN_INTERVAL_MS;  
 // Track WS fallback state
 bool wsTriedInsecureFallback = false;
 
+// Backoff and scheduling for stable reconnects (primary device WS)
+static bool wsWantConnect = false;                // desire to keep the WS connected
+static bool wsConnecting = false;                 // currently attempting connect
+static uint32_t wsReconnectAttempt = 0;           // attempt counter for backoff
+static uint32_t wsNextConnectAtMs = 0;            // next time to attempt connect
+static uint32_t lastWsActivityMs = 0;             // last activity (any WS event)
+static const uint32_t WS_BACKOFF_BASE_MS = 1000;  // 1s base
+static const uint32_t WS_BACKOFF_MAX_MS  = 60000; // cap at 60s
+static const uint32_t WS_IDLE_TIMEOUT_MS = 180000; // 3 min idle timeout -> reconnect
+static const uint32_t MIN_WS_CONNECT_DELAY_MS = 5000; // avoid racing at boot
+// Time sync gating for TLS
+static unsigned long lastTimeSyncAttemptMs = 0;
+static bool timeSyncedFlag = false;
+static const uint32_t TIME_SYNC_RETRY_MS = 30000;
+
 // Upstash publish rate limiting
 static unsigned long lastUpstashPublishMs = 0;
 
@@ -492,7 +507,7 @@ bool WS_SECURE = true;     // wss when true
 #endif
 // Set true to enable Upstash Pub/Sub realtime publishing
 #ifndef USE_UPSTASH_PUBSUB
-#define USE_UPSTASH_PUBSUB true
+#define USE_UPSTASH_PUBSUB false
 #endif
 #ifndef BACKEND_INGEST_PATH_BASE
 #define BACKEND_INGEST_PATH_BASE "/ws/ingest/"
@@ -502,6 +517,12 @@ WebSocketsClient wsIngest;   bool wsIngestConnected   = false;
 const unsigned long REALTIME_INTERVAL_MS = 5000UL;  // 5s
 const unsigned long BATCH_INTERVAL_MS    = 20000UL; // 20s
 unsigned long lastRealtimeMs = 0, lastBatchMs = 0;
+// Ingest WS backoff scheduling
+static bool ingestWantConnect = false;
+static bool ingestConnecting = false;
+static uint32_t ingestReconnectAttempt = 0;
+static uint32_t ingestNextConnectAtMs = 0;
+static uint32_t lastIngestActivityMs = 0;
 struct ReadingPoint { uint64_t t_ms; float ph, tempC, ec, tds, waterPct, turbidity; };
 static const int MAX_BATCH_POINTS = 16; ReadingPoint batchBuf[MAX_BATCH_POINTS]; int batchCount = 0;
 void pushBatchPoint(){ if(batchCount>=MAX_BATCH_POINTS){ for(int i=1;i<MAX_BATCH_POINTS;i++) batchBuf[i-1]=batchBuf[i]; batchCount=MAX_BATCH_POINTS-1;} ReadingPoint &rp=batchBuf[batchCount++]; rp.t_ms=millis(); rp.ph=phValue; rp.tempC=waterTempC; rp.ec=ecValue; rp.tds=tdsValue; rp.waterPct=waterPercent; rp.turbidity=(rawTurb>1000? turbidityNTU: rawTurb); }
@@ -530,9 +551,41 @@ void ensureRealtimeConnected(){
             if(strcmp(type,"auth_error")==0){ Serial.println("[RT] Auth ERROR"); }
         }
     });
-    wsRealtime.setReconnectInterval(5000);
+    // No auto-reconnect timer here; we'll rely on library's default and our WiFi gating
 } 
-void ensureIngestConnected(){ if(wsIngestConnected) return; if(wsIngest.isConnected()){ wsIngestConnected=true; return;} if(WS_HOST.length()==0) return; String ingestPath=String(BACKEND_INGEST_PATH_BASE)+String(DEVICE_SERIAL)+String("/"); if(WS_SECURE){ wsIngest.beginSSL(WS_HOST.c_str(),WS_PORT,ingestPath.c_str()); } else { wsIngest.begin(WS_HOST.c_str(),WS_PORT,ingestPath.c_str()); } wsIngest.onEvent([](WStype_t t,uint8_t*,size_t){ if(t==WStype_CONNECTED){ wsIngestConnected=true; Serial.println("[INGEST] Connected backend ingest"); } else if(t==WStype_DISCONNECTED){ wsIngestConnected=false; Serial.println("[INGEST] Disconnected ingest"); }}); wsIngest.setReconnectInterval(7000);} 
+    // Forward declare backoff utility so lambdas below can see it
+    uint32_t computeBackoffDelayMs(uint32_t attempt);
+void ensureIngestConnected(){
+    // Mark desire to connect; actual begin happens in serviceWebSockets()
+    ingestWantConnect = true;
+    // Ensure event handler is set exactly once per runtime (idempotent)
+    wsIngest.onEvent([](WStype_t t, uint8_t* payload, size_t len){
+        (void)payload; (void)len;
+        if(t==WStype_CONNECTED){
+            wsIngestConnected = true;
+            ingestConnecting = false;
+            ingestReconnectAttempt = 0;
+            lastIngestActivityMs = millis();
+            Serial.println("[INGEST] ✓ Connected backend ingest");
+            // Reset batch buffer on reconnect to avoid stale payloads
+            batchCount = 0;
+        } else if(t==WStype_DISCONNECTED){
+            wsIngestConnected = false;
+            ingestConnecting = false;
+            lastIngestActivityMs = millis();
+            // schedule backoff via service loop
+            ingestNextConnectAtMs = millis() + computeBackoffDelayMs(ingestReconnectAttempt++);
+            Serial.println("[INGEST] ✗ Disconnected ingest");
+        } else if(t==WStype_TEXT || t==WStype_PING || t==WStype_PONG){
+            lastIngestActivityMs = millis();
+        } else if(t==WStype_ERROR){
+            lastIngestActivityMs = millis();
+            ingestConnecting = false;
+            ingestNextConnectAtMs = millis() + computeBackoffDelayMs(ingestReconnectAttempt++);
+            Serial.println("[INGEST] ✗ ERROR (scheduling reconnect)");
+        }
+    });
+}
 void sendRealtimeFrameIfDue(unsigned long nowMs){
     if(!USE_UPSTASH_PUBSUB) return; // disabled
     if(nowMs - lastRealtimeMs < REALTIME_INTERVAL_MS) return;
@@ -895,7 +948,6 @@ void handleStatus();
 void handleNotFound();
 bool connectToWiFi(const String& ssid, const String& password);
 bool reportProvisionStatus(const String& status, const String& ipAddress = "");
-bool wakeUpBackend();
 void loadPreferences();
 void savePreferences(const String& ssid, const String& password);
 void clearPreferences();
@@ -918,6 +970,8 @@ bool publishToUpstash(const String& jsonMessage);
 String buildUpstashJson();
 bool syncTimeIfNeeded();  // Returns true if time sync successful
 void maintainWiFiConnection();
+void serviceWebSockets(); // Backoff-driven WS connect/timeout scheduler
+uint32_t computeBackoffDelayMs(uint32_t attempt);
 
 // Utils
 static inline float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
@@ -948,11 +1002,6 @@ void setup() {
         if (connectToWiFi(savedSSID, savedPassword)) {
             Serial.println("Successfully connected to saved WiFi!");
             provisioningMode = false;
-
-            // Wake up backend first (Render free tier sleeps after inactivity)
-            Serial.println("\n--- Preparing to report to backend ---");
-            wakeUpBackend();
-            delay(2000);  // Give backend 2 seconds to fully wake up
 
             // Report success to backend
             reportProvisionStatus("connected", WiFi.localIP().toString());
@@ -994,7 +1043,7 @@ void loop() {
         // WebSocket loop and periodic sensor send
         // Ensure WiFi stays connected
         maintainWiFiConnection();
-
+        serviceWebSockets();
         wsClient.loop();
     wsRealtime.loop();
     wsIngest.loop();
@@ -1226,11 +1275,6 @@ void handleConnect() {
         // Save credentials to NVS
         savePreferences(ssid, password);
 
-        // Wake up backend first
-        Serial.println("\n--- Preparing to report to backend ---");
-        wakeUpBackend();
-        delay(2000);  // Give backend time to wake up
-
         // Report to backend (sets wifi_configured=True in database)
         String ip = WiFi.localIP().toString();
         reportProvisionStatus("connected", ip);
@@ -1252,10 +1296,6 @@ void handleConnect() {
         // Clear saved credentials (wrong password or network issue)
         Serial.println("Clearing saved WiFi credentials from NVS...");
         clearPreferences();
-
-        // Wake up backend (even for failure reporting)
-        wakeUpBackend();
-        delay(1000);
 
         // Report failure to backend (sets wifi_configured=False)
         reportProvisionStatus("failed");
@@ -1473,37 +1513,6 @@ String scanNetworks() {
 // BACKEND COMMUNICATION
 // =============================================
 
-// Wake up Render service (if sleeping) by hitting health endpoint
-bool wakeUpBackend() {
-    Serial.println("Waking up backend service (Render free tier may be sleeping)...");
-
-    WiFiClientSecure client;
-    client.setInsecure();
-    client.setTimeout(30);  // 30 second timeout for wake-up
-
-    HTTPClient http;
-    String healthUrl = String(BACKEND_URL) + "/healthz";
-
-    Serial.printf("GET %s\n", healthUrl.c_str());
-
-    if (!http.begin(client, healthUrl)) {
-        Serial.println("✗ Could not connect to health endpoint");
-        return false;
-    }
-
-    http.setTimeout(30000);  // 30 seconds
-
-    int httpCode = http.GET();
-    http.end();
-
-    if (httpCode > 0) {
-        Serial.printf("✓ Backend responded (HTTP %d). Service is awake.\n", httpCode);
-        return true;
-    } else {
-        Serial.printf("⚠ Health check failed: %s (may still wake up)\n", http.errorToString(httpCode).c_str());
-        return false;  // Continue anyway, might still work
-    }
-}
 
 bool reportProvisionStatus(const String& status, const String& ipAddress) {
     Serial.printf("Reporting provision status to backend: %s\n", status.c_str());
@@ -1579,12 +1588,6 @@ bool reportProvisionStatus(const String& status, const String& ipAddress) {
 
             if (httpCode == 200 || httpCode == 201) {
                 Serial.println("✓ Provisioning status reported successfully");
-
-                // Give Render backend time to fully wake up WebSocket service
-                // Free-tier instances may need extra time after initial HTTP wake
-                Serial.println("[Backend] Allowing 3s for WebSocket service to initialize...");
-                delay(3000);
-
                 return true;
             } else if (httpCode == 429) {
                 Serial.println("✗ Rate limited. Try again later.");
@@ -1865,12 +1868,7 @@ void initWebSocket() {
     deriveWsEndpointFromBackend();
 
     wsClient.onEvent(wsEvent);
-    wsClient.setReconnectInterval(5000); // 5s
-
-    // Enable protocol-level heartbeat to keep connection alive behind proxies
-    wsClient.enableHeartbeat(15000, 3000, 2); // ping every 15s, 3s timeout, 2 fails
-
-    Serial.println("[WS] Heartbeat enabled (15s/3s/2)");
+    // Disable library auto-reconnect and heartbeats; we'll manage reconnection with backoff
 
     // Set Origin header to match backend host (helps when strict origin checks are enabled)
     // Optionally send Origin header if required by server
@@ -1907,8 +1905,7 @@ void initWebSocket() {
             Serial.println("[WS] ✓ Time synced - TLS handshake can proceed");
         }
 
-        // Small delay to ensure time propagates through system
-        delay(1000);
+        // No blocking delay; proceed immediately
     }
 
     Serial.printf("[WS] Connecting to %s://%s:%u%s\n",
@@ -1917,29 +1914,33 @@ void initWebSocket() {
                   WS_PORT,
                   WS_PATH.c_str());
 
+    wsWantConnect = true;
+    wsReconnectAttempt = 0;
+    wsNextConnectAtMs = 0;
+    lastWsActivityMs = millis();
+
+    // Attempt an initial one-off time sync to prime TLS state, but do not connect yet.
     if (WS_SECURE) {
-        if (strlen(WS_SSL_FINGERPRINT) > 0) {
-            Serial.println("[WS] → Using TLS with SHA1 fingerprint validation");
-            wsClient.beginSSL(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str(), WS_SSL_FINGERPRINT);
-        } else {
-            Serial.println("[WS] → Using TLS with default certificate validation");
-            Serial.println("[WS] → Server must have valid certificate chain");
-            wsClient.beginSSL(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
-        }
+        timeSyncedFlag = syncTimeIfNeeded();
     } else {
-        Serial.println("[WS] → Using INSECURE WebSocket (ws://)");
-        Serial.println("[WS] ⚠️  Data transmitted in PLAIN TEXT!");
-        wsClient.begin(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
+        timeSyncedFlag = true;
+        Serial.println("[WS] → Using INSECURE WebSocket (ws://). No TLS time sync required.");
     }
 
-    Serial.println("[WS] ✓ WebSocket client initialized");
-    Serial.println("[WS] Waiting for connection...");
+    Serial.println("[WS] ✓ WebSocket client prepared");
+    Serial.println("[WS] Scheduler will attempt connection based on backoff and time sync");
+    wsWantConnect = true;
+    wsConnecting = false; // let serviceWebSockets() initiate connect
+    wsReconnectAttempt = 0;
+    wsNextConnectAtMs = millis();
+    lastWsActivityMs = millis();
 }
 
 void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
     switch (type) {
         case WStype_CONNECTED: {
             wsConnected = true;
+            wsConnecting = false;
             wsTriedInsecureFallback = true; // mark that a successful connection occurred
             Serial.println("[WS] ✓✓✓ Connected to server ✓✓✓");
             Serial.printf("[WS] Protocol: %s://%s:%u\n",
@@ -1956,15 +1957,18 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
             strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", &tm_info);
             Serial.printf("[WS] Connected at: %s PHT\n", timeBuf);
 
-            // Small delay to ensure connection is fully established
-            Serial.println("[WS] Waiting 500ms for connection stabilization...");
-            delay(500);
+            // Update connection state and reset backoff
+            lastWsActivityMs = millis();
+            wsReconnectAttempt = 0;
+            wsNextConnectAtMs = 0;
 
             sendHandshake();
             break;
         }        case WStype_DISCONNECTED: {
             wsConnected = false;
+            wsConnecting = false;
             Serial.println("[WS] ✗ Disconnected from server");
+            lastWsActivityMs = millis();
 
             // Check if we received a close code
             if (length >= 2) {
@@ -1991,7 +1995,11 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
                 }
             }
 
-            Serial.printf("[WS] Auto-reconnect in 5s...\n");
+            // Schedule backoff-based reconnect
+            wsNextConnectAtMs = millis() + computeBackoffDelayMs(wsReconnectAttempt++);
+            Serial.printf("[WS] Reconnect scheduled in %lu ms (attempt %lu)\n",
+                          (unsigned long)(wsNextConnectAtMs - millis()),
+                          (unsigned long)wsReconnectAttempt);
 
             // If secure WS repeatedly fails and we haven't tried fallback yet
             if (ALLOW_WS_INSECURE_FALLBACK && !wsTriedInsecureFallback && WS_SECURE) {
@@ -2002,18 +2010,13 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
                 wsTriedInsecureFallback = true;
                 WS_SECURE = false;
                 WS_PORT = 80;
-
-                // Reinitialize with insecure connection
-                wsClient.disconnect();
-                delay(500);
-                wsClient.begin(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
-                wsClient.setReconnectInterval(5000);
-                wsClient.enableHeartbeat(15000, 3000, 2);
+                // Let serviceWebSockets() perform the next begin() when due
             }
             break;
         }
 
         case WStype_TEXT: {
+            lastWsActivityMs = millis();
             String msg = String((char*)payload).substring(0, length);
             Serial.printf("[WS] ← Message: %s\n", msg.c_str());
 
@@ -2055,9 +2058,11 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
 
         case WStype_ERROR: {
             Serial.println("[WS] ✗✗✗ ERROR EVENT ✗✗✗");
+            wsConnecting = false;
             Serial.printf("[WS] WiFi Status: %d, RSSI: %d dBm\n",
                           WiFi.status(),
                           WiFi.RSSI());
+            lastWsActivityMs = millis();
 
             // Check if this is likely a TLS error
             time_t now = time(nullptr);
@@ -2069,18 +2074,16 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
                 Serial.println("[WS] → This is the root cause of the error");
             }
 
+            // Schedule reconnect on error
+            wsNextConnectAtMs = millis() + computeBackoffDelayMs(wsReconnectAttempt++);
             // Trigger fallback if enabled
             if (ALLOW_WS_INSECURE_FALLBACK && !wsTriedInsecureFallback && WS_SECURE) {
                 Serial.println("[WS] → Attempting insecure ws:// fallback");
                 wsTriedInsecureFallback = true;
                 WS_SECURE = false;
                 WS_PORT = 80;
-
-                wsClient.disconnect();
-                delay(500);
-                wsClient.begin(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
-                wsClient.setReconnectInterval(5000);
-                wsClient.enableHeartbeat(15000, 3000, 2);
+                // Schedule reconnect via service loop
+                wsNextConnectAtMs = millis() + computeBackoffDelayMs(wsReconnectAttempt++);
             }
             break;
         }        case WStype_BIN:
@@ -2088,11 +2091,13 @@ void wsEvent(WStype_t type, uint8_t * payload, size_t length) {
             break;
 
         case WStype_PING:
+            lastWsActivityMs = millis();
             Serial.println("[WS] ← Ping from server");
             break;
 
         case WStype_PONG:
-            Serial.println("[WS] ← Pong from server (heartbeat OK)");
+            lastWsActivityMs = millis();
+            Serial.println("[WS] ← Pong from server");
             break;
 
         default:
@@ -2342,5 +2347,96 @@ void maintainWiFiConnection() {
                 Serial.println("[WiFi] Reconnect attempt failed");
             }
         }
+    }
+}
+
+// =====================
+// WS Backoff Utilities
+// =====================
+uint32_t computeBackoffDelayMs(uint32_t attempt){
+    // Exponential backoff with cap (1s,2s,4s,8s,16s,32s,60s...)
+    uint32_t exp = (attempt >= 6) ? 6 : attempt; // cap exponent at 2^6=64
+    uint32_t d = WS_BACKOFF_BASE_MS * (1UL << exp);
+    if (d > WS_BACKOFF_MAX_MS) d = WS_BACKOFF_MAX_MS;
+    return d;
+}
+
+void serviceWebSockets(){
+    const uint32_t now = millis();
+
+    // Gate all WS activity on WiFi link
+    if (WiFi.status() != WL_CONNECTED) {
+        // Stop any active sockets and reset attempts to avoid storms when WiFi returns
+        if (wsClient.isConnected()) { wsClient.disconnect(); }
+        if (wsIngest.isConnected()) { wsIngest.disconnect(); }
+        wsConnected = false;
+        wsConnecting = false; wsReconnectAttempt = 0; wsNextConnectAtMs = 0;
+        ingestReconnectAttempt = 0; ingestNextConnectAtMs = 0;
+        return;
+    }
+
+    // Primary WS idle timeout protection
+    if (wsClient.isConnected()){
+        if (now - lastWsActivityMs > WS_IDLE_TIMEOUT_MS){
+            Serial.println("[WS] ⏱ TIMEOUT (no activity) -> reconnecting");
+            wsClient.disconnect();
+            wsConnected = false;
+            wsNextConnectAtMs = now + computeBackoffDelayMs(wsReconnectAttempt++);
+        }
+    } else if (wsWantConnect && !wsConnecting && now >= wsNextConnectAtMs){
+        // Avoid racing at boot
+        if (now - bootStartMs < MIN_WS_CONNECT_DELAY_MS){
+            wsNextConnectAtMs = bootStartMs + MIN_WS_CONNECT_DELAY_MS;
+            return;
+        }
+        // For wss, ensure time is synced. Retry sync at most every TIME_SYNC_RETRY_MS.
+        if (WS_SECURE){
+            auto timeIsValid = [](){ time_t t=time(nullptr); struct tm tm_i; localtime_r(&t,&tm_i); return (tm_i.tm_year+1900)>=2020; };
+            if (!timeIsValid()){
+                if (now - lastTimeSyncAttemptMs >= TIME_SYNC_RETRY_MS){
+                    Serial.println("[WS] Waiting for valid time (NTP) before wss connect...");
+                    timeSyncedFlag = syncTimeIfNeeded();
+                    lastTimeSyncAttemptMs = now;
+                }
+                // Defer connect until time is valid or fallback triggers
+                wsNextConnectAtMs = now + 5000;
+                return;
+            }
+        }
+        // Attempt (re)connect with current scheme
+        Serial.printf("[WS] Connecting (%s) attempt %lu...\n", WS_SECURE?"wss":"ws", (unsigned long)wsReconnectAttempt+1);
+        if (WS_SECURE) {
+            if (strlen(WS_SSL_FINGERPRINT) > 0) {
+                wsClient.beginSSL(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str(), WS_SSL_FINGERPRINT);
+            } else {
+                wsClient.beginSSL(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
+            }
+        } else {
+            wsClient.begin(WS_HOST.c_str(), WS_PORT, WS_PATH.c_str());
+        }
+        wsConnecting = true;
+        // After begin(), WebSocketsClient handles the TCP connect asynchronously
+        // If it fails, our onEvent will schedule the next attempt via backoff
+        // Push next attempt time forward to avoid tight loops in case of immediate failure
+        wsNextConnectAtMs = now + computeBackoffDelayMs(wsReconnectAttempt);
+    }
+
+    // Ingest WS idle timeout and scheduled connect
+    if (wsIngest.isConnected()){
+        if (now - lastIngestActivityMs > WS_IDLE_TIMEOUT_MS){
+            Serial.println("[INGEST] ⏱ TIMEOUT (no activity) -> reconnecting");
+            wsIngest.disconnect();
+            ingestNextConnectAtMs = now + computeBackoffDelayMs(ingestReconnectAttempt++);
+            wsIngestConnected = false;
+        }
+    } else if (ingestWantConnect && !ingestConnecting && now >= ingestNextConnectAtMs && WS_HOST.length()>0){
+        String ingestPath = String(BACKEND_INGEST_PATH_BASE) + String(DEVICE_SERIAL) + String("/");
+        Serial.printf("[INGEST] Connecting (%s)...\n", WS_SECURE?"wss":"ws");
+        // Ensure event handler is bound (idempotent)
+        wsIngest.onEvent([](WStype_t t, uint8_t* p, size_t l){ (void)p; (void)l; /* bound in ensureIngestConnected */ });
+        if (WS_SECURE){ wsIngest.beginSSL(WS_HOST.c_str(), WS_PORT, ingestPath.c_str()); }
+        else { wsIngest.begin(WS_HOST.c_str(), WS_PORT, ingestPath.c_str()); }
+        ingestConnecting = true;
+        ingestNextConnectAtMs = now + computeBackoffDelayMs(ingestReconnectAttempt);
     }
 }
