@@ -566,6 +566,55 @@ export default function Dashboard() {
     }
   }); // { [deviceId]: { phHistory, phLabels, lastFetch } }
 
+  // --- Current pH silent reload (every 3s) ---
+  // Fetch just the latest pH reading for the active device to keep the card snappy
+  const [phSensorId, setPhSensorId] = useState(null);
+  const [phLatest, setPhLatest] = useState(null); // { value, created_at }
+
+  // Resolve pH sensor id for the active device (prefer cached sensors_raw, else fetch once)
+  useEffect(() => {
+    let cancelled = false;
+    async function resolvePhSensor() {
+      setPhLatest(null);
+      setPhSensorId(null);
+      if (!currentDevice?.id) return;
+      try {
+        // Prefer cached sensors to avoid network
+        let sensors = devicesData[currentDevice.id]?.sensors_raw;
+        if (!Array.isArray(sensors) || sensors.length === 0) {
+          try {
+            const sResp = await getDeviceSensors(currentDevice.id);
+            sensors = sResp?.results ?? (Array.isArray(sResp) ? sResp : []);
+          } catch (_) { sensors = []; }
+        }
+        const ph = (sensors || []).find(s => s.sensor_type === 'ph');
+        if (!cancelled && ph?.id) setPhSensorId(ph.id);
+      } catch (_) { /* ignore */ }
+    }
+    resolvePhSensor();
+    return () => { cancelled = true; };
+  }, [currentDevice?.id, devicesData]);
+
+  // Poll the latest pH value every 3 seconds (silent, only for the card)
+  useEffect(() => {
+    if (!phSensorId) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const resp = await getSensorData(phSensorId, 1);
+        const arr = resp?.results ?? (Array.isArray(resp) ? resp : []);
+        const top = Array.isArray(arr) && arr.length ? arr[0] : null;
+        if (!cancelled && top && top.value != null) {
+          setPhLatest({ value: Number(top.value), created_at: top.created_at || new Date().toISOString() });
+        }
+      } catch (_) { /* ignore */ }
+    };
+    // Run immediately, then every 3s
+    tick();
+    const id = setInterval(tick, 3000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [phSensorId]);
+
 
 
   // Helper to persist pH data to localStorage
@@ -2030,10 +2079,12 @@ export default function Dashboard() {
         <section className="card current-ph-card" aria-label="Current pH" onClick={() => setSelectedMonitoringCard('ph')} style={{ cursor: 'pointer' }}>
           {(() => {
             // Resolve current pH prioritizing live WebSocket value for zero delay.
-            // Priority: realtime snapshot (sensors.ph) -> newest phRawData (DB) -> no data.
+            // Priority: realtime snapshot (sensors.ph) -> silent 3s fetch (phLatest) -> newest phRawData (DB) -> no data.
             let latestPh = null;
             if (typeof data?.sensors?.ph === 'number' && Number.isFinite(data.sensors.ph)) {
               latestPh = Number(data.sensors.ph);
+            } else if (phLatest && Number.isFinite(phLatest.value)) {
+              latestPh = phLatest.value;
             } else {
               let newestFromRaw = null;
               if (Array.isArray(data?.phRawData) && data.phRawData.length) {
