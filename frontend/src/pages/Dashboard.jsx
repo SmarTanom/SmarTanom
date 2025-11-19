@@ -2029,25 +2029,27 @@ export default function Dashboard() {
         {/* Current pH level (real-time latest reading, independent of history) */}
         <section className="card current-ph-card" aria-label="Current pH" onClick={() => setSelectedMonitoringCard('ph')} style={{ cursor: 'pointer' }}>
           {(() => {
-            // Resolve current pH with a stability-first strategy to avoid flicker:
-            // Prefer the newest reading from phRawData (has created_at), then fall back to realtime snapshot.
+            // Resolve current pH prioritizing live WebSocket value for zero delay.
+            // Priority: realtime snapshot (sensors.ph) -> newest phRawData (DB) -> no data.
             let latestPh = null;
-            let newestFromRaw = null;
-            if (Array.isArray(data?.phRawData) && data.phRawData.length) {
-              try {
-                newestFromRaw = data.phRawData.reduce((acc, r) => {
-                  if (!r || r.value == null || !r.created_at) return acc;
-                  const t = new Date(r.created_at).getTime();
-                  if (!Number.isFinite(t)) return acc;
-                  if (!acc || t > acc.t) return { t, v: Number(r.value) };
-                  return acc;
-                }, null);
-              } catch (_) { /* ignore */ }
-            }
-            if (newestFromRaw && Number.isFinite(newestFromRaw.v)) {
-              latestPh = newestFromRaw.v;
-            } else if (typeof data?.sensors?.ph === 'number' && Number.isFinite(data.sensors.ph)) {
+            if (typeof data?.sensors?.ph === 'number' && Number.isFinite(data.sensors.ph)) {
               latestPh = Number(data.sensors.ph);
+            } else {
+              let newestFromRaw = null;
+              if (Array.isArray(data?.phRawData) && data.phRawData.length) {
+                try {
+                  newestFromRaw = data.phRawData.reduce((acc, r) => {
+                    if (!r || r.value == null || !r.created_at) return acc;
+                    const t = new Date(r.created_at).getTime();
+                    if (!Number.isFinite(t)) return acc;
+                    if (!acc || t > acc.t) return { t, v: Number(r.value) };
+                    return acc;
+                  }, null);
+                } catch (_) { /* ignore */ }
+              }
+              if (newestFromRaw && Number.isFinite(newestFromRaw.v)) {
+                latestPh = newestFromRaw.v;
+              }
             }
             const hasPh = typeof latestPh === 'number' && Number.isFinite(latestPh);
             const phVal = hasPh ? latestPh : null;
