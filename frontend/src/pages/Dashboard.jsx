@@ -753,7 +753,10 @@ export default function Dashboard() {
       const deviceMeta = devices.find(d => d.id === deviceId);
       // Prefer resolved devicePlant (from device meta), fall back to any plant bundled on device meta
       const plant = devicePlant || deviceMeta?.plant || null;
-      const nutrientText = typeof transformedSensors.tds === 'number' ? getNutrientStatus(transformedSensors.tds, plant) : undefined;
+  // Prefer live TDS for nutrient status when WS is connected
+  const liveTds = useRealtimeStore.getState().deviceData[deviceId]?.sensors?.tds;
+  const nutrientBaseTds = (wsStatus === 'connected' && Number.isFinite(liveTds)) ? liveTds : transformedSensors.tds;
+  const nutrientText = typeof nutrientBaseTds === 'number' ? getNutrientStatus(nutrientBaseTds, plant) : undefined;
 
       // Fetch the latest alert from alerts table for this device (backend scopes owned + shared)
       let latestDbAlert = null;
@@ -874,14 +877,17 @@ export default function Dashboard() {
       const { connectivity, lastSync } = getConnectivityStatus(lastSensorUpdate);
 
       const payload = {
-        sensors: {
-          ...(typeof snap.ph === 'number' ? { ph: snap.ph } : {}),
-          ...(typeof snap.ec === 'number' ? { ec: snap.ec } : {}),
-          ...(typeof snap.tds === 'number' ? { tds: snap.tds } : {}),
-          ...(typeof snap.waterLevel === 'number' ? { waterLevel: snap.waterLevel } : {}),
-          ...(typeof snap.turbidity === 'number' ? { turbidity: snap.turbidity } : {}),
-          ...(typeof snap.water_temperature === 'number' ? { water_temperature: snap.water_temperature } : {}),
-        },
+        // When WebSocket is connected, avoid pushing sensor snapshot from DB to prevent overriding live values.
+        ...(wsStatus !== 'connected' ? {
+          sensors: {
+            ...(typeof snap.ph === 'number' ? { ph: snap.ph } : {}),
+            ...(typeof snap.ec === 'number' ? { ec: snap.ec } : {}),
+            ...(typeof snap.tds === 'number' ? { tds: snap.tds } : {}),
+            ...(typeof snap.waterLevel === 'number' ? { waterLevel: snap.waterLevel } : {}),
+            ...(typeof snap.turbidity === 'number' ? { turbidity: snap.turbidity } : {}),
+            ...(typeof snap.water_temperature === 'number' ? { water_temperature: snap.water_temperature } : {}),
+          },
+        } : {}),
         nutrientText,
         connectivity,
         lastSyncLabel: lastSync,

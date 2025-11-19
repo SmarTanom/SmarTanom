@@ -132,10 +132,29 @@ export const useRealtimeStore = create(persist((set, get) => ({
     if (!deviceId || !dataPayload) return;
     set(state => {
       const prev = state.deviceData[deviceId] || {};
-      // Deep-merge sensors map to avoid dropping keys like water_temperature when partial updates arrive
-      const mergedSensors = dataPayload.sensors
-        ? { ...(prev.sensors || {}), ...dataPayload.sensors }
-        : (prev.sensors || undefined);
+      // Timestamp-aware merge: never regress live values with older DB snapshots
+      const prevTs = prev?.lastUpdate ? new Date(prev.lastUpdate).getTime() : 0;
+      const incomingTs = dataPayload?.lastUpdate ? new Date(dataPayload.lastUpdate).getTime() : 0;
+      const isRegressive = prevTs && (!incomingTs || (incomingTs + 250 < prevTs));
+      let mergedSensors;
+      if (dataPayload.sensors) {
+        if (isRegressive) {
+          // Keep existing sensor values; only fill missing keys from incoming
+          const next = { ...(prev.sensors || {}) };
+          for (const [k, v] of Object.entries(dataPayload.sensors)) {
+            if (next[k] === undefined) next[k] = v;
+          }
+          mergedSensors = next;
+        } else {
+          // Normal merge: allow newer payload to override
+          mergedSensors = { ...(prev.sensors || {}), ...dataPayload.sensors };
+        }
+      } else {
+        mergedSensors = (prev.sensors || undefined);
+      }
+
+      // Respect monotonic lastUpdate: do not move backwards in time
+      const nextLastUpdate = isRegressive ? prev.lastUpdate : (dataPayload.lastUpdate || prev.lastUpdate);
 
       return {
         deviceData: {
@@ -144,6 +163,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
             ...prev,
             ...dataPayload,
             ...(dataPayload.sensors ? { sensors: mergedSensors } : {}),
+            ...(nextLastUpdate ? { lastUpdate: nextLastUpdate } : {}),
           }
         }
       };
