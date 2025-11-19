@@ -459,6 +459,7 @@ export default function Dashboard() {
   const fetchInitial = useRealtimeStore(s => s.fetchInitial);
   const connectWS = useRealtimeStore(s => s.connectWS);
   const wsStatus = useRealtimeStore(s => s.wsStatus);
+  const connectAllBrokers = useRealtimeStore(s => s.connectAllBrokers);
 
   const totalUnread = useRealtimeStore(s => s.totalUnread);
   const perDeviceUnreadCounts = useRealtimeStore(s => s.unreadCounts);
@@ -483,6 +484,15 @@ export default function Dashboard() {
   // Current device selection must be defined before any effects/dependencies that reference it
   const currentDevice = ownedDevices[activeIdx];
   const data = currentDevice ? devicesData[currentDevice.id] : null;
+
+  // Connect broker streams once devices are available (direct ESP32 realtime every 5s)
+  const brokersInitRef = useRef(false);
+  useEffect(() => {
+    if (!brokersInitRef.current && ownedDevices.length > 0) {
+      connectAllBrokers();
+      brokersInitRef.current = true;
+    }
+  }, [ownedDevices, connectAllBrokers]);
 
   // --- Stable lastUpdate to prevent flicker in "Last Data Sync" label ---
   // We only advance the stable timestamp when we get a strictly newer reading.

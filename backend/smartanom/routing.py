@@ -16,4 +16,8 @@ websocket_urlpatterns = [
     # Device onboarding channel (device connects directly)
     re_path(r'ws/device/(?P<serial>[^/]+)/$', consumers.DeviceOnboardingConsumer.as_asgi()),
     re_path(r'ws/device/(?P<serial>[^/]+)$', consumers.DeviceOnboardingConsumer.as_asgi()),
+
+    # Batched persistence ingest (device sends aggregated points every ~20s)
+    re_path(r'ws/ingest/(?P<serial>[^/]+)/$', consumers.BatchedIngestConsumer.as_asgi()),
+    re_path(r'ws/ingest/(?P<serial>[^/]+)$', consumers.BatchedIngestConsumer.as_asgi()),
 ]

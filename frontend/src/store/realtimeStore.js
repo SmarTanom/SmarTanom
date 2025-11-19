@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { wsClient } from '../services/websocketClient';
+import { createRealtimeBrokerClient } from '../services/realtimeBrokerClient';
 import { getUserDevices } from '../services/api/devices';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors';
 // Reservoirs API removed; device now includes plant/start/end fields
@@ -100,6 +101,8 @@ export const useRealtimeStore = create(persist((set, get) => ({
   latestAlerts: {}, // { [deviceId]: { title, body, severity, at } }
   wsStatus: 'disconnected', // 'connecting' | 'connected' | 'disconnected'
   wsLastError: null,
+  // Broker (device → frontend direct 5s stream)
+  _brokerClients: {}, // { serial: client }
   _seenAlertIds: new Set(), // track unique alerts
   _lastIngestByDevice: {}, // { [deviceId]: { sensorType: ingest_id } }
   _lastValueTsByDevice: {}, // { [deviceId]: { sensorType: { v, t } } }
@@ -890,6 +893,62 @@ export const useRealtimeStore = create(persist((set, get) => ({
       console.error('Failed to mark all device alerts as read:', err);
     }
   },
+
+  // Establish a direct realtime broker subscription for a device serial.
+  // Frontend cards will then receive sensor updates every ~5s bypassing backend latency.
+  connectBroker: (serial) => {
+    if (!serial) return () => {};
+    const state = get();
+    if (state._brokerClients[serial]) {
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Broker already connected for', serial);
+      return () => {};
+    }
+    const client = createRealtimeBrokerClient(serial, {
+      onStatus: (st) => { if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Broker status', serial, st); },
+      onMessage: (payload) => {
+        // Expected payload: { type:'sensor.realtime', serial:'SMRT-XXX', ts: <ms>, data:{ ph, temp, ec, tds, water_level, turbidity } }
+        if (!payload || payload.type !== 'sensor.realtime') return;
+        const devs = get().devices || [];
+        const device = devs.find(d => (d.device_serial || d.serial) === serial);
+        if (!device) {
+          // Devices may not be loaded yet; defer
+          if (import.meta.env.VITE_DEBUG === 'true') console.warn('[RealtimeStore] Realtime payload before devices loaded; ignoring');
+          return;
+        }
+        const deviceId = device.id;
+        const dataMap = payload.data || {};
+        // Normalize keys
+        const sensors = {
+          ph: typeof dataMap.ph === 'number' ? dataMap.ph : undefined,
+          ec: typeof dataMap.ec === 'number' ? dataMap.ec : undefined,
+          tds: typeof dataMap.tds === 'number' ? dataMap.tds : undefined,
+          waterLevel: typeof dataMap.water_level === 'number' ? dataMap.water_level : undefined,
+          turbidity: typeof dataMap.turbidity === 'number' ? dataMap.turbidity : undefined,
+          water_temperature: typeof dataMap.temp === 'number' ? dataMap.temp : (typeof dataMap.water_temperature === 'number' ? dataMap.water_temperature : undefined),
+        };
+        // Remove undefined keys to prevent overwriting existing values with undefined
+        Object.keys(sensors).forEach(k => sensors[k] === undefined && delete sensors[k]);
+        const tsMs = (typeof payload.ts === 'number' && payload.ts > 0) ? payload.ts : Date.now();
+        get().updateDeviceData(deviceId, { sensors, lastUpdate: new Date(tsMs).toISOString() });
+      }
+    });
+    client.connect();
+    set(state => ({ _brokerClients: { ...state._brokerClients, [serial]: client } }));
+    if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Broker client connected for', serial);
+    return () => {
+      const c = get()._brokerClients[serial];
+      if (c) c.disconnect();
+      set(st => { const next = { ...st._brokerClients }; delete next[serial]; return { _brokerClients: next }; });
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Broker client disconnected for', serial);
+    };
+  },
+
+  // Convenience: connect all known device serials (call after initial devices fetch)
+  connectAllBrokers: () => {
+    const devs = get().devices || [];
+    devs.forEach(d => { const serial = d.device_serial || d.serial; if (serial) get().connectBroker(serial); });
+  },
+
 }), {
   name: 'realtime-store',
   partialize: (state) => ({

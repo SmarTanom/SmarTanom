@@ -474,6 +474,27 @@ String WS_HOST = "";      // e.g., smartanom.onrender.com
 uint16_t WS_PORT = 443;    // 443 for wss, 80 for ws
 String WS_PATH = "";      // e.g., /ws/device/<serial>/
 bool WS_SECURE = true;     // wss when true
+// --- Dual WebSocket additions (broker + ingest) ---
+#ifndef REALTIME_BROKER_URL
+#define REALTIME_BROKER_URL "wss://broker.example/ws?token=PUBLIC_READ_TOKEN"
+#endif
+#ifndef BACKEND_INGEST_PATH_BASE
+#define BACKEND_INGEST_PATH_BASE "/ws/ingest/"
+#endif
+WebSocketsClient wsRealtime; bool wsRealtimeConnected = false;
+WebSocketsClient wsIngest;   bool wsIngestConnected   = false;
+const unsigned long REALTIME_INTERVAL_MS = 5000UL;  // 5s
+const unsigned long BATCH_INTERVAL_MS    = 20000UL; // 20s
+unsigned long lastRealtimeMs = 0, lastBatchMs = 0;
+struct ReadingPoint { uint64_t t_ms; float ph, tempC, ec, tds, waterPct, turbidity; };
+static const int MAX_BATCH_POINTS = 16; ReadingPoint batchBuf[MAX_BATCH_POINTS]; int batchCount = 0;
+void pushBatchPoint(){ if(batchCount>=MAX_BATCH_POINTS){ for(int i=1;i<MAX_BATCH_POINTS;i++) batchBuf[i-1]=batchBuf[i]; batchCount=MAX_BATCH_POINTS-1;} ReadingPoint &rp=batchBuf[batchCount++]; rp.t_ms=millis(); rp.ph=phValue; rp.tempC=waterTempC; rp.ec=ecValue; rp.tds=tdsValue; rp.waterPct=waterPercent; rp.turbidity=(rawTurb>1000? turbidityNTU: rawTurb); }
+String buildRealtimeJson(){ StaticJsonDocument<512> doc; doc["type"]="sensor.realtime"; doc["serial"]=DEVICE_SERIAL; doc["ts"]=(uint64_t)millis(); JsonObject data=doc.createNestedObject("data"); data["ph"]=phValue; data["temp"]=waterTempC; data["ec"]=ecValue; data["tds"]=tdsValue; data["water_level"]=waterPercent; data["turbidity"]=(rawTurb>1000? turbidityNTU: rawTurb); String out; serializeJson(doc,out); return out; }
+String buildBatchJson(){ StaticJsonDocument<1536> doc; doc["type"]="sensor.batch"; doc["serial"]=DEVICE_SERIAL; doc["nonce"]=generateIngestId(); JsonArray pts=doc.createNestedArray("points"); for(int i=0;i<batchCount;i++){ JsonObject p=pts.createNestedObject(); p["t"]=batchBuf[i].t_ms; JsonObject d=p.createNestedObject("data"); d["ph"]=batchBuf[i].ph; d["temp"]=batchBuf[i].tempC; d["ec"]=batchBuf[i].ec; d["tds"]=batchBuf[i].tds; d["water_level"]=batchBuf[i].waterPct; d["turbidity"]=batchBuf[i].turbidity; } String out; serializeJson(doc,out); return out; }
+void ensureRealtimeConnected(){ if(wsRealtimeConnected) return; if(wsRealtime.isConnected()){ wsRealtimeConnected=true; return;} wsRealtime.begin(REALTIME_BROKER_URL); wsRealtime.onEvent([](WStype_t t,uint8_t*,size_t){ if(t==WStype_CONNECTED){ wsRealtimeConnected=true; Serial.println("[RT] Connected broker"); } else if(t==WStype_DISCONNECTED){ wsRealtimeConnected=false; Serial.println("[RT] Disconnected broker"); }}); wsRealtime.setReconnectInterval(5000);} 
+void ensureIngestConnected(){ if(wsIngestConnected) return; if(wsIngest.isConnected()){ wsIngestConnected=true; return;} if(WS_HOST.length()==0) return; String ingestPath=String(BACKEND_INGEST_PATH_BASE)+String(DEVICE_SERIAL)+String("/"); if(WS_SECURE){ wsIngest.beginSSL(WS_HOST.c_str(),WS_PORT,ingestPath.c_str()); } else { wsIngest.begin(WS_HOST.c_str(),WS_PORT,ingestPath.c_str()); } wsIngest.onEvent([](WStype_t t,uint8_t*,size_t){ if(t==WStype_CONNECTED){ wsIngestConnected=true; Serial.println("[INGEST] Connected backend ingest"); } else if(t==WStype_DISCONNECTED){ wsIngestConnected=false; Serial.println("[INGEST] Disconnected ingest"); }}); wsIngest.setReconnectInterval(7000);} 
+void sendRealtimeFrameIfDue(unsigned long nowMs){ if(nowMs-lastRealtimeMs<REALTIME_INTERVAL_MS) return; lastRealtimeMs=nowMs; String frame=buildRealtimeJson(); ensureRealtimeConnected(); if(wsRealtimeConnected) wsRealtime.sendTXT(frame);} 
+void sendBatchIfDue(unsigned long nowMs){ if(nowMs-lastBatchMs<BATCH_INTERVAL_MS) return; lastBatchMs=nowMs; if(batchCount==0) return; String batch=buildBatchJson(); ensureIngestConnected(); if(wsIngestConnected){ wsIngest.sendTXT(batch); batchCount=0; }}
 // =============================================
 // STARTUP STABILIZATION GATE (first payload)
 // =============================================
@@ -925,6 +946,8 @@ void loop() {
         maintainWiFiConnection();
 
         wsClient.loop();
+    wsRealtime.loop();
+    wsIngest.loop();
 
         unsigned long now = millis();
         if (now - lastSensorSend >= SENSOR_SEND_INTERVAL_MS) {
@@ -940,12 +963,16 @@ void loop() {
 
                 if (allStable && minWarmupMet) {
                     firstSendQuality = "stable";
-                    sendSensorData();
+                    sendSensorData(); // legacy path
+                    pushBatchPoint();
+                    sendRealtimeFrameIfDue(now);
                     firstPayloadSent = true;
                     Serial.println(F("[STAB] ✅ First payload sent after stability gate"));
                 } else if (timeoutReached) {
                     firstSendQuality = "warmup"; // sent due to timeout
                     sendSensorData();
+                    pushBatchPoint();
+                    sendRealtimeFrameIfDue(now);
                     firstPayloadSent = true;
                     Serial.println(F("[STAB] ⏱️ First payload sent after max wait timeout"));
                 } else {
@@ -957,7 +984,10 @@ void loop() {
                 }
             } else {
                 // Normal sends
-                sendSensorData();
+                sendSensorData();       // legacy broadcast/persist path
+                pushBatchPoint();
+                sendRealtimeFrameIfDue(now);
+                sendBatchIfDue(now);
             }
         }
         delay(5);

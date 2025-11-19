@@ -756,3 +756,120 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
             await self._process_sensor_data(device, sensor_data, client_ip, do_broadcast=False)
         except Exception as e:
             print(f"[DeviceWS] Warning: persistence task failed for {device.device_serial}: {e}")
+
+
+class BatchedIngestConsumer(AsyncWebsocketConsumer):
+    """Ingest batched sensor readings (no realtime broadcast).
+
+    Payload expected every ~20s:
+    {
+      "type": "sensor.batch",
+      "serial": "SMRT-ABC-123",
+      "nonce": "uuid-or-ingest-id",
+      "points": [ {"t": 1732000000000, "data": {"ph": 6.8, "temp": 23.4, ...}}, ... ]
+    }
+    """
+
+    async def connect(self):
+        self.serial = (self.scope.get('url_route') or {}).get('kwargs', {}).get('serial', '')
+        self.serial = (self.serial or '').upper()
+        await self.accept()
+        print(f"[IngestWS] ✓ Connected serial={self.serial}")
+
+    async def disconnect(self, close_code):
+        print(f"[IngestWS] ⇠ Disconnected serial={getattr(self,'serial',None)} code={close_code}")
+
+    async def receive(self, text_data=None, bytes_data=None):
+        raw = text_data
+        if raw is None and bytes_data is not None:
+            try:
+                raw = bytes_data.decode('utf-8', errors='replace')
+            except Exception:
+                raw = ''
+        try:
+            data = json.loads(raw or '{}')
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({"status": "error", "message": "invalid json"}))
+            return
+
+        if data.get('type') != 'sensor.batch':
+            await self.send(text_data=json.dumps({"status": "error", "message": "unsupported type"}))
+            return
+
+        serial = (data.get('serial') or self.serial or '').upper()
+        if not serial:
+            await self.send(text_data=json.dumps({"status": "error", "message": "missing serial"}))
+            return
+
+        nonce = data.get('nonce') or ''
+        if nonce:
+            ck = f"ingest_nonce:{serial}:{nonce}"
+            if cache.get(ck):
+                await self.send(text_data=json.dumps({"status": "ok", "dedup": True}))
+                return
+            cache.set(ck, True, timeout=300)
+
+        # Immediate ACK
+        await self.send(text_data=json.dumps({
+            "status": "ok",
+            "accepted": True,
+            "serial": serial,
+            "nonce": nonce,
+            "t": timezone.now().isoformat(),
+        }))
+
+        points = data.get('points') or []
+        if isinstance(points, list) and points:
+            asyncio.create_task(self._persist_points(serial, points))
+
+    async def _persist_points(self, serial: str, points: list):
+        device = await self._get_or_create_device(serial)
+        for p in points:
+            try:
+                t_ms = p.get('t')
+                reading = p.get('data') or {}
+                await self._store_reading(device, t_ms, reading)
+            except Exception as e:
+                print(f"[IngestWS] Error storing point for {serial}: {e}")
+
+    @database_sync_to_async
+    def _get_or_create_device(self, serial: str):
+        device, _ = Device.objects.get_or_create(
+            device_serial=serial,
+            defaults={"device_name": serial, "is_bound": False},
+        )
+        return device
+
+    @database_sync_to_async
+    def _store_reading(self, device, t_ms: int, data: dict):
+        from apps.sensors.models import Sensor, SensorData, SensorLatest
+        ts = timezone.now()
+        try:
+            if isinstance(t_ms, (int, float)):
+                ts = timezone.datetime.fromtimestamp(float(t_ms) / 1000.0, tz=timezone.utc)
+        except Exception:
+            pass
+        mapping = {
+            'ph': ('ph', 'pH'),
+            'tds': ('tds', 'ppm'),
+            'ec': ('ec', 'mS/cm'),
+            'water_level': ('water_level', '%'),
+            'temp': ('water_temperature', '°C'),
+            'water_temperature': ('water_temperature', '°C'),
+            'turbidity': ('turbidity', 'NTU'),
+        }
+        for key, (stype, unit) in mapping.items():
+            val = data.get(key)
+            if val is None:
+                continue
+            try:
+                sensor, _ = Sensor.objects.get_or_create(device=device, sensor_type=stype, defaults={'unit': unit})
+                value_f = float(val)
+                ingest_id = f"batch-{stype}-{int(ts.timestamp())}"  # coarse id for dedupe
+                rd, created = SensorData.objects.get_or_create(sensor=sensor, ingest_id=ingest_id, defaults={'value': value_f})
+                latest, _ = SensorLatest.objects.get_or_create(sensor=sensor)
+                latest.value = rd.value
+                latest.status = ''
+                latest.save(update_fields=['value', 'status', 'updated_at']) if hasattr(latest, 'updated_at') else latest.save(update_fields=['value', 'status'])
+            except Exception as e:
+                print(f"[IngestWS] Failed storing {stype} for {device.device_serial}: {e}")
