@@ -497,6 +497,12 @@ LOGGING = {
             'level': 'DEBUG' if DEBUG else 'INFO',
             'propagate': False,
         },
+		# Quiet down Channels config chatter in production
+		'channels.config': {
+			'handlers': ['console', 'file'],
+			'level': 'DEBUG' if DEBUG else 'WARNING',
+			'propagate': False,
+		},
     },
 }
 
