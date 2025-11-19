@@ -357,19 +357,6 @@ export default function DeviceDetails() {
     setPhotoError(null);
   };
 
-  const handleCameraCapture = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setPhotoError('Image size must be less than 5MB');
-        return;
-      }
-      setPhotoFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
-      setPhotoError(null);
-    }
-  };
-
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -739,27 +726,6 @@ export default function DeviceDetails() {
             <div className="modal-body">
               {!photoPreview ? (
                 <div className="photo-options">
-                  <p style={{ textAlign: 'center', marginBottom: '24px', color: '#6B7D75', fontSize: '14px' }}>
-                    Choose how you'd like to add a photo
-                  </p>
-
-                  <label className="photo-option-button">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handleCameraCapture}
-                      style={{ display: 'none' }}
-                    />
-                    <div className="photo-option-icon">
-                      <Camera size={32} color="#339432" />
-                    </div>
-                    <div className="photo-option-text">
-                      <strong>Take Photo</strong>
-                      <span>Use your camera</span>
-                    </div>
-                  </label>
-
                   <label className="photo-option-button">
                     <input
                       type="file"
