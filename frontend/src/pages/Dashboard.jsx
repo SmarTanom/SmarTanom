@@ -583,7 +583,7 @@ export default function Dashboard() {
   const [phSensorId, setPhSensorId] = useState(null);
   const [phLatest, setPhLatest] = useState(null); // { value, created_at }
 
-  // Resolve pH sensor id for the active device (prefer cached sensors_raw, else fetch once)
+  // Resolve pH sensor id for the active device (prefer cached sensors, else fetch once)
   useEffect(() => {
     let cancelled = false;
     async function resolvePhSensor() {
@@ -967,18 +967,33 @@ export default function Dashboard() {
     }
   };
 
-  // --- Silent reload every 70s for all sensor data ---
+  // --- Silent refresh on stale data ---
+  // If we haven't received a sensor update in a while, trigger a silent refresh.
+  // This covers cases where the WebSocket is connected but not sending data.
   useEffect(() => {
     if (!currentDevice?.id) return;
 
-    const SILENT_RELOAD_INTERVAL = 70000; // 70 seconds
+    const STALE_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
+    let staleTimer;
 
-    const intervalId = setInterval(() => {
-      // Silently refresh data for the current device
-      refreshLiteDeviceData(currentDevice.id);
-    }, SILENT_RELOAD_INTERVAL);
+    const checkStaleness = () => {
+      const lastUpdate = useRealtimeStore.getState().deviceData[currentDevice.id]?.lastUpdate;
+      if (lastUpdate) {
+        const lastUpdateMs = new Date(lastUpdate).getTime();
+        const now = Date.now();
+        if (now - lastUpdateMs > STALE_THRESHOLD_MS) {
+          // Data is stale, trigger a silent refresh
+          refreshLiteDeviceData(currentDevice.id);
+        }
+      }
+    };
 
-    return () => clearInterval(intervalId);
+    // Check for staleness periodically
+    const intervalId = setInterval(checkStaleness, 60000); // Check every minute
+
+    return () => {
+      clearInterval(intervalId);
+    };
   }, [currentDevice?.id]);
 
   // Fallback polling: ONLY when WebSocket is disconnected.
