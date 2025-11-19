@@ -6,6 +6,7 @@ Single-module settings file. (Planned modular split not yet applied.)
 from __future__ import annotations
 
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -517,6 +518,8 @@ ASGI_APPLICATION = 'smartanom.asgi.application'
 USE_X_FORWARDED_HOST = True
 
 # Channel Layers for WebSocket communication
+# Use a dedicated logger to avoid noisy print statements in production
+_channels_logger = logging.getLogger("channels.config")
 REDIS_URL = os.getenv('REDIS_URL', '').strip()
 # Pub/Sub channel for streaming sensor readings (ESP32 -> Upstash -> Backend)
 REDIS_PUBSUB_CHANNEL = os.getenv('REDIS_PUBSUB_CHANNEL', 'smartanom:sensors').strip()
@@ -549,12 +552,15 @@ if REDIS_URL:
 				parsed = parsed._replace(scheme='rediss')
 				REDIS_URL = _urlunparse(parsed)
 				scheme = 'rediss'
-				print("[Channels] NOTE: Upgraded Redis URL to TLS (rediss) based on host/port heuristics.")
+				# Reduce log noise: only log this upgrade in DEBUG
+				if DEBUG:
+					_channels_logger.debug("[Channels] Upgraded Redis URL to TLS (rediss) based on host/port heuristics.")
 
 			# Build a channels_redis config. When using TLS, be explicit.
 			netloc = parsed.netloc or ''
 			safe_host = f"{scheme}://{netloc.split('@')[-1]}"
-			print(f"[Channels] Using Redis channel layer: {safe_host}")
+			# Info-level once on startup; avoid printing credentials
+			_channels_logger.info(f"[Channels] Using Redis channel layer: {safe_host}")
 
 			if scheme == 'rediss':
 				# For TLS, prefer passing a rediss:// URL only. Avoid 'ssl': True,
@@ -577,9 +583,10 @@ if REDIS_URL:
 				if 'brpop_timeout' in params:
 					redis_config['brpop_timeout'] = int(os.getenv('CHANNELS_REDIS_BRPOP_TIMEOUT', '120'))
 				else:
-					print("[Channels] INFO: Installed channels_redis does not support brpop_timeout; skipping.")
+					# Only debug-log the fact to avoid noisy startup logs
+					_channels_logger.debug("[Channels] Installed channels_redis does not support brpop_timeout; skipping.")
 			except Exception as _sig_e:
-				print(f"[Channels] INFO: Could not inspect channels_redis for brpop_timeout support: {_sig_e}")
+				_channels_logger.debug(f"[Channels] Could not inspect channels_redis for brpop_timeout support: {_sig_e}")
 			CHANNEL_LAYERS = {
 				'default': {
 					'BACKEND': 'channels_redis.core.RedisChannelLayer',
@@ -588,16 +595,16 @@ if REDIS_URL:
 			}
 			use_redis_layer = True
 		else:
-			print(f"[Channels] WARNING: Invalid REDIS_URL '{REDIS_URL}'. Expected redis[s]://<host>[:port]. Falling back to in-memory channel layer.")
+			_channels_logger.warning(f"[Channels] Invalid REDIS_URL '{REDIS_URL}'. Expected redis[s]://<host>[:port]. Falling back to in-memory channel layer.")
 	except Exception as _e:
-		print(f"[Channels] WARNING: Failed to parse REDIS_URL '{REDIS_URL}': {_e}. Falling back to in-memory channel layer.")
+		_channels_logger.warning(f"[Channels] Failed to parse REDIS_URL '{REDIS_URL}': {_e}. Falling back to in-memory channel layer.")
 
 if not use_redis_layer:
 	# Development or misconfigured production: Use in-memory channel layer (single-worker only)
 	if not DEBUG:
-		print("[Channels] WARNING: Using in-memory channel layer (REDIS_URL unset/invalid). This is NOT recommended for production.")
+		_channels_logger.warning("[Channels] Using in-memory channel layer (REDIS_URL unset/invalid). This is NOT recommended for production.")
 	else:
-		print("[Channels] Using in-memory channel layer (dev mode)")
+		_channels_logger.debug("[Channels] Using in-memory channel layer (dev mode)")
 	CHANNEL_LAYERS = {
 		'default': {
 			'BACKEND': 'channels.layers.InMemoryChannelLayer',

@@ -11,6 +11,8 @@ services:
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: smartanom.settings
+      - key: PIP_DISABLE_PIP_VERSION_CHECK
+        value: "1"
       - key: DEBUG
         value: "false"
       - key: SECRET_KEY
@@ -75,6 +77,8 @@ services:
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: smartanom.settings
+      - key: PIP_DISABLE_PIP_VERSION_CHECK
+        value: "1"
       # IMPORTANT: Set REDIS_URL to your Redis (Upstash) redis[s]:// URL so Channels can fan out across processes
       - key: REDIS_URL
         sync: false
