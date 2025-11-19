@@ -218,6 +218,20 @@ export const useRealtimeStore = create(persist((set, get) => ({
         });
 
         const prev = deviceData[d.id] || {};
+        // If we already have a realtime snapshot newer than DB readings, preserve it (don't regress to older DB values)
+        try {
+          if (prev.lastUpdate && lastUpdate && new Date(prev.lastUpdate).getTime() > lastUpdate.getTime()) {
+            // Keep prev sensors & derived fields; only merge missing sensor keys from latest
+            latest.ph = latest.ph !== undefined ? latest.ph : prev.sensors?.ph;
+            latest.ec = latest.ec !== undefined ? latest.ec : prev.sensors?.ec;
+            latest.tds = latest.tds !== undefined ? latest.tds : prev.sensors?.tds;
+            latest.waterLevel = latest.waterLevel !== undefined ? latest.waterLevel : prev.sensors?.waterLevel;
+            latest.turbidity = latest.turbidity !== undefined ? latest.turbidity : prev.sensors?.turbidity;
+            latest.water_temperature = latest.water_temperature !== undefined ? latest.water_temperature : prev.sensors?.water_temperature;
+            // Do not downgrade lastUpdate
+            lastUpdate = new Date(prev.lastUpdate);
+          }
+        } catch (_) { /* ignore merge errors */ }
         deviceData[d.id] = {
           ...prev,
           sensors: {

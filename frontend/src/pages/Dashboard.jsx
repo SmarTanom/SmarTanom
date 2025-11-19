@@ -587,15 +587,14 @@ export default function Dashboard() {
     }
   };
 
-  // Initialize store and fetch initial data on mount
+  // Initialize: establish WebSocket first (primary real-time source), then fetch initial DB snapshot as fallback baseline.
   useEffect(() => {
-    const initDashboard = async () => {
-      // Trigger store's initial device fetch (idempotent guard in store)
-      await fetchInitial();
-    };
-
-    initDashboard();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Connect to WebSocket immediately; returns cleanup
+    const wsCleanup = connectWS();
+    // Delay initial DB fetch slightly to avoid overwriting very early live packets
+    const timer = setTimeout(() => { fetchInitial(); }, 500);
+    return () => { wsCleanup && wsCleanup(); clearTimeout(timer); };
+  }, [connectWS, fetchInitial]);
 
   // Unread counts are now managed by the realtime store automatically
 
@@ -608,14 +607,7 @@ export default function Dashboard() {
 
   // Time range change currently affects only local ph window history building (skip server refetch to avoid flicker)
 
-  // WebSocket real-time updates - handled by store
-  useEffect(() => {
-    const unsub = connectWS();
-
-    return () => {
-      unsub && unsub();
-    };
-  }, [connectWS]);
+  // (Removed duplicate WebSocket connection effect; connection now established in initialization effect above.)
 
   // Always compute plant-aware alert text for the active device (independent of pH history caching)
   useEffect(() => {
@@ -908,33 +900,21 @@ export default function Dashboard() {
     }
   };
 
-  // Prefer real-time WS updates; only poll when WS is not connected or data becomes stale
+  // Fallback polling: ONLY when WebSocket is disconnected.
+  // Live updates come exclusively from sensor.update messages over WS; database reads are secondary.
+  // When wsStatus === 'connected' we rely 100% on realtimeStore.applyRealtime.
   useEffect(() => {
     if (!currentDevice?.id) return;
+    if (wsStatus === 'connected') return; // no polling while live stream active
 
-    // If WS connected, avoid aggressive polling; perform a light stale check instead
-    const STALE_MS = 5000;  // if no update for 5s, perform a one-shot refresh
-    const POLL_MS = 2000;   // legacy fallback poll cadence
-
-    let timerId;
-    if (wsStatus === 'connected') {
-      timerId = setInterval(() => {
-        try {
-          const lastUpdateStr = useRealtimeStore.getState().deviceData[currentDevice.id]?.lastUpdate;
-          const lastTs = lastUpdateStr ? new Date(lastUpdateStr).getTime() : 0;
-          if (!lastTs || (Date.now() - lastTs) > STALE_MS) {
-            refreshLiteDeviceData(currentDevice.id);
-          }
-        } catch (_) { /* noop */ }
-      }, 3000);
-    } else {
-      // WS not connected: keep legacy 2s polling
-      timerId = setInterval(() => refreshLiteDeviceData(currentDevice.id), POLL_MS);
-    }
-
+    // Poll infrequently (every 6s) as a conservative fallback when offline.
+    const POLL_MS = 6000;
+    const timerId = setInterval(() => {
+      refreshLiteDeviceData(currentDevice.id);
+    }, POLL_MS);
     return () => clearInterval(timerId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDevice?.id, timeRange, wsStatus]);
+  }, [currentDevice?.id, wsStatus]);
 
   // Handle device card click
   const handleDeviceInfoClick = (e, device) => {
