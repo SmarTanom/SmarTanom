@@ -376,10 +376,21 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                 client = self.scope.get("client") or (None, None)
                 client_ip = client[0] if isinstance(client, (list, tuple)) and client else None
 
-                # Process sensor data after initial ACK
-                await self._process_sensor_data(device, sensor_data, client_ip)
+                # 1) IMMEDIATE BROADCAST: push updates to UI first (optimistic), then persist
+                try:
+                    normalized = self._normalize_sensor_updates(sensor_data)
+                    if normalized:
+                        await self._broadcast_sensor_update_immediate(device, normalized)
+                except Exception as _bex:
+                    print(f"[DeviceWS] Warning: immediate broadcast failed for {serial}: {_bex}")
 
-                # Confirm processing done (secondary ACK)
+                # 2) Persist in the background without blocking the socket handler
+                try:
+                    asyncio.create_task(self._persist_sensor_data(device, sensor_data, client_ip))
+                except Exception as _pex:
+                    print(f"[DeviceWS] Warning: scheduling persistence failed for {serial}: {_pex}")
+
+                # 3) Early ACK so the device doesn't wait for DB I/O
                 await self.send(text_data=json.dumps({
                     "status": "ok",
                     "message": "Sensor data received",
@@ -473,7 +484,7 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
         print(f"[DeviceWS] Sent WiFi reset command to device {event.get('device_serial')}")
 
     @database_sync_to_async
-    def _process_sensor_data(self, device, sensor_data, client_ip: str | None = None):
+    def _process_sensor_data(self, device, sensor_data, client_ip: str | None = None, do_broadcast: bool = False):
         """
         Process incoming sensor data from ESP32 device.
 
@@ -521,7 +532,7 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
             'turbidity': ('turbidity', 'NTU'),
         }
 
-        # Removed pre-save aggregated broadcast to prevent double updates and ensure consistent ingestion
+    # Removed pre-save aggregated broadcast to prevent double updates and ensure consistent ingestion
 
         saved_updates = {}
         for key, (sensor_type, unit) in sensor_types.items():
@@ -591,57 +602,157 @@ class DeviceOnboardingConsumer(AsyncWebsocketConsumer):
                 except Exception as e:
                     print(f"[DeviceWS] Error storing {sensor_type} data: {str(e)}")
 
-        # Single batched broadcast after processing all sensors (to global, owner, and collaborators)
+        # Post-persist broadcast is optional now; default off to avoid duplicate messages
+        if do_broadcast:
+            try:
+                if saved_updates:
+                    channel_layer = get_channel_layer()
+                    if channel_layer:
+                        payload = {
+                            "type": "sensor.update",
+                            "device_id": device.id,
+                            "device_serial": device.device_serial,
+                            "device_name": device.device_name,
+                            "timestamp": timezone.now().isoformat(),
+                            "sensors": saved_updates,
+                        }
+                        if getattr(settings, "WS_GLOBAL_BROADCAST", False):
+                            async_to_sync(channel_layer.group_send)(
+                                "devices",
+                                {
+                                    "type": "sensor_update",
+                                    "payload": payload,
+                                },
+                            )
+                        # Owner + collaborators targeted broadcast
+                        try:
+                            User = get_user_model()
+                            owner_group = None
+                            if getattr(device, "bound_email", None):
+                                user = User.objects.filter(email__iexact=device.bound_email).first()
+                                if user:
+                                    owner_group = f"user_{user.id}"
+                                    async_to_sync(channel_layer.group_send)(
+                                        owner_group,
+                                        {"type": "sensor_update", "payload": payload},
+                                    )
+                            # Collaborators
+                            collaborator_emails = list(
+                                DeviceCollaboration.objects.filter(
+                                    device=device,
+                                    status=DeviceCollaboration.Status.ACTIVE,
+                                ).values_list("collaborator_email", flat=True)
+                            )
+                            if collaborator_emails:
+                                users = User.objects.filter(email__in=collaborator_emails)
+                                for u in users:
+                                    grp = f"user_{u.id}"
+                                    if grp == owner_group:
+                                        continue
+                                    async_to_sync(channel_layer.group_send)(
+                                        grp,
+                                        {"type": "sensor_update", "payload": payload},
+                                    )
+                        except Exception as ex:
+                            print(f"[DeviceWS] Warning: failed targeted broadcast for {device.device_serial}: {ex}")
+            except Exception as e:
+                print(f"[DeviceWS] Warning: batched broadcast failed for {device.device_serial}: {e}")
+
+    def _normalize_sensor_updates(self, sensor_data: dict) -> dict:
+        """Convert incoming sensor_data to a normalized map suitable for UI broadcast.
+
+        Applies the same turbidity conversion heuristic used for persistence so
+        the UI displays the final values immediately.
+        """
+        updates = {}
         try:
-            if saved_updates:
-                channel_layer = get_channel_layer()
-                if channel_layer:
-                    payload = {
-                        "type": "sensor.update",
-                        "device_id": device.id,
-                        "device_serial": device.device_serial,
-                        "device_name": device.device_name,
-                        "timestamp": timezone.now().isoformat(),
-                        "sensors": saved_updates,
-                    }
-                    if getattr(settings, "WS_GLOBAL_BROADCAST", False):
-                        async_to_sync(channel_layer.group_send)(
-                            "devices",
-                            {
-                                "type": "sensor_update",
-                                "payload": payload,
-                            },
-                        )
-                    # Owner + collaborators targeted broadcast
+            # Mirror the mapping used in persistence
+            sensor_types = {
+                'ph': ('ph', 'pH'),
+                'tds': ('tds', 'ppm'),
+                'ec': ('ec', 'mS/cm'),
+                'water_level': ('water_level', '%'),
+                'water_temp': ('water_temperature', '°C'),
+                'water_temperature': ('water_temperature', '°C'),
+                'turbidity': ('turbidity', 'NTU'),
+            }
+            for key, (stype, _unit) in sensor_types.items():
+                if key in sensor_data and sensor_data.get(key) is not None:
                     try:
-                        User = get_user_model()
-                        owner_group = None
-                        if getattr(device, "bound_email", None):
-                            user = User.objects.filter(email__iexact=device.bound_email).first()
-                            if user:
-                                owner_group = f"user_{user.id}"
-                                async_to_sync(channel_layer.group_send)(
-                                    owner_group,
-                                    {"type": "sensor_update", "payload": payload},
-                                )
-                        # Collaborators
-                        collaborator_emails = list(
-                            DeviceCollaboration.objects.filter(
-                                device=device,
-                                status=DeviceCollaboration.Status.ACTIVE,
-                            ).values_list("collaborator_email", flat=True)
-                        )
-                        if collaborator_emails:
-                            users = User.objects.filter(email__in=collaborator_emails)
-                            for u in users:
-                                grp = f"user_{u.id}"
-                                if grp == owner_group:
-                                    continue
-                                async_to_sync(channel_layer.group_send)(
-                                    grp,
-                                    {"type": "sensor_update", "payload": payload},
-                                )
-                    except Exception as ex:
-                        print(f"[DeviceWS] Warning: failed targeted broadcast for {device.device_serial}: {ex}")
+                        val = float(sensor_data.get(key))
+                        if stype == 'turbidity':
+                            # Apply the same RAW->NTU heuristic as persistence
+                            if val > 1000.0:
+                                VREF = 3.3
+                                ADC_RES = 4095.0
+                                TURBIDITY_CLEAR_VOLTAGE = 3.0
+                                TURBIDITY_MAX_VOLTAGE = 0.5
+                                voltage = max(0.0, min(VREF, (val * VREF) / ADC_RES))
+                                span_in = TURBIDITY_CLEAR_VOLTAGE - TURBIDITY_MAX_VOLTAGE
+                                ntu = 0.0 if span_in == 0 else (TURBIDITY_CLEAR_VOLTAGE - voltage) * (1000.0 / span_in)
+                                val = max(0.0, min(1000.0, ntu))
+                        updates[stype] = val
+                    except Exception:
+                        # ignore non-numeric values
+                        pass
+        except Exception:
+            return {}
+        return updates
+
+    async def _broadcast_sensor_update_immediate(self, device, updates: dict):
+        """Broadcast sensor.update to interested clients immediately (pre-DB)."""
+        if not updates:
+            return
+        try:
+            channel_layer = get_channel_layer()
+            if not channel_layer:
+                return
+            payload = {
+                "type": "sensor.update",
+                "device_id": device.id,
+                "device_serial": device.device_serial,
+                "device_name": device.device_name,
+                "timestamp": timezone.now().isoformat(),
+                "sensors": updates,
+            }
+            # Global (admins) if enabled
+            if getattr(settings, "WS_GLOBAL_BROADCAST", False):
+                await self.channel_layer.group_send("devices", {"type": "sensor_update", "payload": payload})
+
+            # Owner + collaborators targeted broadcast
+            try:
+                User = get_user_model()
+                owner_group = None
+                if getattr(device, "bound_email", None):
+                    user = await database_sync_to_async(lambda: User.objects.filter(email__iexact=device.bound_email).first())()
+                    if user:
+                        owner_group = f"user_{user.id}"
+                        await self.channel_layer.group_send(owner_group, {"type": "sensor_update", "payload": payload})
+
+                # Collaborators
+                async def _get_collabs():
+                    return list(DeviceCollaboration.objects.filter(
+                        device=device,
+                        status=DeviceCollaboration.Status.ACTIVE,
+                    ).values_list("collaborator_email", flat=True))
+                collaborator_emails = await database_sync_to_async(_get_collabs)()
+                if collaborator_emails:
+                    async def _get_users():
+                        return list(User.objects.filter(email__in=collaborator_emails))
+                    users = await database_sync_to_async(_get_users)()
+                    for u in users:
+                        grp = f"user_{u.id}"
+                        if grp == owner_group:
+                            continue
+                        await self.channel_layer.group_send(grp, {"type": "sensor_update", "payload": payload})
+            except Exception as ex:
+                print(f"[DeviceWS] Warning: immediate targeted broadcast failed for {device.device_serial}: {ex}")
         except Exception as e:
-            print(f"[DeviceWS] Warning: batched broadcast failed for {device.device_serial}: {e}")
+            print(f"[DeviceWS] Warning: immediate broadcast failed for {device.device_serial}: {e}")
+
+    async def _persist_sensor_data(self, device, sensor_data, client_ip: str | None):
+        """Async wrapper to persist sensor data without duplicating broadcast."""
+        try:
+            await self._process_sensor_data(device, sensor_data, client_ip, do_broadcast=False)
+        except Exception as e:
+            print(f"[DeviceWS] Warning: persistence task failed for {device.device_serial}: {e}")
