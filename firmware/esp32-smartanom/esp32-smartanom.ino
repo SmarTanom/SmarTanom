@@ -475,13 +475,23 @@ uint16_t WS_PORT = 443;    // 443 for wss, 80 for ws
 String WS_PATH = "";      // e.g., /ws/device/<serial>/
 bool WS_SECURE = true;     // wss when true
 // --- Dual WebSocket additions (broker + ingest) ---
-#ifndef REALTIME_BROKER_URL
-#define REALTIME_BROKER_URL "wss://broker.example/ws?token=PUBLIC_READ_TOKEN"
+#ifndef UPSTASH_PUBSUB_WS_URL
+#define UPSTASH_PUBSUB_WS_URL "wss://eu1-pubsub.upstash.io/ws" // Replace region prefix accordingly
+#endif
+#ifndef UPSTASH_PUBSUB_WRITE_TOKEN
+#define UPSTASH_PUBSUB_WRITE_TOKEN "REPLACE_WRITE_TOKEN" // Device publish token (keep secret)
+#endif
+#ifndef UPSTASH_PUBSUB_CHANNEL_PREFIX
+#define UPSTASH_PUBSUB_CHANNEL_PREFIX "sensors/" // Channel naming convention sensors/<serial>
+#endif
+// Set true to enable Upstash Pub/Sub realtime publishing
+#ifndef USE_UPSTASH_PUBSUB
+#define USE_UPSTASH_PUBSUB true
 #endif
 #ifndef BACKEND_INGEST_PATH_BASE
 #define BACKEND_INGEST_PATH_BASE "/ws/ingest/"
 #endif
-WebSocketsClient wsRealtime; bool wsRealtimeConnected = false;
+WebSocketsClient wsRealtime; bool wsRealtimeConnected = false; bool wsRealtimeAuthed = false;
 WebSocketsClient wsIngest;   bool wsIngestConnected   = false;
 const unsigned long REALTIME_INTERVAL_MS = 5000UL;  // 5s
 const unsigned long BATCH_INTERVAL_MS    = 20000UL; // 20s
@@ -491,9 +501,41 @@ static const int MAX_BATCH_POINTS = 16; ReadingPoint batchBuf[MAX_BATCH_POINTS];
 void pushBatchPoint(){ if(batchCount>=MAX_BATCH_POINTS){ for(int i=1;i<MAX_BATCH_POINTS;i++) batchBuf[i-1]=batchBuf[i]; batchCount=MAX_BATCH_POINTS-1;} ReadingPoint &rp=batchBuf[batchCount++]; rp.t_ms=millis(); rp.ph=phValue; rp.tempC=waterTempC; rp.ec=ecValue; rp.tds=tdsValue; rp.waterPct=waterPercent; rp.turbidity=(rawTurb>1000? turbidityNTU: rawTurb); }
 String buildRealtimeJson(){ StaticJsonDocument<512> doc; doc["type"]="sensor.realtime"; doc["serial"]=DEVICE_SERIAL; doc["ts"]=(uint64_t)millis(); JsonObject data=doc.createNestedObject("data"); data["ph"]=phValue; data["temp"]=waterTempC; data["ec"]=ecValue; data["tds"]=tdsValue; data["water_level"]=waterPercent; data["turbidity"]=(rawTurb>1000? turbidityNTU: rawTurb); String out; serializeJson(doc,out); return out; }
 String buildBatchJson(){ StaticJsonDocument<1536> doc; doc["type"]="sensor.batch"; doc["serial"]=DEVICE_SERIAL; doc["nonce"]=generateIngestId(); JsonArray pts=doc.createNestedArray("points"); for(int i=0;i<batchCount;i++){ JsonObject p=pts.createNestedObject(); p["t"]=batchBuf[i].t_ms; JsonObject d=p.createNestedObject("data"); d["ph"]=batchBuf[i].ph; d["temp"]=batchBuf[i].tempC; d["ec"]=batchBuf[i].ec; d["tds"]=batchBuf[i].tds; d["water_level"]=batchBuf[i].waterPct; d["turbidity"]=batchBuf[i].turbidity; } String out; serializeJson(doc,out); return out; }
-void ensureRealtimeConnected(){ if(wsRealtimeConnected) return; if(wsRealtime.isConnected()){ wsRealtimeConnected=true; return;} wsRealtime.begin(REALTIME_BROKER_URL); wsRealtime.onEvent([](WStype_t t,uint8_t*,size_t){ if(t==WStype_CONNECTED){ wsRealtimeConnected=true; Serial.println("[RT] Connected broker"); } else if(t==WStype_DISCONNECTED){ wsRealtimeConnected=false; Serial.println("[RT] Disconnected broker"); }}); wsRealtime.setReconnectInterval(5000);} 
+void ensureRealtimeConnected(){
+    if(!USE_UPSTASH_PUBSUB) return; // disabled
+    if(wsRealtimeConnected) return;
+    if(wsRealtime.isConnected()){ wsRealtimeConnected=true; return; }
+    wsRealtime.begin(UPSTASH_PUBSUB_WS_URL);
+    wsRealtime.onEvent([](WStype_t t,uint8_t * payload,size_t len){
+        if(t==WStype_CONNECTED){
+            wsRealtimeConnected=true; wsRealtimeAuthed=false;
+            Serial.println("[RT] Connected Upstash Pub/Sub");
+            // Send auth frame
+            StaticJsonDocument<256> doc; doc["type"]="auth"; doc["token"] = UPSTASH_PUBSUB_WRITE_TOKEN; String out; serializeJson(doc,out); wsRealtime.sendTXT(out);
+        } else if(t==WStype_DISCONNECTED){ wsRealtimeConnected=false; wsRealtimeAuthed=false; Serial.println("[RT] Disconnected Upstash"); }
+        else if(t==WStype_TEXT){
+            // Parse control frames
+            StaticJsonDocument<256> in; DeserializationError e = deserializeJson(in, payload, len);
+            if(e) return;
+            const char* type = in["type"] | "";
+            if(strcmp(type,"auth_ok")==0){ wsRealtimeAuthed=true; Serial.println("[RT] Auth OK"); }
+            if(strcmp(type,"auth_error")==0){ Serial.println("[RT] Auth ERROR"); }
+        }
+    });
+    wsRealtime.setReconnectInterval(5000);
+} 
 void ensureIngestConnected(){ if(wsIngestConnected) return; if(wsIngest.isConnected()){ wsIngestConnected=true; return;} if(WS_HOST.length()==0) return; String ingestPath=String(BACKEND_INGEST_PATH_BASE)+String(DEVICE_SERIAL)+String("/"); if(WS_SECURE){ wsIngest.beginSSL(WS_HOST.c_str(),WS_PORT,ingestPath.c_str()); } else { wsIngest.begin(WS_HOST.c_str(),WS_PORT,ingestPath.c_str()); } wsIngest.onEvent([](WStype_t t,uint8_t*,size_t){ if(t==WStype_CONNECTED){ wsIngestConnected=true; Serial.println("[INGEST] Connected backend ingest"); } else if(t==WStype_DISCONNECTED){ wsIngestConnected=false; Serial.println("[INGEST] Disconnected ingest"); }}); wsIngest.setReconnectInterval(7000);} 
-void sendRealtimeFrameIfDue(unsigned long nowMs){ if(nowMs-lastRealtimeMs<REALTIME_INTERVAL_MS) return; lastRealtimeMs=nowMs; String frame=buildRealtimeJson(); ensureRealtimeConnected(); if(wsRealtimeConnected) wsRealtime.sendTXT(frame);} 
+void sendRealtimeFrameIfDue(unsigned long nowMs){
+    if(!USE_UPSTASH_PUBSUB) return; // disabled
+    if(nowMs - lastRealtimeMs < REALTIME_INTERVAL_MS) return;
+    lastRealtimeMs = nowMs;
+    String frame = buildRealtimeJson();
+    ensureRealtimeConnected();
+    if(wsRealtimeConnected && wsRealtimeAuthed){
+        // Wrap in publish envelope: {type:publish, channel:"sensors/<serial>", data:<json string>}
+        StaticJsonDocument<1280> doc; doc["type"]="publish"; String channel = String(UPSTASH_PUBSUB_CHANNEL_PREFIX) + String(DEVICE_SERIAL); doc["channel"] = channel; doc["data"] = frame; String out; serializeJson(doc,out); wsRealtime.sendTXT(out);
+    }
+} 
 void sendBatchIfDue(unsigned long nowMs){ if(nowMs-lastBatchMs<BATCH_INTERVAL_MS) return; lastBatchMs=nowMs; if(batchCount==0) return; String batch=buildBatchJson(); ensureIngestConnected(); if(wsIngestConnected){ wsIngest.sendTXT(batch); batchCount=0; }}
 // =============================================
 // STARTUP STABILIZATION GATE (first payload)
