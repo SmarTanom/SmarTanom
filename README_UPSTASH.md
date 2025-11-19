@@ -37,6 +37,29 @@ Inner `data` string (sensor frame):
 Backend persists each point; `nonce` used for idempotency.
 
 ## 3. Environment Variables
+### Obtaining Values (Free Tier)
+If you only see Redis credentials (REST URL, REST TOKEN, Redis URL) in Upstash and not a Pub/Sub "WebSocket" endpoint, you have provisioned a Redis database, not a Pub/Sub instance. You need a separate Upstash Pub/Sub project to use the `wss://<region>-pubsub.upstash.io/ws` broker.
+
+Steps:
+1. Log in to the Upstash dashboard.
+2. Click "Create" and choose "Pub/Sub" (not Redis/Kafka).
+3. Select a free tier region (e.g. `eu1`). After creation you'll see:
+  - WebSocket endpoint: `wss://eu1-pubsub.upstash.io/ws`
+  - Access Tokens list (create one with Publish+Subscribe permissions for devices; create a second Subscribe-only for browsers).
+4. Copy the WebSocket endpoint into:
+  - `BROKER_WS_URL` (backend) and `VITE_BROKER_WS_URL` (frontend).
+5. Generate tokens:
+  - Device write token → `UPSTASH_PUBSUB_WRITE_TOKEN` (firmware / backend only).
+  - Browser read token → `UPSTASH_PUBSUB_READ_TOKEN` and `VITE_BROKER_WS_TOKEN` (frontend). If Upstash does not distinguish read vs write, create two tokens and limit one to Subscribe only.
+6. Choose a channel naming convention (prefix + serial). Recommended: `sensors/<DEVICE_SERIAL>`. Set `UPSTASH_PUBSUB_CHANNEL_PREFIX=sensors/`.
+
+If you cannot (or prefer not to) create a Pub/Sub instance yet, you can still use Redis only:
+- Firmware: HTTP POST to Upstash REST `/publish/<channel>` every 5s.
+- Backend: Maintain a Redis SUBSCRIBE consumer to broadcast to frontend via existing Django Channels WebSocket.
+- Frontend: Use current backend WS path instead of direct broker.
+
+However, direct browser subscription over WebSocket requires Pub/Sub (Redis itself does not expose a generic WS endpoint).
+
 ### Frontend `.env` / `env.example`
 ```
 VITE_BROKER_WS_URL=wss://<region>-pubsub.upstash.io/ws

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { wsClient } from '../services/websocketClient';
 import { createRealtimeBrokerClient } from '../services/realtimeBrokerClient';
+const USE_DIRECT_BROKER = (import.meta.env.VITE_USE_DIRECT_BROKER === 'true');
 import { getUserDevices } from '../services/api/devices';
 import { getDeviceSensors, getSensorData } from '../services/api/sensors';
 // Reservoirs API removed; device now includes plant/start/end fields
@@ -897,6 +898,10 @@ export const useRealtimeStore = create(persist((set, get) => ({
   // Establish a direct realtime broker subscription for a device serial.
   // Frontend cards will then receive sensor updates every ~5s bypassing backend latency.
   connectBroker: (serial) => {
+    if (!USE_DIRECT_BROKER) {
+      if (import.meta.env.VITE_DEBUG === 'true') console.log('[RealtimeStore] Direct broker disabled via VITE_USE_DIRECT_BROKER flag');
+      return () => {};
+    }
     if (!serial) return () => {};
     const state = get();
     if (state._brokerClients[serial]) {
@@ -945,6 +950,7 @@ export const useRealtimeStore = create(persist((set, get) => ({
 
   // Convenience: connect all known device serials (call after initial devices fetch)
   connectAllBrokers: () => {
+    if (!USE_DIRECT_BROKER) return;
     const devs = get().devices || [];
     devs.forEach(d => { const serial = d.device_serial || d.serial; if (serial) get().connectBroker(serial); });
   },

@@ -476,7 +476,13 @@ String WS_PATH = "";      // e.g., /ws/device/<serial>/
 bool WS_SECURE = true;     // wss when true
 // --- Dual WebSocket additions (broker + ingest) ---
 #ifndef UPSTASH_PUBSUB_WS_URL
-#define UPSTASH_PUBSUB_WS_URL "wss://eu1-pubsub.upstash.io/ws" // Replace region prefix accordingly
+#define UPSTASH_PUBSUB_WS_URL "wss://eu1-pubsub.upstash.io/ws" // Full WebSocket URL (for reference)
+#endif
+#ifndef UPSTASH_PUBSUB_WS_HOST
+#define UPSTASH_PUBSUB_WS_HOST "eu1-pubsub.upstash.io" // Host portion for beginSSL
+#endif
+#ifndef UPSTASH_PUBSUB_WS_PATH
+#define UPSTASH_PUBSUB_WS_PATH "/ws" // Path portion for beginSSL
 #endif
 #ifndef UPSTASH_PUBSUB_WRITE_TOKEN
 #define UPSTASH_PUBSUB_WRITE_TOKEN "REPLACE_WRITE_TOKEN" // Device publish token (keep secret)
@@ -502,19 +508,21 @@ void pushBatchPoint(){ if(batchCount>=MAX_BATCH_POINTS){ for(int i=1;i<MAX_BATCH
 String buildRealtimeJson(){ StaticJsonDocument<512> doc; doc["type"]="sensor.realtime"; doc["serial"]=DEVICE_SERIAL; doc["ts"]=(uint64_t)millis(); JsonObject data=doc.createNestedObject("data"); data["ph"]=phValue; data["temp"]=waterTempC; data["ec"]=ecValue; data["tds"]=tdsValue; data["water_level"]=waterPercent; data["turbidity"]=(rawTurb>1000? turbidityNTU: rawTurb); String out; serializeJson(doc,out); return out; }
 String buildBatchJson(){ StaticJsonDocument<1536> doc; doc["type"]="sensor.batch"; doc["serial"]=DEVICE_SERIAL; doc["nonce"]=generateIngestId(); JsonArray pts=doc.createNestedArray("points"); for(int i=0;i<batchCount;i++){ JsonObject p=pts.createNestedObject(); p["t"]=batchBuf[i].t_ms; JsonObject d=p.createNestedObject("data"); d["ph"]=batchBuf[i].ph; d["temp"]=batchBuf[i].tempC; d["ec"]=batchBuf[i].ec; d["tds"]=batchBuf[i].tds; d["water_level"]=batchBuf[i].waterPct; d["turbidity"]=batchBuf[i].turbidity; } String out; serializeJson(doc,out); return out; }
 void ensureRealtimeConnected(){
-    if(!USE_UPSTASH_PUBSUB) return; // disabled
+    if(!USE_UPSTASH_PUBSUB) return; // feature disabled
     if(wsRealtimeConnected) return;
     if(wsRealtime.isConnected()){ wsRealtimeConnected=true; return; }
-    wsRealtime.begin(UPSTASH_PUBSUB_WS_URL);
+    // Use beginSSL(host, port, path) instead of begin(full_url)
+    wsRealtime.beginSSL(UPSTASH_PUBSUB_WS_HOST, 443, UPSTASH_PUBSUB_WS_PATH);
     wsRealtime.onEvent([](WStype_t t,uint8_t * payload,size_t len){
         if(t==WStype_CONNECTED){
             wsRealtimeConnected=true; wsRealtimeAuthed=false;
             Serial.println("[RT] Connected Upstash Pub/Sub");
-            // Send auth frame
+            // Auth frame
             StaticJsonDocument<256> doc; doc["type"]="auth"; doc["token"] = UPSTASH_PUBSUB_WRITE_TOKEN; String out; serializeJson(doc,out); wsRealtime.sendTXT(out);
-        } else if(t==WStype_DISCONNECTED){ wsRealtimeConnected=false; wsRealtimeAuthed=false; Serial.println("[RT] Disconnected Upstash"); }
-        else if(t==WStype_TEXT){
-            // Parse control frames
+        } else if(t==WStype_DISCONNECTED){
+            wsRealtimeConnected=false; wsRealtimeAuthed=false;
+            Serial.println("[RT] Disconnected Upstash");
+        } else if(t==WStype_TEXT){
             StaticJsonDocument<256> in; DeserializationError e = deserializeJson(in, payload, len);
             if(e) return;
             const char* type = in["type"] | "";

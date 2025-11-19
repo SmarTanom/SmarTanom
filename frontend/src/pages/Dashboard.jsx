@@ -487,12 +487,14 @@ export default function Dashboard() {
 
   // Connect broker streams once devices are available (direct ESP32 realtime every 5s)
   const brokersInitRef = useRef(false);
+  const useDirectBroker = import.meta.env.VITE_USE_DIRECT_BROKER === 'true';
   useEffect(() => {
+    if (!useDirectBroker) return; // Redis-only fallback: skip direct broker subscription
     if (!brokersInitRef.current && ownedDevices.length > 0) {
       connectAllBrokers();
       brokersInitRef.current = true;
     }
-  }, [ownedDevices, connectAllBrokers]);
+  }, [ownedDevices, connectAllBrokers, useDirectBroker]);
 
   // --- Stable lastUpdate to prevent flicker in "Last Data Sync" label ---
   // We only advance the stable timestamp when we get a strictly newer reading.

@@ -1,4 +1,4 @@
 web: bash render-entrypoint.sh
 
-# Background worker that subscribes to Upstash Redis Pub/Sub and persists readings
-worker: python manage.py run_redis_subscriber
+# Redis-only realtime relay (broadcast only, no persistence of 5s frames)
+worker: python manage.py run_redis_relay
