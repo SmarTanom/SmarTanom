@@ -190,11 +190,7 @@ DallasTemperature tempSensors(&oneWire);
 // =============================================
 // SENSOR OVERRIDES (for testing / broken sensors)
 // =============================================
-// When enabled, replaces measured pH with a random but stable value
-// within the configured range. Value is chosen once at boot.
-#define FORCE_FAKE_PH 1
-#define FAKE_PH_MIN 5.5f
-#define FAKE_PH_MAX 6.5f
+// Fake pH override removed: always use real pH sensor readings via computePhFromSensor().
 
 // Forward declarations for pH calibration lookup tables used by phFromVoltageTableDesc
 extern const uint8_t PH_TABLE_SIZE;
@@ -421,10 +417,6 @@ float averageVoltagePH = 0.0;
 float tdsValue = 0.0;
 float ecValue = 0.0;
 float phValue = 0.0;
-#if FORCE_FAKE_PH
-static bool fakePhInit = false;
-static float fakePhValue = NAN;
-#endif
 int waterPercent = 0;
 int waterRaw = 0;
 int rawTurb = 0;
@@ -1638,7 +1630,7 @@ void initSensors() {
     Serial.println("✓ Sensors initialized (DS18B20, TDS, pH, Turbidity, HW-03 Water Level)");
     Serial.printf("  Water Level Calibration: 0%%=%d ADC, 100%%=%d ADC\n", calibDry, calibWet);
     Serial.printf("  Water Level Threshold: WARNING < %d ADC (hysteresis=%d)\n", ADC_WARNING_THRESH, HYST_ADC);
-    Serial.println("  pH Calibration: table-based (pH 0–14)");
+    Serial.println("  pH Calibration: median-filter + linear (-5.70*V + 21.34 - 0.9)");
 #if PH_VOLTAGE_ASCENDS_WITH_PH
     Serial.println("    Polarity : DIRECT (higher V = higher pH)");
 #else
@@ -1752,21 +1744,8 @@ void readSensorsOnce() {
     //    With TDS_FACTOR = 0.5, this becomes TDS = EC × 500. Ensures 1.2 mS/cm → 600 ppm.
     tdsValue = ec_mS * (1000.0f * TDS_FACTOR) * TDS_CAL_FACTOR;
 
-    // pH calculation using new calibrated method (median filter + linear formula)
+    // pH calculation using your calibrated method (median filter + linear formula)
     phValue = computePhFromSensor();
-
-#if FORCE_FAKE_PH
-    // Override: Use a random but stable pH value within [FAKE_PH_MIN, FAKE_PH_MAX]
-    if (!fakePhInit) {
-        // Seed PRNG using a mix of timers and current readings to avoid deterministic repeats
-        randomSeed((uint32_t)(micros() ^ millis() ^ (uint32_t)(averageVoltagePH * 1000.0f) ^ (uint32_t)waterRaw));
-        long ri = random(0, 10001); // 0..10000 inclusive
-        float r01 = (float)ri / 10000.0f;
-        fakePhValue = FAKE_PH_MIN + r01 * (FAKE_PH_MAX - FAKE_PH_MIN);
-        fakePhInit = true;
-    }
-    phValue = fakePhValue;
-#endif
 
     // Turbidity
     rawTurb = analogRead(TURBIDITY_PIN);
@@ -2100,9 +2079,6 @@ void sendSensorData() {
     Serial.printf("EC (uS/cm)    : %.0f uS/cm\n", ecValue * 1000.0f);
     Serial.printf("EC→TDS map   : %.2f mS/cm × 500 = %.0f ppm\n", ecValue, ecValue * 500.0f);
     Serial.printf("pH            : %.2f\n", phValue);
-#if FORCE_FAKE_PH
-    Serial.println(F("[pH] Info     : Using FAKE pH reading (sensor override enabled)"));
-#endif
     Serial.printf("pH Voltage    : %.3f V\n", averageVoltagePH);
     const float PH_V_MAX = PH_TABLE_V[0];
     const float PH_V_MIN = PH_TABLE_V[PH_TABLE_SIZE - 1];
