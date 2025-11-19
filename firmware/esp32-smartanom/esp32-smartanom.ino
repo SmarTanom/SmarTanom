@@ -318,7 +318,7 @@ static inline float phFromVoltage(float v) {
 // Based on provided calibrated sketch
 // =============================================
 // Adjust this value based on your calibration buffer readings
-static const float PH_CALIBRATION_VALUE = 21.34f - 1.0f;
+static const float PH_CALIBRATION_VALUE = 21.34f - 0.9f;
 
 static float computePhFromSensor() {
     // Read 10 samples from PH_PIN, with small delays, then sort and
