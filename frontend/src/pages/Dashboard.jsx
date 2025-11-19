@@ -1854,7 +1854,7 @@ export default function Dashboard() {
                   ? (data.latestDbAlert.severity === 'critical' ? '#e74c3c' : data.latestDbAlert.severity === 'warning' ? '#f59e0b' : '#339432')
                   : PRIMARY_GREEN
               } strokeWidth={2.5} />
-              {(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && (
+              {/* {(perDeviceUnreadCounts[currentDevice?.id] || 0) > 0 && (
                 <span className="alert-notification-badge" style={{
                   position: 'absolute',
                   top: '-4px',
@@ -1876,7 +1876,7 @@ export default function Dashboard() {
                 }}>
                   {(() => { const c = perDeviceUnreadCounts[currentDevice?.id] || 0; return c > 9 ? '9+' : c; })()}
                 </span>
-              )}
+              )} */}
             </div>
             <button className="alert-card-expand" aria-label="Open alerts" onClick={(e) => { e.stopPropagation(); navigate(`/alerts${currentDevice ? `?deviceId=${currentDevice.id}` : ''}`); }}>
               <ChevronRight size={20} color="#8BA797" />

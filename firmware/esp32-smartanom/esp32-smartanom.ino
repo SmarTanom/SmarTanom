@@ -616,13 +616,13 @@ static float emaTempC = NAN;     static int tempStableN = 0;
 static int   emaWaterRaw = -1;   static int waterStableN = 0;
 
 // Thresholds & windows (power-on only)
-const unsigned long WARMUP_MIN_PH_MS    = 15000;  // 15s
-const unsigned long WARMUP_MIN_TDS_MS   = 10000;  // 10s
-const unsigned long WARMUP_MIN_TURB_MS  = 3000;   // 3s
-const unsigned long WARMUP_MIN_TEMP_MS  = 5000;   // 5s
-const unsigned long WARMUP_MIN_WATER_MS = 2000;   // 2s
+const unsigned long WARMUP_MIN_PH_MS    = 15;  // 15s
+const unsigned long WARMUP_MIN_TDS_MS   = 15;  // 10s
+const unsigned long WARMUP_MIN_TURB_MS  = 15;   // 3s
+const unsigned long WARMUP_MIN_TEMP_MS  = 15;   // 5s
+const unsigned long WARMUP_MIN_WATER_MS = 15;   // 2s
 
-const unsigned long STARTUP_SEND_MAX_WAIT_MS = 180000; // 180s (3 minutes) max before we send anyway
+const unsigned long STARTUP_SEND_MAX_WAIT_MS = 15; // 180s (3 minutes) max before we send anyway
 
 // Stability thresholds
 const int   REQ_STABLE_CONSEC = 5;       // consecutive samples required
@@ -1781,10 +1781,8 @@ void readSensorsOnce() {
 
     // DS18B20 Water Temp
     tempSensors.requestTemperatures();
-    float tempC = tempSensors.getTempCByIndex(0);
-    if (tempC > -100 && tempC < 150) { // sanity check
-        waterTempC = tempC;
-    }
+    waterTempC = tempSensors.getTempCByIndex(0);
+    waterTempC = waterTempC + 14.80; // Apply -10C correction
 
     // Collect ADC samples
     tdsBuffer[bufferIndex] = analogRead(TDS_PIN);
