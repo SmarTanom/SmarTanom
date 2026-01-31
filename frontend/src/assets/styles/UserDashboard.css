@@ -1874,16 +1874,15 @@ body { background: var(--color-bg); }
     font-size: 36px;
   }
 
-  /* Main content container for desktop */
+  /* Main content container for desktop - Responsive Grid */
   .dash-main {
     max-width: 100%;
     margin: 0;
     padding: 0 var(--space-6) var(--space-6);
-    gap: var(--space-6);
+    gap: var(--space-5);
     display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    grid-auto-flow: row;
-    grid-gap: var(--space-5);
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-auto-flow: dense;
   }
 
   /* Device carousel spans full width */
@@ -1896,22 +1895,18 @@ body { background: var(--color-bg); }
     grid-column: 1 / -1;
   }
 
-  /* Status grid: 2 equal columns, full width */
+  /* Status grid items - let them flow naturally in the grid */
   .status-grid {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: var(--space-5);
   }
 
-  /* Nutrient card: Left column (6 cols) */
-  .nutrient-card {
-    grid-column: 1 / 7;
-  }
-
-  /* Current pH card: Right column (6 cols) */
+  /* Nutrient card and Current pH card - let them flow naturally */
+  .nutrient-card,
   .current-ph-card {
-    grid-column: 7 / -1;
+    /* Auto placement in the responsive grid */
   }
 
   /* pH chart: Full width, taller */
@@ -1929,16 +1924,16 @@ body { background: var(--color-bg); }
     min-height: 300px;
   }
 
-  /* Sensor grid: 3 columns on desktop */
+  /* Sensor grid: Auto-fitting columns on desktop */
   .sensor-grid {
     grid-column: 1 / -1;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: var(--space-5);
   }
 
-  /* Make 5th cell span 1 column (center of 3-column layout would be handled by natural flow) */
+  /* Reset any specific column spans for natural flow */
   .sensor-grid > .sensor-cell:nth-child(5) {
-    grid-column: span 1;
+    grid-column: auto;
   }
 
   /* Environment card: Full width, horizontal layout */
@@ -1989,6 +1984,7 @@ body { background: var(--color-bg); }
     margin: 0 auto;
     padding: 0 var(--space-6) var(--space-6);
     gap: var(--space-6);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   }
 
   .dash-header {
@@ -1996,14 +1992,14 @@ body { background: var(--color-bg); }
     margin: 0 auto;
   }
 
-  /* Sensor grid: 4 columns on large desktop */
+  /* Sensor grid: Auto-fitting columns on large desktop */
   .sensor-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   }
 
-  /* Center the 5th sensor card by spanning 2 middle columns */
+  /* Allow natural flow for all sensor cards */
   .sensor-grid > .sensor-cell:nth-child(5) {
-    grid-column: 2 / 4;
+    grid-column: auto;
   }
 
   /* pH chart even taller on large screens */
