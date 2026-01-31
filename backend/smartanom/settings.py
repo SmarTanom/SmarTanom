@@ -526,6 +526,8 @@ USE_X_FORWARDED_HOST = True
 # Channel Layers for WebSocket communication
 # Use a dedicated logger to avoid noisy print statements in production
 _channels_logger = logging.getLogger("channels.config")
+# Allow disabling Redis-backed Channels via env if the provider is down or DNS fails
+USE_REDIS_REALTIME = os.getenv('USE_REDIS_REALTIME', 'true').strip().lower() == 'true'
 REDIS_URL = os.getenv('REDIS_URL', '').strip()
 # Pub/Sub channel for streaming sensor readings (ESP32 -> Upstash -> Backend)
 REDIS_PUBSUB_CHANNEL = os.getenv('REDIS_PUBSUB_CHANNEL', 'smartanom:sensors').strip()
@@ -538,7 +540,7 @@ use_redis_layer = False
 # Toggle global broadcast usage to save Redis commands on free tiers
 # Default: enabled in DEBUG, disabled in production unless explicitly set true
 WS_GLOBAL_BROADCAST = os.getenv('WS_GLOBAL_BROADCAST', 'true' if DEBUG else 'false').lower() == 'true'
-if REDIS_URL:
+if USE_REDIS_REALTIME and REDIS_URL:
 	# Validate and normalize REDIS_URL (auto-upgrade to TLS for providers like Upstash)
 	from urllib.parse import urlparse as _urlparse, urlunparse as _urlunparse
 
@@ -605,10 +607,10 @@ if REDIS_URL:
 	except Exception as _e:
 		_channels_logger.warning(f"[Channels] Failed to parse REDIS_URL '{REDIS_URL}': {_e}. Falling back to in-memory channel layer.")
 
-if not use_redis_layer:
+if (not USE_REDIS_REALTIME) or (not use_redis_layer):
 	# Development or misconfigured production: Use in-memory channel layer (single-worker only)
 	if not DEBUG:
-		_channels_logger.warning("[Channels] Using in-memory channel layer (REDIS_URL unset/invalid). This is NOT recommended for production.")
+		_channels_logger.warning("[Channels] Using in-memory channel layer (disabled or REDIS_URL unset/invalid). This is NOT recommended for production.")
 	else:
 		_channels_logger.debug("[Channels] Using in-memory channel layer (dev mode)")
 	CHANNEL_LAYERS = {
