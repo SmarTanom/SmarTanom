@@ -164,8 +164,10 @@ def seed_jan2026_data(request):
                     
                     # Determine value based on alert status
                     if has_alert and reading_num >= readings_per_day - 2:
-                        # Last 2 readings of alert day - use critical values
-                        if random.random() < 0.5:
+                        # Last 2 readings of alert day - use critical OR warning values
+                        alert_type = random.choice(['critical_low', 'critical_high', 'warning_low', 'warning_high'])
+                        
+                        if alert_type == 'critical_low':
                             value = round(
                                 random.uniform(
                                     config["critical_low"][0],
@@ -173,11 +175,29 @@ def seed_jan2026_data(request):
                                 ),
                                 2
                             )
-                        else:
+                        elif alert_type == 'critical_high':
                             value = round(
                                 random.uniform(
                                     config["critical_high"][0],
                                     config["critical_high"][1]
+                                ),
+                                2
+                            )
+                        elif alert_type == 'warning_low':
+                            # Generate value between critical_low max and normal_range min
+                            value = round(
+                                random.uniform(
+                                    config["critical_low"][1] + 0.1,
+                                    config["normal_range"][0] - 0.1
+                                ),
+                                2
+                            )
+                        else:  # warning_high
+                            # Generate value between normal_range max and critical_high min
+                            value = round(
+                                random.uniform(
+                                    config["normal_range"][1] + 0.1,
+                                    config["critical_high"][0] - 0.1
                                 ),
                                 2
                             )
