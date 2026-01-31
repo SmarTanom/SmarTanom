@@ -1841,6 +1841,20 @@ body { background: var(--color-bg); }
   gap: var(--space-3);
 }
 
+/* Nutrient and pH cards - 50/50 split to match status grid above */
+.nutrient-card,
+.current-ph-card {
+  min-width: 0; /* Allow proper grid sizing */
+}
+
+/* On screens with 2+ columns, make nutrient & pH cards each take 1 column for 50/50 split */
+@media (min-width: 600px) {
+  .nutrient-card,
+  .current-ph-card {
+    grid-column: span 1;
+  }
+}
+
 /* Tablet Portrait & Small Desktop (768px+) */
 @media (min-width:768px){
   /* Hide mobile top bar and show desktop header on tablet+ */
@@ -1868,6 +1882,12 @@ body { background: var(--color-bg); }
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
   .status-box { padding:var(--space-5); }
+
+  /* Nutrient and pH cards - ensure 50/50 split on tablet */
+  .nutrient-card,
+  .current-ph-card {
+    grid-column: span 1;
+  }
 
   /* Sensor grid - responsive on tablet */
   .sensor-grid { 
@@ -1935,14 +1955,14 @@ body { background: var(--color-bg); }
   .status-grid {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: var(--space-5);
   }
 
-  /* Nutrient card and Current pH card - let them flow naturally */
+  /* Nutrient card and Current pH card - each takes 1 column for 50/50 split */
   .nutrient-card,
   .current-ph-card {
-    /* Auto placement in the responsive grid */
+    grid-column: span 1;
   }
 
   /* pH chart: Full width, taller */
