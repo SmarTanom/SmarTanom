@@ -228,8 +228,51 @@ class Command(BaseCommand):
             self.stdout.write("\nReadings per sensor:")
             for sensor_type in sensor_configs.keys():
                 count = len([r for r in all_readings if r.sensor.sensor_type == sensor_type])
-                self.stdout.write(f"  {sensor_type}: {count} readings")
-
+                self.stdout.write(f"  {sensor_type}: {count} readings")            
+            # Generate alerts for critical readings
+            self.stdout.write("\n\nGenerating alerts for critical readings...")
+            from apps.sensors.alert_service import SensorAlertService
+            
+            alerts_generated = 0
+            # Process readings that should trigger alerts
+            for reading_data in all_readings:
+                sensor = reading_data['sensor']
+                value = reading_data['value']
+                timestamp = reading_data['timestamp']
+                
+                # Check if this value should trigger an alert based on sensor type
+                sensor_type = sensor.sensor_type
+                config = sensor_configs.get(sensor_type)
+                if not config:
+                    continue
+                
+                # Check if value is in critical range
+                is_critical = (
+                    (value >= config['critical_low'][0] and value <= config['critical_low'][1]) or
+                    (value >= config['critical_high'][0] and value <= config['critical_high'][1])
+                )
+                
+                if is_critical:
+                    # Create a temporary SensorData object for alert checking
+                    temp_reading = SensorData.objects.filter(
+                        sensor=sensor,
+                        value=value,
+                        created_at=timestamp
+                    ).first()
+                    
+                    if temp_reading:
+                        try:
+                            SensorAlertService.check_and_notify(temp_reading)
+                            alerts_generated += 1
+                        except Exception as e:
+                            # Continue even if alert generation fails
+                            pass
+            
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Generated {alerts_generated} alerts for critical readings"
+                )
+            )
         finally:
             # Reconnect signals
             post_save.connect(check_sensor_alerts, sender=SensorData)

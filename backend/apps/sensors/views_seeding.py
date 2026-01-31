@@ -206,6 +206,36 @@ def seed_jan2026_data(request):
                         [timestamp, timestamp, obj.id]
                     )
         
+        # Generate alerts for critical readings
+        from apps.sensors.alert_service import SensorAlertService
+        alerts_generated = 0
+        
+        # Process readings that should trigger alerts
+        for idx, obj in enumerate(created_objects):
+            reading_data = all_readings[idx]
+            sensor = reading_data['sensor']
+            value = reading_data['value']
+            
+            # Check if this value should trigger an alert based on sensor type
+            sensor_type = sensor.sensor_type
+            config = sensor_configs.get(sensor_type)
+            if not config:
+                continue
+            
+            # Check if value is in critical range
+            is_critical = (
+                (value >= config['critical_low'][0] and value <= config['critical_low'][1]) or
+                (value >= config['critical_high'][0] and value <= config['critical_high'][1])
+            )
+            
+            if is_critical:
+                try:
+                    SensorAlertService.check_and_notify(obj)
+                    alerts_generated += 1
+                except Exception:
+                    # Continue even if alert generation fails
+                    pass
+        
         return Response({
             'success': True,
             'message': 'Successfully seeded January 2026 sensor data',
@@ -213,6 +243,7 @@ def seed_jan2026_data(request):
             'device_id': device.id,
             'date_range': 'Jan 1-29, 2026',
             'total_readings': len(created_objects),
+            'alerts_generated': alerts_generated,
             'readings_per_sensor': {
                 sensor_type: len([r for r in all_readings if r['sensor'].sensor_type == sensor_type])
                 for sensor_type in sensor_configs.keys()
