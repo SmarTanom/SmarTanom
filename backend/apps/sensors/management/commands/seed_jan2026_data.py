@@ -185,18 +185,36 @@ class Command(BaseCommand):
                                 2
                             )
                         
-                        # Create reading with backdated timestamp
-                        reading = SensorData(
-                            sensor=sensor,
-                            value=value,
-                            created_at=timestamp,
-                            updated_at=timestamp
-                        )
-                        all_readings.append(reading)
+                        # Store reading data with timestamp
+                        all_readings.append({
+                            'sensor': sensor,
+                            'value': value,
+                            'timestamp': timestamp
+                        })
 
-            # Bulk insert all readings
+            # Bulk insert all readings with proper timestamps
             with transaction.atomic():
-                SensorData.objects.bulk_create(all_readings, batch_size=500)
+                # Create SensorData objects
+                sensor_data_objects = []
+                for reading_data in all_readings:
+                    obj = SensorData(
+                        sensor=reading_data['sensor'],
+                        value=reading_data['value']
+                    )
+                    sensor_data_objects.append(obj)
+                
+                # Bulk create (this will use current timestamp)
+                created_objects = SensorData.objects.bulk_create(sensor_data_objects, batch_size=500)
+                
+                # Now update timestamps using raw SQL for efficiency
+                from django.db import connection
+                with connection.cursor() as cursor:
+                    for idx, obj in enumerate(created_objects):
+                        timestamp = all_readings[idx]['timestamp']
+                        cursor.execute(
+                            "UPDATE sensors_sensordata SET created_at = %s, updated_at = %s WHERE id = %s",
+                            [timestamp, timestamp, obj.id]
+                        )
 
             self.stdout.write(
                 self.style.SUCCESS(

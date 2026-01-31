@@ -175,18 +175,36 @@ def seed_jan2026_data(request):
                             2
                         )
                     
-                    # Create reading with backdated timestamp
-                    reading = SensorData(
-                        sensor=sensor,
-                        value=value,
-                        created_at=timestamp,
-                        updated_at=timestamp
-                    )
-                    all_readings.append(reading)
+                    # Store reading data with timestamp
+                    all_readings.append({
+                        'sensor': sensor,
+                        'value': value,
+                        'timestamp': timestamp
+                    })
         
-        # Bulk insert all readings
+        # Bulk insert all readings with proper timestamps
         with transaction.atomic():
-            SensorData.objects.bulk_create(all_readings, batch_size=500)
+            # Create SensorData objects
+            sensor_data_objects = []
+            for reading_data in all_readings:
+                obj = SensorData(
+                    sensor=reading_data['sensor'],
+                    value=reading_data['value']
+                )
+                sensor_data_objects.append(obj)
+            
+            # Bulk create (this will use current timestamp)
+            created_objects = SensorData.objects.bulk_create(sensor_data_objects, batch_size=500)
+            
+            # Now update timestamps using raw SQL for efficiency
+            from django.db import connection
+            with connection.cursor() as cursor:
+                for idx, obj in enumerate(created_objects):
+                    timestamp = all_readings[idx]['timestamp']
+                    cursor.execute(
+                        "UPDATE sensors_sensordata SET created_at = %s, updated_at = %s WHERE id = %s",
+                        [timestamp, timestamp, obj.id]
+                    )
         
         return Response({
             'success': True,
@@ -194,9 +212,9 @@ def seed_jan2026_data(request):
             'device_serial': device_serial,
             'device_id': device.id,
             'date_range': 'Jan 1-29, 2026',
-            'total_readings': len(all_readings),
+            'total_readings': len(created_objects),
             'readings_per_sensor': {
-                sensor_type: len([r for r in all_readings if r.sensor.sensor_type == sensor_type])
+                sensor_type: len([r for r in all_readings if r['sensor'].sensor_type == sensor_type])
                 for sensor_type in sensor_configs.keys()
             },
             'created_sensors': created_sensors if created_sensors else None
