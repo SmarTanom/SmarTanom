@@ -28,10 +28,11 @@ def seed_jan2026_data(request):
     Seed sensor data from Jan 1-29, 2026 for device SMRT-G6M-E0Q.
     
     POST /api/sensors/seed-jan2026/
-    Optional body: {"device_serial": "SMRT-G6M-E0Q", "readings_per_day": 8}
+    Optional body: {"device_serial": "SMRT-G6M-E0Q", "readings_per_day": 8, "force": true}
     """
     device_serial = request.data.get('device_serial', 'SMRT-G6M-E0Q')
     readings_per_day = request.data.get('readings_per_day', 8)
+    force = request.data.get('force', False)
     
     # Check if already seeded
     try:
@@ -46,19 +47,34 @@ def seed_jan2026_data(request):
     jan_start = timezone.make_aware(datetime(2026, 1, 1, 0, 0, 0))
     jan_end = timezone.make_aware(datetime(2026, 1, 29, 23, 59, 59))
     
-    existing_count = SensorData.objects.filter(
+    existing_readings = SensorData.objects.filter(
         sensor__device=device,
         created_at__gte=jan_start,
         created_at__lte=jan_end
-    ).count()
+    )
+    existing_count = existing_readings.count()
     
     if existing_count > 0:
-        return Response({
-            'message': 'Data already exists for January 2026',
-            'device_serial': device_serial,
-            'existing_readings': existing_count,
-            'note': 'Skipped seeding to avoid duplicates'
-        })
+        if not force:
+            return Response({
+                'message': 'Data already exists for January 2026',
+                'device_serial': device_serial,
+                'existing_readings': existing_count,
+                'note': 'Add "force": true to delete existing data and reseed'
+            })
+        else:
+            # Delete existing data and alerts
+            from apps.sensors.models import Alert
+            deleted_alerts = Alert.objects.filter(
+                device=device,
+                created_at__gte=jan_start,
+                created_at__lte=jan_end
+            ).delete()
+            deleted_readings = existing_readings.delete()
+            
+            # Note: Returns tuple (count, {model: count})
+            readings_deleted = deleted_readings[0] if deleted_readings else 0
+            alerts_deleted = deleted_alerts[0] if deleted_alerts else 0
     
     # Temporarily disconnect signals to avoid alert spam
     post_save.disconnect(check_sensor_alerts, sender=SensorData)
@@ -275,7 +291,7 @@ def seed_jan2026_data(request):
                     # Continue even if alert generation fails
                     pass
         
-        return Response({
+        response_data = {
             'success': True,
             'message': 'Successfully seeded January 2026 sensor data',
             'device_serial': device_serial,
@@ -288,7 +304,16 @@ def seed_jan2026_data(request):
                 for sensor_type in sensor_configs.keys()
             },
             'created_sensors': created_sensors if created_sensors else None
-        })
+        }
+        
+        # Add deletion info if force was used
+        if force and existing_count > 0:
+            response_data['deleted'] = {
+                'readings': readings_deleted,
+                'alerts': alerts_deleted
+            }
+        
+        return Response(response_data)
     
     finally:
         # Reconnect signals
