@@ -264,16 +264,20 @@ class Command(BaseCommand):
                 trigger = None
                 severity = None
                 
-                if value <= config['critical_low'][1]:
+                # Check if value is in critical low range
+                if value >= config['critical_low'][0] and value <= config['critical_low'][1]:
                     trigger = Alert.Trigger.BELOW_MIN
                     severity = Alert.Severity.CRITICAL
-                elif value >= config['critical_high'][0]:
+                # Check if value is in critical high range
+                elif value >= config['critical_high'][0] and value <= config['critical_high'][1]:
                     trigger = Alert.Trigger.ABOVE_MAX
                     severity = Alert.Severity.CRITICAL
-                elif value <= config['normal_range'][0]:
+                # Check if value is near min (below normal range but not critical)
+                elif value < config['normal_range'][0] and value > config['critical_low'][1]:
                     trigger = Alert.Trigger.NEAR_MIN
                     severity = Alert.Severity.WARNING
-                elif value >= config['normal_range'][1]:
+                # Check if value is near max (above normal range but not critical)
+                elif value > config['normal_range'][1] and value < config['critical_high'][0]:
                     trigger = Alert.Trigger.NEAR_MAX
                     severity = Alert.Severity.WARNING
                 
