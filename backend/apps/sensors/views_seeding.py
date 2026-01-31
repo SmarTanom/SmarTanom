@@ -207,32 +207,71 @@ def seed_jan2026_data(request):
                     )
         
         # Generate alerts for critical readings
-        from apps.sensors.alert_service import SensorAlertService
+        from apps.sensors.models import Alert
         alerts_generated = 0
+        
+        # Map sensor types to Alert metrics
+        metric_map = {
+            'ph': Alert.Metric.PH,
+            'tds': Alert.Metric.TDS,
+            'ec': Alert.Metric.EC,
+            'water_temperature': Alert.Metric.WATER_TEMPERATURE
+        }
         
         # Process readings that should trigger alerts
         for idx, obj in enumerate(created_objects):
             reading_data = all_readings[idx]
             sensor = reading_data['sensor']
             value = reading_data['value']
-            
-            # Check if this value should trigger an alert based on sensor type
+            timestamp = reading_data['timestamp']
             sensor_type = sensor.sensor_type
+            
+            # Only generate alerts for tracked metrics
+            if sensor_type not in metric_map:
+                continue
+            
             config = sensor_configs.get(sensor_type)
             if not config:
                 continue
             
-            # Check if value is in critical range
-            is_critical = (
-                (value >= config['critical_low'][0] and value <= config['critical_low'][1]) or
-                (value >= config['critical_high'][0] and value <= config['critical_high'][1])
-            )
+            # Determine if critical and what type
+            trigger = None
+            severity = None
             
-            if is_critical:
+            if value <= config['critical_low'][1]:
+                trigger = Alert.Trigger.BELOW_MIN
+                severity = Alert.Severity.CRITICAL
+            elif value >= config['critical_high'][0]:
+                trigger = Alert.Trigger.ABOVE_MAX
+                severity = Alert.Severity.CRITICAL
+            elif value <= config['normal_range'][0]:
+                trigger = Alert.Trigger.NEAR_MIN
+                severity = Alert.Severity.WARNING
+            elif value >= config['normal_range'][1]:
+                trigger = Alert.Trigger.NEAR_MAX
+                severity = Alert.Severity.WARNING
+            
+            if trigger and severity:
                 try:
-                    SensorAlertService.check_and_notify(obj)
+                    # Create alert with backdated timestamp
+                    alert = Alert.objects.create(
+                        device=device,
+                        sensor=sensor,
+                        metric=metric_map[sensor_type],
+                        trigger=trigger,
+                        severity=severity,
+                        title=f"{sensor_type.upper()} {trigger.replace('_', ' ').title()}",
+                        message=f"{sensor_type.upper()} level is {value} {config['unit']}",
+                        recommendation=f"Check and adjust {sensor_type.upper()} levels",
+                        is_read=False
+                    )
+                    # Update alert timestamp to match reading
+                    Alert.objects.filter(id=alert.id).update(
+                        created_at=timestamp,
+                        updated_at=timestamp
+                    )
                     alerts_generated += 1
-                except Exception:
+                except Exception as e:
                     # Continue even if alert generation fails
                     pass
         

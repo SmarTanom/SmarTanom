@@ -227,46 +227,79 @@ class Command(BaseCommand):
             # Show summary by sensor type
             self.stdout.write("\nReadings per sensor:")
             for sensor_type in sensor_configs.keys():
-                count = len([r for r in all_readings if r.sensor.sensor_type == sensor_type])
-                self.stdout.write(f"  {sensor_type}: {count} readings")            
+                count = len([r for r in all_readings if r['sensor'].sensor_type == sensor_type])
+                self.stdout.write(f"  {sensor_type}: {count} readings")
+            
             # Generate alerts for critical readings
             self.stdout.write("\n\nGenerating alerts for critical readings...")
-            from apps.sensors.alert_service import SensorAlertService
+            from apps.sensors.models import Alert
             
             alerts_generated = 0
+            
+            # Map sensor types to Alert metrics
+            metric_map = {
+                'ph': Alert.Metric.PH,
+                'tds': Alert.Metric.TDS,
+                'ec': Alert.Metric.EC,
+                'water_temperature': Alert.Metric.WATER_TEMPERATURE
+            }
+            
             # Process readings that should trigger alerts
-            for reading_data in all_readings:
+            for idx, obj in enumerate(created_objects):
+                reading_data = all_readings[idx]
                 sensor = reading_data['sensor']
                 value = reading_data['value']
                 timestamp = reading_data['timestamp']
-                
-                # Check if this value should trigger an alert based on sensor type
                 sensor_type = sensor.sensor_type
+                
+                # Only generate alerts for tracked metrics
+                if sensor_type not in metric_map:
+                    continue
+                
                 config = sensor_configs.get(sensor_type)
                 if not config:
                     continue
                 
-                # Check if value is in critical range
-                is_critical = (
-                    (value >= config['critical_low'][0] and value <= config['critical_low'][1]) or
-                    (value >= config['critical_high'][0] and value <= config['critical_high'][1])
-                )
+                # Determine if critical and what type
+                trigger = None
+                severity = None
                 
-                if is_critical:
-                    # Create a temporary SensorData object for alert checking
-                    temp_reading = SensorData.objects.filter(
-                        sensor=sensor,
-                        value=value,
-                        created_at=timestamp
-                    ).first()
-                    
-                    if temp_reading:
-                        try:
-                            SensorAlertService.check_and_notify(temp_reading)
-                            alerts_generated += 1
-                        except Exception as e:
-                            # Continue even if alert generation fails
-                            pass
+                if value <= config['critical_low'][1]:
+                    trigger = Alert.Trigger.BELOW_MIN
+                    severity = Alert.Severity.CRITICAL
+                elif value >= config['critical_high'][0]:
+                    trigger = Alert.Trigger.ABOVE_MAX
+                    severity = Alert.Severity.CRITICAL
+                elif value <= config['normal_range'][0]:
+                    trigger = Alert.Trigger.NEAR_MIN
+                    severity = Alert.Severity.WARNING
+                elif value >= config['normal_range'][1]:
+                    trigger = Alert.Trigger.NEAR_MAX
+                    severity = Alert.Severity.WARNING
+                
+                if trigger and severity:
+                    try:
+                        # Create alert with backdated timestamp
+                        alert = Alert.objects.create(
+                            device=device,
+                            sensor=sensor,
+                            metric=metric_map[sensor_type],
+                            trigger=trigger,
+                            severity=severity,
+                            title=f"{sensor_type.upper()} {trigger.replace('_', ' ').title()}",
+                            message=f"{sensor_type.upper()} level is {value} {config['unit']}",
+                            recommendation=f"Check and adjust {sensor_type.upper()} levels",
+                            is_read=False
+                        )
+                        # Update alert timestamp to match reading
+                        Alert.objects.filter(id=alert.id).update(
+                            created_at=timestamp,
+                            updated_at=timestamp
+                        )
+                        alerts_generated += 1
+                    except Exception as e:
+                        # Continue even if alert generation fails
+                        pass
             
             self.stdout.write(
                 self.style.SUCCESS(
