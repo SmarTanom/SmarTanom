@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seed January 2026 Data</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #339432;
+            margin-top: 0;
+        }
+        .info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .input-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #339432;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+        button:hover {
+            background: #2a7829;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌱 Seed January 2026 Data</h1>
+        
+        <div class="info">
+            <strong>📊 What this does:</strong>
+            <ul style="margin: 10px 0 0 0; padding-left: 20px;">
+                <li>Seeds sensor data from Jan 1-29, 2026</li>
+                <li>Creates 1,392 readings (6 sensors × 8 readings/day × 29 days)</li>
+                <li>Includes normal values + alert-triggering values</li>
+                <li>Safe to run (checks for existing data)</li>
+            </ul>
+        </div>
+
+        <div class="input-group">
+            <label for="apiUrl">API URL (your Render backend URL)</label>
+            <input 
+                type="text" 
+                id="apiUrl" 
+                placeholder="https://your-backend.onrender.com"
+                value=""
+            />
+        </div>
+
+        <div class="input-group">
+            <label for="deviceSerial">Device Serial</label>
+            <input 
+                type="text" 
+                id="deviceSerial" 
+                value="SMRT-G6M-E0Q"
+            />
+        </div>
+
+        <div class="input-group">
+            <label for="readingsPerDay">Readings Per Day (per sensor)</label>
+            <input 
+                type="number" 
+                id="readingsPerDay" 
+                value="8"
+                min="1"
+                max="24"
+            />
+        </div>
+
+        <button id="seedButton" onclick="seedData()">
+            🚀 Seed Data
+        </button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        async function seedData() {
+            const button = document.getElementById('seedButton');
+            const resultDiv = document.getElementById('result');
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const deviceSerial = document.getElementById('deviceSerial').value.trim();
+            const readingsPerDay = parseInt(document.getElementById('readingsPerDay').value);
+
+            // Validate inputs
+            if (!apiUrl) {
+                showResult('error', '❌ Please enter your API URL');
+                return;
+            }
+
+            if (!deviceSerial) {
+                showResult('error', '❌ Please enter a device serial');
+                return;
+            }
+
+            // Disable button and show loading
+            button.disabled = true;
+            button.textContent = '⏳ Seeding data...';
+            resultDiv.style.display = 'none';
+
+            try {
+                // Make API request
+                const response = await fetch(`${apiUrl}/api/sensors/seed-jan2026/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        device_serial: deviceSerial,
+                        readings_per_day: readingsPerDay
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Success
+                    let message = `✅ ${data.message}\n\n`;
+                    message += `📱 Device: ${data.device_serial}\n`;
+                    message += `📅 Date Range: ${data.date_range}\n`;
+                    message += `📊 Total Readings: ${data.total_readings}\n\n`;
+                    
+                    if (data.readings_per_sensor) {
+                        message += `Readings per sensor:\n`;
+                        for (const [sensor, count] of Object.entries(data.readings_per_sensor)) {
+                            message += `  • ${sensor}: ${count}\n`;
+                        }
+                    }
+
+                    if (data.created_sensors && data.created_sensors.length > 0) {
+                        message += `\n🆕 Created sensors: ${data.created_sensors.join(', ')}`;
+                    }
+
+                    showResult('success', message);
+                } else {
+                    // Error
+                    showResult('error', `❌ Error: ${data.error || data.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                showResult('error', `❌ Network Error: ${error.message}\n\nMake sure:\n- Your backend URL is correct\n- CORS is enabled\n- Backend is running`);
+            } finally {
+                // Re-enable button
+                button.disabled = false;
+                button.textContent = '🚀 Seed Data';
+            }
+        }
+
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = type;
+            resultDiv.innerHTML = `<pre>${message}</pre>`;
+            resultDiv.style.display = 'block';
+        }
+
+        // Load saved API URL from localStorage
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUrl = localStorage.getItem('apiUrl');
+            if (savedUrl) {
+                document.getElementById('apiUrl').value = savedUrl;
+            }
+
+            // Save API URL when it changes
+            document.getElementById('apiUrl').addEventListener('change', (e) => {
+                localStorage.setItem('apiUrl', e.target.value);
+            });
+        });
+    </script>
+</body>
+</html>
