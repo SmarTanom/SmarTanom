@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import jsQR from 'jsqr';
 import {
   X,
   Wifi,
@@ -11,7 +12,9 @@ import {
   EyeOff,
   Smartphone,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Camera,
+  Upload
 } from 'lucide-react';
 import './AddDeviceModal.css';
 
@@ -25,6 +28,11 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const modalRef = useRef(null);
   const firstInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const qrScanAnimRef = useRef(null);
+  
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     deviceId: '',
@@ -38,6 +46,12 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // QR scanning state
+  const [qrScanOpen, setQrScanOpen] = useState(false);
+  const [qrError, setQrError] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [fileName, setFileName] = useState('');
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -103,6 +117,193 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
   };
+
+  // QR Code functions
+  function extractSerialFromText(text) {
+    if (!text) return '';
+    let s = String(text);
+    try { s = s.normalize('NFKC'); } catch { /* older browsers */ }
+    s = s.replace(/[\u2010-\u2015\u2212]/g, '-');
+    s = s.replace(/\s+/g, ' ').trim();
+    s = s.replace(/\s*-\s*/g, '-');
+    const patterns = [
+      /SMRT-[A-Z0-9]{3}-[A-Z0-9]{3}/i,
+      /SMRT-[A-Z0-9]{2,4}-[A-Z0-9]{2,4}/i,
+    ];
+    for (const re of patterns) {
+      const m = re.exec(s);
+      if (m) return m[0].toUpperCase();
+    }
+    return '';
+  }
+
+  async function decodeQrFromImageFile(file) {
+    const imgUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = imgUrl;
+      });
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const maxDim = 1024;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      
+      const tryDecode = () => {
+        const { data, width: w, height: h } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        return jsQR(data, w, h, { inversionAttempts: 'attemptBoth' });
+      };
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, width, height);
+      let res = tryDecode();
+      if (res && res.data) return res.data;
+
+      const angles = [90, 180, 270];
+      for (const angle of angles) {
+        const rad = angle * Math.PI / 180;
+        const rotatedW = angle % 180 === 0 ? width : height;
+        const rotatedH = angle % 180 === 0 ? height : width;
+        canvas.width = rotatedW;
+        canvas.height = rotatedH;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(rotatedW / 2, rotatedH / 2);
+        ctx.rotate(rad);
+        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+        ctx.restore();
+        res = tryDecode();
+        if (res && res.data) return res.data;
+      }
+
+      throw new Error('QR not found');
+    } finally {
+      URL.revokeObjectURL(imgUrl);
+    }
+  }
+
+  function onPickFile(e) {
+    const f = e.target.files?.[0];
+    if (f) {
+      setFileName(f.name);
+      decodeQrFromImageFile(f).then(text => {
+        const serial = extractSerialFromText(text);
+        if (serial) {
+          setFormData(prev => ({ ...prev, deviceId: serial }));
+          setError('');
+        } else {
+          setError('No valid device ID found in QR. Please try a clearer photo.');
+        }
+      }).catch(() => {
+        setError('Could not read QR code from image. Try a sharper photo or use camera.');
+      });
+    } else {
+      setFileName('');
+    }
+  }
+
+  async function openQrScanner() {
+    setQrError('');
+    setQrScanOpen(true);
+    setIsScanning(true);
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API not available.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        qrScanAnimRef.current = requestAnimationFrame(scanQrFrame);
+      }
+    } catch (e) {
+      setQrError('Unable to access camera. Upload a QR photo or enter ID manually.');
+      setIsScanning(false);
+    }
+  }
+
+  function stopQrScanner() {
+    if (qrScanAnimRef.current) {
+      try { cancelAnimationFrame(qrScanAnimRef.current); } catch { }
+      qrScanAnimRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      try { mediaStreamRef.current.getTracks().forEach(t => t.stop()); } catch { }
+      mediaStreamRef.current = null;
+    }
+    setIsScanning(false);
+  }
+
+  function closeQrScanner() {
+    stopQrScanner();
+    setQrScanOpen(false);
+    setQrError('');
+  }
+
+  function handleQrText(text) {
+    const serial = extractSerialFromText(text);
+    if (serial) {
+      setFormData(prev => ({ ...prev, deviceId: serial }));
+      setError('');
+      closeQrScanner();
+    }
+  }
+
+  function scanQrFrame() {
+    try {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas) {
+        qrScanAnimRef.current = requestAnimationFrame(scanQrFrame);
+        return;
+      }
+      if (video.readyState < 2) {
+        qrScanAnimRef.current = requestAnimationFrame(scanQrFrame);
+        return;
+      }
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      if (!w || !h) {
+        qrScanAnimRef.current = requestAnimationFrame(scanQrFrame);
+        return;
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, w, h);
+      const img = ctx.getImageData(0, 0, w, h);
+      const result = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+      if (result && result.data) {
+        handleQrText(result.data);
+        return;
+      }
+    } catch (_) {
+      // ignore frame errors
+    }
+    qrScanAnimRef.current = requestAnimationFrame(scanQrFrame);
+  }
+
+  // Cleanup QR scanner on unmount
+  useEffect(() => {
+    return () => {
+      stopQrScanner();
+    };
+  }, []);
 
   const handleNext = async () => {
     setIsLoading(true);
@@ -265,6 +466,42 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
         <div className="step-form">
           {currentStep === 1 && (
             <>
+              {/* QR Code Options */}
+              <div className="qr-options">
+                <button
+                  type="button"
+                  className="qr-option-btn"
+                  onClick={openQrScanner}
+                >
+                  <Camera size={20} />
+                  <span>Scan QR Code</span>
+                </button>
+                
+                <label htmlFor="qrFileInput" className="qr-option-btn">
+                  <Upload size={20} />
+                  <span>Upload QR Image</span>
+                  <input
+                    id="qrFileInput"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: 'none' }}
+                    onChange={onPickFile}
+                  />
+                </label>
+              </div>
+              
+              {fileName && (
+                <div className="file-name-display">
+                  <CheckCircle2 size={16} />
+                  <span>{fileName}</span>
+                </div>
+              )}
+              
+              <div className="divider-text">
+                <span>or enter manually</span>
+              </div>
+
               <div className="form-field">
                 <label className="field-label">DEVICE ID / SERIAL NUMBER</label>
                 <input
@@ -435,6 +672,45 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
           </button>
         </div>
       </div>
+
+      {/* QR Scanner Modal */}
+      {qrScanOpen && (
+        <div className="qr-scanner-overlay" onClick={closeQrScanner}>
+          <div className="qr-scanner-container" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="qr-scanner-close"
+              onClick={closeQrScanner}
+              aria-label="Close QR scanner"
+            >
+              <X size={24} />
+            </button>
+            
+            <h3 className="qr-scanner-title">Scan QR Code</h3>
+            <p className="qr-scanner-subtitle">Point your camera at the QR code on your device</p>
+            
+            <div className="qr-video-container">
+              <video ref={videoRef} className="qr-video" playsInline />
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+              <div className="qr-scan-frame"></div>
+            </div>
+            
+            {qrError && (
+              <div className="qr-error">
+                <AlertCircle size={18} />
+                <span>{qrError}</span>
+              </div>
+            )}
+            
+            {isScanning && !qrError && (
+              <div className="qr-scanning-text">
+                <Loader size={18} className="spinner" />
+                <span>Scanning...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

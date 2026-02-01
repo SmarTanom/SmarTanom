@@ -441,3 +441,219 @@
 body.modal-open {
   overflow: hidden;
 }
+
+/* QR Options */
+.add-device-modal-container .qr-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.add-device-modal-container .qr-option-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 16px;
+  background: rgba(51, 148, 50, 0.05);
+  border: 2px solid rgba(51, 148, 50, 0.2);
+  border-radius: 12px;
+  color: rgba(51, 148, 50, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-device-modal-container .qr-option-btn:hover {
+  background: rgba(51, 148, 50, 0.1);
+  border-color: rgba(51, 148, 50, 0.4);
+  transform: translateY(-2px);
+}
+
+.add-device-modal-container .qr-option-btn:active {
+  transform: translateY(0);
+}
+
+/* File Name Display */
+.add-device-modal-container .file-name-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(51, 148, 50, 0.08);
+  border-radius: 8px;
+  color: rgba(51, 148, 50, 0.9);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+/* Divider Text */
+.add-device-modal-container .divider-text {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 16px 0;
+  color: rgba(0, 0, 0, 0.4);
+  font-size: 14px;
+}
+
+.add-device-modal-container .divider-text::before,
+.add-device-modal-container .divider-text::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.add-device-modal-container .divider-text:not(:empty)::before {
+  margin-right: 16px;
+}
+
+.add-device-modal-container .divider-text:not(:empty)::after {
+  margin-left: 16px;
+}
+
+/* QR Scanner Overlay */
+.qr-scanner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: fadeIn 0.2s ease;
+  padding: 20px;
+}
+
+.qr-scanner-container {
+  background: #FFFFFF;
+  border-radius: 20px;
+  max-width: 500px;
+  width: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+}
+
+.qr-scanner-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.05);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: rgba(0, 0, 0, 0.6);
+  z-index: 10;
+}
+
+.qr-scanner-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.qr-scanner-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.87);
+  margin: 0;
+  text-align: center;
+}
+
+.qr-scanner-subtitle {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.6);
+  margin: 0;
+  text-align: center;
+}
+
+.qr-video-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.qr-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qr-scan-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60%;
+  height: 60%;
+  border: 3px solid rgba(51, 148, 50, 0.9);
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.qr-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(225, 85, 74, 0.1);
+  border-radius: 8px;
+  color: #E1554A;
+  font-size: 14px;
+}
+
+.qr-scanning-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: rgba(51, 148, 50, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.qr-scanning-text .spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Mobile Responsive for QR Scanner */
+@media (max-width: 640px) {
+  .qr-scanner-container {
+    max-width: 100%;
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+  
+  .add-device-modal-container .qr-options {
+    grid-template-columns: 1fr;
+  }
+}
+
