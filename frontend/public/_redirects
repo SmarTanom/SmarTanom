@@ -1,0 +1,2 @@
+# Netlify SPA routing - redirect all requests to index.html for client-side routing
+/*    /index.html   200
