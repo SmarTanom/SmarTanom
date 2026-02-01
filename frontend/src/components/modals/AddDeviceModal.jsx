@@ -18,6 +18,7 @@ import {
   Check
 } from 'lucide-react';
 import { requestDeviceOTP, verifyDeviceOTP, checkDevice } from '../../services/api/devices';
+import { listPlants } from '../../services/api/plants';
 import './AddDeviceModal.css';
 
 /**
@@ -58,6 +59,9 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
   
   // Success modal
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Plant options from backend
+  const [plantOptions, setPlantOptions] = useState([]);
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -311,6 +315,17 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
     };
   }, []);
 
+  // Load plant options when modal opens
+  useEffect(() => {
+    if (isOpen && plantOptions.length === 0) {
+      listPlants().then(response => {
+        setPlantOptions(response || []);
+      }).catch(err => {
+        console.error('Failed to load plant options:', err);
+      });
+    }
+  }, [isOpen]);
+
   const handleNext = async () => {
     setIsLoading(true);
     setError('');
@@ -561,13 +576,19 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
 
               <div className="form-field">
                 <label className="field-label">PLANT TYPE</label>
-                <input
-                  type="text"
+                <select
                   className="field-input"
-                  placeholder="e.g., Tomato, Lettuce, Basil"
                   value={formData.plantType}
                   onChange={(e) => handleInputChange('plantType', e.target.value)}
-                />
+                  style={{ cursor: 'pointer' }}
+                >
+                  <option value="">Select plant type</option>
+                  {plantOptions.map((plant) => (
+                    <option key={plant.id} value={plant.plant_name}>
+                      {plant.plant_name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </>
           )}
