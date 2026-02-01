@@ -346,7 +346,14 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
         }
         // Check if device exists in the system
         try {
-          await checkDevice(formData.deviceId);
+          const deviceCheckResponse = await checkDevice(formData.deviceId);
+          
+          // Check if device is already bound to an email
+          if (deviceCheckResponse?.is_bound) {
+            setError('Device is already bound to an email address.');
+            setIsLoading(false);
+            return;
+          }
         } catch (err) {
           setError(err.message || 'Device not found. Please check the serial number and try again.');
           setIsLoading(false);
