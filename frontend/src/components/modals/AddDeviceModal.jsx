@@ -318,13 +318,19 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
   // Load plant options when modal opens
   useEffect(() => {
     if (isOpen && plantOptions.length === 0) {
-      listPlants().then(response => {
-        setPlantOptions(response || []);
-      }).catch(err => {
-        console.error('Failed to load plant options:', err);
-      });
+      listPlants()
+        .then(response => {
+          // Handle response - it might be an array or an object with results
+          const plants = Array.isArray(response) ? response : (response?.results || []);
+          setPlantOptions(plants);
+        })
+        .catch(err => {
+          console.error('Failed to load plant options:', err);
+          // Set empty array on error so modal still works
+          setPlantOptions([]);
+        });
     }
-  }, [isOpen]);
+  }, [isOpen, plantOptions.length]);
 
   const handleNext = async () => {
     setIsLoading(true);
