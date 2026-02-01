@@ -5,6 +5,8 @@ import '../../assets/styles/UserLayout.css';
 import { useRealtimeStore } from '../../store/realtimeStore';
 import { useAuth } from '../../contexts/AuthContext';
 import logoMarkWhite from '../../assets/images/logo-mark-white.png';
+import AddDeviceModal from '../modals/AddDeviceModal';
+import { useAddDeviceModal } from '../../hooks/useAddDeviceModal';
 
 export default function UserLayout({ children }) {
   const navigate = useNavigate();
@@ -18,6 +20,9 @@ export default function UserLayout({ children }) {
   const wsStatus = useRealtimeStore(s => s.wsStatus);
   const connectWS = useRealtimeStore(s => s.connectWS);
   const { user, logout } = useAuth();
+  
+  // Add Device Modal
+  const { isModalOpen, openModal, closeModal } = useAddDeviceModal();
 
   // Show username in sidebar (fallback to email); stop using full_name/firstName
   const displayName = user?.username || user?.email || 'User';
@@ -116,7 +121,7 @@ export default function UserLayout({ children }) {
 
           <button
             className="user-side-link"
-            onClick={() => navigate('/add-device/setup')}
+            onClick={openModal}
           >
             <Plus size={18} strokeWidth={2.5} />
             <span>Add New Device</span>
@@ -177,6 +182,9 @@ export default function UserLayout({ children }) {
       <main className="user-main-content">
         {children}
       </main>
+
+      {/* Add Device Modal */}
+      <AddDeviceModal isOpen={isModalOpen} onClose={closeModal} />
 
       {/* Mobile Bottom Navigation (remains unchanged) */}
       <nav className="user-bottom-nav" aria-label="Primary">
