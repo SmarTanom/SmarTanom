@@ -3,7 +3,7 @@
 
 /* Reset-ish */
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; }
+html, body, #root { height: 100%; overflow-x: hidden; }
 img { max-width: 100%; display: block; }
 button { font-family: inherit; }
 

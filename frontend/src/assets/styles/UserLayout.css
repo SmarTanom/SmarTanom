@@ -36,6 +36,7 @@
   min-width: 0;
   padding-top: 0;
   padding-bottom: 80px; /* Space for bottom nav */
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 /* Mobile Bottom Navigation */

@@ -253,8 +253,8 @@ body { background: var(--color-bg); }
 /* Carousel Container - Full Bleed */
 .device-carousel-container {
   position: relative;
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
+  width: 100%;
+  margin-left: 0;
   overflow: visible;
 }
 
@@ -277,7 +277,7 @@ body { background: var(--color-bg); }
 
 /* Device Card - One Per View with Peek Effect */
 .device-carousel-card {
-  flex: 0 0 100vw; /* Full viewport width per card */
+  flex: 0 0 100%; /* Full container width per card */
   display: flex;
   justify-content: center;
   align-items: center;
