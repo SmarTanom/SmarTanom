@@ -759,6 +759,6 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
       )}
     </div>
   );
-};
+}
 
 export default AddDeviceModal;
