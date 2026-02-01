@@ -353,6 +353,11 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
           setIsLoading(false);
           return;
         }
+        if (formData.wifiPassword.length < 8) {
+          setError('WiFi password must be at least 8 characters long');
+          setIsLoading(false);
+          return;
+        }
         // Complete setup - show success modal
         setShowSuccess(true);
       }
@@ -566,20 +571,72 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
               </div>
             </>
           )}
-000000
+
           {currentStep === 3 && (
             <>
               <div className="form-field">
                 <label className="field-label">VERIFICATION CODE</label>
-                <input
-                  ref={firstInputRef}
-                  type="text"
-                  className="field-input otp-style"
-                  placeholder="Enter 6-digit code"
-                  maxLength={6}
-                  value={formData.otp}
-                  onChange={(e) => handleInputChange('otp', e.target.value.replace(/\D/g, ''))}
-                />
+                <div className="otp-input-container" style={{ 
+                  display: 'flex', 
+                  gap: '12px', 
+                  justifyContent: 'center',
+                  marginTop: '8px'
+                }}>
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <input
+                      key={index}
+                      ref={index === 0 ? firstInputRef : null}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      className="field-input"
+                      style={{
+                        width: '56px',
+                        height: '56px',
+                        textAlign: 'center',
+                        fontSize: '24px',
+                        fontWeight: '600',
+                        letterSpacing: '0.1em'
+                      }}
+                      value={formData.otp[index] || ''}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        if (value) {
+                          const newOtp = formData.otp.split('');
+                          newOtp[index] = value[value.length - 1];
+                          const otpString = newOtp.join('').slice(0, 6);
+                          handleInputChange('otp', otpString);
+                          
+                          // Auto-focus next input
+                          if (index < 5 && value) {
+                            const nextInput = e.target.parentElement.children[index + 1];
+                            if (nextInput) nextInput.focus();
+                          }
+                        } else {
+                          const newOtp = formData.otp.split('');
+                          newOtp[index] = '';
+                          handleInputChange('otp', newOtp.join(''));
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Backspace' && !formData.otp[index] && index > 0) {
+                          const prevInput = e.target.parentElement.children[index - 1];
+                          if (prevInput) prevInput.focus();
+                        }
+                      }}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+                        if (pastedData) {
+                          handleInputChange('otp', pastedData);
+                          const targetIndex = Math.min(pastedData.length, 5);
+                          const targetInput = e.target.parentElement.children[targetIndex];
+                          if (targetInput) targetInput.focus();
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
 
               <div className="code-hint">Code sent to {formData.email}</div>
