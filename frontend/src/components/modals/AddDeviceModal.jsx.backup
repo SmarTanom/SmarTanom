@@ -1,0 +1,462 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  X,
+  Wifi,
+  Mail,
+  AlertCircle,
+  CheckCircle2,
+  Loader,
+  Eye,
+  EyeOff,
+  Smartphone,
+  ArrowRight,
+  ArrowLeft
+} from 'lucide-react';
+import './AddDeviceModal.css';
+
+/**
+ * AddDeviceModal Component
+ * 
+ * A fully accessible modal for adding new devices with multi-step flow.
+ * Features:
+ * - Focus trap and keyboard navigation
+ * - ESC key to close
+ * - Smooth animations
+ * - Mobile responsive
+ * - Multi-step wizard interface
+ */
+const AddDeviceModal = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
+  const modalRef = useRef(null);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState({
+    deviceId: '',
+    deviceName: '',
+    email: '',
+    otp: '',
+    wifiSSID: '',
+    wifiPassword: '',
+    wifiHidden: false
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isOpen && !isLoading) {
+        handleClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, isLoading]);
+
+  // Focus trap - keep focus within modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const focusableElements = modalRef.current?.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+
+    if (!focusableElements || focusableElements.length === 0) return;
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    // Focus first element when modal opens
+    firstElement?.focus();
+
+    const handleTab = (e) => {
+      if (e.key !== 'Tab') return;
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleTab);
+    return () => document.removeEventListener('keydown', handleTab);
+  }, [isOpen, currentStep]);
+
+  const handleClose = () => {
+    if (isLoading) return; // Prevent closing during loading
+    
+    // Reset state when closing
+    setCurrentStep(1);
+    setFormData({
+      deviceId: '',
+      deviceName: '',
+      email: '',
+      otp: '',
+      wifiSSID: '',
+      wifiPassword: '',
+      wifiHidden: false
+    });
+    setError('');
+    setShowPassword(false);
+    onClose();
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setError('');
+  };
+
+  const handleNext = async () => {
+    setIsLoading(true);
+    setError('');
+
+    // Simulate API calls
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Validation
+    if (currentStep === 1) {
+      if (!formData.deviceId.trim() || !formData.deviceName.trim()) {
+        setError('Please fill in all device information');
+        setIsLoading(false);
+        return;
+      }
+    } else if (currentStep === 2) {
+      if (!formData.email.trim() || !formData.email.includes('@')) {
+        setError('Please enter a valid email address');
+        setIsLoading(false);
+        return;
+      }
+    } else if (currentStep === 3) {
+      if (formData.otp.length !== 6) {
+        setError('Please enter the 6-digit OTP code');
+        setIsLoading(false);
+        return;
+      }
+    } else if (currentStep === 4) {
+      if (!formData.wifiSSID.trim() || !formData.wifiPassword.trim()) {
+        setError('Please enter WiFi credentials');
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    if (currentStep < 4) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      // Complete setup - close modal and refresh dashboard
+      handleClose();
+      navigate('/dashboard');
+      // TODO: Add API call to save device
+      // await deviceApi.addDevice(formData);
+    }
+    setIsLoading(false);
+  };
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep(prev => prev - 1);
+      setError('');
+    }
+  };
+
+  const getStepInfo = () => {
+    switch (currentStep) {
+      case 1:
+        return {
+          icon: <Smartphone size={32} strokeWidth={1.5} />,
+          title: 'Device Information',
+          subtitle: 'Enter your SmarTanom device details'
+        };
+      case 2:
+        return {
+          icon: <Mail size={32} strokeWidth={1.5} />,
+          title: 'Bind to Email',
+          subtitle: 'Link this device to your account'
+        };
+      case 3:
+        return {
+          icon: <CheckCircle2 size={32} strokeWidth={1.5} />,
+          title: 'Verify Code',
+          subtitle: 'Enter the verification code sent to your email'
+        };
+      case 4:
+        return {
+          icon: <Wifi size={32} strokeWidth={1.5} />,
+          title: 'WiFi Setup',
+          subtitle: 'Connect your device to WiFi'
+        };
+      default:
+        return { icon: null, title: '', subtitle: '' };
+    }
+  };
+
+  const stepInfo = getStepInfo();
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="modal-overlay" 
+      onClick={(e) => {
+        // Close when clicking backdrop (not when loading)
+        if (e.target === e.currentTarget && !isLoading) {
+          handleClose();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div 
+        ref={modalRef}
+        className="modal-content add-device-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Button */}
+        <button
+          type="button"
+          className="modal-close-btn"
+          onClick={handleClose}
+          disabled={isLoading}
+          aria-label="Close modal"
+        >
+          <X size={24} />
+        </button>
+
+        {/* Progress Indicator */}
+        <div className="modal-progress">
+          <div className="progress-bar">
+            {[1, 2, 3, 4].map((step) => (
+              <div
+                key={step}
+                className={`progress-step ${currentStep >= step ? 'active' : ''} ${currentStep > step ? 'completed' : ''}`}
+              >
+                <div className="progress-circle">
+                  {currentStep > step ? <CheckCircle2 size={16} /> : step}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Step Header */}
+        <div className="modal-header">
+          <div className="modal-icon">{stepInfo.icon}</div>
+          <h2 id="modal-title" className="modal-title">{stepInfo.title}</h2>
+          <p className="modal-subtitle">{stepInfo.subtitle}</p>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="modal-error" role="alert">
+            <AlertCircle size={20} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Form Content */}
+        <div className="modal-body">
+          {/* Step 1: Device Information */}
+          {currentStep === 1 && (
+            <div className="form-step">
+              <div className="form-group">
+                <label htmlFor="deviceId" className="form-label">
+                  Device ID / Serial Number
+                </label>
+                <input
+                  id="deviceId"
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g., SMRT-XXX-XXX"
+                  value={formData.deviceId}
+                  onChange={(e) => handleInputChange('deviceId', e.target.value)}
+                  disabled={isLoading}
+                  autoFocus
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="deviceName" className="form-label">
+                  Device Name
+                </label>
+                <input
+                  id="deviceName"
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g., Kitchen Garden"
+                  value={formData.deviceName}
+                  onChange={(e) => handleInputChange('deviceName', e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Email Binding */}
+          {currentStep === 2 && (
+            <div className="form-step">
+              <div className="form-group">
+                <label htmlFor="email" className="form-label">
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  className="form-input"
+                  placeholder="your.email@example.com"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  disabled={isLoading}
+                  autoFocus
+                />
+                <p className="form-hint">
+                  We'll send a verification code to this email
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: OTP Verification */}
+          {currentStep === 3 && (
+            <div className="form-step">
+              <div className="form-group">
+                <label htmlFor="otp" className="form-label">
+                  Verification Code
+                </label>
+                <input
+                  id="otp"
+                  type="text"
+                  className="form-input otp-input"
+                  placeholder="000000"
+                  maxLength="6"
+                  value={formData.otp}
+                  onChange={(e) => handleInputChange('otp', e.target.value.replace(/\D/g, ''))}
+                  disabled={isLoading}
+                  autoFocus
+                />
+                <p className="form-hint">
+                  Enter the 6-digit code sent to {formData.email}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: WiFi Setup */}
+          {currentStep === 4 && (
+            <div className="form-step">
+              <div className="form-group">
+                <label htmlFor="wifiSSID" className="form-label">
+                  WiFi Network Name (SSID)
+                </label>
+                <input
+                  id="wifiSSID"
+                  type="text"
+                  className="form-input"
+                  placeholder="Your WiFi Name"
+                  value={formData.wifiSSID}
+                  onChange={(e) => handleInputChange('wifiSSID', e.target.value)}
+                  disabled={isLoading}
+                  autoFocus
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="wifiPassword" className="form-label">
+                  WiFi Password
+                </label>
+                <div className="input-with-icon">
+                  <input
+                    id="wifiPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    className="form-input"
+                    placeholder="Enter WiFi password"
+                    value={formData.wifiPassword}
+                    onChange={(e) => handleInputChange('wifiPassword', e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.wifiHidden}
+                    onChange={(e) => handleInputChange('wifiHidden', e.target.checked)}
+                    disabled={isLoading}
+                  />
+                  <span>This is a hidden network</span>
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Footer with Actions */}
+        <div className="modal-footer">
+          {currentStep > 1 && (
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={handleBack}
+              disabled={isLoading}
+            >
+              Back
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleNext}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader size={20} className="spinner" />
+                Processing...
+              </>
+            ) : currentStep === 4 ? (
+              <>
+                Complete Setup
+                <CheckCircle2 size={20} />
+              </>
+            ) : (
+              <>
+                Continue
+                <ArrowRight size={20} />
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AddDeviceModal;
