@@ -10,7 +10,8 @@ import {
   Eye,
   EyeOff,
   Smartphone,
-  ArrowRight
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
 import './AddDeviceModal.css';
 
@@ -18,16 +19,12 @@ import './AddDeviceModal.css';
  * AddDeviceModal Component
  * 
  * A fully accessible modal for adding new devices with multi-step flow.
- * Features:
- * - Focus trap and keyboard navigation
- * - ESC key to close
- * - Smooth animations
- * - Mobile responsive
- * - Multi-step wizard interface
+ * Matches the design and functionality of AddDevicePage.jsx
  */
 const AddDeviceModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const modalRef = useRef(null);
+  const firstInputRef = useRef(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     deviceId: '',
@@ -52,31 +49,32 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden';
+      
+      // Focus first input when step changes
+      if (firstInputRef.current) {
+        setTimeout(() => firstInputRef.current?.focus(), 100);
+      }
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, isLoading]);
+  }, [isOpen, isLoading, currentStep]);
 
-  // Focus trap - keep focus within modal
+  // Focus trap within modal
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !modalRef.current) return;
 
-    const focusableElements = modalRef.current?.querySelectorAll(
-      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    const focusableElements = modalRef.current.querySelectorAll(
+      'button:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])'
     );
-
-    if (!focusableElements || focusableElements.length === 0) return;
+    
+    if (focusableElements.length === 0) return;
 
     const firstElement = focusableElements[0];
     const lastElement = focusableElements[focusableElements.length - 1];
-
-    // Focus first element when modal opens
-    firstElement?.focus();
 
     const handleTab = (e) => {
       if (e.key !== 'Tab') return;
@@ -94,28 +92,12 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
       }
     };
 
-    document.addEventListener('keydown', handleTab);
-    return () => document.removeEventListener('keydown', handleTab);
-  }, [isOpen, currentStep]);
-
-  const handleClose = () => {
-    if (isLoading) return; // Prevent closing during loading
+    modalRef.current.addEventListener('keydown', handleTab);
     
-    // Reset state when closing
-    setCurrentStep(1);
-    setFormData({
-      deviceId: '',
-      deviceName: '',
-      email: '',
-      otp: '',
-      wifiSSID: '',
-      wifiPassword: '',
-      wifiHidden: false
-    });
-    setError('');
-    setShowPassword(false);
-    onClose();
-  };
+    return () => {
+      modalRef.current?.removeEventListener('keydown', handleTab);
+    };
+  }, [isOpen, currentStep]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -142,37 +124,56 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
         setIsLoading(false);
         return;
       }
+      // TODO: Send OTP to email
     } else if (currentStep === 3) {
       if (formData.otp.length !== 6) {
         setError('Please enter the 6-digit OTP code');
         setIsLoading(false);
         return;
       }
+      // TODO: Verify OTP
     } else if (currentStep === 4) {
       if (!formData.wifiSSID.trim() || !formData.wifiPassword.trim()) {
         setError('Please enter WiFi credentials');
         setIsLoading(false);
         return;
       }
+      // TODO: Complete device setup
     }
 
     if (currentStep < 4) {
       setCurrentStep(prev => prev + 1);
     } else {
-      // Complete setup - close modal and refresh dashboard
+      // Complete setup - close modal and refresh
       handleClose();
-      navigate('/dashboard');
-      // TODO: Add API call to save device
-      // await deviceApi.addDevice(formData);
+      // TODO: Refresh devices list
+      window.location.reload();
     }
     setIsLoading(false);
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
+    if (currentStep > 1 && !isLoading) {
       setCurrentStep(prev => prev - 1);
       setError('');
     }
+  };
+
+  const handleClose = () => {
+    if (isLoading) return;
+    setCurrentStep(1);
+    setFormData({
+      deviceId: '',
+      deviceName: '',
+      email: '',
+      otp: '',
+      wifiSSID: '',
+      wifiPassword: '',
+      wifiHidden: false
+    });
+    setError('');
+    setShowPassword(false);
+    onClose();
   };
 
   const getStepInfo = () => {
@@ -199,7 +200,7 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
         return {
           icon: <Wifi size={32} strokeWidth={1.5} />,
           title: 'WiFi Setup',
-          subtitle: 'Connect your device to WiFi'
+          subtitle: 'Connect your device to your network'
         };
       default:
         return { icon: null, title: '', subtitle: '' };
@@ -214,7 +215,6 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
     <div 
       className="modal-overlay" 
       onClick={(e) => {
-        // Close when clicking backdrop (not when loading)
         if (e.target === e.currentTarget && !isLoading) {
           handleClose();
         }
@@ -225,13 +225,13 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
     >
       <div 
         ref={modalRef}
-        className="modal-content add-device-modal"
+        className="add-device-modal-container"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           type="button"
-          className="modal-close-btn"
+          className="close-btn"
           onClick={handleClose}
           disabled={isLoading}
           aria-label="Close modal"
@@ -239,162 +239,136 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
           <X size={24} />
         </button>
 
-        {/* Progress Indicator */}
-        <div className="modal-progress">
-          <div className="progress-bar">
-            {[1, 2, 3, 4].map((step) => (
+        {/* Step Indicator */}
+        <div className="step-indicator">
+          <div className="step-counter">Step {currentStep} of 4</div>
+          <div className="step-dots">
+            {[1, 2, 3, 4].map(step => (
               <div
                 key={step}
-                className={`progress-step ${currentStep >= step ? 'active' : ''} ${currentStep > step ? 'completed' : ''}`}
-              >
-                <div className="progress-circle">
-                  {currentStep > step ? <CheckCircle2 size={16} /> : step}
-                </div>
-              </div>
+                className={`step-dot ${step === currentStep ? 'active' : ''} ${step < currentStep ? 'completed' : ''}`}
+              />
             ))}
           </div>
         </div>
 
-        {/* Step Header */}
-        <div className="modal-header">
-          <div className="modal-icon">{stepInfo.icon}</div>
-          <h2 id="modal-title" className="modal-title">{stepInfo.title}</h2>
-          <p className="modal-subtitle">{stepInfo.subtitle}</p>
+        {/* Step Icon & Title */}
+        <div className="step-header">
+          <div className="step-icon-circle">
+            {stepInfo.icon}
+          </div>
+          <h2 id="modal-title" className="step-title">{stepInfo.title}</h2>
+          <p className="step-subtitle">{stepInfo.subtitle}</p>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="modal-error" role="alert">
-            <AlertCircle size={20} />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* Form Content */}
-        <div className="modal-body">
-          {/* Step 1: Device Information */}
+        {/* Step Form Content */}
+        <div className="step-form">
           {currentStep === 1 && (
-            <div className="form-step">
-              <div className="form-group">
-                <label htmlFor="deviceId" className="form-label">
-                  Device ID / Serial Number
-                </label>
+            <>
+              <div className="form-field">
+                <label className="field-label">DEVICE ID / SERIAL NUMBER</label>
                 <input
-                  id="deviceId"
+                  ref={firstInputRef}
                   type="text"
-                  className="form-input"
+                  className="field-input"
                   placeholder="e.g., SMRT-XXX-XXX"
                   value={formData.deviceId}
                   onChange={(e) => handleInputChange('deviceId', e.target.value)}
-                  disabled={isLoading}
-                  autoFocus
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="deviceName" className="form-label">
-                  Device Name
-                </label>
+              <div className="form-field">
+                <label className="field-label">DEVICE NAME</label>
                 <input
-                  id="deviceName"
                   type="text"
-                  className="form-input"
+                  className="field-input"
                   placeholder="e.g., Kitchen Garden"
                   value={formData.deviceName}
                   onChange={(e) => handleInputChange('deviceName', e.target.value)}
-                  disabled={isLoading}
                 />
               </div>
-            </div>
+            </>
           )}
 
-          {/* Step 2: Email Binding */}
           {currentStep === 2 && (
-            <div className="form-step">
-              <div className="form-group">
-                <label htmlFor="email" className="form-label">
-                  Email Address
-                </label>
+            <>
+              <div className="form-field">
+                <label className="field-label">EMAIL ADDRESS</label>
                 <input
-                  id="email"
+                  ref={firstInputRef}
                   type="email"
-                  className="form-input"
-                  placeholder="your.email@example.com"
+                  className="field-input"
+                  placeholder="your@email.com"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  disabled={isLoading}
-                  autoFocus
                 />
-                <p className="form-hint">
-                  We'll send a verification code to this email
-                </p>
               </div>
-            </div>
+
+              <div className="info-banner">
+                <AlertCircle size={18} />
+                <span>We'll send a verification code to this email address</span>
+              </div>
+            </>
           )}
 
-          {/* Step 3: OTP Verification */}
           {currentStep === 3 && (
-            <div className="form-step">
-              <div className="form-group">
-                <label htmlFor="otp" className="form-label">
-                  Verification Code
-                </label>
+            <>
+              <div className="form-field">
+                <label className="field-label">VERIFICATION CODE</label>
                 <input
-                  id="otp"
+                  ref={firstInputRef}
                   type="text"
-                  className="form-input otp-input"
-                  placeholder="000000"
-                  maxLength="6"
+                  className="field-input otp-style"
+                  placeholder="Enter 6-digit code"
+                  maxLength={6}
                   value={formData.otp}
                   onChange={(e) => handleInputChange('otp', e.target.value.replace(/\D/g, ''))}
-                  disabled={isLoading}
-                  autoFocus
                 />
-                <p className="form-hint">
-                  Enter the 6-digit code sent to {formData.email}
-                </p>
               </div>
-            </div>
+
+              <div className="code-hint">Code sent to {formData.email}</div>
+
+              <button 
+                type="button" 
+                className="resend-link"
+                onClick={() => {
+                  // TODO: Implement resend OTP
+                  console.log('Resend OTP');
+                }}
+              >
+                Resend verification code
+              </button>
+            </>
           )}
 
-          {/* Step 4: WiFi Setup */}
           {currentStep === 4 && (
-            <div className="form-step">
-              <div className="form-group">
-                <label htmlFor="wifiSSID" className="form-label">
-                  WiFi Network Name (SSID)
-                </label>
+            <>
+              <div className="form-field">
+                <label className="field-label">WiFi NETWORK (SSID)</label>
                 <input
-                  id="wifiSSID"
+                  ref={firstInputRef}
                   type="text"
-                  className="form-input"
-                  placeholder="Your WiFi Name"
+                  className="field-input"
+                  placeholder="Network name"
                   value={formData.wifiSSID}
                   onChange={(e) => handleInputChange('wifiSSID', e.target.value)}
-                  disabled={isLoading}
-                  autoFocus
                 />
               </div>
 
-              <div className="form-group">
-                <label htmlFor="wifiPassword" className="form-label">
-                  WiFi Password
-                </label>
-                <div className="input-with-icon">
+              <div className="form-field">
+                <label className="field-label">WiFi PASSWORD</label>
+                <div className="password-field">
                   <input
-                    id="wifiPassword"
                     type={showPassword ? 'text' : 'password'}
-                    className="form-input"
-                    placeholder="Enter WiFi password"
+                    className="field-input"
+                    placeholder="Enter password"
                     value={formData.wifiPassword}
                     onChange={(e) => handleInputChange('wifiPassword', e.target.value)}
-                    disabled={isLoading}
                   />
                   <button
                     type="button"
-                    className="icon-btn"
+                    className="password-toggle-btn"
                     onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -402,53 +376,60 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={formData.wifiHidden}
-                    onChange={(e) => handleInputChange('wifiHidden', e.target.checked)}
-                    disabled={isLoading}
-                  />
-                  <span>This is a hidden network</span>
-                </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={formData.wifiHidden}
+                  onChange={(e) => handleInputChange('wifiHidden', e.target.checked)}
+                />
+                <span>This is a hidden network</span>
+              </label>
+
+              <div className="info-banner" style={{ marginTop: '12px' }}>
+                <Wifi size={18} />
+                <span>Make sure your device is powered on and in setup mode</span>
               </div>
-            </div>
+            </>
           )}
         </div>
 
-        {/* Modal Footer with Actions */}
-        <div className="modal-footer">
+        {/* Error Message */}
+        {error && (
+          <div className="error-banner">
+            <AlertCircle size={18} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="action-buttons">
           {currentStep > 1 && (
             <button
               type="button"
-              className="btn btn-outline"
+              className="btn-secondary"
               onClick={handleBack}
               disabled={isLoading}
             >
-              Back
+              <ArrowLeft size={20} />
+              <span>Back</span>
             </button>
           )}
+
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn-primary"
             onClick={handleNext}
             disabled={isLoading}
           >
             {isLoading ? (
               <>
-                <Loader size={20} className="spinner" />
-                Processing...
-              </>
-            ) : currentStep === 4 ? (
-              <>
-                Complete Setup
-                <CheckCircle2 size={20} />
+                <Loader size={20} className="btn-spinner" />
+                <span>Processing...</span>
               </>
             ) : (
               <>
-                Continue
-                <ArrowRight size={20} />
+                <span>{currentStep === 4 ? 'Complete Setup' : 'Continue'}</span>
+                {currentStep < 4 && <ArrowRight size={20} />}
               </>
             )}
           </button>
