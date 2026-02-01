@@ -379,6 +379,11 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
       email: '',
       otp: '',
       wifiSSID: '',
+      wifiPassword: '',
+      wifiHidden: false
+    });
+    setError('');
+    setShowPassword(false);
     setFileName('');
     setShowSuccess(false);
     onClose();
@@ -388,11 +393,8 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
     setShowSuccess(false);
     handleClose();
     // Refresh the page to show the new device
-    window.location.reloadassword: '',
-      wifiHidden: false
-    });
-    setError('');
-    setShowPassword(false);
+    window.location.reload();
+  };
     onClose();
   };
 
