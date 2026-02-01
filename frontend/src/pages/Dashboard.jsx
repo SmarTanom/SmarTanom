@@ -38,6 +38,8 @@ import { resolveMediaUrl, withImgFallback } from '../utils/media';
 import GlobalLoadingSpinner from '../components/ui/GlobalLoadingSpinner.jsx';
 import PHLineChart from '../components/charts/PHLineChart.jsx';
 import BottomNav from '../components/navigation/BottomNav.jsx';
+import AddDeviceModal from '../components/modals/AddDeviceModal';
+import { useAddDeviceModal } from '../hooks/useAddDeviceModal';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -1050,10 +1052,13 @@ export default function Dashboard() {
     }
   };
 
+  // Add Device Modal
+  const { isModalOpen, openModal, closeModal } = useAddDeviceModal();
+
   // Handle FAB click (if not dragged)
   const handleFabClick = () => {
     if (!hasDraggedRef.current) {
-      navigate('/add-device/setup');
+      openModal();
     }
   };
 
@@ -1692,7 +1697,7 @@ export default function Dashboard() {
           <p style={{ color: '#666', fontSize: '1rem' }}>No devices found</p>
           <p style={{ color: '#999', fontSize: '0.9rem' }}>Bind your first device to get started!</p>
           <button
-            onClick={() => navigate('/add-device/setup')}
+            onClick={openModal}
             style={{
               padding: '0.75rem 1.5rem',
               backgroundColor: PRIMARY_GREEN,
@@ -1730,7 +1735,7 @@ export default function Dashboard() {
           <button
             className="mobile-top-bar-icon"
             aria-label="Add Device"
-            onClick={() => navigate('/add-device/setup')}
+            onClick={openModal}
           >
             <Plus size={22} />
           </button>
@@ -2587,6 +2592,9 @@ export default function Dashboard() {
           </div>
         );
       })()}
+
+      {/* Add Device Modal */}
+      <AddDeviceModal isOpen={isModalOpen} onClose={closeModal} />
     </div>
   );
 }
