@@ -395,8 +395,6 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
     // Refresh the page to show the new device
     window.location.reload();
   };
-    onClose();
-  };
 
   const getStepInfo = () => {
     switch (currentStep) {
@@ -759,6 +757,6 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
       )}
     </div>
   );
-}
+};
 
 export default AddDeviceModal;
