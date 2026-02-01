@@ -19,7 +19,8 @@ import {
   User,
   Plus,
   Loader,
-  Bell
+  Bell,
+  LogOut
 } from 'lucide-react';
 // Add left arrow for navigating pH chart windows
 import { ChevronLeft } from 'lucide-react';
@@ -40,6 +41,7 @@ import PHLineChart from '../components/charts/PHLineChart.jsx';
 import BottomNav from '../components/navigation/BottomNav.jsx';
 import AddDeviceModal from '../components/modals/AddDeviceModal';
 import { useAddDeviceModal } from '../hooks/useAddDeviceModal';
+import ConfirmModal from '../components/ui/ConfirmModal.jsx';
 
 // Brand color constant
 const PRIMARY_GREEN = 'rgba(51, 148, 50, 0.9)';
@@ -378,7 +380,7 @@ function PHBar({ v, i, min, max, plant }) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   // Prefer username; fall back to email; remove first/last/full name usage
   const displayName = React.useMemo(() => {
     const uname = typeof user?.username === 'string' ? user.username.trim() : '';
@@ -387,6 +389,27 @@ export default function Dashboard() {
     if (email) return email;
     return 'User';
   }, [user]);
+  
+  // Logout confirmation modal state
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  
+  const openLogoutModal = () => setShowLogoutModal(true);
+  const closeLogoutModal = () => setShowLogoutModal(false);
+  const confirmLogout = async () => {
+    try {
+      const result = await logout();
+      setShowLogoutModal(false);
+      if (result?.success !== false) {
+        navigate('/');
+      } else {
+        console.error('Logout error:', result.error);
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Logout failed:', error);
+      navigate('/');
+    }
+  };
   const carouselRef = useRef(null);
   // Cache plant catalog for mapping reservoirs -> plant ranges (shared with AlertsPage logic)
   const plantCatalogRef = useRef(null);
@@ -1760,6 +1783,13 @@ export default function Dashboard() {
               </span>
             )}
           </button>
+          <button
+            className="mobile-top-bar-icon"
+            aria-label="Logout"
+            onClick={openLogoutModal}
+          >
+            <LogOut size={22} />
+          </button>
         </div>
       </header>
 
@@ -1768,9 +1798,14 @@ export default function Dashboard() {
         <h1 className="dash-header-title">
           Hello, {displayName}
         </h1>
-        <button className="dash-header-settings" aria-label="Sync" onClick={fetchInitial}>
-          <RefreshCw size={24} color={PRIMARY_GREEN} />
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button className="dash-header-settings" aria-label="Sync" onClick={fetchInitial}>
+            <RefreshCw size={24} color={PRIMARY_GREEN} />
+          </button>
+          <button className="dash-header-settings" aria-label="Logout" onClick={openLogoutModal}>
+            <LogOut size={24} color={PRIMARY_GREEN} />
+          </button>
+        </div>
       </header>
 
       {/* Device Carousel */}
@@ -2595,6 +2630,23 @@ export default function Dashboard() {
 
       {/* Add Device Modal */}
       <AddDeviceModal isOpen={isModalOpen} onClose={closeModal} />
+      
+      {/* Logout Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showLogoutModal}
+        title="Sign out"
+        description={
+          <div>
+            <p style={{ margin: 0, color: '#2F3E46' }}>Are you sure you want to sign out?</p>
+            <p style={{ margin: '6px 0 0', color: '#6B7D75', fontSize: 14 }}>You can sign back in anytime using your email.</p>
+          </div>
+        }
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        onConfirm={confirmLogout}
+        onCancel={closeLogoutModal}
+        confirmVariant="danger"
+      />
     </div>
   );
 }
