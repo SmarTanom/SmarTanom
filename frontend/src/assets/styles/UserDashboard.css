@@ -1986,15 +1986,14 @@ body { background: var(--color-bg); }
     min-height: 300px;
   }
 
-  /* Sensor grid: 4-column layout on desktop for consistent card widths */
+  /* Sensor grid: 5-column layout on desktop - all cards in one row */
   .sensor-grid {
     grid-column: 1 / -1;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: var(--space-5);
   }
 
-  /* 5th card (Water Temp) spans 1 column on first row if there are 5 sensors */
-  /* Or allow it to wrap to next row naturally */
+  /* All sensor cards fit in one row */
   .sensor-grid > .sensor-cell:nth-child(5) {
     grid-column: auto;
   }
@@ -2055,9 +2054,9 @@ body { background: var(--color-bg); }
     margin: 0 auto;
   }
 
-  /* Sensor grid: 4-column layout on large desktop */
+  /* Sensor grid: 5-column layout on large desktop */
   .sensor-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
   }
 
   /* Allow natural flow for all sensor cards */
