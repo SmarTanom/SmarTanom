@@ -1959,23 +1959,16 @@ body { background: var(--color-bg); }
     gap: var(--space-5);
   }
 
-  /* Nutrient card and Current pH card - make them match status-grid layout (2 columns) */
-  /* Create a wrapper-like effect by spanning full width and using same 2-column grid */
-  .nutrient-card {
-    grid-column: span 1; /* Takes first column */
-  }
-
+  /* Nutrient card and Current pH card wrapper - create container for 2-column layout */
+  /* We need to group them together to match status-grid layout */
+  .nutrient-card,
   .current-ph-card {
-    grid-column: span 1; /* Takes second column */
+    grid-column: span 1; /* Each takes 1 column in a 2-column layout */
   }
 
-  /* Make nutrient and ph cards align with status boxes */
-  @media (min-width: 1024px) {
-    /* Ensure they sit side-by-side in the same row */
-    .nutrient-card,
-    .current-ph-card {
-      min-width: 0;
-    }
+  /* Force them into the same row by making parent grid have exactly 2 columns for this section */
+  .dash-main {
+    grid-template-columns: repeat(2, 1fr) !important; /* Force 2 columns on desktop */
   }
 
   /* pH chart: Full width, taller */
