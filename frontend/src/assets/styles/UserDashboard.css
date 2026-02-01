@@ -1959,10 +1959,23 @@ body { background: var(--color-bg); }
     gap: var(--space-5);
   }
 
-  /* Nutrient card and Current pH card - each takes 1 column for 50/50 split */
-  .nutrient-card,
+  /* Nutrient card and Current pH card - make them match status-grid layout (2 columns) */
+  /* Create a wrapper-like effect by spanning full width and using same 2-column grid */
+  .nutrient-card {
+    grid-column: span 1; /* Takes first column */
+  }
+
   .current-ph-card {
-    grid-column: span 1;
+    grid-column: span 1; /* Takes second column */
+  }
+
+  /* Make nutrient and ph cards align with status boxes */
+  @media (min-width: 1024px) {
+    /* Ensure they sit side-by-side in the same row */
+    .nutrient-card,
+    .current-ph-card {
+      min-width: 0;
+    }
   }
 
   /* pH chart: Full width, taller */
