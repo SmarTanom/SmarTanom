@@ -1,4 +1,0 @@
-web: bash render-entrypoint.sh
-
-# Redis-only realtime relay (broadcast only, no persistence of 5s frames)
-worker: python manage.py run_redis_relay
