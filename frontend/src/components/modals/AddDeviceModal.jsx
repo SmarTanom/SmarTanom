@@ -17,7 +17,7 @@ import {
   Upload,
   Check
 } from 'lucide-react';
-import { requestDeviceOTP, verifyDeviceOTP } from '../../services/api/devices';
+import { requestDeviceOTP, verifyDeviceOTP, checkDevice } from '../../services/api/devices';
 import './AddDeviceModal.css';
 
 /**
@@ -39,6 +39,7 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
   const [formData, setFormData] = useState({
     deviceId: '',
     deviceName: '',
+    plantType: '',
     email: '',
     otp: '',
     wifiSSID: '',
@@ -317,8 +318,16 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
     try {
       // Validation
       if (currentStep === 1) {
-        if (!formData.deviceId.trim() || !formData.deviceName.trim()) {
+        if (!formData.deviceId.trim() || !formData.deviceName.trim() || !formData.plantType.trim()) {
           setError('Please fill in all device information');
+          setIsLoading(false);
+          return;
+        }
+        // Check if device exists in the system
+        try {
+          await checkDevice(formData.deviceId);
+        } catch (err) {
+          setError(err.message || 'Device not found. Please check the serial number and try again.');
           setIsLoading(false);
           return;
         }
@@ -344,7 +353,7 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
           formData.deviceId,
           formData.email,
           formData.otp,
-          { device_name: formData.deviceName }
+          { device_name: formData.deviceName, plant_name: formData.plantType }
         );
         setCurrentStep(prev => prev + 1);
       } else if (currentStep === 4) {
@@ -381,6 +390,7 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
     setFormData({
       deviceId: '',
       deviceName: '',
+      plantType: '',
       email: '',
       otp: '',
       wifiSSID: '',
@@ -546,6 +556,17 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
                   placeholder="e.g., Kitchen Garden"
                   value={formData.deviceName}
                   onChange={(e) => handleInputChange('deviceName', e.target.value)}
+                />
+              </div>
+
+              <div className="form-field">
+                <label className="field-label">PLANT TYPE</label>
+                <input
+                  type="text"
+                  className="field-input"
+                  placeholder="e.g., Tomato, Lettuce, Basil"
+                  value={formData.plantType}
+                  onChange={(e) => handleInputChange('plantType', e.target.value)}
                 />
               </div>
             </>
