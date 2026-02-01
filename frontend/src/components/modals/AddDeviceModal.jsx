@@ -14,8 +14,10 @@ import {
   ArrowRight,
   ArrowLeft,
   Camera,
-  Upload
+  Upload,
+  Check
 } from 'lucide-react';
+import { requestDeviceOTP, verifyDeviceOTP } from '../../services/api/devices';
 import './AddDeviceModal.css';
 
 /**
@@ -52,6 +54,9 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
   const [qrError, setQrError] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [fileName, setFileName] = useState('');
+  
+  // Success modal
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -309,48 +314,53 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
     setIsLoading(true);
     setError('');
 
-    // Simulate API calls
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Validation
-    if (currentStep === 1) {
-      if (!formData.deviceId.trim() || !formData.deviceName.trim()) {
-        setError('Please fill in all device information');
-        setIsLoading(false);
-        return;
+    try {
+      // Validation
+      if (currentStep === 1) {
+        if (!formData.deviceId.trim() || !formData.deviceName.trim()) {
+          setError('Please fill in all device information');
+          setIsLoading(false);
+          return;
+        }
+        // Move to next step
+        setCurrentStep(prev => prev + 1);
+      } else if (currentStep === 2) {
+        if (!formData.email.trim() || !formData.email.includes('@')) {
+          setError('Please enter a valid email address');
+          setIsLoading(false);
+          return;
+        }
+        // Send OTP
+        await requestDeviceOTP(formData.deviceId, formData.email);
+        setCurrentStep(prev => prev + 1);
+      } else if (currentStep === 3) {
+        if (formData.otp.length !== 6) {
+          setError('Please enter the 6-digit OTP code');
+          setIsLoading(false);
+          return;
+        }
+        // Verify OTP (this also binds the device)
+        await verifyDeviceOTP(
+          formData.deviceId,
+          formData.email,
+          formData.otp,
+          { device_name: formData.deviceName }
+        );
+        setCurrentStep(prev => prev + 1);
+      } else if (currentStep === 4) {
+        if (!formData.wifiSSID.trim() || !formData.wifiPassword.trim()) {
+          setError('Please enter WiFi credentials');
+          setIsLoading(false);
+          return;
+        }
+        // Complete setup - show success modal
+        setShowSuccess(true);
       }
-    } else if (currentStep === 2) {
-      if (!formData.email.trim() || !formData.email.includes('@')) {
-        setError('Please enter a valid email address');
-        setIsLoading(false);
-        return;
-      }
-      // TODO: Send OTP to email
-    } else if (currentStep === 3) {
-      if (formData.otp.length !== 6) {
-        setError('Please enter the 6-digit OTP code');
-        setIsLoading(false);
-        return;
-      }
-      // TODO: Verify OTP
-    } else if (currentStep === 4) {
-      if (!formData.wifiSSID.trim() || !formData.wifiPassword.trim()) {
-        setError('Please enter WiFi credentials');
-        setIsLoading(false);
-        return;
-      }
-      // TODO: Complete device setup
+    } catch (err) {
+      setError(err.message || 'An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-
-    if (currentStep < 4) {
-      setCurrentStep(prev => prev + 1);
-    } else {
-      // Complete setup - close modal and refresh
-      handleClose();
-      // TODO: Refresh devices list
-      window.location.reload();
-    }
-    setIsLoading(false);
   };
 
   const handleBack = () => {
@@ -369,7 +379,16 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
       email: '',
       otp: '',
       wifiSSID: '',
-      wifiPassword: '',
+    setFileName('');
+    setShowSuccess(false);
+    onClose();
+  };
+  
+  const handleSuccessClose = () => {
+    setShowSuccess(false);
+    handleClose();
+    // Refresh the page to show the new device
+    window.location.reloadassword: '',
       wifiHidden: false
     });
     setError('');
@@ -547,7 +566,7 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
               </div>
             </>
           )}
-
+000000
           {currentStep === 3 && (
             <>
               <div className="form-field">
@@ -708,6 +727,31 @@ const AddDeviceModal = ({ isOpen, onClose }) => {
                 <span>Scanning...</span>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      
+      {/* Success Modal */}
+      {showSuccess && (
+        <div className="success-overlay">
+          <div className="success-modal">
+            <div className="success-icon">
+              <Check size={48} strokeWidth={3} />
+            </div>
+            <h2 className="success-title">Device Added Successfully!</h2>
+            <p className="success-message">
+              Your device <strong>{formData.deviceName}</strong> has been successfully registered to <strong>{formData.email}</strong>.
+            </p>
+            <p className="success-note">
+              The device will now connect to your WiFi network. This may take a few moments.
+            </p>
+            <button
+              type="button"
+              className="success-btn"
+              onClick={handleSuccessClose}
+            >
+              Go to Dashboard
+            </button>
           </div>
         </div>
       )}
